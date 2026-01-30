@@ -349,7 +349,7 @@ onMounted(() => {
     /* overflow-x: hidden; */
     /* padding: 24px 0 40px; */
     background: #ffffff;
-    height: calc(82vh);
+    height: calc(78vh);
     overflow: auto;
 }
 
@@ -508,5 +508,9 @@ onMounted(() => {
 
 .btn.ghost:disabled {
   color: #9ca3af;
+}
+
+:deep(hr) {
+  border-color:rgba(255, 255, 255, 0);
 }
 </style>
