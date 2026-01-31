@@ -623,8 +623,8 @@ onMounted(() => {
 }
 
 .settings-btn {
-  background: #f5f5f5;
-  border: 1px solid #e5e7eb;
+  background: #f5f5f500;
+  border: 1px solid #e5e7eb00;
   font-size: 14px;
   cursor: pointer;
   padding: 6px 12px;
@@ -643,8 +643,8 @@ onMounted(() => {
 }
 
 .assistant-btn {
-  background: #f0fdf4;
-  border: 1px solid #86efac;
+  background: #f0fdf400;
+  border: 1px solid #86efac00;
   font-size: 18px;
   cursor: pointer;
   padding: 6px 12px;
@@ -658,9 +658,8 @@ onMounted(() => {
 }
 
 .logout-btn {
-  background: #fee2e2;
-  border: 1px solid #fecaca;
-  color: #dc2626;
+  background: #fee2e200;
+  border: 1px solid #fecaca00;
   font-size: 14px;
   cursor: pointer;
   padding: 6px 12px;
@@ -670,6 +669,7 @@ onMounted(() => {
 
 .logout-btn:hover {
   background: #fecaca;
+  color: #dc2626;
 }
 
 .main {
