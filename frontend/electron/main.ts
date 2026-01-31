@@ -90,8 +90,18 @@ ipcMain.handle('save-config', (_event, config: ConfigList) => {
   return saveConfig(config)
 })
 
-ipcMain.handle('chat-request', async (_event, { apiUrl, apiKey, model, messages }) => {
+ipcMain.handle('chat-request', async (_event, { apiUrl, apiKey, model, messages, extra_body }) => {
   try {
+    // 解析 extra_body 参数
+    let extraBodyParams: Record<string, any> = {}
+    if (extra_body && extra_body.trim()) {
+      try {
+        extraBodyParams = JSON.parse(extra_body)
+      } catch (e) {
+        console.error('Failed to parse extra_body:', e)
+      }
+    }
+
     const response = await fetch(`${apiUrl}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -102,6 +112,7 @@ ipcMain.handle('chat-request', async (_event, { apiUrl, apiKey, model, messages 
         model,
         messages,
         stream: true,
+        ...extraBodyParams,
       }),
     })
 

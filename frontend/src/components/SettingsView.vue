@@ -67,7 +67,8 @@ const currentConfig = ref<AppConfig>({
   apiUrl: 'https://api.openai.com/v1',
   apiKey: '',
   model: 'gpt-4o-mini',
-  enabled: false
+  enabled: false,
+  extra_body: ''
 })
 
 const editingIndex = ref(-1)
@@ -154,7 +155,8 @@ function saveCurrentConfig() {
       apiUrl: currentConfig.value.apiUrl || '',
       apiKey: currentConfig.value.apiKey || '',
       model: currentConfig.value.model || '',
-      enabled: currentConfig.value.enabled || false
+      enabled: currentConfig.value.enabled || false,
+      extra_body: currentConfig.value.extra_body || ''
     }
   } else {
     const newConfig = {
@@ -162,7 +164,8 @@ function saveCurrentConfig() {
       apiUrl: currentConfig.value.apiUrl || '',
       apiKey: currentConfig.value.apiKey || '',
       model: currentConfig.value.model || '',
-      enabled: currentConfig.value.enabled || false
+      enabled: currentConfig.value.enabled || false,
+      extra_body: currentConfig.value.extra_body || ''
     }
     configList.value.configs.push(newConfig)
   }
@@ -171,7 +174,8 @@ function saveCurrentConfig() {
     apiUrl: '',
     apiKey: '',
     model: 'gpt-4o-mini',
-    enabled: false
+    enabled: false,
+    extra_body: ''
   }
   editingIndex.value = -1
   showEditForm.value = false
@@ -190,7 +194,8 @@ async function saveAllConfigs() {
           apiUrl: cfg.apiUrl,
           apiKey: cfg.apiKey,
           model: cfg.model,
-          enabled: cfg.enabled
+          enabled: cfg.enabled,
+          extra_body: cfg.extra_body || ''
         })),
         activeIndex: configList.value.activeIndex
       }
@@ -340,8 +345,19 @@ function goBack() {
             <small>例如: gpt-4o, gpt-4o-mini, claude-3-5-sonnet 等</small>
           </div>
 
+          <div class="form-group">
+            <label>额外请求参数 (JSON 格式)</label>
+            <textarea
+              v-model="currentConfig.extra_body"
+              type="text"
+              placeholder='{}'
+              class="textarea"
+              rows="4"
+            />
+          </div>
+
           <div class="form-actions">
-            <button type="button" class="btn secondary" @click="showEditForm = false; editingIndex = -1; currentConfig = { name: '', apiUrl: '', apiKey: '', model: 'gpt-4o-mini', enabled: false }">
+            <button type="button" class="btn secondary" @click="showEditForm = false; editingIndex = -1; currentConfig = { name: '', apiUrl: '', apiKey: '', model: 'gpt-4o-mini', enabled: false, extra_body: '' }">
               取消
             </button>
             <button type="button" class="btn primary" @click="saveCurrentConfig">
@@ -352,7 +368,7 @@ function goBack() {
       </div>
 
       <div v-else class="add-section">
-        <button type="button" class="btn primary" @click="showEditForm = true; editingIndex = -1; currentConfig = { name: '', apiUrl: '', apiKey: '', model: 'gpt-4o-mini', enabled: false }">
+        <button type="button" class="btn primary" @click="showEditForm = true; editingIndex = -1; currentConfig = { name: '', apiUrl: '', apiKey: '', model: 'gpt-4o-mini', enabled: false, extra_body: '' }">
           添加新配置
         </button>
       </div>
@@ -464,6 +480,21 @@ function goBack() {
 }
 
 .input:focus {
+  border-color: #10a37f;
+}
+
+.textarea {
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+  font-family: 'JetBrains Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace;
+  resize: vertical;
+}
+
+.textarea:focus {
   border-color: #10a37f;
 }
 

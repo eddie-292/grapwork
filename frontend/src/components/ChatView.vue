@@ -189,6 +189,16 @@ async function send() {
 
     let resp: Response
 
+    // 解析 extra_body 参数
+    let extraBodyParams: Record<string, any> = {}
+    if (activeConfig.value?.extra_body && activeConfig.value.extra_body.trim()) {
+      try {
+        extraBodyParams = JSON.parse(activeConfig.value.extra_body)
+      } catch (e) {
+        console.error('Failed to parse extra_body:', e)
+      }
+    }
+
     if (canUseElectronApi && activeConfig.value) {
       const apiBase = normalizeApiUrl(activeConfig.value.apiUrl)
       resp = await fetch(`${apiBase}/chat/completions`, {
@@ -201,6 +211,7 @@ async function send() {
           model: activeConfig.value.model,
           messages: messagesToSend,
           stream: true,
+          ...extraBodyParams,
         }),
         signal: controller.value.signal,
       })
@@ -234,11 +245,20 @@ async function send() {
         const line = part.trim()
         if (!line.startsWith('data:')) continue
         const data = line.slice(5).trim()
+        console.log('data:' + data)
         if (data === '[DONE]') {
           break
         }
         try {
           const json = JSON.parse(data)
+          const reasoning_content = json?.choices?.[0]?.delta?.reasoning_content ?? ''
+          const reasoning = json?.choices?.[0]?.delta?.reasoning ?? ''
+          if (reasoning_content || reasoning) {
+            const msg = currentMessages[assistantIndex]
+            if (msg) msg.content += (reasoning_content || reasoning)
+            scrollToBottom()
+          }
+
           const delta = json?.choices?.[0]?.delta?.content ?? ''
           if (delta) {
             const msg = currentMessages[assistantIndex]

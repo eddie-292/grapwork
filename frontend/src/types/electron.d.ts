@@ -4,6 +4,7 @@ export interface AppConfig {
   model: string
   name: string
   enabled: boolean
+  extra_body?: string
 }
 
 export interface Assistant {
@@ -32,6 +33,7 @@ interface ElectronAPI {
     apiKey: string
     model: string
     messages: any[]
+    extra_body?: string
   }) => Promise<{ success: boolean; error?: string; status?: number; headers?: Record<string, string> }>
 }
 
