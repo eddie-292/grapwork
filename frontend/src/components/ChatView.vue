@@ -483,7 +483,7 @@ onMounted(() => {
               <div v-if="m.reasoning" class="reasoning-section">
                 <button class="reasoning-toggle" @click="toggleReasoning(i)">
                   <span>{{ reasoningExpanded[i] ? '▼' : '▶' }}</span>
-                  <span>推理内容</span>
+                  <span>思考</span>
                 </button>
                 <div v-show="reasoningExpanded[i]" class="msg-reasoning-bubble" v-html="render(m.reasoning)" />
               </div>
