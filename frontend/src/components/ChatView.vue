@@ -22,8 +22,13 @@ const md: MarkdownIt = new MarkdownIt({
   html: false,
   linkify: true,
   highlight: function (str: string, lang?: string): string {
+    const language = lang || 'plaintext'
+    // 检查语言是否支持
+    if (lang && !hljs.getLanguage(lang)) {
+      return md.utils.escapeHtml(str)
+    }
     try {
-      return hljs.highlight(str, { language: lang || 'plaintext' }).value
+      return hljs.highlight(str, { language }).value
     } catch {
       return md.utils.escapeHtml(str)
     }
@@ -39,8 +44,8 @@ md.renderer.rules.fence = (tokens, idx) => {
   const lang = info ? info.split(/\s+/g)[0] : ''
   let code = token.content
 
-  // 使用 highlight.js 进行语法高亮
-  if (lang) {
+  // 使用 highlight.js 进行语法高亮（检查语言是否支持）
+  if (lang && hljs.getLanguage(lang)) {
     try {
       code = hljs.highlight(code, { language: lang }).value
     } catch {
@@ -88,6 +93,13 @@ const input = ref('')
 const sending = ref(false)
 const controller = ref<AbortController | null>(null)
 const showSidebar = ref(true)
+// 任务模式
+const taskMode = ref(false)
+const isTaskPlanning = ref(false)
+const isTaskExecuting = ref(false)
+const taskList = ref<{ id: number; description: string; completed: boolean }[]>([])
+const currentTaskIndex = ref(-1)
+const taskResults = ref<string[]>([])
 const configList = ref<ConfigList>({
   configs: [],
   activeIndex: -1
@@ -172,6 +184,226 @@ async function copyMarkdown(content: string) {
   copyText(content)
 }
 
+// 任务规划提示词
+const TASK_PLANNING_PROMPT = `你是一个任务规划助手。请将用户的请求分解为一系列清晰、具体的子任务。
+
+请按照以下 JSON 格式返回任务列表：
+\`\`\`json
+{
+  "tasks": [
+    {
+      "id": 1,
+      "description": "任务描述"
+    }
+  ]
+}
+\`\`\`
+
+要求：
+1. 任务要具体、可执行
+2. 任务之间要有逻辑顺序
+3. 通常 3-6 个任务为宜
+4. 只返回 JSON，不要有其他文字`
+
+// 发送消息到 LLM（支持流式响应）
+async function sendMessageToLLM(messages: { role: string; content: string }[]): Promise<string> {
+  if (!activeConfig.value?.apiKey) {
+    throw new Error('请先配置并启用一个 LLM 接口')
+  }
+
+  // 解析 extra_body 参数
+  let extraBodyParams: Record<string, any> = {}
+  if (activeConfig.value?.extra_body && activeConfig.value.extra_body.trim()) {
+    try {
+      extraBodyParams = JSON.parse(activeConfig.value.extra_body)
+    } catch (e) {
+      console.error('Failed to parse extra_body:', e)
+    }
+  }
+
+  let resp: Response
+
+  if (canUseElectronApi && activeConfig.value) {
+    const apiBase = normalizeApiUrl(activeConfig.value.apiUrl)
+    resp = await fetch(`${apiBase}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${activeConfig.value.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: activeConfig.value.model,
+        messages: messages,
+        stream: false,
+        ...extraBodyParams,
+      }),
+    })
+  } else {
+    resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: messages
+      }),
+    })
+  }
+
+  if (!resp.ok) {
+    throw new Error(`API request failed: ${resp.statusText}`)
+  }
+
+  const data = await resp.json()
+  return data.choices?.[0]?.message?.content || ''
+}
+
+// 任务规划：获取任务列表
+async function planTasks(userInput: string): Promise<{ id: number; description: string }[]> {
+  const planningPrompt = `${TASK_PLANNING_PROMPT}\n\n用户请求：${userInput}`
+
+  const messagesToSend: { role: string; content: string }[] = [
+    { role: 'system', content: activeAssistant.value?.systemPrompt || '你是一个有用的助手' },
+    { role: 'user', content: planningPrompt }
+  ]
+
+  const response = await sendMessageToLLM(messagesToSend)
+
+  // 解析 JSON 响应
+  try {
+    // 提取 JSON 部分
+    const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/) || response.match(/\{[\s\S]*\}/)
+    const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : response
+    const parsed = JSON.parse(jsonStr)
+
+    if (parsed.tasks && Array.isArray(parsed.tasks)) {
+      return parsed.tasks
+    }
+    throw new Error('Invalid response format')
+  } catch (e) {
+    console.error('Failed to parse task list:', e)
+    console.error('Response:', response)
+    throw new Error('无法解析任务列表，请重试')
+  }
+}
+
+// 生成任务执行提示（携带上一个任务的总结）
+function generateTaskPrompt(taskDescription: string, previousResult?: string): string {
+  if (previousResult) {
+    return `请执行以下任务：
+
+任务：${taskDescription}
+
+上一个任务的结果总结：${previousResult}
+
+请专注于完成当前任务，保持简洁清晰。`
+  }
+  return `请执行以下任务：
+
+任务：${taskDescription}
+
+请专注于完成这个任务，保持简洁清晰。`
+}
+
+// 流式执行单个任务
+async function executeTaskStreaming(
+  taskDescription: string,
+  previousResult: string | undefined,
+  onDelta: (delta: string) => void,
+  onReasoningDelta: (delta: string) => void,
+  onReasoningDuration: (duration: number) => void
+): Promise<void> {
+  if (!activeConfig.value?.apiUrl || !activeConfig.value?.apiKey) {
+    throw new Error('请先配置并启用一个 LLM 接口')
+  }
+  const prompt = generateTaskPrompt(taskDescription, previousResult)
+
+  const messagesToSend: { role: string; content: string }[] = [
+    { role: 'system', content: activeAssistant.value?.systemPrompt || '你是一个有用的助手' }
+  ]
+
+  // 携带上下文
+  messagesToSend.push({ role: 'user', content: prompt })
+
+  // 解析 extra_body 参数
+  let extraBodyParams: Record<string, any> = {}
+  if (activeConfig.value?.extra_body && activeConfig.value.extra_body.trim()) {
+    try {
+      extraBodyParams = JSON.parse(activeConfig.value.extra_body)
+    } catch (e) {
+      console.error('Failed to parse extra_body:', e)
+    }
+  }
+
+  const apiBase = normalizeApiUrl(activeConfig.value.apiUrl!)
+  const resp = await fetch(`${apiBase}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${activeConfig.value.apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: activeConfig.value.model,
+      messages: messagesToSend,
+      stream: true,
+      ...extraBodyParams,
+    }),
+    signal: controller.value!.signal,
+  })
+
+  if (!resp.body) {
+    throw new Error('No response body')
+  }
+
+  const reader = resp.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let reasoningStartTime = Date.now()
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const parts = buffer.split('\n\n')
+    buffer = parts.pop() || ''
+    for (const part of parts) {
+      const line = part.trim()
+      if (!line.startsWith('data:')) continue
+      const data = line.slice(5).trim()
+      if (data === '[DONE]') break
+      try {
+        const json = JSON.parse(data)
+        const reasoning_content = json?.choices?.[0]?.delta?.reasoning_content ?? ''
+        const reasoning = json?.choices?.[0]?.delta?.reasoning ?? ''
+        if (reasoning_content || reasoning) {
+          onReasoningDelta(reasoning_content || reasoning)
+          onReasoningDuration(Math.floor((Date.now() - reasoningStartTime) / 1000))
+        }
+        const delta = json?.choices?.[0]?.delta?.content ?? ''
+        if (delta) {
+          onDelta(delta)
+        }
+      } catch {}
+    }
+  }
+}
+
+// 总结任务执行结果
+async function summarizeTaskResult(taskDescription: string, result: string): Promise<string> {
+  const summarizePrompt = `请简洁总结以下任务的执行结果（1-2句话）：
+
+任务：${taskDescription}
+
+结果：
+${result}
+
+只返回总结内容，不要有其他文字。`
+
+  const messagesToSend: { role: string; content: string }[] = [
+    { role: 'user', content: summarizePrompt }
+  ]
+
+  return await sendMessageToLLM(messagesToSend)
+}
+
 // 复制代码块函数（全局调用）
 declare global {
   interface Window {
@@ -237,6 +469,20 @@ async function send() {
     createNewChat()
   }
 
+  input.value = ''
+  scrollToBottom()
+
+  // 任务模式流程
+  if (taskMode.value) {
+    await executeTaskMode(text)
+  } else {
+    // 普通对话流程
+    await executeNormalChat(text)
+  }
+}
+
+// 执行普通对话
+async function executeNormalChat(text: string) {
   if (currentChat.value) {
     if (currentChat.value.messages.length === 0) {
       updateChatTitle(currentChat.value.id, text)
@@ -244,8 +490,6 @@ async function send() {
     currentChat.value.messages.push({ role: 'user', content: text, reasoning: '' })
     currentChat.value.messages.push({ role: 'assistant', content: '',  reasoning: '' })
   }
-  input.value = ''
-  scrollToBottom()
 
   sending.value = true
   controller.value = new AbortController()
@@ -374,6 +618,129 @@ async function send() {
     if (last && last.reasoning) {
       reasoningExpanded.value[currentMessages.length - 1] = false
     }
+    saveChatHistory()
+    scrollToBottom()
+  }
+}
+
+// 执行任务模式
+async function executeTaskMode(userInput: string) {
+  const chat = currentChat.value
+  if (!chat) return
+
+  // 更新标题
+  if (chat.messages.length === 0) {
+    updateChatTitle(chat.id, userInput)
+  }
+
+  // 添加用户消息
+  chat.messages.push({ role: 'user', content: userInput, reasoning: '' })
+
+  // 添加任务模式开始的系统消息
+  const planMsgIndex = chat.messages.length
+  chat.messages.push({ role: 'assistant', content: '', reasoning: '' })
+
+  sending.value = true
+  controller.value = new AbortController()
+
+  try {
+    // 1. 任务规划阶段
+    isTaskPlanning.value = true
+    chat.messages[planMsgIndex].content = '正在规划任务...'
+
+    const tasks = await planTasks(userInput)
+    taskList.value = tasks.map((t, i) => ({ id: i, description: t.description, completed: false }))
+
+    // 显示任务列表
+    let taskListDisplay = '📋 **任务规划完成**\n\n'
+    tasks.forEach((task, idx) => {
+      taskListDisplay += `${idx + 1}. ${task.description}\n`
+    })
+    chat.messages[planMsgIndex].content = taskListDisplay
+    scrollToBottom()
+
+    isTaskPlanning.value = false
+    isTaskExecuting.value = true
+
+    // 2. 逐个执行任务
+    let previousResult: string | undefined
+
+    for (let i = 0; i < tasks.length; i++) {
+      if (controller.value!.signal.aborted) {
+        throw new Error('用户取消')
+      }
+
+      currentTaskIndex.value = i
+      const task = tasks[i]
+      if (!task) break
+
+      // 添加任务执行消息
+      const taskMsgIndex = chat.messages.length
+      chat.messages.push({ role: 'user', content: `**任务 ${i + 1}/${tasks.length}**: ${task.description}`, reasoning: '' })
+      chat.messages.push({ role: 'assistant', content: '', reasoning: '' })
+
+      const msg = chat.messages[taskMsgIndex + 1]
+      if (!msg) break
+
+      // 流式执行任务
+      await executeTaskStreaming(
+        task.description,
+        previousResult,
+        (delta) => {
+          msg.content += delta
+          scrollToBottom()
+        },
+        (reasoningDelta) => {
+          msg.reasoning += reasoningDelta
+          scrollToBottom()
+        },
+        (duration) => {
+          msg.reasoningDuration = duration
+        }
+      )
+
+      // 标记任务完成
+      if (taskList.value[i]) {
+        taskList.value[i].completed = true
+      }
+
+      // 总结任务结果
+      if (i < tasks.length - 1 && task && msg) {
+        // 只有不是最后一个任务时才总结（最后一个任务不需要为下一个任务提供上下文）
+        previousResult = await summarizeTaskResult(task.description, msg.content)
+      }
+
+      // 推理内容完成后自动折叠
+      if (msg.reasoning) {
+        reasoningExpanded.value[taskMsgIndex + 1] = false
+      }
+
+      scrollToBottom()
+    }
+
+    // 3. 任务完成总结
+    isTaskExecuting.value = false
+    const summaryMsgIndex = chat.messages.length
+    chat.messages.push({ role: 'assistant', content: '**所有任务已完成！**', reasoning: '' })
+
+  } catch (err) {
+    const chat = currentChat.value
+    if (chat) {
+      const last = chat.messages[chat.messages.length - 1]
+      if (last) {
+        if (err instanceof Error && err.name === 'AbortError') {
+          last.content = '任务已取消'
+        } else {
+          last.content = '任务执行失败: ' + (err instanceof Error ? err.message : '未知错误')
+        }
+      }
+    }
+  } finally {
+    sending.value = false
+    controller.value = null
+    isTaskPlanning.value = false
+    isTaskExecuting.value = false
+    currentTaskIndex.value = -1
     saveChatHistory()
     scrollToBottom()
   }
@@ -600,7 +967,32 @@ onMounted(() => {
                 {{ config.name || config.model }}
               </option>
             </select>
+            <!-- 任务模式 -->
+            <div class="task-mode-toggle" v-if="currentChat?.messages.length === 0">
+              <label class="toggle-label">
+                <input type="checkbox" v-model="taskMode" :disabled="sending">
+                <span class="toggle-switch"></span>
+                <span class="toggle-text">任务模式</span>
+              </label>
+            </div>
           </div>
+          <!-- 任务进度显示（悬浮） -->
+          <div class="task-progress-float" v-if="taskMode && (isTaskPlanning || isTaskExecuting)">
+            <div v-if="isTaskPlanning" class="task-status">正在规划任务...</div>
+            <div v-else-if="isTaskExecuting" class="task-status">
+              任务 {{ currentTaskIndex + 1 }} / {{ taskList.length }}
+              <div class="task-list-mini">
+                <div v-for="(task, idx) in taskList" :key="task.id"
+                     :class="['task-item-mini', { active: idx === currentTaskIndex, completed: task.completed }]">
+                  <span v-if="task.completed">✓</span>
+                  <span v-else-if="idx === currentTaskIndex">◉</span>
+                  <span v-else>○</span>
+                  {{ task.description }}
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="composer">
             <textarea
               v-model="input"
@@ -1061,6 +1453,7 @@ onMounted(() => {
 }
 
 .inputbar {
+  position: relative;
   border-top: 1px solid #e5e7eb;
   padding: 16px 20px 12px;
   background: #ffffff;
@@ -1202,5 +1595,121 @@ onMounted(() => {
 
 :deep(hr) {
   border-color:rgba(255, 255, 255, 0);
+}
+
+/* 任务模式样式 */
+.task-mode-toggle {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-label input[type="checkbox"] {
+  display: none;
+}
+
+.toggle-switch {
+  width: 44px;
+  height: 24px;
+  background: #d1d5db;
+  border-radius: 12px;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.toggle-switch::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-label input:checked + .toggle-switch {
+  background: #10a37f;
+}
+
+.toggle-label input:checked + .toggle-switch::after {
+  transform: translateX(20px);
+}
+
+.toggle-label input:disabled + .toggle-switch {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toggle-text {
+  font-size: 14px;
+  color: #374151;
+  font-weight: 500;
+}
+
+/* 任务进度悬浮显示 */
+.task-progress-float {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 300px;
+  max-width: 500px;
+  padding: 12px 16px;
+  background: #ffffff;
+  border: 1px solid #a7f3d0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+}
+
+.task-progress {
+  display: none;
+}
+
+.task-status {
+  font-size: 13px;
+  color: #065f46;
+  font-weight: 500;
+}
+
+.task-list-mini {
+  margin-top: 8px;
+}
+
+.task-item-mini {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  font-size: 12px;
+  color: #047857;
+}
+
+.task-item-mini.active {
+  color: #065f46;
+  font-weight: 600;
+}
+
+.task-item-mini.completed {
+  color: #059669;
+  opacity: 0.7;
+  text-decoration: line-through;
+}
+
+.task-item-mini span:first-child {
+  font-size: 12px;
+  width: 16px;
+  text-align: center;
 }
 </style>
