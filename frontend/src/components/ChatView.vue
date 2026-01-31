@@ -8,7 +8,7 @@ import type { ConfigList, AssistantList } from '../types/electron'
 const router = useRouter()
 
 type Role = 'user' | 'assistant' | 'system'
-type Message = { role: Role; content: string, reasoning: string }
+type Message = { role: Role; content: string, reasoning: string, reasoningDuration?: number }
 type Chat = {
   id: string
   title: string
@@ -94,8 +94,6 @@ const isElectronEnv =
 const reasoningExpanded = ref<Record<number, boolean>>({})
 // 推理开始时间映射（按消息索引）
 const reasoningStartTime = ref<Record<number, number>>({})
-// 推理时长映射（按消息索引，秒）
-const reasoningDuration = ref<Record<number, number>>({})
 
 const canUseElectronApi = !!window.electronAPI || isElectronEnv
 
@@ -266,8 +264,8 @@ async function send() {
               if (!reasoningStartTime.value[assistantIndex]) {
                 reasoningStartTime.value[assistantIndex] = Date.now()
               }
-              // 更新当前推理时长（秒）
-              reasoningDuration.value[assistantIndex] = Math.floor((Date.now() - reasoningStartTime.value[assistantIndex]) / 1000)
+              // 实时更新消息的推理时长（秒）
+              msg.reasoningDuration = Math.floor((Date.now() - reasoningStartTime.value[assistantIndex]) / 1000)
               msg.reasoning += (reasoning_content || reasoning)
             }
             scrollToBottom()
@@ -296,14 +294,14 @@ async function send() {
   } finally {
     sending.value = false
     controller.value = null
-    saveChatHistory()
-    scrollToBottom()
     // 推理内容完成后自动折叠
     const currentMessages = currentChat.value?.messages || []
     const last = currentMessages[currentMessages.length - 1]
     if (last && last.reasoning) {
       reasoningExpanded.value[currentMessages.length - 1] = false
     }
+    saveChatHistory()
+    scrollToBottom()
   }
 }
 
@@ -496,7 +494,7 @@ onMounted(() => {
                 <button class="reasoning-toggle" @click="toggleReasoning(i)">
                   <span>{{ reasoningExpanded[i] ? '▼' : '▶' }}</span>
                   <span>思考</span>
-                  <span v-if="reasoningDuration[i]">{{ reasoningDuration[i] }}s</span>
+                  <span v-if="m.reasoningDuration">{{ m.reasoningDuration }}s</span>
                 </button>
                 <div v-show="reasoningExpanded[i]" class="msg-reasoning-bubble" v-html="render(m.reasoning)" />
               </div>
