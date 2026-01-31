@@ -8,7 +8,7 @@ import type { ConfigList, AssistantList } from '../types/electron'
 const router = useRouter()
 
 type Role = 'user' | 'assistant' | 'system'
-type Message = { role: Role; content: string }
+type Message = { role: Role; content: string, reasoning: string }
 type Chat = {
   id: string
   title: string
@@ -163,8 +163,8 @@ async function send() {
     if (currentChat.value.messages.length === 0) {
       updateChatTitle(currentChat.value.id, text)
     }
-    currentChat.value.messages.push({ role: 'user', content: text })
-    currentChat.value.messages.push({ role: 'assistant', content: '' })
+    currentChat.value.messages.push({ role: 'user', content: text, reasoning: '' })
+    currentChat.value.messages.push({ role: 'assistant', content: '',  reasoning: '' })
   }
   input.value = ''
   scrollToBottom()
@@ -255,7 +255,7 @@ async function send() {
           const reasoning = json?.choices?.[0]?.delta?.reasoning ?? ''
           if (reasoning_content || reasoning) {
             const msg = currentMessages[assistantIndex]
-            if (msg) msg.content += (reasoning_content || reasoning)
+            if (msg) msg.reasoning += (reasoning_content || reasoning)
             scrollToBottom()
           }
 
@@ -468,6 +468,7 @@ onMounted(() => {
             :class="['msg-row', m.role]"
           >
             <div class="msg-content">
+              <div class="msg-reasoning-bubble" v-html="render(m.reasoning)" />
               <div class="msg-bubble" v-html="render(m.content)" />
             </div>
           </div>
@@ -800,6 +801,18 @@ onMounted(() => {
   color: #0f172a;
   max-width: 720px;
   word-break: break-word;
+}
+
+.msg-reasoning-bubble {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #4b5563;
+  max-width: 720px;
+  word-break: break-word;
+  background: #f3f4f6;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 12px;
 }
 
 .msg-row.user .msg-bubble {
