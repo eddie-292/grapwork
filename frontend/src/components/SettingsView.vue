@@ -27,16 +27,20 @@ interface HighlightTheme {
 }
 
 // 预览代码高亮
-const previewCode = `const hello = "Hello, World!"
-console.log(hello);`
+const previewCode = `\`\`\`javascript
+const hello = "Hello, World!"
+console.log(hello);
+\`\`\``
 
 // 添加一个版本号，强制在主题变化时重新渲染
 const renderVersion = ref(0)
 
 // 当主题变化时，增加版本号，强制重新渲染
-watch(selectedHighlightTheme, (newTheme) => {
+watch(selectedHighlightTheme, async (newTheme) => {
+  await loadHighlightTheme(newTheme)
+  // 等待 CSS 加载完成后再更新版本号
+  await new Promise(resolve => setTimeout(resolve, 150))
   renderVersion.value++
-  loadHighlightTheme(newTheme)
 })
 
 // 使用 renderVersion 作为依赖，确保主题变化时重新渲染
@@ -224,26 +228,37 @@ async function saveAllConfigs() {
 }
 
 // 加载代码高亮主题
-async function loadHighlightTheme(theme: string) {
-  try {
-    // 移除旧的主题样式
-    const oldLink = document.getElementById('highlight-theme')
-    if (oldLink) {
-      oldLink.remove()
+function loadHighlightTheme(theme: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    try {
+      // 移除旧的主题样式
+      const oldLink = document.getElementById('highlight-theme')
+      if (oldLink) {
+        oldLink.remove()
+      }
+
+      // 使用本地文件加载新主题样式
+      const link = document.createElement('link')
+      link.id = 'highlight-theme'
+      link.rel = 'stylesheet'
+      link.href = `/${theme}.css`
+
+      link.onload = () => {
+        // CSS 加载完成后稍作延迟确保样式应用
+        setTimeout(() => resolve(), 50)
+      }
+
+      link.onerror = (e) => {
+        console.error('Failed to load highlight theme:', e)
+        reject(e)
+      }
+
+      document.head.appendChild(link)
+    } catch (error) {
+      console.error('Failed to load highlight theme:', error)
+      reject(error)
     }
-
-    // 使用本地文件加载新主题样式
-    const link = document.createElement('link')
-    link.id = 'highlight-theme'
-    link.rel = 'stylesheet'
-    link.href = `/${theme}.css`
-    document.head.appendChild(link)
-
-    // 强制页面重新加载样式
-    await new Promise(resolve => setTimeout(resolve, 100))
-  } catch (error) {
-    console.error('Failed to load highlight theme:', error)
-  }
+  })
 }
 
 function goBack() {
@@ -383,7 +398,7 @@ function goBack() {
             </option>
           </select>
           <div class="theme-preview">
-          <div v-html="highlightedPreview"></div>
+          <div :key="renderVersion" v-html="highlightedPreview"></div>
         </div>
         </div>
       </div>
@@ -761,7 +776,12 @@ function goBack() {
   padding: 0 !important;
 }
 
-.theme-preview code {
-  /* 不设置固定颜色，让 highlight.js 主题样式生效 */
+/* 让 highlight.js 的主题样式能穿透到预览区域 */
+.theme-preview :deep(.hljs) {
+  /* 让 highlight.js 的样式生效 */
+}
+
+.theme-preview :deep(pre) {
+  /* 让 highlight.js 的样式生效 */
 }
 </style>
