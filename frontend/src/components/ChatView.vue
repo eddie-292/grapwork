@@ -803,6 +803,30 @@ onMounted(() => {
   color: #0f172a;
 }
 
+/* Table styles */
+.msg-bubble :deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 12px 0;
+  font-size: 14px;
+}
+
+.msg-bubble :deep(table th),
+.msg-bubble :deep(table td) {
+  border: 1px solid #e5e7eb;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.msg-bubble :deep(table th) {
+  background: #f9fafb;
+  font-weight: 500;
+}
+
+.msg-bubble :deep(table tr:hover td) {
+  background: #f8fafc;
+}
+
 .inputbar {
   border-top: 1px solid #e5e7eb;
   padding: 16px 20px 12px;
