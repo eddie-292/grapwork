@@ -90,6 +90,8 @@ const autoScrollEnabled = ref(true)
 const isElectronEnv =
   typeof navigator !== 'undefined' &&
   navigator.userAgent.toLowerCase().includes('electron')
+// 推理内容展开状态映射（按消息索引）
+const reasoningExpanded = ref<Record<number, boolean>>({})
 
 const canUseElectronApi = !!window.electronAPI || isElectronEnv
 
@@ -284,6 +286,12 @@ async function send() {
     controller.value = null
     saveChatHistory()
     scrollToBottom()
+    // 推理内容完成后自动折叠
+    const currentMessages = currentChat.value?.messages || []
+    const last = currentMessages[currentMessages.length - 1]
+    if (last && last.reasoning) {
+      reasoningExpanded.value[currentMessages.length - 1] = false
+    }
   }
 }
 
@@ -293,6 +301,10 @@ function cancel() {
     sending.value = false
     controller.value = null
   }
+}
+
+function toggleReasoning(index: number) {
+  reasoningExpanded.value[index] = !reasoningExpanded.value[index]
 }
 
 function scrollToBottom() {
@@ -468,7 +480,13 @@ onMounted(() => {
             :class="['msg-row', m.role]"
           >
             <div class="msg-content">
-              <div class="msg-reasoning-bubble" v-html="render(m.reasoning)" />
+              <div v-if="m.reasoning" class="reasoning-section">
+                <button class="reasoning-toggle" @click="toggleReasoning(i)">
+                  <span>{{ reasoningExpanded[i] ? '▼' : '▶' }}</span>
+                  <span>推理内容</span>
+                </button>
+                <div v-show="reasoningExpanded[i]" class="msg-reasoning-bubble" v-html="render(m.reasoning)" />
+              </div>
               <div class="msg-bubble" v-html="render(m.content)" />
             </div>
           </div>
@@ -813,6 +831,31 @@ onMounted(() => {
   padding: 12px 16px;
   border-radius: 8px;
   margin-bottom: 12px;
+}
+
+.reasoning-section {
+  margin-bottom: 12px;
+}
+
+.reasoning-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #6b7280;
+  transition: color 0.2s;
+}
+
+.reasoning-toggle:hover {
+  color: #0f172a;
+}
+
+.reasoning-toggle span:first-child {
+  font-size: 10px;
 }
 
 .msg-row.user .msg-bubble {
