@@ -106,7 +106,7 @@ function autoResizeTextarea() {
   if (!textarea) return
 
   textarea.style.height = 'auto'
-  const newHeight = Math.min(Math.max(textarea.scrollHeight, 22), 120)
+  const newHeight = Math.min(Math.max(textarea.scrollHeight, 22), 51)
   textarea.style.height = newHeight + 'px'
 }
 
@@ -928,9 +928,8 @@ onMounted(() => {
   outline: none;
   font-size: 14px;
   color: #0f172a;
-  overflow-y: hidden;
-  min-height: 22px;
-  max-height: 120px;
+  overflow-y: auto;
+  height: 51px;
   line-height: 1.4;
 }
 
