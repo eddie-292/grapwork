@@ -121,6 +121,31 @@ function render(content: string) {
   return md.render(content)
 }
 
+function stripHtml(html: string): string {
+  const div = document.createElement('div')
+  div.innerHTML = html
+  return div.textContent || div.innerText || ''
+}
+
+async function copyText(content: string) {
+  try {
+    await navigator.clipboard.writeText(content)
+    //alert('已复制')
+  } catch (err) {
+    console.error('Failed to copy:', err)
+    alert('复制失败')
+  }
+}
+
+async function copyRenderedText(content: string) {
+  const rendered = render(content)
+  copyText(stripHtml(rendered))
+}
+
+async function copyMarkdown(content: string) {
+  copyText(content)
+}
+
 async function loadConfig() {
   if (window.electronAPI) {
     // Electron 环境（优先使用 IPC）
@@ -498,7 +523,17 @@ onMounted(() => {
                 </button>
                 <div v-show="reasoningExpanded[i]" class="msg-reasoning-bubble" v-html="render(m.reasoning)" />
               </div>
-              <div class="msg-bubble" v-html="render(m.content)" />
+              <div class="msg-bubble-wrapper">
+                <div class="msg-bubble" v-html="render(m.content)" />
+                <div class="msg-actions">
+                  <button class="copy-btn" @click="copyRenderedText(m.content)" title="复制文本">
+                    T
+                  </button>
+                  <button class="copy-btn" @click="copyMarkdown(m.content)" title="复制 Markdown">
+                    M
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -879,6 +914,39 @@ onMounted(() => {
 .msg-row.assistant .msg-bubble {
   background: transparent;
   padding: 0;
+}
+
+.msg-bubble-wrapper {
+  position: relative;
+}
+
+.msg-actions {
+  display: none;
+  gap: 6px;
+  position: absolute;
+  top: -30px;
+  right: 0;
+}
+
+.msg-content:hover .msg-actions {
+  display: flex;
+}
+
+.copy-btn {
+  background: #f5f5f5;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s;
+}
+
+.copy-btn:hover {
+  background: #e5e7eb;
 }
 
 .msg-bubble :deep(p) {
