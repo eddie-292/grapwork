@@ -125,6 +125,9 @@ const activeAssistant = computed(() => {
 })
 const messages = computed(() => currentChat.value?.messages || [])
 const messagesRef = ref<HTMLDivElement | null>(null)
+// 分组会话：任务模式和普通会话
+const taskModeChats = computed(() => chatList.value.filter(c => c.isTaskMode === true))
+const normalChats = computed(() => chatList.value.filter(c => c.isTaskMode === false || c.isTaskMode === undefined))
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const autoScrollEnabled = ref(true)
 const isElectronEnv =
@@ -956,16 +959,41 @@ onMounted(() => {
         </button>
       </div>
       <div class="chat-list">
-        <div
-          v-for="chat in chatList"
-          :key="chat.id"
-          :class="['chat-item', { active: chat.id === currentChatId }]"
-          @click="switchChat(chat.id)"
-        >
-          <div class="chat-title">{{ chat.title }}</div>
-          <button class="delete-chat-btn" @click="deleteChat(chat.id, $event)" title="删除对话">
-            ✕
-          </button>
+        <!-- 任务模式会话分组 -->
+        <div v-if="taskModeChats.length > 0" class="chat-group">
+          <div class="chat-group-title">任务模式</div>
+          <div
+            v-for="chat in taskModeChats"
+            :key="chat.id"
+            :class="['chat-item', { active: chat.id === currentChatId }]"
+            @click="switchChat(chat.id)"
+          >
+            <div class="chat-title">{{ chat.title }}</div>
+            <button class="delete-chat-btn" @click="deleteChat(chat.id, $event)" title="删除对话">
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <!-- 普通会话分组 -->
+        <div v-if="normalChats.length > 0" class="chat-group">
+          <div class="chat-group-title">普通会话</div>
+          <div
+            v-for="chat in normalChats"
+            :key="chat.id"
+            :class="['chat-item', { active: chat.id === currentChatId }]"
+            @click="switchChat(chat.id)"
+          >
+            <div class="chat-title">{{ chat.title }}</div>
+            <button class="delete-chat-btn" @click="deleteChat(chat.id, $event)" title="删除对话">
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <!-- 空状态提示 -->
+        <div v-if="chatList.length === 0" class="empty-state">
+          暂无对话
         </div>
       </div>
     </aside>
@@ -1207,6 +1235,26 @@ onMounted(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.chat-group {
+  margin-bottom: 12px;
+}
+
+.chat-group-title {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 600;
+  padding: 4px 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 20px;
+  color: #9ca3af;
+  font-size: 13px;
 }
 
 .delete-chat-btn {
