@@ -97,12 +97,12 @@ const showSidebar = ref(true)
 // 任务模式 - 基于当前会话的 computed 属性
 const taskMode = computed(() => currentChat.value?.isTaskMode ?? false)
 // 新会话前的任务模式选择（只在会话为空时可编辑）
-const pendingTaskMode = ref(false)
+//const pendingTaskMode = ref(false)
 const isTaskPlanning = ref(false)
 const isTaskExecuting = ref(false)
 const taskList = ref<{ id: number; description: string; completed: boolean }[]>([])
 const currentTaskIndex = ref(-1)
-const taskResults = ref<string[]>([])
+//const taskResults = ref<string[]>([])
 const taskProgressExpanded = ref(false)
 const configList = ref<ConfigList>({
   configs: [],
@@ -484,7 +484,7 @@ async function send() {
   }
 
   if (!currentChat.value) {
-    createNewChat(pendingTaskMode.value)
+    createNewChat(false)
   }
 
   input.value = ''
@@ -868,7 +868,7 @@ function createNewChat(isTaskModeChat: boolean = false) {
   currentChatId.value = newChat.id
   saveChatHistory()
   // 创建会话后重置 pendingTaskMode，确保下一个新会话默认是普通会话
-  pendingTaskMode.value = false
+  //pendingTaskMode.value = false
 }
 
 function switchChat(chatId: string) {
