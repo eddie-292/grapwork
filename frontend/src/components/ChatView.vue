@@ -92,6 +92,10 @@ const isElectronEnv =
   navigator.userAgent.toLowerCase().includes('electron')
 // 推理内容展开状态映射（按消息索引）
 const reasoningExpanded = ref<Record<number, boolean>>({})
+// 推理开始时间映射（按消息索引）
+const reasoningStartTime = ref<Record<number, number>>({})
+// 推理时长映射（按消息索引，秒）
+const reasoningDuration = ref<Record<number, number>>({})
 
 const canUseElectronApi = !!window.electronAPI || isElectronEnv
 
@@ -257,7 +261,15 @@ async function send() {
           const reasoning = json?.choices?.[0]?.delta?.reasoning ?? ''
           if (reasoning_content || reasoning) {
             const msg = currentMessages[assistantIndex]
-            if (msg) msg.reasoning += (reasoning_content || reasoning)
+            if (msg) {
+              // 如果这是第一次接收推理内容，记录开始时间
+              if (!reasoningStartTime.value[assistantIndex]) {
+                reasoningStartTime.value[assistantIndex] = Date.now()
+              }
+              // 更新当前推理时长（秒）
+              reasoningDuration.value[assistantIndex] = Math.floor((Date.now() - reasoningStartTime.value[assistantIndex]) / 1000)
+              msg.reasoning += (reasoning_content || reasoning)
+            }
             scrollToBottom()
           }
 
@@ -484,6 +496,7 @@ onMounted(() => {
                 <button class="reasoning-toggle" @click="toggleReasoning(i)">
                   <span>{{ reasoningExpanded[i] ? '▼' : '▶' }}</span>
                   <span>思考</span>
+                  <span v-if="reasoningDuration[i]">{{ reasoningDuration[i] }}s</span>
                 </button>
                 <div v-show="reasoningExpanded[i]" class="msg-reasoning-bubble" v-html="render(m.reasoning)" />
               </div>
