@@ -15,6 +15,7 @@ type Chat = {
   messages: Message[]
   createdAt: number
   assistantId?: string
+  configId?: number
 }
 
 const md: MarkdownIt = new MarkdownIt({
@@ -65,9 +66,11 @@ const configList = ref<ConfigList>({
   configs: [],
   activeIndex: -1
 })
-const activeConfig = computed(() =>
-  configList.value.activeIndex >= 0 ? configList.value.configs[configList.value.activeIndex] : null
-)
+const activeConfig = computed(() => {
+  const chat = currentChat.value
+  if (chat?.configId === undefined || chat.configId === null) return null
+  return configList.value.configs[chat.configId] || null
+})
 const assistantList = ref<AssistantList>({
   assistants: [],
   activeIndex: -1
@@ -282,18 +285,21 @@ function scrollToBottom() {
 }
 
 function createNewChat() {
-  // 使用上一个对话的助理，如果没有则使用当前全局选中的助理
+  // 使用上一个对话的助理和配置，如果没有则使用当前全局选中的
   const lastAssistantId = chatList.value[0]?.assistantId
   const currentAssistantId = assistantList.value.activeIndex >= 0
     ? assistantList.value.assistants[assistantList.value.activeIndex]?.id
     : undefined
+  const lastConfigId = chatList.value[0]?.configId
+  const currentConfigId = configList.value.activeIndex >= 0 ? configList.value.activeIndex : undefined
 
   const newChat: Chat = {
     id: Date.now().toString(),
     title: '新对话',
     messages: [],
     createdAt: Date.now(),
-    assistantId: lastAssistantId || currentAssistantId
+    assistantId: lastAssistantId || currentAssistantId,
+    configId: lastConfigId ?? currentConfigId
   }
   chatList.value.unshift(newChat)
   currentChatId.value = newChat.id
@@ -329,13 +335,12 @@ function changeAssistant(assistantId: string) {
   }
 }
 
-function changeConfig(configIndex: number) {
-  configList.value.activeIndex = configIndex
-  saveConfig()
-}
-
-function saveConfig() {
-  localStorage.setItem('llm-config-list', JSON.stringify(configList.value))
+function changeChatConfig(configIndex: string) {
+  const chat = currentChat.value
+  if (chat) {
+    chat.configId = configIndex ? Number(configIndex) : undefined
+    saveChatHistory()
+  }
 }
 
 function saveChatHistory() {
@@ -455,7 +460,8 @@ onMounted(() => {
                 {{ assistant.emoji }} {{ assistant.name }}
               </option>
             </select>
-            <select :value="configList.activeIndex" @change="changeConfig(Number(($event.target as HTMLSelectElement).value))" class="config-select">
+            <select :value="currentChat?.configId ?? ''" @change="changeChatConfig(($event.target as HTMLSelectElement).value)" class="config-select">
+              <option value="">选择模型</option>
               <option v-for="(config, index) in configList.configs" :key="index" :value="index">
                 {{ config.name || config.model }}
               </option>

@@ -679,7 +679,6 @@ function goBack() {
   display: flex;
   gap: 12px;
   justify-content: flex-end;
-  border-top: 1px solid #e5e7eb;
   padding-top: 20px;
   margin-top: 24px;
 }

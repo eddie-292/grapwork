@@ -221,7 +221,6 @@ function truncateText(text: string, maxLength: number): string {
   gap: 16px;
   padding: 16px 24px;
   border-bottom: 1px solid #e5e7eb;
-  background: #ffffff;
 }
 
 .back-btn {
