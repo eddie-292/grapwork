@@ -100,6 +100,7 @@ const isTaskExecuting = ref(false)
 const taskList = ref<{ id: number; description: string; completed: boolean }[]>([])
 const currentTaskIndex = ref(-1)
 const taskResults = ref<string[]>([])
+const taskProgressExpanded = ref(false)
 const configList = ref<ConfigList>({
   configs: [],
   activeIndex: -1
@@ -307,6 +308,7 @@ function generateTaskPrompt(taskDescription: string, previousResult?: string): s
 async function executeTaskStreaming(
   taskDescription: string,
   previousResult: string | undefined,
+  conversationHistory: Message[],
   onDelta: (delta: string) => void,
   onReasoningDelta: (delta: string) => void,
   onReasoningDuration: (duration: number) => void
@@ -314,13 +316,23 @@ async function executeTaskStreaming(
   if (!activeConfig.value?.apiUrl || !activeConfig.value?.apiKey) {
     throw new Error('请先配置并启用一个 LLM 接口')
   }
+
   const prompt = generateTaskPrompt(taskDescription, previousResult)
 
-  const messagesToSend: { role: string; content: string }[] = [
-    { role: 'system', content: activeAssistant.value?.systemPrompt || '你是一个有用的助手' }
-  ]
+  // 构建消息列表：系统提示 + 对话历史（排除当前添加的用户消息） + 当前任务提示
+  const messagesToSend: { role: string; content: string }[] = []
+  if (activeAssistant.value?.systemPrompt && activeAssistant.value.systemPrompt.trim()) {
+    messagesToSend.push({ role: 'system', content: activeAssistant.value.systemPrompt.trim() })
+  } else {
+    messagesToSend.push({ role: 'system', content: '你是一个有用的助手' })
+  }
 
-  // 携带上下文
+  // 添加对话历史（携带所有之前的消息）
+  conversationHistory.forEach(msg => {
+    messagesToSend.push({ role: msg.role, content: msg.content })
+  })
+
+  // 添加当前任务提示
   messagesToSend.push({ role: 'user', content: prompt })
 
   // 解析 extra_body 参数
@@ -676,16 +688,20 @@ async function executeTaskMode(userInput: string) {
 
       // 添加任务执行消息
       const taskMsgIndex = chat.messages.length
-      chat.messages.push({ role: 'user', content: `**任务 ${i + 1}/${tasks.length}**: ${task.description}`, reasoning: '' })
+      const taskPrompt = i === 0
+        ? `**任务 ${i + 1}/${tasks.length}**: ${task.description}`
+        : `请继续完成以下任务：${task.description}`
+      chat.messages.push({ role: 'user', content: taskPrompt, reasoning: '' })
       chat.messages.push({ role: 'assistant', content: '', reasoning: '' })
 
       const msg = chat.messages[taskMsgIndex + 1]
       if (!msg) break
 
-      // 流式执行任务
+      // 流式执行任务（携带完整的对话历史）
       await executeTaskStreaming(
         task.description,
-        previousResult,
+        i === 0 ? undefined : previousResult,
+        chat.messages.slice(0, -1), // 传递当前聊天历史的所有消息
         (delta) => {
           msg.content += delta
           scrollToBottom()
@@ -976,11 +992,16 @@ onMounted(() => {
               </label>
             </div>
           </div>
-          <!-- 任务进度显示（悬浮） -->
+          <!-- 任务进度显示（悬浮，可折叠） -->
           <div class="task-progress-float" v-if="taskMode && (isTaskPlanning || isTaskExecuting)">
-            <div v-if="isTaskPlanning" class="task-status">正在规划任务...</div>
-            <div v-else-if="isTaskExecuting" class="task-status">
-              任务 {{ currentTaskIndex + 1 }} / {{ taskList.length }}
+            <div class="task-progress-header" @click="taskProgressExpanded = !taskProgressExpanded">
+              <span v-if="isTaskPlanning">正在规划任务...</span>
+              <span v-else-if="isTaskExecuting">
+                正在执行：{{ taskList[currentTaskIndex]?.description || '' }}
+              </span>
+              <span class="toggle-icon">{{ taskProgressExpanded ? '▼' : '▶' }}</span>
+            </div>
+            <div v-show="taskProgressExpanded" class="task-progress-body">
               <div class="task-list-mini">
                 <div v-for="(task, idx) in taskList" :key="task.id"
                      :class="['task-item-mini', { active: idx === currentTaskIndex, completed: task.completed }]">
@@ -1665,12 +1686,37 @@ onMounted(() => {
   transform: translateX(-50%);
   min-width: 300px;
   max-width: 500px;
-  padding: 12px 16px;
   background: #ffffff;
   border: 1px solid #a7f3d0;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 100;
+}
+
+.task-progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 13px;
+  color: #065f46;
+  font-weight: 500;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.task-progress-header:hover {
+  background: #f0fdf4;
+}
+
+.toggle-icon {
+  font-size: 10px;
+  margin-left: 8px;
+}
+
+.task-progress-body {
+  padding: 8px 14px 12px;
 }
 
 .task-progress {
