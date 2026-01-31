@@ -16,6 +16,7 @@ type Chat = {
   createdAt: number
   assistantId?: string
   configId?: number
+  isTaskMode?: boolean
 }
 
 const md: MarkdownIt = new MarkdownIt({
@@ -478,7 +479,7 @@ async function send() {
   }
 
   if (!currentChat.value) {
-    createNewChat()
+    createNewChat(taskMode.value)
   }
 
   input.value = ''
@@ -640,6 +641,9 @@ async function executeTaskMode(userInput: string) {
   const chat = currentChat.value
   if (!chat) return
 
+  // 标记为任务模式会话
+  chat.isTaskMode = true
+
   // 更新标题
   if (chat.messages.length === 0) {
     updateChatTitle(chat.id, userInput)
@@ -676,6 +680,7 @@ async function executeTaskMode(userInput: string) {
 
     // 2. 逐个执行任务
     let previousResult: string | undefined
+    const taskOutputs: string[] = []
 
     for (let i = 0; i < tasks.length; i++) {
       if (controller.value!.signal.aborted) {
@@ -715,6 +720,9 @@ async function executeTaskMode(userInput: string) {
         }
       )
 
+      // 保存任务输出用于最终整合
+      taskOutputs.push(msg.content)
+
       // 标记任务完成
       if (taskList.value[i]) {
         taskList.value[i].completed = true
@@ -734,10 +742,59 @@ async function executeTaskMode(userInput: string) {
       scrollToBottom()
     }
 
-    // 3. 任务完成总结
+    // 3. 最终整合：将所有任务输出整合成完整的回答
     isTaskExecuting.value = false
-    const summaryMsgIndex = chat.messages.length
-    chat.messages.push({ role: 'assistant', content: '**所有任务已完成！**', reasoning: '' })
+
+    // 构建整合提示词
+    const taskResultsText = taskOutputs.map((output, idx) => {
+      const task = tasks[idx]
+      if (!task) return ''
+      return `任务 ${idx + 1}：${task.description}\n${output}`
+    }).join('\n\n')
+
+    const integrationPrompt = `请根据以下各个任务的执行结果，整合成用户最初要求的完整、连贯的回答。
+
+用户的原始请求：${userInput}
+
+各任务执行结果：
+${taskResultsText}
+
+要求：
+1. 将所有任务结果整合成一个完整、连贯的回答
+2. 直接给出最终答案，不要提及任务或步骤
+3. 保持回答的完整性和准确性`
+
+    // 添加整合消息
+    chat.messages.push({ role: 'assistant', content: '**正在整合最终回答...**', reasoning: '' })
+    const integrationMsgIndex = chat.messages.length
+    chat.messages.push({ role: 'assistant', content: '', reasoning: '' })
+
+    const integrationMsg = chat.messages[integrationMsgIndex]
+    if (!integrationMsg) return
+
+    // 发送整合请求（携带完整对话历史）
+    await executeTaskStreaming(
+      '整合最终回答',
+      undefined,
+      chat.messages.slice(0, -1),
+      (delta) => {
+        integrationMsg.content += delta
+        scrollToBottom()
+      },
+      () => {},
+      () => {}
+    )
+
+    // 移除"正在整合"消息，用最终结果替换
+    chat.messages.splice(integrationMsgIndex - 1, 1)
+
+    // 推理内容完成后自动折叠
+    if (integrationMsg.reasoning) {
+      reasoningExpanded.value[integrationMsgIndex] = false
+    }
+
+    // 4. 任务完成
+    chat.messages.push({ role: 'assistant', content: '---\n\n✅ **所有任务已完成！**', reasoning: '' })
 
   } catch (err) {
     const chat = currentChat.value
@@ -757,6 +814,7 @@ async function executeTaskMode(userInput: string) {
     isTaskPlanning.value = false
     isTaskExecuting.value = false
     currentTaskIndex.value = -1
+    taskProgressExpanded.value = false
     saveChatHistory()
     scrollToBottom()
   }
@@ -783,7 +841,7 @@ function scrollToBottom() {
   })
 }
 
-function createNewChat() {
+function createNewChat(isTaskModeChat: boolean = false) {
   // 使用上一个对话的助理和配置，如果没有则使用当前全局选中的
   const lastAssistantId = chatList.value[0]?.assistantId
   const currentAssistantId = assistantList.value.activeIndex >= 0
@@ -794,11 +852,12 @@ function createNewChat() {
 
   const newChat: Chat = {
     id: Date.now().toString(),
-    title: '新对话',
+    title: isTaskModeChat ? '任务模式对话' : '新对话',
     messages: [],
     createdAt: Date.now(),
     assistantId: lastAssistantId || currentAssistantId,
-    configId: lastConfigId ?? currentConfigId
+    configId: lastConfigId ?? currentConfigId,
+    isTaskMode: isTaskModeChat
   }
   chatList.value.unshift(newChat)
   currentChatId.value = newChat.id
