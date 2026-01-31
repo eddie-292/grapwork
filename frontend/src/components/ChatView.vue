@@ -14,6 +14,7 @@ type Chat = {
   title: string
   messages: Message[]
   createdAt: number
+  assistantId?: string
 }
 
 const md: MarkdownIt = new MarkdownIt({
@@ -71,12 +72,14 @@ const assistantList = ref<AssistantList>({
   assistants: [],
   activeIndex: -1
 })
-const activeAssistant = computed(() =>
-  assistantList.value.activeIndex >= 0 ? assistantList.value.assistants[assistantList.value.activeIndex] : null
-)
 const currentChat = computed(() =>
   currentChatId.value ? chatList.value.find(c => c.id === currentChatId.value) : null
 )
+const activeAssistant = computed(() => {
+  const chat = currentChat.value
+  if (!chat?.assistantId) return null
+  return assistantList.value.assistants.find(a => a.id === chat.assistantId) || null
+})
 const messages = computed(() => currentChat.value?.messages || [])
 const messagesRef = ref<HTMLDivElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
@@ -279,11 +282,18 @@ function scrollToBottom() {
 }
 
 function createNewChat() {
+  // 使用上一个对话的助理，如果没有则使用当前全局选中的助理
+  const lastAssistantId = chatList.value[0]?.assistantId
+  const currentAssistantId = assistantList.value.activeIndex >= 0
+    ? assistantList.value.assistants[assistantList.value.activeIndex]?.id
+    : undefined
+
   const newChat: Chat = {
     id: Date.now().toString(),
     title: '新对话',
     messages: [],
-    createdAt: Date.now()
+    createdAt: Date.now(),
+    assistantId: lastAssistantId || currentAssistantId
   }
   chatList.value.unshift(newChat)
   currentChatId.value = newChat.id
@@ -307,6 +317,14 @@ function updateChatTitle(chatId: string, firstMessage: string) {
   const chat = chatList.value.find(c => c.id === chatId)
   if (chat) {
     chat.title = firstMessage.slice(0, 20) + (firstMessage.length > 20 ? '...' : '')
+    saveChatHistory()
+  }
+}
+
+function changeAssistant(assistantId: string) {
+  const chat = currentChat.value
+  if (chat) {
+    chat.assistantId = assistantId || undefined
     saveChatHistory()
   }
 }
@@ -422,9 +440,12 @@ onMounted(() => {
         </div>
         <form class="inputbar" @submit.prevent="send">
           <div class="model-bar">
-            <span v-if="activeAssistant" class="assistant-badge">
-              {{ activeAssistant.emoji }} {{ activeAssistant.name }}
-            </span>
+            <select :value="currentChat?.assistantId || ''" @change="changeAssistant(($event.target as HTMLSelectElement).value)" class="assistant-select">
+              <option value="">无助理</option>
+              <option v-for="assistant in assistantList.assistants" :key="assistant.id" :value="assistant.id">
+                {{ assistant.emoji }} {{ assistant.name }}
+              </option>
+            </select>
             当前模型：{{ activeConfig?.name || activeConfig?.model || '未配置' }}
           </div>
           <div class="composer">
@@ -795,6 +816,29 @@ onMounted(() => {
   border-radius: 6px;
   font-weight: 500;
   font-size: 13px;
+}
+
+.assistant-select {
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #86efac;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.assistant-select:hover {
+  background: #dcfce7;
+  border-color: #22c55e;
+}
+
+.assistant-select:focus {
+  outline: none;
+  border-color: #22c55e;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
 }
 
 .composer {
