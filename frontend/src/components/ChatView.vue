@@ -583,7 +583,7 @@ async function executeNormalChat(text: string) {
         const line = part.trim()
         if (!line.startsWith('data:')) continue
         const data = line.slice(5).trim()
-        console.log('data:' + data)
+        //console.log('data:' + data)
         if (data === '[DONE]') {
           break
         }
@@ -844,7 +844,7 @@ function scrollToBottom() {
   })
 }
 
-function createNewChat(isTaskModeChat: boolean = false) {
+function createNewChat(isTaskModeChat: null) {
   // 使用上一个对话的助理和配置，如果没有则使用当前全局选中的
   const lastAssistantId = chatList.value[0]?.assistantId
   const currentAssistantId = assistantList.value.activeIndex >= 0
@@ -855,7 +855,7 @@ function createNewChat(isTaskModeChat: boolean = false) {
 
   const newChat: Chat = {
     id: Date.now().toString(),
-    title: isTaskModeChat ? '任务模式对话' : '新对话',
+    title: isTaskModeChat ? '任务模式新对话' : '新对话',
     messages: [],
     createdAt: Date.now(),
     assistantId: lastAssistantId || currentAssistantId,
@@ -949,7 +949,7 @@ onMounted(() => {
   <div class="container">
     <aside class="sidebar" :class="{ collapsed: !showSidebar }">
       <div class="sidebar-header">
-        <button class="new-chat-btn" @click="createNewChat">
+        <button class="new-chat-btn" @click="createNewChat()">
           <span class="plus-icon">+</span>
           新对话
         </button>
@@ -976,7 +976,7 @@ onMounted(() => {
         </div>
 
         <!-- 普通会话分组 -->
-        <div v-if="normalChats.length > 0" class="chat-group">
+        <div class="chat-group">
           <div class="chat-group-title">普通会话</div>
           <div
             v-for="chat in normalChats"
