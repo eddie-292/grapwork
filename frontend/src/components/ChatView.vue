@@ -30,6 +30,32 @@ const md: MarkdownIt = new MarkdownIt({
   },
 })
 
+// 自定义代码块渲染器，添加复制按钮
+md.renderer.rules.fence = (tokens, idx) => {
+  const token = tokens[idx]
+  if (!token) return ''
+
+  const info = token.info ? md.utils.unescapeAll(token.info).trim() : ''
+  const lang = info ? info.split(/\s+/g)[0] : ''
+  let code = token.content
+
+  // 使用 highlight.js 进行语法高亮
+  if (lang) {
+    try {
+      code = hljs.highlight(code, { language: lang }).value
+    } catch {
+      code = md.utils.escapeHtml(code)
+    }
+  } else {
+    code = md.utils.escapeHtml(code)
+  }
+
+  // 添加复制按钮
+  const copyBtn = `<button class="code-copy-btn" onclick="window.copyCodeBlock(this)" title="复制代码">复制</button>`
+
+  return `<pre><code class="hljs language-${lang}">${code}</code>${copyBtn}</pre>`
+}
+
 // 加载代码高亮主题
 async function loadHighlightTheme() {
   try {
@@ -144,6 +170,29 @@ async function copyRenderedText(content: string) {
 
 async function copyMarkdown(content: string) {
   copyText(content)
+}
+
+// 复制代码块函数（全局调用）
+declare global {
+  interface Window {
+    copyCodeBlock: (btn: HTMLElement) => void
+  }
+}
+
+window.copyCodeBlock = async (btn: HTMLElement) => {
+  const pre = btn.parentElement
+  const code = pre?.querySelector('code')
+  if (code) {
+    try {
+      await navigator.clipboard.writeText(code.textContent || '')
+      btn.textContent = '已复制'
+      setTimeout(() => {
+        btn.textContent = '复制'
+      }, 2000)
+    } catch {
+      alert('复制失败')
+    }
+  }
 }
 
 async function loadConfig() {
@@ -527,10 +576,10 @@ onMounted(() => {
                 <div class="msg-bubble" v-html="render(m.content)" />
                 <div class="msg-actions">
                   <button class="copy-btn" @click="copyRenderedText(m.content)" title="复制文本">
-                    T
+                    Copy Text
                   </button>
                   <button class="copy-btn" @click="copyMarkdown(m.content)" title="复制 Markdown">
-                    M
+                    Copy Markdown
                   </button>
                 </div>
               </div>
@@ -955,10 +1004,30 @@ onMounted(() => {
 .msg-bubble :deep(pre) {
   background: #f5f5f5;
   color: #111827;
-  padding: 14px;
   border-radius: 10px;
   overflow: auto;
   border: 1px solid #e5e7eb;
+  position: relative;
+}
+
+.msg-bubble :deep(.code-copy-btn) {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: #6b7280;
+}
+
+.msg-bubble :deep(.code-copy-btn:hover) {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #d1d5db;
 }
 
 .msg-bubble :deep(code) {
