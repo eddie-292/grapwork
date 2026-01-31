@@ -648,6 +648,14 @@ onMounted(() => {
   font-weight: 600;
 }
 
+.sidebar-toggle {
+  background: white;
+  border: 1px solid #e5e7eb;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
 .brand {
   display: flex;
   align-items: center;
