@@ -415,9 +415,9 @@ onMounted(() => {
       <header class="header">
         <div class="header-inner">
           <button class="sidebar-toggle" @click="showSidebar = !showSidebar" v-if="!showSidebar" title="展开侧边栏">
-            ☰
+            ☰ <span>OpenChat Desktop</span>
           </button>
-          <div class="brand">
+          <div class="brand" v-if="showSidebar" >
             <div class="brand-dot" />
             <span>OpenChat Desktop</span>
           </div>
