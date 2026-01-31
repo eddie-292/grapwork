@@ -6,6 +6,19 @@ export interface AppConfig {
   enabled: boolean
 }
 
+export interface Assistant {
+  id: string
+  name: string
+  emoji: string
+  systemPrompt: string
+  createdAt: number
+}
+
+export interface AssistantList {
+  assistants: Assistant[]
+  activeIndex: number
+}
+
 export interface ConfigList {
   configs: AppConfig[]
   activeIndex: number

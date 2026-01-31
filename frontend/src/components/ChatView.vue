@@ -3,11 +3,11 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
-import type { ConfigList } from '../types/electron'
+import type { ConfigList, AssistantList } from '../types/electron'
 
 const router = useRouter()
 
-type Role = 'user' | 'assistant'
+type Role = 'user' | 'assistant' | 'system'
 type Message = { role: Role; content: string }
 type Chat = {
   id: string
@@ -67,6 +67,13 @@ const configList = ref<ConfigList>({
 const activeConfig = computed(() =>
   configList.value.activeIndex >= 0 ? configList.value.configs[configList.value.activeIndex] : null
 )
+const assistantList = ref<AssistantList>({
+  assistants: [],
+  activeIndex: -1
+})
+const activeAssistant = computed(() =>
+  assistantList.value.activeIndex >= 0 ? assistantList.value.assistants[assistantList.value.activeIndex] : null
+)
 const currentChat = computed(() =>
   currentChatId.value ? chatList.value.find(c => c.id === currentChatId.value) : null
 )
@@ -121,6 +128,17 @@ async function loadConfig() {
   }
 }
 
+function loadAssistants() {
+  const saved = localStorage.getItem('assistant-list')
+  if (saved) {
+    try {
+      assistantList.value = JSON.parse(saved)
+    } catch (e) {
+      console.error('Failed to parse assistant list:', e)
+    }
+  }
+}
+
 async function send() {
   const text = input.value.trim()
   if (!text || sending.value) return
@@ -154,6 +172,14 @@ async function send() {
       role: m.role,
       content: m.content
     }))
+
+    // 如果配置了助理，添加 system prompt 到消息开头
+    if (activeAssistant.value?.systemPrompt && activeAssistant.value.systemPrompt.trim()) {
+      messagesToSend.unshift({
+        role: 'system',
+        content: activeAssistant.value.systemPrompt.trim()
+      })
+    }
 
     let resp: Response
 
@@ -317,6 +343,7 @@ function logout() {
 onMounted(() => {
   loadChatHistory()
   loadConfig()
+  loadAssistants()
   loadHighlightTheme()
   scrollToBottom()
   if (textareaRef.value) {
@@ -363,6 +390,10 @@ onMounted(() => {
             <span>OpenChat Desktop</span>
           </div>
           <div class="header-actions">
+            <button class="assistant-btn" @click="router.push('/assistants')" title="社区助理">
+              <span v-if="activeAssistant">{{ activeAssistant.emoji }}</span>
+              <span v-else>🤖</span>
+            </button>
             <button class="settings-btn" @click="router.push('/settings')" title="设置">
               设置
             </button>
@@ -391,6 +422,9 @@ onMounted(() => {
         </div>
         <form class="inputbar" @submit.prevent="send">
           <div class="model-bar">
+            <span v-if="activeAssistant" class="assistant-badge">
+              {{ activeAssistant.emoji }} {{ activeAssistant.name }}
+            </span>
             当前模型：{{ activeConfig?.name || activeConfig?.model || '未配置' }}
           </div>
           <div class="composer">
@@ -608,6 +642,21 @@ onMounted(() => {
   align-items: center;
 }
 
+.assistant-btn {
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 999px;
+  transition: background 0.2s, border-color 0.2s;
+  min-width: 40px;
+}
+
+.assistant-btn:hover {
+  background: #dcfce7;
+}
+
 .logout-btn {
   background: #fee2e2;
   border: 1px solid #fecaca;
@@ -731,6 +780,21 @@ onMounted(() => {
   margin: 0 auto 16px;
   color: #6b7280;
   font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.assistant-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f0fdf4;
+  color: #166534;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 13px;
 }
 
 .composer {
