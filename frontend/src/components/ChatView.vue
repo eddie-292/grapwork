@@ -94,8 +94,10 @@ const input = ref('')
 const sending = ref(false)
 const controller = ref<AbortController | null>(null)
 const showSidebar = ref(true)
-// 任务模式
-const taskMode = ref(false)
+// 任务模式 - 基于当前会话的 computed 属性
+const taskMode = computed(() => currentChat.value?.isTaskMode ?? false)
+// 新会话前的任务模式选择（只在会话为空时可编辑）
+const pendingTaskMode = ref(false)
 const isTaskPlanning = ref(false)
 const isTaskExecuting = ref(false)
 const taskList = ref<{ id: number; description: string; completed: boolean }[]>([])
@@ -482,7 +484,7 @@ async function send() {
   }
 
   if (!currentChat.value) {
-    createNewChat(taskMode.value)
+    createNewChat(pendingTaskMode.value)
   }
 
   input.value = ''
@@ -844,7 +846,7 @@ function scrollToBottom() {
   })
 }
 
-function createNewChat(isTaskModeChat: null) {
+function createNewChat(isTaskModeChat: boolean = false) {
   // 使用上一个对话的助理和配置，如果没有则使用当前全局选中的
   const lastAssistantId = chatList.value[0]?.assistantId
   const currentAssistantId = assistantList.value.activeIndex >= 0
@@ -865,6 +867,8 @@ function createNewChat(isTaskModeChat: null) {
   chatList.value.unshift(newChat)
   currentChatId.value = newChat.id
   saveChatHistory()
+  // 创建会话后重置 pendingTaskMode，确保下一个新会话默认是普通会话
+  pendingTaskMode.value = false
 }
 
 function switchChat(chatId: string) {
@@ -949,7 +953,7 @@ onMounted(() => {
   <div class="container">
     <aside class="sidebar" :class="{ collapsed: !showSidebar }">
       <div class="sidebar-header">
-        <button class="new-chat-btn" @click="createNewChat()">
+        <button class="new-chat-btn" @click="createNewChat(false)">
           <span class="plus-icon">+</span>
           新对话
         </button>
@@ -1073,7 +1077,7 @@ onMounted(() => {
             <!-- 任务模式 -->
             <div class="task-mode-toggle" v-if="currentChat?.messages.length === 0">
               <label class="toggle-label">
-                <input type="checkbox" v-model="taskMode" :disabled="sending">
+                <input type="checkbox" v-model="currentChat.isTaskMode" :disabled="sending">
                 <span class="toggle-switch"></span>
                 <span class="toggle-text">任务模式</span>
               </label>
