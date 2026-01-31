@@ -46,6 +46,9 @@ async function loadHighlightTheme() {
     link.rel = 'stylesheet'
     link.href = `/${savedTheme}.css`
     document.head.appendChild(link)
+
+    // 强制页面重新加载样式
+    await new Promise(resolve => setTimeout(resolve, 100))
   } catch (error) {
     console.error('Failed to load highlight theme:', error)
   }

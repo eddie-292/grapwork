@@ -1,14 +1,50 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import hljs from 'highlight.js'
+import MarkdownIt from 'markdown-it'
 import type { AppConfig, ConfigList } from '../types/electron'
 
 const router = useRouter()
+
+const md: MarkdownIt = new MarkdownIt({
+  html: false,
+  linkify: true,
+  highlight: function (str: string, lang?: string): string {
+    try {
+      return hljs.highlight(str, { language: lang || 'javascript' }).value
+    } catch {
+      return str
+    }
+  },
+})
+
+const selectedHighlightTheme = ref('atom-one-dark')
 
 interface HighlightTheme {
   value: string
   label: string
 }
+
+// 预览代码高亮
+const previewCode = `const hello = "Hello, World!"
+console.log(hello);`
+
+// 添加一个版本号，强制在主题变化时重新渲染
+const renderVersion = ref(0)
+
+// 当主题变化时，增加版本号，强制重新渲染
+watch(selectedHighlightTheme, (newTheme) => {
+  renderVersion.value++
+  loadHighlightTheme(newTheme)
+})
+
+// 使用 renderVersion 作为依赖，确保主题变化时重新渲染
+const highlightedPreview = computed(() => {
+  // 使用 renderVersion 作为依赖，确保主题变化时重新渲染
+  renderVersion.value
+  return md.render(previewCode)
+})
 
 const highlightThemes: HighlightTheme[] = [
   { value: 'atom-one-dark', label: 'Atom One Dark' },
@@ -34,7 +70,6 @@ const currentConfig = ref<AppConfig>({
   enabled: false
 })
 
-const selectedHighlightTheme = ref('atom-one-dark')
 const editingIndex = ref(-1)
 const showEditForm = ref(false)
 
@@ -198,6 +233,9 @@ async function loadHighlightTheme(theme: string) {
     link.rel = 'stylesheet'
     link.href = `/${theme}.css`
     document.head.appendChild(link)
+
+    // 强制页面重新加载样式
+    await new Promise(resolve => setTimeout(resolve, 100))
   } catch (error) {
     console.error('Failed to load highlight theme:', error)
   }
@@ -212,7 +250,7 @@ function goBack() {
   <div class="settings-page">
     <header class="settings-header">
       <button class="back-btn" @click="goBack">
-        ← 返回
+      返回
       </button>
       <h1>设置</h1>
     </header>
@@ -249,8 +287,8 @@ function goBack() {
             </div>
           </div>
           <div class="config-actions">
-            <button class="btn-icon" @click="editConfig(index)" title="编辑">✏️</button>
-            <button class="btn-icon" @click="deleteConfig(index)" title="删除">🗑️</button>
+            <button class="btn-icon" @click="editConfig(index)" title="编辑">编辑</button>
+            <button class="btn-icon" @click="deleteConfig(index)" title="删除">删除</button>
           </div>
         </div>
       </div>
@@ -329,9 +367,8 @@ function goBack() {
             </option>
           </select>
           <div class="theme-preview">
-            <pre><code>const hello = "Hello, World!";
-console.log(hello);</code></pre>
-          </div>
+          <div v-html="highlightedPreview"></div>
+        </div>
         </div>
       </div>
 
@@ -512,6 +549,7 @@ console.log(hello);</code></pre>
   margin-bottom: 12px;
   background: #ffffff;
   transition: all 0.2s;
+  gap: 20px;
 }
 
 .config-item:hover {
@@ -596,7 +634,7 @@ console.log(hello);</code></pre>
 }
 
 .btn-icon {
-  width: 32px;
+ min-width: 32px;
   height: 32px;
   border-radius: 6px;
   border: 1px solid #e5e7eb;
@@ -679,7 +717,6 @@ console.log(hello);</code></pre>
 }
 
 .theme-preview {
-  background: #1e1e1e;
   border-radius: 8px;
   padding: 16px;
   overflow-x: auto;
@@ -690,9 +727,11 @@ console.log(hello);</code></pre>
   font-family: 'JetBrains Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace;
   font-size: 13px;
   line-height: 1.5;
+  background: transparent !important;
+  padding: 0 !important;
 }
 
 .theme-preview code {
-  color: #d4d4d4;
+  /* 不设置固定颜色，让 highlight.js 主题样式生效 */
 }
 </style>

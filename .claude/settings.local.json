@@ -3,7 +3,8 @@
     "allow": [
       "Bash(perl:*)",
       "Bash(python3:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(ls:*)"
     ]
   }
 }
