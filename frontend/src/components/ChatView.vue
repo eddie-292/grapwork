@@ -794,7 +794,7 @@ ${taskResultsText}
     }
 
     // 4. 任务完成
-    chat.messages.push({ role: 'assistant', content: '---\n\n✅ **所有任务已完成！**', reasoning: '' })
+    chat.messages.push({ role: 'assistant', content: '---\n\n**所有任务已完成！**', reasoning: '' })
 
   } catch (err) {
     const chat = currentChat.value
