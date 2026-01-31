@@ -1,10 +1,25 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import type { AppConfig, ConfigList } from '../types/electron'
 
-const emit = defineEmits<{
-  close: []
-}>()
+const router = useRouter()
+
+interface HighlightTheme {
+  value: string
+  label: string
+}
+
+const highlightThemes: HighlightTheme[] = [
+  { value: 'atom-one-dark', label: 'Atom One Dark' },
+  { value: 'atom-one-light', label: 'Atom One Light' },
+  { value: 'github', label: 'GitHub' },
+  { value: 'github-dark', label: 'GitHub Dark' },
+  { value: 'monokai', label: 'Monokai' },
+  { value: 'nord', label: 'Nord' },
+  { value: 'vs2015', label: 'VS 2015' },
+  { value: 'dracula', label: 'Dracula' }
+]
 
 const configList = ref<ConfigList>({
   configs: [],
@@ -18,6 +33,8 @@ const currentConfig = ref<AppConfig>({
   model: 'gpt-4o-mini',
   enabled: false
 })
+
+const selectedHighlightTheme = ref('atom-one-dark')
 const editingIndex = ref(-1)
 const showEditForm = ref(false)
 
@@ -51,10 +68,13 @@ onMounted(async () => {
       showEditForm.value = true
     }
   }
-})
 
-// 移除未使用的函数
-// function addConfig() { ... }
+  // 加载保存的代码高亮主题
+  const savedTheme = localStorage.getItem('highlight-theme')
+  if (savedTheme) {
+    selectedHighlightTheme.value = savedTheme
+  }
+})
 
 function editConfig(index: number) {
   const configToEdit = configList.value.configs[index]
@@ -77,10 +97,10 @@ function deleteConfig(index: number) {
 function toggleConfig(index: number) {
   const item = configList.value.configs[index]
   if (!item) return
-  
+
   // 切换启用状态
   item.enabled = !item.enabled
-  
+
   if (item.enabled) {
     // 禁用其他配置
     configList.value.configs.forEach((cfg, idx) => {
@@ -94,7 +114,7 @@ function toggleConfig(index: number) {
 
 function saveCurrentConfig() {
   if (editingIndex.value >= 0) {
-    configList.value.configs[editingIndex.value] = { 
+    configList.value.configs[editingIndex.value] = {
       name: currentConfig.value.name || '',
       apiUrl: currentConfig.value.apiUrl || '',
       apiKey: currentConfig.value.apiKey || '',
@@ -125,7 +145,7 @@ function saveCurrentConfig() {
 async function saveAllConfigs() {
   saving.value = true
   message.value = ''
-  
+
   try {
     if (window.electronAPI) {
       // 将响应式对象转换为纯对象，避免克隆错误
@@ -139,7 +159,7 @@ async function saveAllConfigs() {
         })),
         activeIndex: configList.value.activeIndex
       }
-      
+
       const success = await window.electronAPI.saveConfig(plainConfig)
       if (!success) {
         throw new Error('保存失败，请重试')
@@ -148,10 +168,14 @@ async function saveAllConfigs() {
       localStorage.setItem('llm-config-list', JSON.stringify(configList.value))
     }
 
+    // 保存代码高亮主题
+    localStorage.setItem('highlight-theme', selectedHighlightTheme.value)
+    await loadHighlightTheme(selectedHighlightTheme.value)
+
     message.value = '设置已保存'
     setTimeout(() => {
-      emit('close')
-    }, 1000)
+      message.value = ''
+    }, 2000)
   } catch (error) {
     message.value = '保存失败: ' + (error instanceof Error ? error.message : '未知错误')
   } finally {
@@ -159,23 +183,50 @@ async function saveAllConfigs() {
   }
 }
 
-function cancel() {
-  emit('close')
+// 加载代码高亮主题
+async function loadHighlightTheme(theme: string) {
+  try {
+    // 移除旧的主题样式
+    const oldLink = document.getElementById('highlight-theme')
+    if (oldLink) {
+      oldLink.remove()
+    }
+
+    // 使用本地文件加载新主题样式
+    const link = document.createElement('link')
+    link.id = 'highlight-theme'
+    link.rel = 'stylesheet'
+    link.href = `/${theme}.css`
+    document.head.appendChild(link)
+  } catch (error) {
+    console.error('Failed to load highlight theme:', error)
+  }
+}
+
+function goBack() {
+  router.push('/')
 }
 </script>
 
 <template>
-  <div class="settings-overlay" @click.self="cancel">
-    <div class="settings-panel">
+  <div class="settings-page">
+    <header class="settings-header">
+      <button class="back-btn" @click="goBack">
+        ← 返回
+      </button>
+      <h1>设置</h1>
+    </header>
+
+    <div class="settings-content">
       <h2 class="title">LLM 接口配置</h2>
-      
+
       <!-- 配置列表 -->
       <div class="config-list">
         <div v-if="configList.configs.length === 0" class="empty-state">
           暂无配置，点击"添加新配置"创建一个
         </div>
-        <div 
-          v-for="(config, index) in configList.configs" 
+        <div
+          v-for="(config, index) in configList.configs"
           :key="index"
           class="config-item"
           :class="{ active: configList.activeIndex === index }"
@@ -184,8 +235,8 @@ function cancel() {
             <div class="config-header">
               <h3>{{ config.name || config.model }}</h3>
               <label class="toggle-label">
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   :checked="config.enabled"
                   @change="toggleConfig(index)"
                 />
@@ -268,12 +319,27 @@ function cancel() {
         </button>
       </div>
 
+      <!-- 代码高亮主题 -->
+      <div class="highlight-theme-section">
+        <h3 class="section-title">代码高亮主题</h3>
+        <div class="theme-selector">
+          <select v-model="selectedHighlightTheme" class="theme-select">
+            <option v-for="theme in highlightThemes" :key="theme.value" :value="theme.value">
+              {{ theme.label }}
+            </option>
+          </select>
+          <div class="theme-preview">
+            <pre><code>const hello = "Hello, World!";
+console.log(hello);</code></pre>
+          </div>
+        </div>
+      </div>
+
       <div v-if="message" class="message" :class="{ success: message.includes('成功') || message.includes('已保存') }">
         {{ message }}
       </div>
 
       <div class="global-actions">
-        <button type="button" class="btn secondary" @click="cancel">关闭</button>
         <button type="button" class="btn primary" @click="saveAllConfigs" :disabled="saving">
           {{ saving ? '保存中...' : '保存所有配置' }}
         </button>
@@ -283,34 +349,55 @@ function cancel() {
 </template>
 
 <style scoped>
-.settings-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+.settings-page {
+  min-height: 100vh;
+  background: #ffffff;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
+  flex-direction: column;
 }
 
-.settings-panel {
-  background: white;
-  border-radius: 12px;
-  padding: 24px;
-  width: 90%;
-  max-width: 700px;
-  max-height: 80vh;
-  overflow-y: auto;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+.settings-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 24px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.back-btn {
+  background: #f5f5f5;
+  border: 1px solid #e5e7eb;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 999px;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.back-btn:hover {
+  background: #f0f0f0;
+}
+
+.settings-header h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.settings-content {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 32px 24px;
+  width: 100%;
 }
 
 .title {
   margin: 0 0 24px 0;
   font-size: 20px;
   font-weight: 600;
+  color: #0f172a;
 }
 
 .form {
@@ -340,7 +427,7 @@ function cancel() {
 }
 
 .input:focus {
-  border-color: #646cff;
+  border-color: #10a37f;
 }
 
 .form-group small {
@@ -556,5 +643,56 @@ function cancel() {
   justify-content: flex-end;
   border-top: 1px solid #e5e7eb;
   padding-top: 20px;
+  margin-top: 24px;
+}
+
+.highlight-theme-section {
+  background: #f9fafb;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.section-title {
+  margin: 0 0 16px 0;
+  color: #0f172a;
+}
+
+.theme-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.theme-select {
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  background: #ffffff;
+  transition: border-color 0.2s;
+}
+
+.theme-select:focus {
+  border-color: #10a37f;
+}
+
+.theme-preview {
+  background: #1e1e1e;
+  border-radius: 8px;
+  padding: 16px;
+  overflow-x: auto;
+}
+
+.theme-preview pre {
+  margin: 0;
+  font-family: 'JetBrains Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.theme-preview code {
+  color: #d4d4d4;
 }
 </style>

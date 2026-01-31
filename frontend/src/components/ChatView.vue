@@ -1,12 +1,20 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
-import SettingsView from './SettingsView.vue'
 import type { ConfigList } from '../types/electron'
+
+const router = useRouter()
 
 type Role = 'user' | 'assistant'
 type Message = { role: Role; content: string }
+type Chat = {
+  id: string
+  title: string
+  messages: Message[]
+  createdAt: number
+}
 
 const md: MarkdownIt = new MarkdownIt({
   html: false,
@@ -20,18 +28,46 @@ const md: MarkdownIt = new MarkdownIt({
   },
 })
 
-const messages = ref<Message[]>([])
+// 加载代码高亮主题
+async function loadHighlightTheme() {
+  try {
+    const savedTheme = localStorage.getItem('highlight-theme')
+    if (!savedTheme) return
+
+    // 移除旧的主题样式
+    const oldLink = document.getElementById('highlight-theme')
+    if (oldLink) {
+      oldLink.remove()
+    }
+
+    // 使用本地文件加载新主题样式
+    const link = document.createElement('link')
+    link.id = 'highlight-theme'
+    link.rel = 'stylesheet'
+    link.href = `/${savedTheme}.css`
+    document.head.appendChild(link)
+  } catch (error) {
+    console.error('Failed to load highlight theme:', error)
+  }
+}
+
+const chatList = ref<Chat[]>([])
+const currentChatId = ref<string | null>(null)
 const input = ref('')
 const sending = ref(false)
 const controller = ref<AbortController | null>(null)
-const showSettings = ref(false)
+const showSidebar = ref(true)
 const configList = ref<ConfigList>({
   configs: [],
   activeIndex: -1
 })
-const activeConfig = computed(() => 
+const activeConfig = computed(() =>
   configList.value.activeIndex >= 0 ? configList.value.configs[configList.value.activeIndex] : null
 )
+const currentChat = computed(() =>
+  currentChatId.value ? chatList.value.find(c => c.id === currentChatId.value) : null
+)
+const messages = computed(() => currentChat.value?.messages || [])
 const messagesRef = ref<HTMLDivElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const autoScrollEnabled = ref(true)
@@ -55,7 +91,7 @@ function handleMessagesScroll() {
 function autoResizeTextarea() {
   const textarea = textareaRef.value
   if (!textarea) return
-  
+
   textarea.style.height = 'auto'
   const newHeight = Math.min(Math.max(textarea.scrollHeight, 22), 120)
   textarea.style.height = newHeight + 'px'
@@ -88,21 +124,30 @@ async function send() {
 
   if (!activeConfig.value?.apiKey) {
     alert('请先配置并启用一个 LLM 接口')
-    showSettings.value = true
+    router.push('/settings')
     return
   }
 
-  messages.value.push({ role: 'user', content: text })
-  messages.value.push({ role: 'assistant', content: '' })
+  if (!currentChat.value) {
+    createNewChat()
+  }
+
+  if (currentChat.value) {
+    if (currentChat.value.messages.length === 0) {
+      updateChatTitle(currentChat.value.id, text)
+    }
+    currentChat.value.messages.push({ role: 'user', content: text })
+    currentChat.value.messages.push({ role: 'assistant', content: '' })
+  }
   input.value = ''
   scrollToBottom()
 
   sending.value = true
   controller.value = new AbortController()
-  
+
   try {
-    // 准备发送的消息（只包含 role 和 content）
-    const messagesToSend = messages.value.slice(0, -1).map(m => ({
+    const currentMessages = currentChat.value?.messages || []
+    const messagesToSend = currentMessages.slice(0, -1).map(m => ({
       role: m.role,
       content: m.content
     }))
@@ -110,7 +155,6 @@ async function send() {
     let resp: Response
 
     if (canUseElectronApi && activeConfig.value) {
-      // Electron 环境：直接请求当前启用的 LLM API
       const apiBase = normalizeApiUrl(activeConfig.value.apiUrl)
       resp = await fetch(`${apiBase}/chat/completions`, {
         method: 'POST',
@@ -126,7 +170,6 @@ async function send() {
         signal: controller.value.signal,
       })
     } else {
-      // Web 环境：通过后端代理（如果存在）
       resp = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -144,7 +187,7 @@ async function send() {
     const reader = resp.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
-    const assistantIndex = messages.value.length - 1
+    const assistantIndex = currentMessages.length - 1
 
     while (true) {
       const { done, value } = await reader.read()
@@ -163,17 +206,17 @@ async function send() {
           const json = JSON.parse(data)
           const delta = json?.choices?.[0]?.delta?.content ?? ''
           if (delta) {
-            const msg = messages.value[assistantIndex]
+            const msg = currentMessages[assistantIndex]
             if (msg) msg.content += delta
             scrollToBottom()
           }
         } catch {
-          // ignore parse errors
         }
       }
     }
   } catch (err) {
-    const last = messages.value[messages.value.length - 1]
+    const currentMessages = currentChat.value?.messages || []
+    const last = currentMessages[currentMessages.length - 1]
     if (last) {
       if (err instanceof Error && err.name === 'AbortError') {
         last.content = '对话已取消'
@@ -184,6 +227,7 @@ async function send() {
   } finally {
     sending.value = false
     controller.value = null
+    saveChatHistory()
     scrollToBottom()
   }
 }
@@ -205,17 +249,72 @@ function scrollToBottom() {
   })
 }
 
-function openSettings() {
-  showSettings.value = true
+function createNewChat() {
+  const newChat: Chat = {
+    id: Date.now().toString(),
+    title: '新对话',
+    messages: [],
+    createdAt: Date.now()
+  }
+  chatList.value.unshift(newChat)
+  currentChatId.value = newChat.id
+  saveChatHistory()
 }
 
-function closeSettings() {
-  showSettings.value = false
-  loadConfig()
+function switchChat(chatId: string) {
+  currentChatId.value = chatId
+}
+
+function deleteChat(chatId: string, event: Event) {
+  event.stopPropagation()
+  chatList.value = chatList.value.filter(c => c.id !== chatId)
+  if (currentChatId.value === chatId) {
+    currentChatId.value = chatList.value.length > 0 ? chatList.value[0]?.id ?? null : null
+  }
+  saveChatHistory()
+}
+
+function updateChatTitle(chatId: string, firstMessage: string) {
+  const chat = chatList.value.find(c => c.id === chatId)
+  if (chat) {
+    chat.title = firstMessage.slice(0, 20) + (firstMessage.length > 20 ? '...' : '')
+    saveChatHistory()
+  }
+}
+
+function saveChatHistory() {
+  localStorage.setItem('chat-history', JSON.stringify(chatList.value))
+}
+
+function loadChatHistory() {
+  const saved = localStorage.getItem('chat-history')
+  if (saved) {
+    try {
+      chatList.value = JSON.parse(saved)
+      if (chatList.value.length > 0) {
+        currentChatId.value = chatList.value[0]?.id ?? null
+      } else {
+        createNewChat()
+      }
+    } catch (e) {
+      console.error('Failed to load chat history:', e)
+      createNewChat()
+    }
+  } else {
+    createNewChat()
+  }
+}
+
+function logout() {
+  localStorage.removeItem('isLoggedIn')
+  localStorage.removeItem('username')
+  router.push('/login')
 }
 
 onMounted(() => {
+  loadChatHistory()
   loadConfig()
+  loadHighlightTheme()
   scrollToBottom()
   if (textareaRef.value) {
     autoResizeTextarea()
@@ -225,58 +324,91 @@ onMounted(() => {
 
 <template>
   <div class="container">
-    <header class="header">
-      <div class="header-inner">
-        <div class="brand">
-          <div class="brand-dot" />
-          <span>OpenChat Desktop</span>
-        </div>
-        <button class="settings-btn" @click="openSettings" title="设置">
-          设置
+    <aside class="sidebar" :class="{ collapsed: !showSidebar }">
+      <div class="sidebar-header">
+        <button class="new-chat-btn" @click="createNewChat">
+          <span class="plus-icon">+</span>
+          新对话
+        </button>
+        <button class="toggle-sidebar-btn" @click="showSidebar = !showSidebar" title="收起/展开侧边栏">
+          <span v-if="showSidebar">◀</span>
+          <span v-else>▶</span>
         </button>
       </div>
-    </header>
-    <main class="main">
-      <div class="messages" ref="messagesRef" @scroll="handleMessagesScroll">
-        <div v-if="messages.length === 0" class="welcome">
-          <h2>欢迎使用 OpenChat Desktop</h2>
-          <p>支持任何 OpenAI 标准 API 的桌面聊天应用</p>
-          <p>点击右上角的“设置”配置你的 LLM 接口</p>
-        </div>
+      <div class="chat-list">
         <div
-          v-for="(m, i) in messages"
-          :key="i"
-          :class="['msg-row', m.role]"
+          v-for="chat in chatList"
+          :key="chat.id"
+          :class="['chat-item', { active: chat.id === currentChatId }]"
+          @click="switchChat(chat.id)"
         >
-          <div class="msg-content">
-            <div class="msg-bubble" v-html="render(m.content)" />
-          </div>
+          <div class="chat-title">{{ chat.title }}</div>
+          <button class="delete-chat-btn" @click="deleteChat(chat.id, $event)" title="删除对话">
+            ✕
+          </button>
         </div>
       </div>
-      <form class="inputbar" @submit.prevent="send">
-      <div class="model-bar">
-        当前模型：{{ activeConfig?.name || activeConfig?.model || '未配置' }}
-      </div>
-        <div class="composer">
-          <textarea
-            v-model="input"
-            class="textarea"
-            placeholder="输入消息，回车发送，Shift+Enter 换行"
-            @keydown.enter.exact.prevent="send"
-            @input="autoResizeTextarea"
-            ref="textareaRef"
-          />
-          <div class="actions">
-            <button type="submit" class="btn primary" :disabled="sending">发送</button>
-            <button type="button" class="btn ghost" @click="cancel" :disabled="!sending">
-              取消
+    </aside>
+    <div class="content-wrapper">
+      <header class="header">
+        <div class="header-inner">
+          <button class="sidebar-toggle" @click="showSidebar = !showSidebar" v-if="!showSidebar" title="展开侧边栏">
+            ☰
+          </button>
+          <div class="brand">
+            <div class="brand-dot" />
+            <span>OpenChat Desktop</span>
+          </div>
+          <div class="header-actions">
+            <button class="settings-btn" @click="router.push('/settings')" title="设置">
+              设置
+            </button>
+            <button class="logout-btn" @click="logout" title="退出登录">
+              退出
             </button>
           </div>
         </div>
-      </form>
-      
-    </main>
-    <SettingsView v-if="showSettings" @close="closeSettings" />
+      </header>
+      <main class="main">
+        <div class="messages" ref="messagesRef" @scroll="handleMessagesScroll">
+          <div v-if="messages.length === 0" class="welcome">
+            <h2>欢迎使用 OpenChat Desktop</h2>
+            <p>支持任何 OpenAI 标准 API 的桌面聊天应用</p>
+            <p>点击右上角的"设置"配置你的 LLM 接口</p>
+          </div>
+          <div
+            v-for="(m, i) in messages"
+            :key="i"
+            :class="['msg-row', m.role]"
+          >
+            <div class="msg-content">
+              <div class="msg-bubble" v-html="render(m.content)" />
+            </div>
+          </div>
+        </div>
+        <form class="inputbar" @submit.prevent="send">
+          <div class="model-bar">
+            当前模型：{{ activeConfig?.name || activeConfig?.model || '未配置' }}
+          </div>
+          <div class="composer">
+            <textarea
+              v-model="input"
+              class="textarea"
+              placeholder="输入消息，回车发送，Shift+Enter 换行"
+              @keydown.enter.exact.prevent="send"
+              @input="autoResizeTextarea"
+              ref="textareaRef"
+            />
+            <div class="actions">
+              <button type="submit" class="btn primary" :disabled="sending">发送</button>
+              <button type="button" class="btn ghost" @click="cancel" :disabled="!sending">
+                取消
+              </button>
+            </div>
+          </div>
+        </form>
+      </main>
+    </div>
   </div>
 </template>
 
@@ -284,8 +416,140 @@ onMounted(() => {
 .container {
   min-height: 100vh;
   display: flex;
-  flex-direction: column;
   background: #ffffff;
+}
+
+.content-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar {
+  width: 260px;
+  background: #f9f9f9;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  transition: width 0.2s ease;
+}
+
+.sidebar.collapsed {
+  width: 0;
+  overflow: hidden;
+  border: none;
+}
+
+.sidebar-header {
+  padding: 16px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  gap: 8px;
+}
+
+.new-chat-btn {
+  flex: 1;
+  padding: 10px 16px;
+  background: #10a37f;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.2s;
+}
+
+.new-chat-btn:hover {
+  background: #0d8a6c;
+}
+
+.plus-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.toggle-sidebar-btn {
+  width: 36px;
+  padding: 0;
+  background: #e5e7eb;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.toggle-sidebar-btn:hover {
+  background: #d4d4d8;
+}
+
+.chat-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.chat-item {
+  padding: 12px 14px;
+  margin-bottom: 4px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.15s;
+  position: relative;
+}
+
+.chat-item:hover {
+  background: #e5e7eb;
+}
+
+.chat-item.active {
+  background: #e5e7eb;
+}
+
+.chat-title {
+  flex: 1;
+  font-size: 14px;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.delete-chat-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #9ca3af;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.15s;
+}
+
+.chat-item:hover .delete-chat-btn {
+  opacity: 1;
+}
+
+.delete-chat-btn:hover {
+  background: #fee2e2;
+  color: #dc2626;
 }
 
 .header {
@@ -335,6 +599,27 @@ onMounted(() => {
   background: #f0f0f0;
 }
 
+.header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.logout-btn {
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 999px;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.logout-btn:hover {
+  background: #fecaca;
+}
+
 .main {
   flex: 1;
   display: flex;
@@ -344,13 +629,9 @@ onMounted(() => {
 }
 
 .messages {
-    /*flex: 1; */
-    /* overflow-y: auto; */
-    /* overflow-x: hidden; */
-    /* padding: 24px 0 40px; */
-    background: #ffffff;
-    height: calc(78vh);
-    overflow: auto;
+  background: #ffffff;
+  height: calc(78vh);
+  overflow: auto;
 }
 
 .welcome {
