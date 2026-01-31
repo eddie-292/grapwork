@@ -921,15 +921,10 @@ onMounted(() => {
 }
 
 .msg-actions {
-  display: none;
-  gap: 6px;
-  position: absolute;
-  top: -30px;
-  right: 0;
-}
-
-.msg-content:hover .msg-actions {
   display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  justify-content: flex-end;
 }
 
 .copy-btn {
