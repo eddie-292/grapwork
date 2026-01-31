@@ -329,6 +329,15 @@ function changeAssistant(assistantId: string) {
   }
 }
 
+function changeConfig(configIndex: number) {
+  configList.value.activeIndex = configIndex
+  saveConfig()
+}
+
+function saveConfig() {
+  localStorage.setItem('llm-config-list', JSON.stringify(configList.value))
+}
+
 function saveChatHistory() {
   localStorage.setItem('chat-history', JSON.stringify(chatList.value))
 }
@@ -446,7 +455,11 @@ onMounted(() => {
                 {{ assistant.emoji }} {{ assistant.name }}
               </option>
             </select>
-            当前模型：{{ activeConfig?.name || activeConfig?.model || '未配置' }}
+            <select :value="configList.activeIndex" @change="changeConfig(Number(($event.target as HTMLSelectElement).value))" class="config-select">
+              <option v-for="(config, index) in configList.configs" :key="index" :value="index">
+                {{ config.name || config.model }}
+              </option>
+            </select>
           </div>
           <div class="composer">
             <textarea
@@ -836,6 +849,35 @@ onMounted(() => {
 }
 
 .assistant-select:focus {
+  outline: none;
+  border-color: #22c55e;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+}
+
+.config-select {
+  background: #f3f4f6;
+  color: #1e3a8a;
+  border: 1px solid #c084fc;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.config-select:hover {
+  background: #e0e7ff;
+  border-color: #a855f7;
+}
+
+.config-select:focus {
+  outline: none;
+  border-color: #a855f7;
+  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.2);
+}
+
+.composer {
   outline: none;
   border-color: #22c55e;
   box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
