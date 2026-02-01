@@ -271,8 +271,6 @@ function truncateText(text: string, maxLength: number): string {
 }
 
 .assistant-content {
-  max-width: 1200px;
-  margin: 0 auto;
   padding: 32px;
   width: 100%;
   flex: 1;
