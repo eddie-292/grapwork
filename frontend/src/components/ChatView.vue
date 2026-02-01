@@ -17,6 +17,7 @@ type Chat = {
   assistantId?: string
   configId?: number
   isTaskMode?: boolean
+  taskList?: { id: number; description: string; completed: boolean }[]
 }
 
 const md: MarkdownIt = new MarkdownIt({
@@ -100,7 +101,8 @@ const taskMode = computed(() => currentChat.value?.isTaskMode ?? false)
 //const pendingTaskMode = ref(false)
 const isTaskPlanning = ref(false)
 const isTaskExecuting = ref(false)
-const taskList = ref<{ id: number; description: string; completed: boolean }[]>([])
+// taskList 从当前会话获取，如果没有则返回空数组
+const taskList = computed(() => currentChat.value?.taskList ?? [])
 const currentTaskIndex = ref(-1)
 //const taskResults = ref<string[]>([])
 const taskProgressExpanded = ref(false)
@@ -209,7 +211,7 @@ const TASK_PLANNING_PROMPT = `你是一个任务规划助手。请将用户的�
 要求：
 1. 任务要具体、可执行
 2. 任务之间要有逻辑顺序
-3. 通常 3-6 个任务为宜
+3. 通常 3-6 个任务为宜，越简单子任务越少
 4. 只返回 JSON，不要有其他文字`
 
 // 发送消息到 LLM（支持流式响应）
@@ -670,7 +672,9 @@ async function executeTaskMode(userInput: string) {
     chat.messages[planMsgIndex].content = '正在规划任务...'
 
     const tasks = await planTasks(userInput)
-    taskList.value = tasks.map((t, i) => ({ id: i, description: t.description, completed: false }))
+    if (chat) {
+      chat.taskList = tasks.map((t, i) => ({ id: i, description: t.description, completed: false }))
+    }
 
     // 显示任务列表
     let taskListDisplay = '📋 **任务规划完成**\n\n'
@@ -729,8 +733,10 @@ async function executeTaskMode(userInput: string) {
       taskOutputs.push(msg.content)
 
       // 标记任务完成
-      if (taskList.value[i]) {
-        taskList.value[i].completed = true
+      const taskList = currentChat.value?.taskList
+      const currentTask = taskList?.[i]
+      if (currentTask) {
+        currentTask.completed = true
       }
 
       // 总结任务结果
@@ -1083,8 +1089,8 @@ onMounted(() => {
               </label>
             </div>
           </div>
-          <!-- 任务进度显示（悬浮，可折叠） -->
-          <div class="task-progress-float" v-if="taskMode && (isTaskPlanning || isTaskExecuting)">
+          <!-- 任务进度显示（悬浮，可折叠）  && (isTaskPlanning || isTaskExecuting)-->
+          <div class="task-progress-float" v-if="taskMode">
             <div class="task-progress-header" @click="taskProgressExpanded = !taskProgressExpanded">
               <span v-if="isTaskPlanning">正在规划任务...</span>
               <span v-else-if="isTaskExecuting">
@@ -1819,6 +1825,7 @@ onMounted(() => {
 
 .task-progress-header:hover {
   background: #f0fdf4;
+  border-radius: 8px;
 }
 
 .toggle-icon {
