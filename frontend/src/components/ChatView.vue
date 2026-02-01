@@ -1068,7 +1068,7 @@ onMounted(() => {
         </div>
         <form class="inputbar" @submit.prevent="send">
           <div class="model-bar">
-            <select :value="currentChat?.assistantId || ''" @change="changeAssistant(($event.target as HTMLSelectElement).value)" class="assistant-select">
+            <select :disabled="currentChat?.messages.length > 0" :value="currentChat?.assistantId || ''" @change="changeAssistant(($event.target as HTMLSelectElement).value)" class="assistant-select">
               <option value="">无助理</option>
               <option v-for="assistant in assistantList.assistants" :key="assistant.id" :value="assistant.id">
                 {{ assistant.emoji }} {{ assistant.name }}
@@ -1096,6 +1096,7 @@ onMounted(() => {
               <span v-else-if="isTaskExecuting">
                 正在执行：{{ taskList[currentTaskIndex]?.description || '' }}
               </span>
+              <span v-else>所有任务已完成！</span>
               <span class="toggle-icon">{{ taskProgressExpanded ? '▼' : '▶' }}</span>
             </div>
             <div v-show="taskProgressExpanded" class="task-progress-body">
