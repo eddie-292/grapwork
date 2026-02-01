@@ -319,7 +319,6 @@ function truncateText(text: string, maxLength: number): string {
 .assistant-card:hover {
   border-color: #10a37f;
   box-shadow: 0 8px 24px rgba(16, 163, 127, 0.12);
-  transform: translateY(-2px);
 }
 
 .card-avatar {
