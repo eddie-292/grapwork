@@ -7,6 +7,9 @@ import type { AppConfig, ConfigList } from '../types/electron'
 
 const router = useRouter()
 
+// 左侧导航状态
+const activeTab = ref<'config' | 'theme'>('config')
+
 const md: MarkdownIt = new MarkdownIt({
   html: false,
   linkify: true,
@@ -268,136 +271,171 @@ function clearChatHistory() {
     </header>
 
     <div class="settings-content">
-      <h2 class="title">LLM 接口配置</h2>
+      <!-- 左侧导航 -->
+      <aside class="settings-sidebar">
+        <nav class="sidebar-nav">
+          <button
+            class="nav-item"
+            :class="{ active: activeTab === 'config' }"
+            @click="activeTab = 'config'"
+          >
+            LLM 接口配置
+          </button>
+          <button
+            class="nav-item"
+            :class="{ active: activeTab === 'theme' }"
+            @click="activeTab = 'theme'"
+          >
+            代码高亮主题
+          </button>
+          <button
+            class="nav-item danger"
+            @click="clearChatHistory"
+          >
+            清空对话
+          </button>
+        </nav>
+      </aside>
 
-      <!-- 配置列表 -->
-      <div class="config-list">
-        <div v-if="configList.configs.length === 0" class="empty-state">
-          暂无配置，点击"添加新配置"创建一个
-        </div>
-        <div
-          v-for="(config, index) in configList.configs"
-          :key="index"
-          class="config-item"
-        >
-          <div class="config-info">
-            <div class="config-header">
-              <h3>{{ config.name || config.model }}</h3>
+      <!-- 右侧内容 -->
+      <main class="settings-main">
+        <!-- LLM 接口配置 -->
+        <div v-if="activeTab === 'config'" class="content-panel">
+          <h2 class="title">LLM 接口配置</h2>
+
+          <!-- 配置列表 -->
+          <div class="config-list">
+            <div v-if="configList.configs.length === 0" class="empty-state">
+              暂无配置，点击"添加新配置"创建一个
             </div>
-            <div class="config-details">
-              <div>模型：{{ config.model }}</div>
-              <div>地址：{{ config.apiUrl }}</div>
+            <div
+              v-for="(config, index) in configList.configs"
+              :key="index"
+              class="config-item"
+            >
+              <div class="config-info">
+                <div class="config-header">
+                  <h3>{{ config.name || config.model }}</h3>
+                </div>
+                <div class="config-details">
+                  <div>模型：{{ config.model }}</div>
+                  <div>地址：{{ config.apiUrl }}</div>
+                </div>
+              </div>
+              <div class="config-actions">
+                <button class="btn-icon" @click="editConfig(index)" title="编辑">编辑</button>
+                <button class="btn-icon" @click="deleteConfig(index)" title="删除">删除</button>
+              </div>
             </div>
           </div>
-          <div class="config-actions">
-            <button class="btn-icon" @click="editConfig(index)" title="编辑">编辑</button>
-            <button class="btn-icon" @click="deleteConfig(index)" title="删除">删除</button>
-          </div>
-        </div>
-      </div>
 
-      <!-- 编辑表单 -->
-      <div class="edit-form" v-if="showEditForm">
-        <h3>{{ editingIndex >= 0 ? '编辑配置' : '添加新配置' }}</h3>
-        <div class="form">
-          <div class="form-group">
-            <label>配置名称</label>
-            <input
-              v-model="currentConfig.name"
-              type="text"
-              placeholder="例如：OpenAI、Claude、本地模型"
-              class="input"
-            />
+          <!-- 编辑表单 -->
+          <div class="edit-form" v-if="showEditForm">
+            <h3>{{ editingIndex >= 0 ? '编辑配置' : '添加新配置' }}</h3>
+            <div class="form">
+              <div class="form-group">
+                <label>配置名称</label>
+                <input
+                  v-model="currentConfig.name"
+                  type="text"
+                  placeholder="例如：OpenAI、Claude、本地模型"
+                  class="input"
+                />
+              </div>
+
+              <div class="form-group">
+                <label>API 地址</label>
+                <input
+                  v-model="currentConfig.apiUrl"
+                  type="text"
+                  placeholder="https://api.openai.com/v1"
+                  class="input"
+                />
+                <small>支持任何 OpenAI 标准的 API 端点</small>
+              </div>
+
+              <div class="form-group">
+                <label>API Key</label>
+                <input
+                  v-model="currentConfig.apiKey"
+                  type="password"
+                  placeholder="sk-..."
+                  class="input"
+                />
+                <small>您的 API 密钥将安全存储在本地</small>
+              </div>
+
+              <div class="form-group">
+                <label>模型</label>
+                <input
+                  v-model="currentConfig.model"
+                  type="text"
+                  placeholder="gpt-4o-mini"
+                  class="input"
+                />
+                <small>例如: gpt-4o, gpt-4o-mini, claude-3-5-sonnet 等</small>
+              </div>
+
+              <div class="form-group">
+                <label>额外请求参数 (JSON 格式)</label>
+                <textarea
+                  v-model="currentConfig.extra_body"
+                  type="text"
+                  placeholder='{}'
+                  class="textarea"
+                  rows="4"
+                />
+              </div>
+
+              <div class="form-actions">
+                <button type="button" class="btn secondary" @click="showEditForm = false; editingIndex = -1; currentConfig = { name: '', apiUrl: '', apiKey: '', model: 'gpt-4o-mini', enabled: false, extra_body: '' }">
+                  取消
+                </button>
+                <button type="button" class="btn primary" @click="saveCurrentConfig">
+                  {{ editingIndex >= 0 ? '更新' : '添加' }}
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div class="form-group">
-            <label>API 地址</label>
-            <input
-              v-model="currentConfig.apiUrl"
-              type="text"
-              placeholder="https://api.openai.com/v1"
-              class="input"
-            />
-            <small>支持任何 OpenAI 标准的 API 端点</small>
-          </div>
-
-          <div class="form-group">
-            <label>API Key</label>
-            <input
-              v-model="currentConfig.apiKey"
-              type="password"
-              placeholder="sk-..."
-              class="input"
-            />
-            <small>您的 API 密钥将安全存储在本地</small>
-          </div>
-
-          <div class="form-group">
-            <label>模型</label>
-            <input
-              v-model="currentConfig.model"
-              type="text"
-              placeholder="gpt-4o-mini"
-              class="input"
-            />
-            <small>例如: gpt-4o, gpt-4o-mini, claude-3-5-sonnet 等</small>
-          </div>
-
-          <div class="form-group">
-            <label>额外请求参数 (JSON 格式)</label>
-            <textarea
-              v-model="currentConfig.extra_body"
-              type="text"
-              placeholder='{}'
-              class="textarea"
-              rows="4"
-            />
-          </div>
-
-          <div class="form-actions">
-            <button type="button" class="btn secondary" @click="showEditForm = false; editingIndex = -1; currentConfig = { name: '', apiUrl: '', apiKey: '', model: 'gpt-4o-mini', enabled: false, extra_body: '' }">
-              取消
+          <div v-else class="add-section">
+            <button type="button" class="btn primary" @click="showEditForm = true; editingIndex = -1; currentConfig = { name: '', apiUrl: '', apiKey: '', model: 'gpt-4o-mini', enabled: false, extra_body: '' }">
+              添加新配置
             </button>
-            <button type="button" class="btn primary" @click="saveCurrentConfig">
-              {{ editingIndex >= 0 ? '更新' : '添加' }}
-            </button>
+          </div>
+
+          <div v-if="message" class="message" :class="{ success: message.includes('成功') || message.includes('已保存') }">
+            {{ message }}
           </div>
         </div>
-      </div>
 
-      <div v-else class="add-section">
-        <button type="button" class="btn primary" @click="showEditForm = true; editingIndex = -1; currentConfig = { name: '', apiUrl: '', apiKey: '', model: 'gpt-4o-mini', enabled: false, extra_body: '' }">
-          添加新配置
-        </button>
-      </div>
-
-      <!-- 代码高亮主题 -->
-      <div class="highlight-theme-section">
-        <h3 class="section-title">代码高亮主题</h3>
-        <div class="theme-selector">
-          <select v-model="selectedHighlightTheme" class="theme-select">
-            <option v-for="theme in highlightThemes" :key="theme.value" :value="theme.value">
-              {{ theme.label }}
-            </option>
-          </select>
-          <div class="theme-preview">
-          <div :key="renderVersion" v-html="highlightedPreview"></div>
+        <!-- 代码高亮主题 -->
+        <div v-if="activeTab === 'theme'" class="content-panel">
+          <h2 class="title">代码高亮主题</h2>
+          <div class="highlight-theme-section">
+            <div class="theme-selector">
+              <select v-model="selectedHighlightTheme" class="theme-select">
+                <option v-for="theme in highlightThemes" :key="theme.value" :value="theme.value">
+                  {{ theme.label }}
+                </option>
+              </select>
+              <div class="theme-preview">
+              <div :key="renderVersion" v-html="highlightedPreview"></div>
+            </div>
+            </div>
+          </div>
+          <div v-if="message" class="message" :class="{ success: message.includes('成功') || message.includes('已保存') }">
+            {{ message }}
+          </div>
         </div>
+
+        <!-- 底部保存按钮 -->
+        <div class="global-actions">
+          <button type="button" class="btn primary" @click="saveAllConfigs" :disabled="saving">
+            {{ saving ? '保存中...' : '保存所有配置' }}
+          </button>
         </div>
-      </div>
-
-      <div v-if="message" class="message" :class="{ success: message.includes('成功') || message.includes('已保存') }">
-        {{ message }}
-      </div>
-
-      <div class="global-actions">
-        <button type="button" class="btn danger" @click="clearChatHistory">
-          清空对话
-        </button>
-        <button type="button" class="btn primary" @click="saveAllConfigs" :disabled="saving">
-          {{ saving ? '保存中...' : '保存所有配置' }}
-        </button>
-      </div>
+      </main>
     </div>
   </div>
 </template>
@@ -442,10 +480,66 @@ function clearChatHistory() {
 }
 
 .settings-content {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 32px 24px;
-  width: 100%;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* 左侧导航 */
+.settings-sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  border-right: 1px solid #e5e7eb;
+  padding: 24px 0;
+  background: #fafafa;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-item {
+  padding: 12px 24px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #6b7280;
+}
+
+.nav-item:hover {
+  background: #f3f4f6;
+  color: #0f172a;
+}
+
+.nav-item.active {
+  background: #10a37f;
+  color: white;
+}
+
+.nav-item.danger {
+  color: #dc2626;
+  margin-top: 12px;
+}
+
+.nav-item.danger:hover {
+  background: #fee2e2;
+}
+
+/* 右侧内容 */
+.settings-main {
+  flex: 1;
+  padding: 32px 40px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.content-panel {
+  max-width: 800px;
 }
 
 .title {
@@ -679,13 +773,13 @@ function clearChatHistory() {
   justify-content: flex-end;
   padding-top: 20px;
   margin-top: 24px;
+  max-width: 800px;
 }
 
 .highlight-theme-section {
-  background: #f9fafb;
-  padding: 20px;
-  border-radius: 8px;
-  margin-bottom: 20px;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
 }
 
 .section-title {
@@ -696,7 +790,7 @@ function clearChatHistory() {
 .theme-selector {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .theme-select {
