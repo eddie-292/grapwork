@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 import type { ConfigList, AssistantList } from '../types/electron'
+import TaskModePanel from './TaskModePanel.vue'
 
 const router = useRouter()
 
@@ -105,7 +106,6 @@ const isTaskExecuting = ref(false)
 const taskList = computed(() => currentChat.value?.taskList ?? [])
 const currentTaskIndex = ref(-1)
 //const taskResults = ref<string[]>([])
-const taskProgressExpanded = ref(false)
 const configList = ref<ConfigList>({
   configs: [],
   activeIndex: -1
@@ -825,7 +825,6 @@ ${taskResultsText}
     isTaskPlanning.value = false
     isTaskExecuting.value = false
     currentTaskIndex.value = -1
-    taskProgressExpanded.value = false
     saveChatHistory()
     scrollToBottom()
   }
@@ -1008,7 +1007,8 @@ onMounted(() => {
       </div>
     </aside>
     <div class="content-wrapper">
-      <header class="header">
+      <div class="content-area" :class="{ 'with-task-panel': taskMode }">
+        <header class="header">
         <div class="header-inner">
           <button class="sidebar-toggle" @click="showSidebar = !showSidebar" v-if="!showSidebar" title="展开侧边栏">
             ☰ <span>OpenChat Desktop</span>
@@ -1089,28 +1089,6 @@ onMounted(() => {
               </label>
             </div>
           </div>
-          <!-- 任务进度显示（悬浮，可折叠）  && (isTaskPlanning || isTaskExecuting)-->
-          <div class="task-progress-float" v-if="taskMode && taskList.length > 0">
-            <div class="task-progress-header" @click="taskProgressExpanded = !taskProgressExpanded">
-              <span v-if="isTaskPlanning">正在规划任务...</span>
-              <span v-else-if="isTaskExecuting">
-                正在执行：{{ taskList[currentTaskIndex]?.description || '' }}
-              </span>
-              <span v-else>所有任务已完成！</span>
-              <span class="toggle-icon">{{ taskProgressExpanded ? '▼' : '▶' }}</span>
-            </div>
-            <div v-show="taskProgressExpanded" class="task-progress-body">
-              <div class="task-list-mini">
-                <div v-for="(task, idx) in taskList" :key="task.id"
-                     :class="['task-item-mini', { active: idx === currentTaskIndex, completed: task.completed }]">
-                  <span v-if="task.completed">✓</span>
-                  <span v-else-if="idx === currentTaskIndex">◉</span>
-                  <span v-else>○</span>
-                  {{ task.description }}
-                </div>
-              </div>
-            </div>
-          </div>
 
           <div class="composer">
             <textarea
@@ -1131,6 +1109,14 @@ onMounted(() => {
         </form>
       </main>
     </div>
+      <TaskModePanel
+        v-if="taskMode"
+        :is-task-planning="isTaskPlanning"
+        :is-task-executing="isTaskExecuting"
+        :current-task-index="currentTaskIndex"
+        :task-list="taskList"
+      />
+    </div>
   </div>
 </template>
 
@@ -1144,7 +1130,15 @@ onMounted(() => {
 .content-wrapper {
   flex: 1;
   display: flex;
+  flex-direction: row;
+  min-width: 0;
+}
+
+.content-area {
+  flex: 1;
+  display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .sidebar {
@@ -1794,87 +1788,5 @@ onMounted(() => {
   font-size: 14px;
   color: #374151;
   font-weight: 500;
-}
-
-/* 任务进度悬浮显示 */
-.task-progress-float {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
-  min-width: 300px;
-  max-width: 500px;
-  background: #ffffff;
-  border: 1px solid #a7f3d0;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 100;
-}
-
-.task-progress-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  cursor: pointer;
-  user-select: none;
-  font-size: 13px;
-  color: #065f46;
-  font-weight: 500;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.task-progress-header:hover {
-  background: #f0fdf4;
-  border-radius: 8px;
-}
-
-.toggle-icon {
-  font-size: 10px;
-  margin-left: 8px;
-}
-
-.task-progress-body {
-  padding: 8px 14px 12px;
-}
-
-.task-progress {
-  display: none;
-}
-
-.task-status {
-  font-size: 13px;
-  color: #065f46;
-  font-weight: 500;
-}
-
-.task-list-mini {
-  margin-top: 8px;
-}
-
-.task-item-mini {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 0;
-  font-size: 12px;
-  color: #047857;
-}
-
-.task-item-mini.active {
-  color: #065f46;
-  font-weight: 600;
-}
-
-.task-item-mini.completed {
-  color: #059669;
-  opacity: 0.7;
-  text-decoration: line-through;
-}
-
-.task-item-mini span:first-child {
-  font-size: 12px;
-  width: 16px;
-  text-align: center;
 }
 </style>
