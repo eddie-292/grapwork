@@ -226,7 +226,7 @@ function truncateText(text: string, maxLength: number): string {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 20px 32px;
+  padding: 16px 24px;
   background: #ffffff;
   border-bottom: 1px solid #e8ecf1;
 }
