@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>星空深空繁星</title>
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            background: linear-gradient(to bottom, #000428, #000f60);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .star {
+            position: absolute;
+            border-radius: 50%;
+            background: white;
+            opacity: 0.8;
+            animation: twinkle 2s infinite;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .star-small { width: 2px; height: 2px; }
+        .star-medium { width: 4px; height: 4px; }
+        .star-large { width: 6px; height: 6px; }
+    </style>
+</head>
+<body>
+    <script>
+        for(let i = 0; i < 200; i++) {
+            const star = document.createElement('div');
+            const x = Math.random() * window.innerWidth;
+            const y = Math.random() * window.innerHeight;
+            const size = ['star-small', 'star-medium', 'star-large'][Math.floor(Math.random() * 3)];
+            const speed = 1.5 + Math.random() * 1.5;
+
+            star.className = `star ${size}`;
+            star.style.left = `${x}px`;
+            star.style.top = `${y}px`;
+            star.style.animationDuration = `${speed}s`;
+            star.style.animationDelay = `-${Math.random() * speed}s`;
+            
+            document.body.appendChild(star);
+        }
+    </script>
+</body>
+</html>
