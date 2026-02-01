@@ -1020,7 +1020,7 @@ onMounted(() => {
           <div class="header-actions">
             <button class="assistant-btn" @click="router.push('/assistants')" title="社区助理">
               <span v-if="activeAssistant">{{ activeAssistant.emoji }}</span>
-              <span v-else>🤖</span>
+              <span v-else>社区助理</span>
             </button>
             <button class="settings-btn" @click="router.push('/settings')" title="设置">
               设置
@@ -1357,7 +1357,7 @@ onMounted(() => {
 .assistant-btn {
   background: #f0fdf400;
   border: 1px solid #86efac00;
-  font-size: 18px;
+  font-size: 14px;
   cursor: pointer;
   padding: 6px 12px;
   border-radius: 999px;
