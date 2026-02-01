@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import type { Assistant, AssistantList } from '../types/electron'
+import ConfirmDialog from './ConfirmDialog.vue'
 
 const router = useRouter()
 
@@ -22,6 +23,13 @@ const editingIndex = ref(-1)
 const showEditForm = ref(false)
 const saving = ref(false)
 const message = ref('')
+const showDeleteConfirm = ref(false)
+const assistantToDeleteIndex = ref(-1)
+
+const deleteMessage = computed(() => {
+  const name = assistantList.value.assistants[assistantToDeleteIndex.value]?.name || ''
+  return `确定要删除 "${name}" 这个助理吗？此操作无法撤销。`
+})
 
 const emojiOptions = [
   '🤖', '👨‍💻', '👩‍💻', '🧑‍🎨', '🧑‍🏫', '🧑‍⚕️', '🧑‍💼',
@@ -49,14 +57,29 @@ function editAssistant(index: number) {
   }
 }
 
-function deleteAssistant(index: number) {
-  assistantList.value.assistants.splice(index, 1)
-  if (assistantList.value.activeIndex === index) {
-    assistantList.value.activeIndex = -1
-  } else if (assistantList.value.activeIndex > index) {
-    assistantList.value.activeIndex--
+function confirmDelete(index: number) {
+  assistantToDeleteIndex.value = index
+  showDeleteConfirm.value = true
+}
+
+function handleDeleteConfirm() {
+  if (assistantToDeleteIndex.value >= 0) {
+    const index = assistantToDeleteIndex.value
+    assistantList.value.assistants.splice(index, 1)
+    if (assistantList.value.activeIndex === index) {
+      assistantList.value.activeIndex = -1
+    } else if (assistantList.value.activeIndex > index) {
+      assistantList.value.activeIndex--
+    }
+    saveAssistants()
+    showDeleteConfirm.value = false
+    assistantToDeleteIndex.value = -1
   }
-  saveAssistants()
+}
+
+function handleDeleteCancel() {
+  showDeleteConfirm.value = false
+  assistantToDeleteIndex.value = -1
 }
 
 function saveCurrentAssistant() {
@@ -171,6 +194,17 @@ function truncateText(text: string, maxLength: number): string {
       </div>
     </div>
 
+    <!-- 删除确认对话框 -->
+    <ConfirmDialog
+      :show="showDeleteConfirm"
+      title="确认删除"
+      :message="deleteMessage"
+      type="danger"
+      confirm-text="删除"
+      @confirm="handleDeleteConfirm"
+      @cancel="handleDeleteCancel"
+    />
+
     <div class="assistant-content">
       <div v-if="assistantList.assistants.length === 0" class="empty-state">
         <div class="empty-icon">🤖</div>
@@ -200,7 +234,7 @@ function truncateText(text: string, maxLength: number): string {
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
               </svg>
             </button>
-            <button class="delete-btn" @click="deleteAssistant(index)" title="删除">
+            <button class="delete-btn" @click="confirmDelete(index)" title="删除">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="3 6 5 6 21 6"></polyline>
                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
