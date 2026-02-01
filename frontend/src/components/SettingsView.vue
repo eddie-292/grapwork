@@ -264,6 +264,16 @@ function loadHighlightTheme(theme: string): Promise<void> {
 function goBack() {
   router.push('/')
 }
+
+function clearChatHistory() {
+  if (confirm('确定要清空所有对话历史吗？此操作不可恢复。')) {
+    localStorage.removeItem('chat-history')
+    message.value = '对话历史已清空'
+    setTimeout(() => {
+      message.value = ''
+    }, 2000)
+  }
+}
 </script>
 
 <template>
@@ -408,6 +418,9 @@ function goBack() {
       </div>
 
       <div class="global-actions">
+        <button type="button" class="btn danger" @click="clearChatHistory">
+          清空对话
+        </button>
         <button type="button" class="btn primary" @click="saveAllConfigs" :disabled="saving">
           {{ saving ? '保存中...' : '保存所有配置' }}
         </button>
@@ -571,6 +584,16 @@ function goBack() {
 
 .btn.primary:hover:not(:disabled) {
   background: #0f8f6d;
+}
+
+.btn.danger {
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.btn.danger:hover {
+  background: #fecaca;
 }
 
 .config-list {
