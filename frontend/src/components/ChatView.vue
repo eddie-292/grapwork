@@ -10,6 +10,26 @@ const router = useRouter()
 
 type Role = 'user' | 'assistant' | 'system'
 type Message = { role: Role; content: string, reasoning: string, reasoningDuration?: number, visible?: boolean, copyable?: boolean }
+
+// OpenAI 兼容的对话参数配置
+type ChatParams = {
+  temperature?: number      // 控制输出的随机性，0-2，默认 1
+  top_p?: number           // 核采样，0-1，默认 1
+  max_tokens?: number      // 最大生成 token 数
+  presence_penalty?: number  // 存在惩罚，-2.0 到 2.0，默认 0
+  frequency_penalty?: number // 频率惩罚，-2.0 到 2.0，默认 0
+  seed?: number            // 随机种子
+}
+
+// 默认参数配置
+const DEFAULT_CHAT_PARAMS: ChatParams = {
+  temperature: 1,
+  top_p: 1,
+  max_tokens: 0,
+  presence_penalty: 0,
+  frequency_penalty: 0,
+}
+
 type Chat = {
   id: string
   title: string
@@ -19,6 +39,7 @@ type Chat = {
   configId?: number
   isTaskMode?: boolean
   taskList?: { id: number; description: string; completed: boolean }[]
+  params?: ChatParams  // 对话级别的参数配置
 }
 
 const md: MarkdownIt = new MarkdownIt({
@@ -102,6 +123,9 @@ const taskMode = computed(() => currentChat.value?.isTaskMode ?? false)
 //const pendingTaskMode = ref(false)
 const isTaskPlanning = ref(false)
 const isTaskExecuting = ref(false)
+// 参数配置对话框状态
+const showParamsDialog = ref(false)
+const tempParams = ref<ChatParams>({ ...DEFAULT_CHAT_PARAMS })
 // taskList 从当前会话获取，如果没有则返回空数组
 const taskList = computed(() => currentChat.value?.taskList ?? [])
 const currentTaskIndex = ref(-1)
@@ -359,6 +383,21 @@ async function executeTaskStreaming(
     throw new Error('任务模式暂时不支持浏览器开发环境，请使用 Electron')
   }
   const apiBase = normalizeApiUrl(activeConfig.value.apiUrl!)
+
+  // 获取对话级别的参数配置
+  const chatParams = currentChat.value?.params || {}
+  // 只发送非 undefined 的参数，max_tokens 只有大于 0 才发送
+  const validParams: Record<string, any> = {}
+  for (const [key, value] of Object.entries(chatParams)) {
+    if (value !== undefined) {
+      // max_tokens 只有大于 0 才发送
+      if (key === 'max_tokens' && value <= 0) {
+        continue
+      }
+      validParams[key] = value
+    }
+  }
+
   const resp = await fetch(`${apiBase}/chat/completions`, {
     method: 'POST',
     headers: {
@@ -369,6 +408,7 @@ async function executeTaskStreaming(
       model: activeConfig.value.model,
       messages: messagesToSend,
       stream: true,
+      ...validParams,
       ...extraBodyParams,
     }),
     signal: controller.value!.signal,
@@ -550,6 +590,21 @@ async function executeNormalChat(text: string) {
     const useProxy = import.meta.env.DEV && !isElectronEnv
     if (!useProxy && window.electronAPI && activeConfig.value) {
       const apiBase = normalizeApiUrl(activeConfig.value.apiUrl)
+
+      // 获取对话级别的参数配置
+      const chatParams = currentChat.value?.params || {}
+      // 只发送非 undefined 的参数，max_tokens 只有大于 0 才发送
+      const validParams: Record<string, any> = {}
+      for (const [key, value] of Object.entries(chatParams)) {
+        if (value !== undefined) {
+          // max_tokens 只有大于 0 才发送
+          if (key === 'max_tokens' && value <= 0) {
+            continue
+          }
+          validParams[key] = value
+        }
+      }
+
       resp = await fetch(`${apiBase}/chat/completions`, {
         method: 'POST',
         headers: {
@@ -560,6 +615,7 @@ async function executeNormalChat(text: string) {
           model: activeConfig.value.model,
           messages: messagesToSend,
           stream: true,
+          ...validParams,
           ...extraBodyParams,
         }),
         signal: controller.value.signal,
@@ -867,6 +923,10 @@ function createNewChat(isTaskModeChat: boolean = false) {
   const lastConfigId = chatList.value[0]?.configId
   const currentConfigId = configList.value.activeIndex >= 0 ? configList.value.activeIndex : undefined
 
+  // 使用上一个对话的参数配置，如果没有则使用默认值
+  const lastParams = chatList.value[0]?.params
+  const newParams = lastParams ? { ...lastParams } : { ...DEFAULT_CHAT_PARAMS }
+
   const newChat: Chat = {
     id: Date.now().toString(),
     title: isTaskModeChat ? '任务模式新对话' : '新对话',
@@ -874,7 +934,8 @@ function createNewChat(isTaskModeChat: boolean = false) {
     createdAt: Date.now(),
     assistantId: lastAssistantId || currentAssistantId,
     configId: lastConfigId ?? currentConfigId,
-    isTaskMode: isTaskModeChat
+    isTaskMode: isTaskModeChat,
+    params: newParams
   }
   chatList.value.unshift(newChat)
   currentChatId.value = newChat.id
@@ -918,6 +979,61 @@ function changeChatConfig(configIndex: string) {
     chat.configId = configIndex ? Number(configIndex) : undefined
     saveChatHistory()
   }
+}
+
+// 打开参数配置对话框
+function openParamsDialog() {
+  const chat = currentChat.value
+  if (chat) {
+    // 合并已保存的参数和默认参数
+    const saved = chat.params || {}
+    tempParams.value = {
+      temperature: saved.temperature ?? DEFAULT_CHAT_PARAMS.temperature,
+      top_p: saved.top_p ?? DEFAULT_CHAT_PARAMS.top_p,
+      max_tokens: saved.max_tokens ?? DEFAULT_CHAT_PARAMS.max_tokens,  // 默认 0
+      presence_penalty: saved.presence_penalty ?? DEFAULT_CHAT_PARAMS.presence_penalty,
+      frequency_penalty: saved.frequency_penalty ?? DEFAULT_CHAT_PARAMS.frequency_penalty,
+      seed: saved.seed,  // seed 如果未设置则为 undefined
+    }
+    showParamsDialog.value = true
+  }
+}
+
+// 保存参数配置
+function saveParams() {
+  const chat = currentChat.value
+  if (chat) {
+    // 只保存非 undefined 的参数，max_tokens 只有大于 0 才保存
+    const savedParams: ChatParams = {}
+    if (tempParams.value.temperature !== undefined && tempParams.value.temperature !== DEFAULT_CHAT_PARAMS.temperature) {
+      savedParams.temperature = tempParams.value.temperature
+    }
+    if (tempParams.value.top_p !== undefined && tempParams.value.top_p !== DEFAULT_CHAT_PARAMS.top_p) {
+      savedParams.top_p = tempParams.value.top_p
+    }
+    // max_tokens 只有大于 0 才保存
+    if (tempParams.value.max_tokens !== undefined && tempParams.value.max_tokens > 0 && tempParams.value.max_tokens !== DEFAULT_CHAT_PARAMS.max_tokens) {
+      savedParams.max_tokens = tempParams.value.max_tokens
+    }
+    if (tempParams.value.presence_penalty !== undefined && tempParams.value.presence_penalty !== DEFAULT_CHAT_PARAMS.presence_penalty) {
+      savedParams.presence_penalty = tempParams.value.presence_penalty
+    }
+    if (tempParams.value.frequency_penalty !== undefined && tempParams.value.frequency_penalty !== DEFAULT_CHAT_PARAMS.frequency_penalty) {
+      savedParams.frequency_penalty = tempParams.value.frequency_penalty
+    }
+    // seed 只有明确设置了才保存
+    if (tempParams.value.seed !== undefined && tempParams.value.seed !== 0) {
+      savedParams.seed = tempParams.value.seed
+    }
+    chat.params = Object.keys(savedParams).length > 0 ? savedParams : undefined
+    saveChatHistory()
+  }
+  showParamsDialog.value = false
+}
+
+// 重置参数为默认值
+function resetParams() {
+  tempParams.value = { ...DEFAULT_CHAT_PARAMS }
 }
 
 function saveChatHistory() {
@@ -1087,6 +1203,10 @@ onMounted(() => {
                 {{ config.name || config.model }}
               </option>
             </select>
+            <!-- 参数配置按钮 -->
+            <button type="button" class="params-btn" @click="openParamsDialog" title="对话参数配置" :disabled="!currentChat">
+              参数
+            </button>
             <!-- 任务模式 -->
             <div class="task-mode-toggle" v-if="currentChat?.messages.length === 0">
               <label class="toggle-label">
@@ -1124,6 +1244,144 @@ onMounted(() => {
         :task-list="taskList"
       />
     </div>
+
+    <!-- 参数配置对话框 -->
+    <Teleport to="body">
+      <div v-if="showParamsDialog" class="dialog-overlay" @click.self="showParamsDialog = false">
+        <div class="dialog-content">
+          <div class="dialog-header">
+            <h3>对话参数配置</h3>
+            <button class="dialog-close" @click="showParamsDialog = false">✕</button>
+          </div>
+          <div class="dialog-body">
+            <div class="param-group">
+              <label class="param-label">
+                <span>Temperature (温度)</span>
+                <span class="param-value">{{ tempParams.temperature }}</span>
+              </label>
+              <input
+                type="range"
+                v-model.number="tempParams.temperature"
+                min="0"
+                max="2"
+                step="0.1"
+                class="param-range"
+              />
+              <p class="param-desc">控制输出的随机性，值越高越随机，值越低越确定</p>
+            </div>
+
+            <div class="param-group">
+              <label class="param-label">
+                <span>Top P (核采样)</span>
+                <span class="param-value">{{ tempParams.top_p }}</span>
+              </label>
+              <input
+                type="range"
+                v-model.number="tempParams.top_p"
+                min="0"
+                max="1"
+                step="0.05"
+                class="param-range"
+              />
+              <p class="param-desc">控制词汇选择范围，值越小越保守</p>
+            </div>
+
+            <div class="param-group">
+              <label class="param-label">
+                <span>Max Tokens (最大生成长度)</span>
+                <div class="param-value-with-action">
+                  <span class="param-value">{{ tempParams.max_tokens === 0 ? '未设置' : tempParams.max_tokens }}</span>
+                  <button
+                    v-if="tempParams.max_tokens !== undefined && tempParams.max_tokens > 0"
+                    type="button"
+                    class="clear-btn"
+                    @click="tempParams.max_tokens = 0"
+                    title="清空限制"
+                  >✕</button>
+                </div>
+              </label>
+              <input
+                type="number"
+                v-model.number="tempParams.max_tokens"
+                min="0"
+                max="128000"
+                class="param-number"
+                placeholder="留空或 0 则不限制"
+              />
+              <p class="param-desc">限制生成的最大 token 数量，0 或留空则不限制</p>
+            </div>
+
+            <div class="param-group">
+              <label class="param-label">
+                <span>Presence Penalty (存在惩罚)</span>
+                <span class="param-value">{{ tempParams.presence_penalty }}</span>
+              </label>
+              <input
+                type="range"
+                v-model.number="tempParams.presence_penalty"
+                min="-2"
+                max="2"
+                step="0.1"
+                class="param-range"
+              />
+              <p class="param-desc">惩罚已出现的话题，鼓励讨论新话题</p>
+            </div>
+
+            <div class="param-group">
+              <label class="param-label">
+                <span>Frequency Penalty (频率惩罚)</span>
+                <span class="param-value">{{ tempParams.frequency_penalty }}</span>
+              </label>
+              <input
+                type="range"
+                v-model.number="tempParams.frequency_penalty"
+                min="-2"
+                max="2"
+                step="0.1"
+                class="param-range"
+              />
+              <p class="param-desc">惩罚重复的 token，鼓励多样性</p>
+            </div>
+
+            <div class="param-group">
+              <label class="param-label">
+                <span>Seed (随机种子)</span>
+                <div class="param-value-with-action">
+                  <span class="param-value">{{ tempParams.seed === undefined || tempParams.seed === 0 ? '未设置' : tempParams.seed }}</span>
+                  <button
+                    v-if="tempParams.seed !== undefined && tempParams.seed !== 0"
+                    type="button"
+                    class="clear-btn"
+                    @click="tempParams.seed = undefined"
+                    title="清空种子"
+                  >✕</button>
+                </div>
+              </label>
+              <input
+                type="number"
+                v-model.number="tempParams.seed"
+                min="0"
+                max="4294967295"
+                class="param-number"
+                placeholder="留空则不使用固定种子"
+              />
+              <p class="param-desc">固定随机种子以获得可重复的结果</p>
+            </div>
+          </div>
+          <div class="dialog-footer">
+            <button type="button" class="btn secondary" @click="resetParams">
+              重置默认
+            </button>
+            <button type="button" class="btn ghost" @click="showParamsDialog = false">
+              取消
+            </button>
+            <button type="button" class="btn primary" @click="saveParams">
+              保存
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -1795,5 +2053,212 @@ onMounted(() => {
   font-size: 14px;
   color: #374151;
   font-weight: 500;
+}
+
+/* 参数配置按钮 */
+.params-btn {
+  background: #f3f4f6;
+  color: #1e3a8a;
+  border: 1px solid #c084fc;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-left: auto;
+}
+
+.params-btn:hover:not(:disabled) {
+  background: #e0e7ff;
+  border-color: #a855f7;
+}
+
+.params-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 参数配置对话框 */
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dialog-content {
+  background: #ffffff;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.dialog-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.dialog-close {
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.dialog-close:hover {
+  background: #f3f4f6;
+  color: #0f172a;
+}
+
+.dialog-body {
+  padding: 20px 24px;
+  overflow-y: auto;
+}
+
+.param-group {
+  margin-bottom: 20px;
+}
+
+.param-group:last-child {
+  margin-bottom: 0;
+}
+
+.param-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 8px;
+}
+
+.param-value {
+  font-size: 13px;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.param-value-with-action {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.clear-btn {
+  background: transparent;
+  border: none;
+  font-size: 14px;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.clear-btn:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.param-range {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: #e5e7eb;
+  outline: none;
+  -webkit-appearance: none;
+}
+
+.param-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #10a37f;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.param-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #10a37f;
+  cursor: pointer;
+  transition: background 0.2s;
+  border: none;
+}
+
+.param-range::-webkit-slider-thumb:hover {
+  background: #0d8a6c;
+}
+
+.param-number {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #0f172a;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.param-number:focus {
+  border-color: #10a37f;
+}
+
+.param-desc {
+  margin: 6px 0 0 0;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 24px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.btn.secondary {
+  background: #f3f4f6;
+  color: #374151;
+  border-color: #e5e7eb;
+}
+
+.btn.secondary:hover {
+  background: #e5e7eb;
 }
 </style>
