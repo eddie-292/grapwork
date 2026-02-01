@@ -59,11 +59,6 @@ function deleteAssistant(index: number) {
   saveAssistants()
 }
 
-function selectAssistant(index: number) {
-  assistantList.value.activeIndex = index
-  saveAssistants()
-}
-
 function saveCurrentAssistant() {
   if (editingIndex.value >= 0) {
     assistantList.value.assistants[editingIndex.value] = {
@@ -116,41 +111,19 @@ function truncateText(text: string, maxLength: number): string {
         返回
       </button>
       <h1>社区助理</h1>
+      <button class="add-btn" @click="showEditForm = true; editingIndex = -1; currentAssistant = { id: '', name: '', emoji: '🤖', systemPrompt: '', createdAt: 0 }">
+        + 新建助理
+      </button>
     </header>
 
-    <div class="assistant-content">
-      <!-- 助理列表 -->
-      <div class="assistant-list">
-        <div v-if="assistantList.assistants.length === 0" class="empty-state">
-          暂无社区助理，点击"添加助理"创建一个
+    <!-- 编辑表单模态框 -->
+    <div class="modal-overlay" v-if="showEditForm" @click.self="showEditForm = false">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>{{ editingIndex >= 0 ? '编辑助理' : '创建助理' }}</h3>
+          <button class="close-btn" @click="showEditForm = false; editingIndex = -1">×</button>
         </div>
-        <div
-          v-for="(assistant, index) in assistantList.assistants"
-          :key="assistant.id"
-          class="assistant-item"
-          :class="{ active: assistantList.activeIndex === index }"
-          @click="selectAssistant(index)"
-        >
-          <div class="assistant-icon">{{ assistant.emoji }}</div>
-          <div class="assistant-info">
-            <div class="assistant-header">
-              <h3>{{ assistant.name }}</h3>
-              <div class="assistant-actions" @click.stop>
-                <button class="btn-icon" @click="editAssistant(index)" title="编辑">编辑</button>
-                <button class="btn-icon" @click="deleteAssistant(index)" title="删除">删除</button>
-              </div>
-            </div>
-            <div class="assistant-prompt">
-              {{ truncateText(assistant.systemPrompt, 100) }}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 编辑表单 -->
-      <div class="edit-form" v-if="showEditForm">
-        <h3>{{ editingIndex >= 0 ? '编辑助理' : '添加新助理' }}</h3>
-        <div class="form">
+        <div class="modal-body">
           <div class="form-group">
             <label>助理名称</label>
             <input
@@ -182,26 +155,59 @@ function truncateText(text: string, maxLength: number): string {
               v-model="currentAssistant.systemPrompt"
               placeholder="设置 AI 助手的角色和行为..."
               class="input textarea"
-              rows="8"
+              rows="6"
             />
             <small>描述助理的专长、性格和回答风格</small>
           </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn secondary" @click="showEditForm = false; editingIndex = -1">
+            取消
+          </button>
+          <button type="button" class="btn primary" @click="saveCurrentAssistant">
+            {{ editingIndex >= 0 ? '保存' : '创建' }}
+          </button>
+        </div>
+      </div>
+    </div>
 
-          <div class="form-actions">
-            <button type="button" class="btn secondary" @click="showEditForm = false; editingIndex = -1; currentAssistant = { id: '', name: '', emoji: '🤖', systemPrompt: '', createdAt: 0 }">
-              取消
+    <div class="assistant-content">
+      <div v-if="assistantList.assistants.length === 0" class="empty-state">
+        <div class="empty-icon">🤖</div>
+        <p>暂无社区助理</p>
+        <button class="btn primary" @click="showEditForm = true; editingIndex = -1; currentAssistant = { id: '', name: '', emoji: '🤖', systemPrompt: '', createdAt: 0 }">
+          + 创建第一个助理
+        </button>
+      </div>
+
+      <div v-else class="assistant-grid">
+        <div
+          v-for="(assistant, index) in assistantList.assistants"
+          :key="assistant.id"
+          class="assistant-card"
+        >
+          <div class="card-avatar">
+            {{ assistant.emoji }}
+          </div>
+          <div class="card-info">
+            <h3 class="card-title">{{ assistant.name }}</h3>
+            <p class="card-description">{{ truncateText(assistant.systemPrompt, 60) || '暂无描述' }}</p>
+          </div>
+          <div class="card-actions">
+            <button class="edit-btn" @click="editAssistant(index)" title="编辑">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+              </svg>
             </button>
-            <button type="button" class="btn primary" @click="saveCurrentAssistant">
-              {{ editingIndex >= 0 ? '更新' : '添加' }}
+            <button class="delete-btn" @click="deleteAssistant(index)" title="删除">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
             </button>
           </div>
         </div>
-      </div>
-
-      <div v-else class="add-section">
-        <button type="button" class="btn primary" @click="showEditForm = true; editingIndex = -1; currentAssistant = { id: '', name: '', emoji: '🤖', systemPrompt: '', createdAt: 0 }">
-          添加助理
-        </button>
       </div>
     </div>
   </div>
@@ -210,7 +216,7 @@ function truncateText(text: string, maxLength: number): string {
 <style scoped>
 .assistant-page {
   min-height: 100vh;
-  background: #ffffff;
+  background: #f5f7fa;
   display: flex;
   flex-direction: column;
 }
@@ -218,144 +224,243 @@ function truncateText(text: string, maxLength: number): string {
 .assistant-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 16px;
-  padding: 16px 24px;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.back-btn {
-  background: #f5f5f5;
-  border: 1px solid #e5e7eb;
-  font-size: 14px;
-  cursor: pointer;
-  padding: 6px 12px;
-  border-radius: 999px;
-  transition: background 0.2s, border-color 0.2s;
-}
-
-.back-btn:hover {
-  background: #f0f0f0;
+  padding: 20px 32px;
+  background: #ffffff;
+  border-bottom: 1px solid #e8ecf1;
 }
 
 .assistant-header h1 {
   margin: 0;
-  font-size: 20px;
+  font-size: 24px;
   font-weight: 600;
-  color: #0f172a;
+  color: #1a1a2e;
+}
+
+.back-btn {
+  background: transparent;
+  border: 1px solid #e8ecf1;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 8px 16px;
+  border-radius: 8px;
+  transition: all 0.2s;
+  color: #4a5568;
+}
+
+.back-btn:hover {
+  background: #f5f7fa;
+  border-color: #d1d5db;
+}
+
+.add-btn {
+  background: #10a37f;
+  color: white;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 10px 20px;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.add-btn:hover {
+  background: #0f8f6d;
 }
 
 .assistant-content {
-  max-width: 900px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 32px 24px;
+  padding: 32px;
   width: 100%;
-}
-
-.assistant-list {
-  margin-bottom: 24px;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 40px 20px;
-  color: #6b7280;
-  background: #f9fafb;
-  border-radius: 8px;
-  margin-bottom: 20px;
-}
-
-.assistant-item {
-  display: flex;
-  align-items: flex-start;
-  padding: 20px;
-  border: 2px solid #e5e7eb;
-  border-radius: 12px;
-  margin-bottom: 12px;
-  background: #ffffff;
-  cursor: pointer;
-  transition: all 0.2s;
-  gap: 16px;
-}
-
-.assistant-item:hover {
-  border-color: #10a37f;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.assistant-item.active {
-  border-color: #10a37f;
-  background: #f0fdf4;
-  box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.2);
-}
-
-.assistant-icon {
-  font-size: 32px;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.assistant-info {
   flex: 1;
 }
 
-.assistant-header {
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  gap: 16px;
+}
+
+.empty-icon {
+  font-size: 64px;
+  opacity: 0.5;
+}
+
+.empty-state p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 16px;
+}
+
+.assistant-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+.assistant-card {
+  background: #ffffff;
+  border: 1px solid #e8ecf1;
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: all 0.2s;
+  cursor: default;
+}
+
+.assistant-card:hover {
+  border-color: #10a37f;
+  box-shadow: 0 8px 24px rgba(16, 163, 127, 0.12);
+  transform: translateY(-2px);
+}
+
+.card-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
+  justify-content: center;
+  font-size: 32px;
+  border: 2px solid #e8ecf1;
 }
 
-.assistant-header h3 {
-  margin: 0;
+.card-info {
+  flex: 1;
+}
+
+.card-title {
+  margin: 0 0 8px 0;
   font-size: 18px;
-  color: #0f172a;
+  font-weight: 600;
+  color: #1a1a2e;
 }
 
-.assistant-prompt {
+.card-description {
+  margin: 0;
   font-size: 14px;
   color: #6b7280;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
-.assistant-actions {
+.card-actions {
   display: flex;
   gap: 8px;
 }
 
-.btn-icon {
-  min-width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: 1px solid #e5e7eb;
-  background: #f5f5f5;
+.use-btn {
+  flex: 1;
+  background: #10a37f;
+  color: white;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 10px 16px;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.use-btn:hover {
+  background: #0f8f6d;
+}
+
+.edit-btn, .delete-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: 1px solid #e8ecf1;
+  background: #ffffff;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
   transition: all 0.2s;
+  color: #6b7280;
 }
 
-.btn-icon:hover {
-  background: #f0f0f0;
-  border-color: #d1d5db;
+.edit-btn:hover {
+  border-color: #10a37f;
+  color: #10a37f;
+  background: #f0fdf4;
 }
 
-.edit-form {
-  background: #f9fafb;
-  padding: 24px;
-  border-radius: 12px;
+.delete-btn:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+  background: #fef2f2;
+}
+
+/* 模态框样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal-content {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 24px 0;
   margin-bottom: 20px;
 }
 
-.edit-form h3 {
-  margin: 0 0 20px 0;
-  color: #0f172a;
-  font-size: 18px;
+.modal-header h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a1a2e;
 }
 
-.form {
+.close-btn {
+  background: transparent;
+  border: none;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  color: #9ca3af;
+  padding: 4px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.close-btn:hover {
+  background: #f5f7fa;
+  color: #6b7280;
+}
+
+.modal-body {
+  padding: 0 24px 24px;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -370,17 +475,18 @@ function truncateText(text: string, maxLength: number): string {
 .form-group label {
   font-weight: 500;
   font-size: 14px;
-  color: #0f172a;
+  color: #1a1a2e;
 }
 
 .input {
   padding: 12px 14px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #e8ecf1;
   border-radius: 8px;
   font-size: 14px;
   outline: none;
   transition: border-color 0.2s;
   background: #ffffff;
+  font-family: inherit;
 }
 
 .input:focus {
@@ -388,9 +494,8 @@ function truncateText(text: string, maxLength: number): string {
 }
 
 .input.textarea {
-  min-height: 160px;
+  min-height: 140px;
   resize: vertical;
-  font-family: inherit;
   line-height: 1.6;
 }
 
@@ -402,19 +507,22 @@ function truncateText(text: string, maxLength: number): string {
 .emoji-selector {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
 }
 
 .emoji-btn {
   font-size: 24px;
-  padding: 8px 12px;
-  border: 2px solid #e5e7eb;
+  padding: 8px 14px;
+  border: 2px solid #e8ecf1;
   border-radius: 8px;
   background: #ffffff;
   cursor: pointer;
   transition: all 0.2s;
-  min-width: 44px;
-  min-height: 44px;
+  min-width: 46px;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .emoji-btn:hover {
@@ -425,18 +533,14 @@ function truncateText(text: string, maxLength: number): string {
 .emoji-btn.selected {
   border-color: #10a37f;
   background: #10a37f;
-  color: white;
 }
 
-.form-actions {
+.modal-footer {
   display: flex;
   gap: 12px;
-  margin-top: 8px;
-}
-
-.add-section {
-  text-align: center;
-  margin-bottom: 20px;
+  padding: 20px 24px;
+  border-top: 1px solid #e8ecf1;
+  justify-content: flex-end;
 }
 
 .btn {
@@ -455,13 +559,13 @@ function truncateText(text: string, maxLength: number): string {
 }
 
 .btn.secondary {
-  background: #f5f5f5;
-  color: #111827;
-  border: 1px solid #e5e7eb;
+  background: #f5f7fa;
+  color: #4a5568;
+  border: 1px solid #e8ecf1;
 }
 
 .btn.secondary:hover:not(:disabled) {
-  background: #f0f0f0;
+  background: #e8ecf1;
 }
 
 .btn.primary {
