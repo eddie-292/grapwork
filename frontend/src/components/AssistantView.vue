@@ -267,7 +267,7 @@ function truncateText(text: string, maxLength: number): string {
 
 .assistant-header h1 {
   margin: 0;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
   color: #1a1a2e;
 }
