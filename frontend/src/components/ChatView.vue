@@ -9,7 +9,7 @@ import TaskModePanel from './TaskModePanel.vue'
 const router = useRouter()
 
 type Role = 'user' | 'assistant' | 'system'
-type Message = { role: Role; content: string, reasoning: string, reasoningDuration?: number }
+type Message = { role: Role; content: string, reasoning: string, reasoningDuration?: number, visible?: boolean, copyable?: boolean }
 type Chat = {
   id: string
   title: string
@@ -142,8 +142,6 @@ const reasoningExpanded = ref<Record<number, boolean>>({})
 // 推理开始时间映射（按消息索引）
 const reasoningStartTime = ref<Record<number, number>>({})
 
-const canUseElectronApi = !!window.electronAPI || isElectronEnv
-
 function normalizeApiUrl(url: string) {
   return url.replace(/\/+$/, '')
 }
@@ -232,7 +230,9 @@ async function sendMessageToLLM(messages: { role: string; content: string }[]): 
 
   let resp: Response
 
-  if (canUseElectronApi && activeConfig.value) {
+  // 浏览器开发环境始终走代理，Electron 环境直接请求
+  const useProxy = import.meta.env.DEV && !isElectronEnv
+  if (!useProxy && window.electronAPI && activeConfig.value) {
     const apiBase = normalizeApiUrl(activeConfig.value.apiUrl)
     resp = await fetch(`${apiBase}/chat/completions`, {
       method: 'POST',
@@ -353,6 +353,11 @@ async function executeTaskStreaming(
     }
   }
 
+  // 浏览器开发环境始终走代理，Electron 环境直接请求
+  const useProxy = import.meta.env.DEV && !isElectronEnv
+  if (useProxy) {
+    throw new Error('任务模式暂时不支持浏览器开发环境，请使用 Electron')
+  }
   const apiBase = normalizeApiUrl(activeConfig.value.apiUrl!)
   const resp = await fetch(`${apiBase}/chat/completions`, {
     method: 'POST',
@@ -541,7 +546,9 @@ async function executeNormalChat(text: string) {
       }
     }
 
-    if (canUseElectronApi && activeConfig.value) {
+    // 浏览器开发环境始终走代理，Electron 环境直接请求
+    const useProxy = import.meta.env.DEV && !isElectronEnv
+    if (!useProxy && window.electronAPI && activeConfig.value) {
       const apiBase = normalizeApiUrl(activeConfig.value.apiUrl)
       resp = await fetch(`${apiBase}/chat/completions`, {
         method: 'POST',
@@ -705,7 +712,7 @@ async function executeTaskMode(userInput: string) {
       const taskPrompt = i === 0
         ? `**任务 ${i + 1}/${tasks.length}**: ${task.description}`
         : `请继续完成以下任务：${task.description}`
-      chat.messages.push({ role: 'user', content: taskPrompt, reasoning: '' })
+      chat.messages.push({ role: 'user', content: taskPrompt, reasoning: '', visible: false, copyable: false })
       chat.messages.push({ role: 'assistant', content: '', reasoning: '' })
 
       const msg = chat.messages[taskMsgIndex + 1]
@@ -1019,8 +1026,7 @@ onMounted(() => {
           </div>
           <div class="header-actions">
             <button class="assistant-btn" @click="router.push('/assistants')" title="社区助理">
-              <span v-if="activeAssistant">{{ activeAssistant.emoji }}</span>
-              <span v-else>社区助理</span>
+              <span>社区助理</span>
             </button>
             <button class="settings-btn" @click="router.push('/settings')" title="设置">
               设置
@@ -1038,9 +1044,9 @@ onMounted(() => {
             <p>支持任何 OpenAI 标准 API 的桌面聊天应用</p>
             <p>点击右上角的"设置"配置你的 LLM 接口</p>
           </div>
+          <template v-for="(m, i) in messages" :key="i">
           <div
-            v-for="(m, i) in messages"
-            :key="i"
+            v-if="m.visible !== false"
             :class="['msg-row', m.role]"
           >
             <div class="msg-content">
@@ -1054,7 +1060,7 @@ onMounted(() => {
               </div>
               <div class="msg-bubble-wrapper">
                 <div class="msg-bubble" v-html="render(m.content)" />
-                <div class="msg-actions">
+                <div class="msg-actions" v-if="m.copyable !== false">
                   <button class="copy-btn" @click="copyRenderedText(m.content)" title="复制文本">
                     Copy Text
                   </button>
@@ -1065,6 +1071,7 @@ onMounted(() => {
               </div>
             </div>
           </div>
+          </template>
         </div>
         <form class="inputbar" @submit.prevent="send">
           <div class="model-bar">
