@@ -134,24 +134,6 @@ function deleteConfig(index: number) {
   }
 }
 
-function toggleConfig(index: number) {
-  const item = configList.value.configs[index]
-  if (!item) return
-
-  // 切换启用状态
-  item.enabled = !item.enabled
-
-  if (item.enabled) {
-    // 禁用其他配置
-    configList.value.configs.forEach((cfg, idx) => {
-      if (idx !== index) cfg.enabled = false
-    })
-    configList.value.activeIndex = index
-  } else if (configList.value.activeIndex === index) {
-    configList.value.activeIndex = -1
-  }
-}
-
 function saveCurrentConfig() {
   if (editingIndex.value >= 0) {
     configList.value.configs[editingIndex.value] = {
@@ -297,19 +279,10 @@ function clearChatHistory() {
           v-for="(config, index) in configList.configs"
           :key="index"
           class="config-item"
-          :class="{ active: configList.activeIndex === index }"
         >
           <div class="config-info">
             <div class="config-header">
               <h3>{{ config.name || config.model }}</h3>
-              <label class="toggle-label">
-                <input
-                  type="checkbox"
-                  :checked="config.enabled"
-                  @change="toggleConfig(index)"
-                />
-                <span class="toggle-switch"></span>
-              </label>
             </div>
             <div class="config-details">
               <div>模型：{{ config.model }}</div>
@@ -626,11 +599,6 @@ function clearChatHistory() {
   border-color: #10a37f;
 }
 
-.config-item.active {
-  border-color: #10a37f;
-  background: #f0fdf4;
-}
-
 .config-info {
   flex: 1;
 }
@@ -646,46 +614,6 @@ function clearChatHistory() {
   margin: 0;
   font-size: 16px;
   color: #0f172a;
-}
-
-.toggle-label {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  gap: 8px;
-}
-
-.toggle-label input {
-  display: none;
-}
-
-.toggle-switch {
-  width: 44px;
-  height: 24px;
-  background: #e5e7eb;
-  border-radius: 12px;
-  position: relative;
-  transition: background 0.2s;
-}
-
-.toggle-switch::after {
-  content: '';
-  position: absolute;
-  width: 20px;
-  height: 20px;
-  background: white;
-  border-radius: 10px;
-  top: 2px;
-  left: 2px;
-  transition: transform 0.2s;
-}
-
-.toggle-label input:checked + .toggle-switch {
-  background: #10a37f;
-}
-
-.toggle-label input:checked + .toggle-switch::after {
-  transform: translateX(20px);
 }
 
 .config-details {

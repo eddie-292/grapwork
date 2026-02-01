@@ -1090,7 +1090,7 @@ onMounted(() => {
             </div>
           </div>
           <!-- 任务进度显示（悬浮，可折叠）  && (isTaskPlanning || isTaskExecuting)-->
-          <div class="task-progress-float" v-if="taskMode">
+          <div class="task-progress-float" v-if="taskMode && taskList.length > 0">
             <div class="task-progress-header" @click="taskProgressExpanded = !taskProgressExpanded">
               <span v-if="isTaskPlanning">正在规划任务...</span>
               <span v-else-if="isTaskExecuting">
