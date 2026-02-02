@@ -16,6 +16,51 @@ const PORT = process.env.PORT ? Number(process.env.PORT) : 8787
 
 fastify.get('/api/health', async () => ({ ok: true }))
 
+// 新增：完整的 OpenAI 兼容端点（支持任务模式）
+fastify.post('/api/chat/completions', async (request, reply) => {
+  const { model, messages, stream = true, ...extraParams } = request.body || {}
+
+  if (!process.env.OPENAI_API_KEY) {
+    reply.code(500)
+    return { error: 'OPENAI_API_KEY not set on server' }
+  }
+
+  const controller = new AbortController()
+  request.raw.on('close', () => controller.abort())
+
+  // 转发到 OpenAI API
+  const upstream = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: model || 'gpt-4o-mini',
+      messages: messages || [],
+      stream,
+      ...extraParams,
+    }),
+    signal: controller.signal,
+  })
+
+  reply.header('Content-Type', 'text/event-stream')
+  reply.header('Cache-Control', 'no-cache')
+  reply.header('Connection', 'keep-alive')
+
+  if (!upstream.ok || !upstream.body) {
+    reply.code(upstream.status)
+    const text = await upstream.text()
+    reply.send(`data: ${JSON.stringify({ error: text })}\n\n`)
+    return
+  }
+
+  for await (const chunk of upstream.body) {
+    reply.raw.write(chunk)
+  }
+  reply.raw.end()
+})
+
 fastify.post('/api/chat', async (request, reply) => {
   const { messages = [], model = 'gpt-4o-mini' } = request.body || {}
 

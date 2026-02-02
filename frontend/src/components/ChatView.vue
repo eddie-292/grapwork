@@ -9,7 +9,7 @@ import TaskModePanel from './TaskModePanel.vue'
 const router = useRouter()
 
 type Role = 'user' | 'assistant' | 'system'
-type Message = { role: Role; content: string, reasoning: string, reasoningDuration?: number, visible?: boolean, copyable?: boolean }
+type Message = { role: Role; content: string, reasoning: string, reasoningDuration?: number, visible?: boolean, copyable?: boolean, archived?: boolean }
 
 // OpenAI 兼容的对话参数配置
 type ChatParams = {
@@ -43,6 +43,11 @@ type Chat = {
   isTaskMode?: boolean
   taskList?: { id: number; description: string; completed: boolean }[]
   params?: ChatParams  // 对话级别的参数配置
+  archivedMessages?: Message[][]  // 任务模式整合时归档的消息段
+  taskModeOptions?: {
+    enableTaskSummary?: boolean  // 是否启用任务总结，默认 false
+    mergeThreshold?: number      // 整合阈值，默认 3
+  }
 }
 
 const md: MarkdownIt = new MarkdownIt({
@@ -128,6 +133,8 @@ const isTaskPlanning = ref(false)
 const isTaskExecuting = ref(false)
 const awaitingTaskConfirmation = ref(false)
 const pendingTasks = ref<{ id: number; description: string }[]>([])
+// 任务模式设置状态
+const showTaskSettings = ref(false)
 // 参数配置对话框状态
 const showParamsDialog = ref(false)
 const tempParams = ref<ChatParams>({ ...DEFAULT_CHAT_PARAMS })
@@ -170,6 +177,8 @@ const isElectronEnv =
 const reasoningExpanded = ref<Record<number, boolean>>({})
 // 推理开始时间映射（按消息索引）
 const reasoningStartTime = ref<Record<number, number>>({})
+// 归档历史展开状态（按归档索引）
+const archivedExpanded = ref<Record<number, boolean>>({})
 
 function normalizeApiUrl(url: string) {
   return url.replace(/\/+$/, '')
@@ -473,12 +482,9 @@ async function executeTaskStreaming(
     }
   }
 
-  // 浏览器开发环境始终走代理，Electron 环境直接请求
+  // 浏览器开发环境走代理，Electron 环境直接请求
   const useProxy = import.meta.env.DEV && !isElectronEnv
-  if (useProxy) {
-    throw new Error('任务模式暂时不支持浏览器开发环境，请使用 Electron')
-  }
-  const apiBase = normalizeApiUrl(activeConfig.value.apiUrl!)
+  const apiBase = useProxy ? '/api/chat/completions' : normalizeApiUrl(activeConfig.value.apiUrl!)
 
   // 获取对话级别的参数配置
   const chatParams = currentChat.value?.params || {}
@@ -494,10 +500,10 @@ async function executeTaskStreaming(
     }
   }
 
-  const resp = await fetch(`${apiBase}/chat/completions`, {
+  const resp = await fetch(`${useProxy ? apiBase : apiBase + '/chat/completions'}`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${activeConfig.value.apiKey}`,
+      ...(useProxy ? {} : { 'Authorization': `Bearer ${activeConfig.value.apiKey}` }),
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -1006,10 +1012,11 @@ async function confirmTaskExecution() {
         currentTask.completed = true
       }
 
-      // 检查是否需要进行中间整合
+      // 检查是否需要进行中间整合（使用可配置的阈值）
+      const mergeThreshold = chat.taskModeOptions?.mergeThreshold ?? MAX_TASKS_BEFORE_MERGE
       const needsIntermediateMerge =
-        (i + 1) % MAX_TASKS_BEFORE_MERGE === 0 &&  // 达到分段阈值
-        i < tasks.length - 1                       // 且不是最后一个任务
+        (i + 1) % mergeThreshold === 0 &&  // 达到分段阈值
+        i < tasks.length - 1                // 且不是最后一个任务
 
       if (needsIntermediateMerge) {
         // 添加中间整合提示消息
@@ -1026,13 +1033,23 @@ async function confirmTaskExecution() {
         // 更新 mergedContext
         mergedContext = mergeResult
 
-        // 重置对话历史：
-        // 1. 保留原始用户请求（第一条消息）
-        // 2. 添加中间整合结果
+        // 归档当前消息（保留原始用户请求和整合结果）
         const originalUserMsg = chat.messages[0]
         if (!originalUserMsg) {
           throw new Error('对话历史为空，无法重置')
         }
+
+        // 初始化归档数组
+        if (!chat.archivedMessages) chat.archivedMessages = []
+
+        // 归档当前消息（排除原始用户请求）
+        const messagesToArchive = chat.messages.slice(1).map(msg => ({
+          ...msg,
+          archived: true  // 标记为已归档
+        }))
+        chat.archivedMessages.push(messagesToArchive)
+
+        // 重置消息为整合结果
         chat.messages = [
           originalUserMsg,
           { role: 'assistant', content: mergeResult, reasoning: '', visible: false }
@@ -1041,9 +1058,10 @@ async function confirmTaskExecution() {
         // 清空 previousResult，因为整合后的上下文已经包含了所有信息
         previousResult = undefined
       } else {
-        // 正常流程：总结任务结果
-        if (i < tasks.length - 1 && task && msg) {
-          // 只有不是最后一个任务时才总结（最后一个任务不需要为下一个任务提供上下文）
+        // 正常流程：根据配置决定是否总结任务结果
+        const enableSummary = chat.taskModeOptions?.enableTaskSummary ?? false
+        if (i < tasks.length - 1 && task && msg && enableSummary) {
+          // 只有启用总结且不是最后一个任务时才总结
           previousResult = await summarizeTaskResult(task.description, msg.content)
         }
       }
@@ -1144,6 +1162,51 @@ function cancel() {
 
 function toggleReasoning(index: number) {
   reasoningExpanded.value[index] = !reasoningExpanded.value[index]
+}
+
+function toggleArchived(index: number) {
+  archivedExpanded.value[index] = !archivedExpanded.value[index]
+}
+
+// 删除任务
+function deleteTask(taskId: number) {
+  const chat = currentChat.value
+  if (!chat?.taskList) return
+
+  // 删除任务
+  chat.taskList = chat.taskList.filter(t => t.id !== taskId)
+
+  // 重新编号剩余任务
+  chat.taskList.forEach((task, idx) => {
+    task.id = idx
+  })
+
+  // 同时更新 pendingTasks
+  pendingTasks.value = pendingTasks.value.filter(t => t.id !== taskId)
+  pendingTasks.value.forEach((task, idx) => {
+    task.id = idx
+  })
+
+  saveChatHistory()
+}
+
+// 更新任务描述
+function updateTaskDescription(taskId: number, newDescription: string) {
+  const chat = currentChat.value
+  if (!chat?.taskList) return
+
+  const task = chat.taskList.find(t => t.id === taskId)
+  if (task) {
+    task.description = newDescription
+  }
+
+  // 同时更新 pendingTasks
+  const pendingTask = pendingTasks.value.find(t => t.id === taskId)
+  if (pendingTask) {
+    pendingTask.description = newDescription
+  }
+
+  saveChatHistory()
 }
 
 function scrollToBottom() {
@@ -1275,6 +1338,23 @@ function saveParams() {
 // 重置参数为默认值
 function resetParams() {
   tempParams.value = { ...DEFAULT_CHAT_PARAMS }
+}
+
+// 更新任务模式选项
+function updateTaskModeOptions(options: { enableTaskSummary?: boolean; mergeThreshold?: number }) {
+  const chat = currentChat.value
+  if (chat) {
+    if (!chat.taskModeOptions) {
+      chat.taskModeOptions = {}
+    }
+    if (options.enableTaskSummary !== undefined) {
+      chat.taskModeOptions.enableTaskSummary = options.enableTaskSummary
+    }
+    if (options.mergeThreshold !== undefined) {
+      chat.taskModeOptions.mergeThreshold = options.mergeThreshold
+    }
+    saveChatHistory()
+  }
 }
 
 function saveChatHistory() {
@@ -1430,6 +1510,32 @@ onMounted(() => {
             </div>
           </div>
           </template>
+
+          <!-- 归档历史消息区域 -->
+          <template v-if="currentChat?.archivedMessages && currentChat.archivedMessages.length > 0">
+            <div v-for="(archiveGroup, groupIdx) in currentChat.archivedMessages" :key="`archive-${groupIdx}`" class="archive-section">
+              <button class="archive-toggle" @click="toggleArchived(groupIdx)">
+                <span>{{ archivedExpanded[groupIdx] ? '▼' : '▶' }}</span>
+                <span>归档历史 #{{ groupIdx + 1 }}</span>
+                <span class="archive-count">({{ archiveGroup.length }} 条消息)</span>
+              </button>
+              <div v-show="archivedExpanded[groupIdx]" class="archive-messages">
+                <template v-for="(archivedMsg, msgIdx) in archiveGroup" :key="`archived-${groupIdx}-${msgIdx}`">
+                  <div :class="['msg-row', archivedMsg.role, 'archived']">
+                    <div class="msg-content">
+                      <div v-if="archivedMsg.reasoning" class="reasoning-section archived-reasoning">
+                        <span class="archived-label">思考内容</span>
+                        <div class="msg-reasoning-bubble" v-html="render(archivedMsg.reasoning)" />
+                      </div>
+                      <div class="msg-bubble-wrapper">
+                        <div class="msg-bubble" v-html="render(archivedMsg.content)" />
+                      </div>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
         </div>
         <form class="inputbar" @submit.prevent="send">
           <div class="model-bar">
@@ -1485,8 +1591,14 @@ onMounted(() => {
         :current-task-index="currentTaskIndex"
         :task-list="taskList"
         :awaiting-task-confirmation="awaitingTaskConfirmation"
+        :task-mode-options="currentChat?.taskModeOptions"
+        :show-settings="showTaskSettings"
         @confirm="confirmTaskExecution"
         @cancel="cancelTaskExecution"
+        @update-options="updateTaskModeOptions"
+        @toggle-settings="showTaskSettings = !showTaskSettings"
+        @delete-task="deleteTask"
+        @update-task="updateTaskDescription"
       />
     </div>
 
@@ -2506,5 +2618,79 @@ onMounted(() => {
 
 .btn.secondary:hover {
   background: #e5e7eb;
+}
+
+/* 归档历史消息样式 */
+.archive-section {
+  margin: 12px 0;
+  overflow: hidden;
+  background: #fafafa;
+}
+
+.archive-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #f3f4f6;
+  border: none;
+  border-bottom: 1px solid #e5e7eb;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  transition: background 0.2s;
+}
+
+.archive-toggle:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.archive-toggle span:first-child {
+  font-size: 10px;
+  transition: transform 0.2s;
+}
+
+.archive-count {
+  font-size: 11px;
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+.archive-messages {
+  padding: 8px 0;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.msg-row.archived {
+  opacity: 0.7;
+  background: #f9f9f9;
+}
+
+.msg-row.archived .msg-bubble {
+  font-size: 14px;
+}
+
+.msg-row.archived .msg-reasoning-bubble {
+  background: #f0f0f0;
+  font-size: 13px;
+  padding: 10px 14px;
+}
+
+.archived-reasoning {
+  margin-bottom: 10px;
+}
+
+.archived-label {
+  font-size: 11px;
+  color: #9ca3af;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  display: inline-block;
 }
 </style>
