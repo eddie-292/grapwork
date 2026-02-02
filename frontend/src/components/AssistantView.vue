@@ -271,14 +271,13 @@ function truncateText(text: string, maxLength: number): string {
 }
 
 .back-btn {
-  background: transparent;
-  border: 1px solid #e8ecf1;
+  background: #f5f5f5;
+  border: 1px solid #e5e7eb;
   font-size: 14px;
   cursor: pointer;
-  padding: 8px 16px;
-  border-radius: 8px;
-  transition: all 0.2s;
-  color: #4a5568;
+  padding: 6px 12px;
+  border-radius: 999px;
+  transition: background 0.2s, border-color 0.2s;
 }
 
 .back-btn:hover {
