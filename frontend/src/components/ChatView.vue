@@ -732,7 +732,7 @@ async function executeTaskMode(userInput: string) {
   try {
     // 1. 任务规划阶段
     isTaskPlanning.value = true
-    chat.messages[planMsgIndex].content = '正在规划任务...'
+    chat.messages[planMsgIndex]!.content = '正在规划任务...'
 
     const tasks = await planTasks(userInput)
     if (chat) {
@@ -744,7 +744,7 @@ async function executeTaskMode(userInput: string) {
     tasks.forEach((task, idx) => {
       taskListDisplay += `${idx + 1}. ${task.description}\n`
     })
-    chat.messages[planMsgIndex].content = taskListDisplay
+    chat.messages[planMsgIndex]!.content = taskListDisplay
     scrollToBottom()
 
     isTaskPlanning.value = false
@@ -818,25 +818,6 @@ async function executeTaskMode(userInput: string) {
 
     // 3. 最终整合：将所有任务输出整合成完整的回答
     isTaskExecuting.value = false
-
-    // 构建整合提示词
-    const taskResultsText = taskOutputs.map((output, idx) => {
-      const task = tasks[idx]
-      if (!task) return ''
-      return `任务 ${idx + 1}：${task.description}\n${output}`
-    }).join('\n\n')
-
-    const integrationPrompt = `请根据以下各个任务的执行结果，整合成用户最初要求的完整、连贯的回答。
-
-用户的原始请求：${userInput}
-
-各任务执行结果：
-${taskResultsText}
-
-要求：
-1. 将所有任务结果整合成一个完整、连贯的回答
-2. 直接给出最终答案，不要提及任务或步骤
-3. 保持回答的完整性和准确性`
 
     // 添加整合消息
     chat.messages.push({ role: 'assistant', content: '**正在整合最终回答...**', reasoning: '' })
@@ -1191,7 +1172,7 @@ onMounted(() => {
         </div>
         <form class="inputbar" @submit.prevent="send">
           <div class="model-bar">
-            <select :disabled="currentChat?.messages.length > 0" :value="currentChat?.assistantId || ''" @change="changeAssistant(($event.target as HTMLSelectElement).value)" class="assistant-select">
+            <select :disabled="(currentChat?.messages?.length ?? 0) > 0" :value="currentChat?.assistantId || ''" @change="changeAssistant(($event.target as HTMLSelectElement).value)" class="assistant-select">
               <option value="">无助理</option>
               <option v-for="assistant in assistantList.assistants" :key="assistant.id" :value="assistant.id">
                 {{ assistant.emoji }} {{ assistant.name }}

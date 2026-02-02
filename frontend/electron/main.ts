@@ -45,7 +45,9 @@ function createWindow() {
     mainWindow.webContents.openDevTools()
   } else {
     // 生产模式加载打包后的文件
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
+    // __dirname 在打包后指向 dist-electron，所以需要回到项目根目录然后进入 dist
+    const distPath = path.join(path.dirname(__dirname), 'dist', 'index.html')
+    mainWindow.loadFile(distPath)
   }
 
   mainWindow.on('closed', () => {

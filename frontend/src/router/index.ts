@@ -42,7 +42,7 @@ const router = createRouter({
 })
 
 // 路由守卫：检查登录状态
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, _from, next) => {
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
 
   if (requiresAuth && !isAuthenticated()) {

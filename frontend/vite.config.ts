@@ -7,6 +7,7 @@ export default defineConfig({
   plugins: [
     vue(),
   ],
+  base: './', // 使用相对路径，适配 Electron
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),

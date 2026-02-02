@@ -110,6 +110,8 @@ npm run build:renderer
 npm run build:electron
 
 # 构建桌面应用（生产版本）
+-- 使用国内镜像源（推荐，尤其在中国大陆）
+export ELECTRON_MIRROR="https://npmmirror.com/mirrors/electron/"
 npm run electron:build
 ```
 

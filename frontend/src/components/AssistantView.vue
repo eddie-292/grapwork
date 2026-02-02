@@ -21,8 +21,6 @@ const currentAssistant = ref<Assistant>({
 
 const editingIndex = ref(-1)
 const showEditForm = ref(false)
-const saving = ref(false)
-const message = ref('')
 const showDeleteConfirm = ref(false)
 const assistantToDeleteIndex = ref(-1)
 

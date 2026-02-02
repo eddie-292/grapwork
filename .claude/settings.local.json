@@ -4,7 +4,8 @@
       "Bash(perl:*)",
       "Bash(python3:*)",
       "Bash(curl:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(npm run build:renderer:*)"
     ]
   }
 }

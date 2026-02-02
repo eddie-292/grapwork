@@ -36,7 +36,8 @@
   },
   "build": {
     "appId": "com.openchat.desktop",
-    "productName": "OpenChat",
+    "productName": "OpenChat Desktop",
+    "icon": "物料/logo.png",
     "directories": {
       "output": "release"
     },
