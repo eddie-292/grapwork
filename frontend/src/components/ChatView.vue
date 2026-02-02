@@ -822,7 +822,7 @@ async function executeTaskMode(userInput: string) {
     isTaskExecuting.value = false
 
     // 添加整合消息
-    chat.messages.push({ role: 'assistant', content: '**正在整合最终回答...**', reasoning: '' })
+    chat.messages.push({ role: 'assistant', content: '**正在整合最终回答...**', reasoning: '', copyable: false })
     const integrationMsgIndex = chat.messages.length
     chat.messages.push({ role: 'assistant', content: '', reasoning: '' })
 
@@ -851,7 +851,7 @@ async function executeTaskMode(userInput: string) {
     }
 
     // 4. 任务完成
-    chat.messages.push({ role: 'assistant', content: '---\n\n**所有任务已完成！**', reasoning: '' })
+    chat.messages.push({ role: 'assistant', content: '---\n\n**所有任务已完成！**', reasoning: '', copyable: false })
 
   } catch (err) {
     const chat = currentChat.value
