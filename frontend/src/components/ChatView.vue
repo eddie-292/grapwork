@@ -733,6 +733,7 @@ async function executeTaskMode(userInput: string) {
     // 1. 任务规划阶段
     isTaskPlanning.value = true
     chat.messages[planMsgIndex]!.content = '正在规划任务...'
+    chat.messages[planMsgIndex]!.copyable = false
 
     const tasks = await planTasks(userInput)
     if (chat) {
@@ -745,6 +746,7 @@ async function executeTaskMode(userInput: string) {
       taskListDisplay += `${idx + 1}. ${task.description}\n`
     })
     chat.messages[planMsgIndex]!.content = taskListDisplay
+    chat.messages[planMsgIndex]!.copyable = false
     scrollToBottom()
 
     isTaskPlanning.value = false
@@ -1977,9 +1979,9 @@ onMounted(() => {
 
 /* 任务模式样式 */
 .task-mode-toggle {
-  display: flex;
+  /* display: flex;
   align-items: center;
-  margin-left: auto;
+  margin-left: auto; */
 }
 
 .toggle-label {
