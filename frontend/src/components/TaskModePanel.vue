@@ -241,6 +241,8 @@ function deleteTask(taskId: number) {
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   transition: all 0.2s;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .task-item:hover {
@@ -294,6 +296,7 @@ function deleteTask(taskId: number) {
   display: flex;
   gap: 8px;
   align-items: flex-start;
+  min-width: 0; /* 允许 flex 子元素收缩 */
 }
 
 .task-number {
@@ -316,6 +319,8 @@ function deleteTask(taskId: number) {
 }
 
 .task-description {
+  flex: 1;
+  min-width: 0; /* 允许文本正确换行和收缩 */
   font-size: 13px;
   color: #374151;
   line-height: 1.5;
@@ -515,23 +520,24 @@ function deleteTask(taskId: number) {
 
 .task-actions {
   display: flex;
-  gap: 4px;
-  margin-left: auto;
+  gap: 2px;
+  flex-shrink: 0;
 }
 
 .task-action-btn {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   border: none;
   background: transparent;
   color: #9ca3af;
   cursor: pointer;
-  font-size: 14px;
-  border-radius: 4px;
+  font-size: 12px;
+  border-radius: 3px;
   transition: all 0.15s;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
 }
 
 .task-action-btn:hover {
@@ -547,31 +553,34 @@ function deleteTask(taskId: number) {
 .task-edit-mode {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   flex: 1;
+  min-width: 0;
 }
 
 .task-edit-input {
   flex: 1;
-  padding: 6px 10px;
+  min-width: 0;
+  padding: 4px 8px;
   border: 1px solid #10a37f;
   border-radius: 4px;
-  font-size: 13px;
+  font-size: 12px;
   color: #0f172a;
   outline: none;
 }
 
 .task-edit-btn {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   border: none;
-  border-radius: 4px;
+  border-radius: 3px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.15s;
+  flex-shrink: 0;
 }
 
 .task-edit-btn.save {
