@@ -361,10 +361,14 @@ async function executeTaskStreaming(
     messagesToSend.push({ role: 'system', content: '你是一个有用的助手' })
   }
 
-  // 添加对话历史（携带所有之前的消息）
-  conversationHistory.forEach(msg => {
-    messagesToSend.push({ role: msg.role, content: msg.content })
-  })
+  // 添加对话历史（排除当前任务的隐藏用户消息和对应的 assistant 消息）
+  const historyLength = conversationHistory.length
+  for (let i = 0; i < historyLength - 2; i++) {  // 排除最后两条消息（当前任务的用户隐藏消息和空 assistant 消息）
+    const msg = conversationHistory[i]
+    if (msg) {
+      messagesToSend.push({ role: msg.role, content: msg.content })
+    }
+  }
 
   // 添加当前任务提示
   messagesToSend.push({ role: 'user', content: prompt })
@@ -464,9 +468,13 @@ ${result}
 
 只返回总结内容，不要有其他文字。`
 
-  const messagesToSend: { role: string; content: string }[] = [
-    { role: 'user', content: summarizePrompt }
-  ]
+  const messagesToSend: { role: string; content: string }[] = []
+  if (activeAssistant.value?.systemPrompt && activeAssistant.value.systemPrompt.trim()) {
+    messagesToSend.push({ role: 'system', content: activeAssistant.value.systemPrompt.trim() })
+  } else {
+    messagesToSend.push({ role: 'system', content: '你是一个有用的助手' })
+  }
+  messagesToSend.push({ role: 'user', content: summarizePrompt })
 
   return await sendMessageToLLM(messagesToSend)
 }
