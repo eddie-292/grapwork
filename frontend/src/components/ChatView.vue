@@ -30,6 +30,9 @@ const DEFAULT_CHAT_PARAMS: ChatParams = {
   frequency_penalty: 0,
 }
 
+// 任务模式分段整合配置
+const MAX_TASKS_BEFORE_MERGE = 3  // 每执行3个任务后进行一次中间整合
+
 type Chat = {
   id: string
   title: string
@@ -344,6 +347,7 @@ async function sendMessageToLLM(messages: { role: string; content: string }[]): 
         ...extraBodyParams,
       }),
     })
+
   } else {
     resp = await fetch('/api/chat', {
       method: 'POST',
@@ -359,9 +363,13 @@ async function sendMessageToLLM(messages: { role: string; content: string }[]): 
   }
 
   const data = await resp.json()
-  return data.choices?.[0]?.message?.content || ''
-}
+  let content = data.choices?.[0]?.message?.content || ''
+  
+  // Qwen 模型在非流式输出中会携带 <think></think> 标签，需要移除
+  content = content.replace(/<think[\s\S]*?<\/think>/g, '').trim()
 
+  return content
+}
 // 任务规划：获取任务列表
 async function planTasks(userInput: string): Promise<{ id: number; description: string }[]> {
   const planningPrompt = `${TASK_PLANNING_PROMPT}\n\n用户请求：${userInput}`
@@ -391,9 +399,23 @@ async function planTasks(userInput: string): Promise<{ id: number; description: 
   }
 }
 
-// 生成任务执行提示（携带上一个任务的总结）
-function generateTaskPrompt(taskDescription: string, previousResult?: string): string {
-  if (previousResult) {
+// 生成任务执行提示（携带上一个任务的总结或中间整合结果）
+function generateTaskPrompt(
+  taskDescription: string,
+  previousResult?: string,
+  mergedContext?: string
+): string {
+  if (mergedContext) {
+    // 有中间整合结果时，优先使用整合结果作为上下文
+    return `请执行以下任务：
+
+任务：${taskDescription}
+
+前面任务的整合结果：
+${mergedContext}
+
+请专注于完成当前任务，保持简洁清晰。`
+  } else if (previousResult) {
     return `请执行以下任务：
 
 任务：${taskDescription}
@@ -413,6 +435,7 @@ function generateTaskPrompt(taskDescription: string, previousResult?: string): s
 async function executeTaskStreaming(
   taskDescription: string,
   previousResult: string | undefined,
+  mergedContext: string | undefined,
   conversationHistory: Message[],
   onDelta: (delta: string) => void,
   onReasoningDelta: (delta: string) => void,
@@ -422,7 +445,7 @@ async function executeTaskStreaming(
     throw new Error('请先配置并启用一个 LLM 接口')
   }
 
-  const prompt = generateTaskPrompt(taskDescription, previousResult)
+  const prompt = generateTaskPrompt(taskDescription, previousResult, mergedContext)
 
   // 构建消息列表：系统提示 + 对话历史（排除当前添加的用户消息） + 当前任务提示
   const messagesToSend: { role: string; content: string }[] = []
@@ -556,6 +579,37 @@ ${result}
     messagesToSend.push({ role: 'system', content: '你是一个有用的助手' })
   }
   messagesToSend.push({ role: 'user', content: summarizePrompt })
+
+  return await sendMessageToLLM(messagesToSend)
+}
+
+// 执行中间整合
+async function performIntermediateMerge(
+  conversationHistory: Message[],
+  completedTaskCount: number,
+  totalTaskCount: number
+): Promise<string> {
+  const mergePrompt = `请将以下已完成任务的执行结果整合成一段连贯的总结，这段总结将作为后续任务的上下文。
+
+已完成的任务数量：${completedTaskCount + 1}/${totalTaskCount}
+
+请整合这些任务的结果，提取关键信息和中间结论，为后续任务提供清晰的上下文。
+
+只返回整合后的内容，不要有其他文字。`
+
+  const messagesToSend: { role: string; content: string }[] = []
+  if (activeAssistant.value?.systemPrompt && activeAssistant.value.systemPrompt.trim()) {
+    messagesToSend.push({ role: 'system', content: activeAssistant.value.systemPrompt.trim() })
+  } else {
+    messagesToSend.push({ role: 'system', content: '你是一个有用的助手' })
+  }
+
+  // 添加对话历史
+  conversationHistory.forEach(msg => {
+    messagesToSend.push({ role: msg.role, content: msg.content })
+  })
+
+  messagesToSend.push({ role: 'user', content: mergePrompt })
 
   return await sendMessageToLLM(messagesToSend)
 }
@@ -900,6 +954,7 @@ async function confirmTaskExecution() {
 
     // 2. 逐个执行任务
     let previousResult: string | undefined
+    let mergedContext: string | undefined  // 存储中间整合结果
     const taskOutputs: string[] = []
 
     for (let i = 0; i < tasks.length; i++) {
@@ -926,6 +981,7 @@ async function confirmTaskExecution() {
       await executeTaskStreaming(
         task.description,
         i === 0 ? undefined : previousResult,
+        mergedContext,
         chat.messages.slice(0, -1), // 传递当前聊天历史的所有消息
         (delta) => {
           msg.content += delta
@@ -950,10 +1006,46 @@ async function confirmTaskExecution() {
         currentTask.completed = true
       }
 
-      // 总结任务结果
-      if (i < tasks.length - 1 && task && msg) {
-        // 只有不是最后一个任务时才总结（最后一个任务不需要为下一个任务提供上下文）
-        previousResult = await summarizeTaskResult(task.description, msg.content)
+      // 检查是否需要进行中间整合
+      const needsIntermediateMerge =
+        (i + 1) % MAX_TASKS_BEFORE_MERGE === 0 &&  // 达到分段阈值
+        i < tasks.length - 1                       // 且不是最后一个任务
+
+      if (needsIntermediateMerge) {
+        // 添加中间整合提示消息
+        chat.messages.push({ role: 'assistant', content: '**正在进行中间整合...**', reasoning: '', copyable: false })
+        scrollToBottom()
+
+        // 执行中间整合
+        const mergeResult = await performIntermediateMerge(
+          chat.messages.slice(0, -1),
+          i,
+          tasks.length
+        )
+
+        // 更新 mergedContext
+        mergedContext = mergeResult
+
+        // 重置对话历史：
+        // 1. 保留原始用户请求（第一条消息）
+        // 2. 添加中间整合结果
+        const originalUserMsg = chat.messages[0]
+        if (!originalUserMsg) {
+          throw new Error('对话历史为空，无法重置')
+        }
+        chat.messages = [
+          originalUserMsg,
+          { role: 'assistant', content: mergeResult, reasoning: '', visible: false }
+        ]
+
+        // 清空 previousResult，因为整合后的上下文已经包含了所有信息
+        previousResult = undefined
+      } else {
+        // 正常流程：总结任务结果
+        if (i < tasks.length - 1 && task && msg) {
+          // 只有不是最后一个任务时才总结（最后一个任务不需要为下一个任务提供上下文）
+          previousResult = await summarizeTaskResult(task.description, msg.content)
+        }
       }
 
       // 推理内容完成后自动折叠
@@ -978,6 +1070,7 @@ async function confirmTaskExecution() {
     // 发送整合请求（携带完整对话历史）
     await executeTaskStreaming(
       '整合最终回答',
+      undefined,
       undefined,
       chat.messages.slice(0, -1),
       (delta) => {
