@@ -361,14 +361,12 @@ async function executeTaskStreaming(
     messagesToSend.push({ role: 'system', content: '你是一个有用的助手' })
   }
 
-  // 添加对话历史（排除当前任务的隐藏用户消息和对应的 assistant 消息）
-  const historyLength = conversationHistory.length
-  for (let i = 0; i < historyLength - 2; i++) {  // 排除最后两条消息（当前任务的用户隐藏消息和空 assistant 消息）
-    const msg = conversationHistory[i]
-    if (msg) {
+  // 添加对话历史（排除 visible: false 的隐藏任务提示消息）
+  conversationHistory.forEach(msg => {
+    if (msg.visible !== false) {  // 只添加可见消息，排除隐藏的任务提示
       messagesToSend.push({ role: msg.role, content: msg.content })
     }
-  }
+  })
 
   // 添加当前任务提示
   messagesToSend.push({ role: 'user', content: prompt })
@@ -1757,7 +1755,6 @@ onMounted(() => {
 .msg-bubble {
   font-size: 15px;
   line-height: 1.7;
-  color: #0f172a;
   max-width: 720px;
   word-break: break-word;
 }
@@ -1849,7 +1846,6 @@ onMounted(() => {
 
 .msg-bubble :deep(pre) {
   background: #f5f5f5;
-  color: #111827;
   border-radius: 10px;
   overflow: auto;
   border: 1px solid #e5e7eb;
@@ -1879,7 +1875,6 @@ onMounted(() => {
 .msg-bubble :deep(code) {
   font-family: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 13px;
-  color: #0f172a;
 }
 
 /* Table styles */
