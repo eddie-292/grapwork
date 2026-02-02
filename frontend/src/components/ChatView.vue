@@ -123,6 +123,8 @@ const taskMode = computed(() => currentChat.value?.isTaskMode ?? false)
 //const pendingTaskMode = ref(false)
 const isTaskPlanning = ref(false)
 const isTaskExecuting = ref(false)
+const awaitingTaskConfirmation = ref(false)
+const pendingTasks = ref<{ id: number; description: string }[]>([])
 // 参数配置对话框状态
 const showParamsDialog = ref(false)
 const tempParams = ref<ChatParams>({ ...DEFAULT_CHAT_PARAMS })
@@ -740,7 +742,10 @@ async function executeTaskMode(userInput: string) {
       chat.taskList = tasks.map((t, i) => ({ id: i, description: t.description, completed: false }))
     }
 
-    // 显示任务列表
+    // 保存待执行任务
+    pendingTasks.value = tasks
+
+    // 显示任务列表并等待确认
     let taskListDisplay = '📋 **任务规划完成**\n\n'
     tasks.forEach((task, idx) => {
       taskListDisplay += `${idx + 1}. ${task.description}\n`
@@ -750,6 +755,44 @@ async function executeTaskMode(userInput: string) {
     scrollToBottom()
 
     isTaskPlanning.value = false
+    awaitingTaskConfirmation.value = true
+
+    // 等待用户确认（通过 confirmTaskExecution 函数触发继续执行）
+    return
+
+  } catch (err) {
+    const chat = currentChat.value
+    if (chat) {
+      const last = chat.messages[chat.messages.length - 1]
+      if (last) {
+        if (err instanceof Error && err.name === 'AbortError') {
+          last.content = '任务已取消'
+        } else {
+          last.content = '任务执行失败: ' + (err instanceof Error ? err.message : '未知错误')
+        }
+      }
+    }
+  } finally {
+    // 只有在等待确认时才保持 sending 状态为 true
+    if (!awaitingTaskConfirmation.value) {
+      sending.value = false
+      controller.value = null
+      isTaskPlanning.value = false
+      currentTaskIndex.value = -1
+      saveChatHistory()
+    }
+  }
+}
+
+// 用户确认后开始执行任务
+async function confirmTaskExecution() {
+  if (!currentChat.value || pendingTasks.value.length === 0) return
+
+  const chat = currentChat.value
+  const tasks = pendingTasks.value
+
+  try {
+    awaitingTaskConfirmation.value = false
     isTaskExecuting.value = true
 
     // 2. 逐个执行任务
@@ -870,10 +913,29 @@ async function executeTaskMode(userInput: string) {
     controller.value = null
     isTaskPlanning.value = false
     isTaskExecuting.value = false
+    awaitingTaskConfirmation.value = false
     currentTaskIndex.value = -1
+    pendingTasks.value = []
     saveChatHistory()
     scrollToBottom()
   }
+}
+
+// 取消任务执行
+function cancelTaskExecution() {
+  if (currentChat.value) {
+    // 添加取消消息
+    currentChat.value.messages.push({ role: 'assistant', content: '---\n\n任务执行已取消', reasoning: '', copyable: false })
+  }
+  sending.value = false
+  controller.value = null
+  isTaskPlanning.value = false
+  isTaskExecuting.value = false
+  awaitingTaskConfirmation.value = false
+  currentTaskIndex.value = -1
+  pendingTasks.value = []
+  saveChatHistory()
+  scrollToBottom()
 }
 
 function cancel() {
@@ -1225,6 +1287,9 @@ onMounted(() => {
         :is-task-executing="isTaskExecuting"
         :current-task-index="currentTaskIndex"
         :task-list="taskList"
+        :awaiting-task-confirmation="awaitingTaskConfirmation"
+        @confirm="confirmTaskExecution"
+        @cancel="cancelTaskExecution"
       />
     </div>
 
