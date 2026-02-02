@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import hljs from 'highlight.js'
 import MarkdownIt from 'markdown-it'
 import type { AppConfig, ConfigList } from '../types/electron'
+import ConfirmDialog from './ConfirmDialog.vue'
 
 const router = useRouter()
 
@@ -80,6 +81,14 @@ const currentConfig = ref<AppConfig>({
 
 const editingIndex = ref(-1)
 const showEditForm = ref(false)
+const showDeleteConfirm = ref(false)
+const configToDeleteIndex = ref(-1)
+
+const deleteMessage = computed(() => {
+  const config = configList.value.configs[configToDeleteIndex.value]
+  const name = config?.name || config?.model || '此配置'
+  return `确定要删除 "${name}" 这个 LLM 接口配置吗？此操作无法撤销。`
+})
 
 const saving = ref(false)
 const message = ref('')
@@ -128,13 +137,28 @@ function editConfig(index: number) {
   }
 }
 
-function deleteConfig(index: number) {
-  configList.value.configs.splice(index, 1)
-  if (configList.value.activeIndex === index) {
-    configList.value.activeIndex = -1
-  } else if (configList.value.activeIndex > index) {
-    configList.value.activeIndex--
+function confirmDelete(index: number) {
+  configToDeleteIndex.value = index
+  showDeleteConfirm.value = true
+}
+
+function handleDeleteConfirm() {
+  if (configToDeleteIndex.value >= 0) {
+    const index = configToDeleteIndex.value
+    configList.value.configs.splice(index, 1)
+    if (configList.value.activeIndex === index) {
+      configList.value.activeIndex = -1
+    } else if (configList.value.activeIndex > index) {
+      configList.value.activeIndex--
+    }
+    showDeleteConfirm.value = false
+    configToDeleteIndex.value = -1
   }
+}
+
+function handleDeleteCancel() {
+  showDeleteConfirm.value = false
+  configToDeleteIndex.value = -1
 }
 
 function saveCurrentConfig() {
@@ -324,7 +348,7 @@ function clearChatHistory() {
               </div>
               <div class="config-actions">
                 <button class="btn-icon" @click="editConfig(index)" title="编辑">编辑</button>
-                <button class="btn-icon" @click="deleteConfig(index)" title="删除">删除</button>
+                <button class="btn-icon" @click="confirmDelete(index)" title="删除">删除</button>
               </div>
             </div>
           </div>
@@ -428,6 +452,17 @@ function clearChatHistory() {
             {{ message }}
           </div>
         </div>
+
+        <!-- 删除确认对话框 -->
+        <ConfirmDialog
+          :show="showDeleteConfirm"
+          title="确认删除"
+          :message="deleteMessage"
+          type="danger"
+          confirm-text="删除"
+          @confirm="handleDeleteConfirm"
+          @cancel="handleDeleteCancel"
+        />
 
         <!-- 底部保存按钮 -->
         <div class="global-actions">
