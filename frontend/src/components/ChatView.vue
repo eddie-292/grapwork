@@ -1904,8 +1904,7 @@ onMounted(() => {
 
 .config-select {
   background: #f3f4f6;
-  color: #1e3a8a;
-  border: 1px solid #c084fc;
+  border: 1px solid #e5e7eb;
   border-radius: 6px;
   padding: 4px 8px;
   font-size: 13px;
@@ -1915,14 +1914,14 @@ onMounted(() => {
 }
 
 .config-select:hover {
-  background: #e0e7ff;
-  border-color: #a855f7;
+  background: #ffffff;
+  border-color: #e5e7eb;
 }
 
 .config-select:focus {
   outline: none;
-  border-color: #a855f7;
-  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.2);
+  border-color: #e5e7eb;
+  box-shadow: 0 0 0 2px rgba(161, 161, 161, 0.2);
 }
 
 .composer {
@@ -2058,8 +2057,7 @@ onMounted(() => {
 /* 参数配置按钮 */
 .params-btn {
   background: #f3f4f6;
-  color: #1e3a8a;
-  border: 1px solid #c084fc;
+  border: 1px solid #e5e7eb;
   border-radius: 6px;
   padding: 4px 10px;
   font-size: 13px;
@@ -2070,13 +2068,19 @@ onMounted(() => {
 }
 
 .params-btn:hover:not(:disabled) {
-  background: #e0e7ff;
-  border-color: #a855f7;
+  background: #ffffff;
+  border-color: #e5e7eb;
 }
 
 .params-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.params-btn:focus {
+  outline: none;
+  border-color: #e5e7eb;
+  box-shadow: 0 0 0 2px rgba(161, 161, 161, 0.2);
 }
 
 /* 参数配置对话框 */
