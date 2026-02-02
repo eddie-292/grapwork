@@ -238,6 +238,77 @@ const TASK_PLANNING_PROMPT = `你是一个任务规划助手。请将用户的�
 3. 通常 3-6 个任务为宜
 4. 只返回 JSON，不要有其他文字`
 
+// Qwen 思考标签流式解析器（用于流式输出场景）
+interface QwenStreamParser {
+  reasoningBuffer: string
+  contentBuffer: string
+  state: 'NORMAL' | 'IN_THINK_CONTENT'
+  tagBuffer: string
+}
+
+function createQwenStreamParser(): QwenStreamParser {
+  return {
+    reasoningBuffer: '',
+    contentBuffer: '',
+    state: 'NORMAL',
+    tagBuffer: ''
+  }
+}
+
+// 解析流式 delta，返回本次新增的 reasoning 和 content
+function parseQwenStreamDelta(
+  parser: QwenStreamParser,
+  delta: string
+): { reasoning: string; content: string } {
+  const OPEN_TAG = '<think>'
+  const CLOSE_TAG = '</think>'
+
+  let result = { reasoning: '', content: '' }
+
+  for (const char of delta) {
+    switch (parser.state) {
+      case 'NORMAL':
+        if (char === OPEN_TAG[parser.tagBuffer.length]) {
+          parser.tagBuffer += char
+          if (parser.tagBuffer === OPEN_TAG) {
+            parser.state = 'IN_THINK_CONTENT'
+            parser.tagBuffer = ''
+          }
+        } else {
+          if (parser.tagBuffer) {
+            parser.contentBuffer += parser.tagBuffer
+            result.content += parser.tagBuffer
+            parser.tagBuffer = ''
+          }
+          parser.contentBuffer += char
+          result.content += char
+        }
+        break
+
+      case 'IN_THINK_CONTENT':
+        if (char === CLOSE_TAG[parser.tagBuffer.length]) {
+          parser.tagBuffer += char
+          if (parser.tagBuffer === CLOSE_TAG) {
+            parser.state = 'NORMAL'
+            parser.tagBuffer = ''
+          }
+        } else {
+          if (parser.tagBuffer) {
+            // 可能是部分匹配但不是完整闭合标签
+            parser.reasoningBuffer += parser.tagBuffer
+            result.reasoning += parser.tagBuffer
+            parser.tagBuffer = ''
+          }
+          parser.reasoningBuffer += char
+          result.reasoning += char
+        }
+        break
+    }
+  }
+
+  return result
+}
+
 // 发送消息到 LLM（支持流式响应）
 async function sendMessageToLLM(messages: { role: string; content: string }[]): Promise<string> {
   if (!activeConfig.value?.apiKey) {
@@ -425,6 +496,9 @@ async function executeTaskStreaming(
   let buffer = ''
   let reasoningStartTime = Date.now()
 
+  // 创建流式解析器
+  const qwenParser = createQwenStreamParser()
+
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
@@ -438,15 +512,26 @@ async function executeTaskStreaming(
       if (data === '[DONE]') break
       try {
         const json = JSON.parse(data)
-        const reasoning_content = json?.choices?.[0]?.delta?.reasoning_content ?? ''
-        const reasoning = json?.choices?.[0]?.delta?.reasoning ?? ''
-        if (reasoning_content || reasoning) {
-          onReasoningDelta(reasoning_content || reasoning)
+        // DeepSeek 格式：独立的 reasoning_content 或 reasoning 字段
+        let reasoning_delta = json?.choices?.[0]?.delta?.reasoning_content ?? ''
+        if (!reasoning_delta) {
+          reasoning_delta = json?.choices?.[0]?.delta?.reasoning ?? ''
+        }
+        if (reasoning_delta) {
+          onReasoningDelta(reasoning_delta)
           onReasoningDuration(Math.floor((Date.now() - reasoningStartTime) / 1000))
         }
-        const delta = json?.choices?.[0]?.delta?.content ?? ''
+        let delta = json?.choices?.[0]?.delta?.content ?? ''
+        // Qwen 格式：content 中可能包含 </think> 标签
         if (delta) {
-          onDelta(delta)
+          const parsed = parseQwenStreamDelta(qwenParser, delta)
+          if (parsed.reasoning) {
+            onReasoningDelta(parsed.reasoning)
+            onReasoningDuration(Math.floor((Date.now() - reasoningStartTime) / 1000))
+          }
+          if (parsed.content) {
+            onDelta(parsed.content)
+          }
         }
       } catch {}
     }
@@ -646,6 +731,9 @@ async function executeNormalChat(text: string) {
     let buffer = ''
     const assistantIndex = currentMessages.length - 1
 
+    // 创建流式解析器
+    const qwenParser = createQwenStreamParser()
+
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
@@ -662,9 +750,21 @@ async function executeNormalChat(text: string) {
         }
         try {
           const json = JSON.parse(data)
-          const reasoning_content = json?.choices?.[0]?.delta?.reasoning_content ?? ''
-          const reasoning = json?.choices?.[0]?.delta?.reasoning ?? ''
-          if (reasoning_content || reasoning) {
+          // DeepSeek 格式：独立的 reasoning_content 或 reasoning 字段
+          let reasoning_delta = json?.choices?.[0]?.delta?.reasoning_content ?? ''
+          if (!reasoning_delta) {
+            reasoning_delta = json?.choices?.[0]?.delta?.reasoning ?? ''
+          }
+          // Qwen 格式：content 中可能包含 </think> 标签
+          let delta = json?.choices?.[0]?.delta?.content ?? ''
+          if (delta && !reasoning_delta) {
+            const parsed = parseQwenStreamDelta(qwenParser, delta)
+            if (parsed.reasoning) {
+              reasoning_delta = parsed.reasoning
+            }
+            delta = parsed.content
+          }
+          if (reasoning_delta) {
             const msg = currentMessages[assistantIndex]
             if (msg) {
               // 如果这是第一次接收推理内容，记录开始时间
@@ -673,12 +773,11 @@ async function executeNormalChat(text: string) {
               }
               // 实时更新消息的推理时长（秒）
               msg.reasoningDuration = Math.floor((Date.now() - reasoningStartTime.value[assistantIndex]) / 1000)
-              msg.reasoning += (reasoning_content || reasoning)
+              msg.reasoning += reasoning_delta
             }
             scrollToBottom()
           }
 
-          const delta = json?.choices?.[0]?.delta?.content ?? ''
           if (delta) {
             const msg = currentMessages[assistantIndex]
             if (msg) msg.content += delta
