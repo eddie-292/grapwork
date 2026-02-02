@@ -33,3 +33,22 @@ a:hover {
 #app {
   min-height: 100vh;
 }
+
+/* Reasoning spinner - global breathing dot effect */
+.reasoning-spinner {
+  width: 10px;
+  height: 10px;
+  background-color: #10a37f;
+  border-radius: 50%;
+  display: inline-block;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}

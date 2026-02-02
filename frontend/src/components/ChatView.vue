@@ -1894,24 +1894,6 @@ onMounted(() => {
   font-size: 10px;
 }
 
-.reasoning-spinner {
-  width: 12px;
-  height: 12px;
-  background-color: #10a37f;
-  border-radius: 50%;
-  display: inline-block;
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.3;
-  }
-}
-
 .msg-row.user .msg-bubble {
   background: #10a37f;
   color: #ffffff;
