@@ -903,7 +903,7 @@ async function executeTaskMode(userInput: string) {
     pendingTasks.value = tasks
 
     // 显示任务列表并等待确认
-    let taskListDisplay = '📋 **任务规划完成**\n\n'
+    let taskListDisplay = '**任务规划完成**\n\n'
     tasks.forEach((task, idx) => {
       taskListDisplay += `${idx + 1}. ${task.description}\n`
     })
