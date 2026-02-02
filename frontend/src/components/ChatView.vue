@@ -1317,6 +1317,7 @@ onMounted(() => {
               <div v-if="m.reasoning" class="reasoning-section">
                 <button class="reasoning-toggle" @click="toggleReasoning(i)">
                   <span>{{ reasoningExpanded[i] ? '▼' : '▶' }}</span>
+                  <span v-if="sending && i === messages.length - 1 && m.reasoning" class="reasoning-spinner"></span>
                   <span>思考</span>
                   <span v-if="m.reasoningDuration">{{ m.reasoningDuration }}s</span>
                 </button>
@@ -1891,6 +1892,24 @@ onMounted(() => {
 
 .reasoning-toggle span:first-child {
   font-size: 10px;
+}
+
+.reasoning-spinner {
+  width: 12px;
+  height: 12px;
+  background-color: #10a37f;
+  border-radius: 50%;
+  display: inline-block;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
 }
 
 .msg-row.user .msg-bubble {
