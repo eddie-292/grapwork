@@ -574,7 +574,7 @@ function clearChatHistory() {
 }
 
 .content-panel {
-  max-width: 800px;
+  
 }
 
 .title {
@@ -808,7 +808,6 @@ function clearChatHistory() {
   justify-content: flex-end;
   padding-top: 20px;
   margin-top: 24px;
-  max-width: 800px;
 }
 
 .highlight-theme-section {
