@@ -361,11 +361,9 @@ async function executeTaskStreaming(
     messagesToSend.push({ role: 'system', content: '你是一个有用的助手' })
   }
 
-  // 添加对话历史（排除 visible: false 的隐藏任务提示消息）
+  // 添加对话历史
   conversationHistory.forEach(msg => {
-    if (msg.visible !== false) {  // 只添加可见消息，排除隐藏的任务提示
-      messagesToSend.push({ role: msg.role, content: msg.content })
-    }
+    messagesToSend.push({ role: msg.role, content: msg.content })
   })
 
   // 添加当前任务提示
