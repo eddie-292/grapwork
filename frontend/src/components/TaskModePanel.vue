@@ -6,7 +6,7 @@ import { useWorkingMemory } from '../composables/useWorkingMemory'
 
 interface TaskModeOptions {
   enableTaskSummary?: boolean
-  mergeThreshold?: number
+  tokenThreshold?: number
   autoExecute?: boolean
   maxRetries?: number
   skipOnError?: boolean
@@ -372,20 +372,20 @@ function deleteTask(taskId: number) {
           </div>
 
           <div class="setting-group">
-            <label class="setting-label">整合阈值</label>
+            <label class="setting-label">TOKEN 阈值</label>
             <div class="setting-value-control">
               <input
                 type="range"
-                :value="taskModeOptions?.mergeThreshold ?? 3"
-                @input="emit('updateOptions', { ...taskModeOptions, mergeThreshold: Number(($event.target as HTMLInputElement).value) })"
-                :min="TASK_MODE_CONSTANTS.MIN_MERGE_THRESHOLD"
-                :max="TASK_MODE_CONSTANTS.MAX_MERGE_THRESHOLD"
-                step="1"
+                :value="taskModeOptions?.tokenThreshold ?? TASK_MODE_CONSTANTS.DEFAULT_TOKEN_THRESHOLD"
+                @input="emit('updateOptions', { ...taskModeOptions, tokenThreshold: Number(($event.target as HTMLInputElement).value) })"
+                :min="TASK_MODE_CONSTANTS.MIN_TOKEN_THRESHOLD"
+                :max="TASK_MODE_CONSTANTS.MAX_TOKEN_THRESHOLD"
+                step="1000"
                 class="setting-range"
               />
-              <span class="setting-value">{{ taskModeOptions?.mergeThreshold ?? 3 }}</span>
+              <span class="setting-value">{{ taskModeOptions?.tokenThreshold ?? TASK_MODE_CONSTANTS.DEFAULT_TOKEN_THRESHOLD }}</span>
             </div>
-            <p class="setting-desc">每 N 个任务后进行一次中间整合</p>
+            <p class="setting-desc">累积内容超过此 TOKEN 数时进行中间整合</p>
           </div>
 
           <div class="setting-group">
@@ -469,9 +469,12 @@ function deleteTask(taskId: number) {
 }
 
 .task-list {
-  flex: 1;
+  /* flex: 1;
+  overflow-y: auto;
+  padding: 12px; */
   overflow-y: auto;
   padding: 12px;
+  height: calc(72vh);
 }
 
 .task-list-container {

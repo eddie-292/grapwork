@@ -288,7 +288,7 @@ export function useTaskMode(
   }
 
   /**
-   * 获取下一个任务的工作记忆上下文
+   * 获取下一个任务的工作记忆上下文（原始数据）
    */
   function getWorkingMemoryForNextTask(taskId: number): {
     previousNotes?: string
@@ -315,6 +315,55 @@ export function useTaskMode(
         .filter(e => e.type === 'final')
         .map(e => `任务${e.taskId + 1}结果: ${e.content}`)
         .join('\n\n')
+    }
+  }
+
+  /**
+   * 合并工作记忆（调用 LLM）
+   */
+  async function mergeWorkingMemory(
+    notes?: string,
+    drafts?: string,
+    finalResults?: string
+  ): Promise<string> {
+    const parts: string[] = []
+
+    if (notes) parts.push(`笔记：\n${notes}`)
+    if (drafts) parts.push(`草稿：\n${drafts}`)
+    if (finalResults) parts.push(`最终结果：\n${finalResults}`)
+
+    if (parts.length === 0) return ''
+
+    const content = parts.join('\n\n')
+
+    // 如果内容较短，不需要合并
+    if (content.length < 2000) return content
+
+    const mergePrompt = `请将以下工作记忆内容整合成一段简洁的总结，保留关键信息和中间结论：
+
+${content}
+
+要求：
+1. 提取关键信息，去除冗余
+2. 保持逻辑连贯
+3. 使用清晰的层次结构
+4. 只返回整合后的内容，不要有其他文字`
+
+    const messagesToSend: { role: string; content: string }[] = []
+    if (activeAssistant.value?.systemPrompt && activeAssistant.value.systemPrompt.trim()) {
+      messagesToSend.push({ role: 'system', content: activeAssistant.value.systemPrompt.trim() })
+    } else {
+      messagesToSend.push({ role: 'system', content: '你是一个有用的助手' })
+    }
+    messagesToSend.push({ role: 'user', content: mergePrompt })
+
+    stats.value.totalApiCalls++
+
+    try {
+      return await sendMessageToLLM(messagesToSend)
+    } catch (error) {
+      console.error('工作记忆合并失败，使用原始内容：', error)
+      return content
     }
   }
 
@@ -735,6 +784,7 @@ ${result}
     initWorkingMemory,
     saveTaskResultToWorkingMemory,
     getWorkingMemoryForNextTask,
+    mergeWorkingMemory,
 
     // 工具方法
     getStats,

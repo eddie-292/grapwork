@@ -5,7 +5,6 @@ import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 import type { ConfigList, AssistantList } from '../types/electron'
 import {
-  TASK_MODE_CONSTANTS,
   TaskStatus,
   TaskError,
   TaskErrorType,
@@ -43,9 +42,6 @@ const DEFAULT_CHAT_PARAMS: ChatParams = {
   frequency_penalty: 0,
 }
 
-// 任务模式常量（从 types/task.ts 导入，避免硬编码）
-const MAX_TASKS_BEFORE_MERGE = TASK_MODE_CONSTANTS.DEFAULT_MERGE_THRESHOLD
-
 type Chat = {
   id: string
   title: string
@@ -66,7 +62,7 @@ type Chat = {
   archivedMessages?: Message[][]  // 任务模式整合时归档的消息段
   taskModeOptions?: {
     enableTaskSummary?: boolean  // 是否启用任务总结，默认 false
-    mergeThreshold?: number      // 整合阈值，默认 3
+    tokenThreshold?: number      // TOKEN 阈值，默认 8000
     autoExecute?: boolean        // 是否自动执行（跳过确认），默认 false
     maxRetries?: number          // 最大重试次数，默认 0
     skipOnError?: boolean        // 失败时是否跳过继续执行，默认 false
@@ -501,6 +497,53 @@ async function saveTaskResultToWorkingMemory(
   if (!enabled) return
 
   await workingMemoryManager.addEntry(type, taskId, taskDescription, result)
+}
+
+/**
+ * 合并工作记忆（调用 LLM）
+ */
+async function mergeWorkingMemory(
+  notes?: string,
+  drafts?: string,
+  finalResults?: string
+): Promise<string> {
+  const parts: string[] = []
+
+  if (notes) parts.push(`笔记：\n${notes}`)
+  if (drafts) parts.push(`草稿：\n${drafts}`)
+  if (finalResults) parts.push(`最终结果：\n${finalResults}`)
+
+  if (parts.length === 0) return ''
+
+  const content = parts.join('\n\n')
+
+  // 如果内容较短，不需要合并
+  if (content.length < 2000) return content
+
+  const mergePrompt = `请将以下工作记忆内容整合成一段简洁的总结，保留关键信息和中间结论：
+
+${content}
+
+要求：
+1. 提取关键信息，去除冗余
+2. 保持逻辑连贯
+3. 使用清晰的层次结构
+4. 只返回整合后的内容，不要有其他文字`
+
+  const messagesToSend: { role: string; content: string }[] = []
+  if (activeAssistant.value?.systemPrompt && activeAssistant.value.systemPrompt.trim()) {
+    messagesToSend.push({ role: 'system', content: activeAssistant.value.systemPrompt.trim() })
+  } else {
+    messagesToSend.push({ role: 'system', content: '你是一个有用的助手' })
+  }
+  messagesToSend.push({ role: 'user', content: mergePrompt })
+
+  try {
+    return await sendMessageToLLM(messagesToSend)
+  } catch (error) {
+    console.error('工作记忆合并失败，使用原始内容：', error)
+    return content
+  }
 }
 
 // 生成任务执行提示（携带上一个任务的总结或中间整合结果）
@@ -1083,6 +1126,15 @@ async function confirmTaskExecution() {
     let previousResult: string | undefined
     let mergedContext: string | undefined  // 存储中间整合结果
     const taskOutputs: string[] = []
+    let accumulatedTokens = 0  // 累积的 TOKEN 数量
+    const tokenThreshold = chat.taskModeOptions?.tokenThreshold ?? 8000  // TOKEN 阈值，超过后进行整合
+
+    // 简单的 TOKEN 估算函数
+    function estimateTokens(text: string): number {
+      // 中文：约 1.5 tokens/字符，英文：约 0.25 tokens/字符
+      // 简化估算：总字符数 * 0.6
+      return Math.ceil(text.length * 0.6)
+    }
 
     for (let i = 0; i < tasks.length; i++) {
       if (controller.value!.signal.aborted) {
@@ -1093,16 +1145,17 @@ async function confirmTaskExecution() {
       const task = tasks[i]
       if (!task) break
 
-      // 获取工作记忆上下文
+      // 获取工作记忆上下文（合并后）
       const workingMemory = getWorkingMemoryForNextTask(i)
       let workingMemoryContext = ''
 
       if (workingMemory.previousNotes || workingMemory.previousDrafts || workingMemory.previousFinalResults) {
-        workingMemoryContext = [
+        // 使用 LLM 合并工作记忆
+        workingMemoryContext = await mergeWorkingMemory(
           workingMemory.previousNotes,
           workingMemory.previousDrafts,
           workingMemory.previousFinalResults
-        ].filter(Boolean).join('\n\n')
+        )
       }
 
       // 添加任务执行消息
@@ -1147,6 +1200,9 @@ async function confirmTaskExecution() {
       // 保存任务输出用于最终整合
       taskOutputs.push(msg.content)
 
+      // 累积 TOKEN 数量
+      accumulatedTokens += estimateTokens(msg.content)
+
       // 标记任务完成
       const taskList = currentChat.value?.taskList
       const currentTask = taskList?.[i]
@@ -1154,11 +1210,10 @@ async function confirmTaskExecution() {
         currentTask.completed = true
       }
 
-      // 检查是否需要进行中间整合（使用可配置的阈值）
-      const mergeThreshold = chat.taskModeOptions?.mergeThreshold ?? MAX_TASKS_BEFORE_MERGE
+      // 检查是否需要进行中间整合（基于累积 TOKEN 数量）
       const needsIntermediateMerge =
-        (i + 1) % mergeThreshold === 0 &&  // 达到分段阈值
-        i < tasks.length - 1                // 且不是最后一个任务
+        accumulatedTokens >= tokenThreshold &&  // 达到 TOKEN 阈值
+        i < tasks.length - 1                     // 且不是最后一个任务
 
       if (needsIntermediateMerge) {
         // 添加中间整合提示消息
@@ -1545,7 +1600,7 @@ function resetParams() {
 }
 
 // 更新任务模式选项
-function updateTaskModeOptions(options: { enableTaskSummary?: boolean; mergeThreshold?: number }) {
+function updateTaskModeOptions(options: { enableTaskSummary?: boolean; tokenThreshold?: number }) {
   const chat = currentChat.value
   if (chat) {
     if (!chat.taskModeOptions) {
@@ -1554,8 +1609,8 @@ function updateTaskModeOptions(options: { enableTaskSummary?: boolean; mergeThre
     if (options.enableTaskSummary !== undefined) {
       chat.taskModeOptions.enableTaskSummary = options.enableTaskSummary
     }
-    if (options.mergeThreshold !== undefined) {
-      chat.taskModeOptions.mergeThreshold = options.mergeThreshold
+    if (options.tokenThreshold !== undefined) {
+      chat.taskModeOptions.tokenThreshold = options.tokenThreshold
     }
     saveChatHistory()
   }

@@ -68,8 +68,8 @@ export enum TaskStatus {
 export interface TaskModeOptions {
   /** 是否启用任务总结，默认 false */
   enableTaskSummary?: boolean
-  /** 整合阈值，默认 3 */
-  mergeThreshold?: number
+  /** TOKEN 阈值，默认 8000（累积 TOKEN 超过此值时进行整合） */
+  tokenThreshold?: number
   /** 是否自动执行（跳过确认），默认 false */
   autoExecute?: boolean
   /** 最大重试次数，默认 0 */
@@ -168,12 +168,12 @@ export interface TaskModeStats {
  * 任务模式常量配置
  */
 export const TASK_MODE_CONSTANTS = {
-  /** 默认整合阈值 */
-  DEFAULT_MERGE_THRESHOLD: 3,
-  /** 最小整合阈值 */
-  MIN_MERGE_THRESHOLD: 2,
-  /** 最大整合阈值 */
-  MAX_MERGE_THRESHOLD: 10,
+  /** 默认 TOKEN 阈值 */
+  DEFAULT_TOKEN_THRESHOLD: 8000,
+  /** 最小 TOKEN 阈值 */
+  MIN_TOKEN_THRESHOLD: 2000,
+  /** 最大 TOKEN 阈值 */
+  MAX_TOKEN_THRESHOLD: 16000,
   /** 默认最大重试次数 */
   DEFAULT_MAX_RETRIES: 2,
 } as const
