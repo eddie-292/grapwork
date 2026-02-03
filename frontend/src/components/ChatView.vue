@@ -4,6 +4,14 @@ import { useRouter } from 'vue-router'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 import type { ConfigList, AssistantList } from '../types/electron'
+import {
+  TASK_MODE_CONSTANTS,
+  type TaskModeOptions,
+  TaskStatus,
+  TaskError,
+  TaskErrorType,
+  formatTaskErrorMessage
+} from '../types/task'
 import TaskModePanel from './TaskModePanel.vue'
 
 const router = useRouter()
@@ -30,8 +38,8 @@ const DEFAULT_CHAT_PARAMS: ChatParams = {
   frequency_penalty: 0,
 }
 
-// 任务模式分段整合配置
-const MAX_TASKS_BEFORE_MERGE = 3  // 每执行3个任务后进行一次中间整合
+// 任务模式常量（从 types/task.ts 导入，避免硬编码）
+const MAX_TASKS_BEFORE_MERGE = TASK_MODE_CONSTANTS.DEFAULT_MERGE_THRESHOLD
 
 type Chat = {
   id: string
@@ -41,12 +49,22 @@ type Chat = {
   assistantId?: string
   configId?: number
   isTaskMode?: boolean
-  taskList?: { id: number; description: string; completed: boolean }[]
+  taskList?: {
+    id: number
+    description: string
+    completed: boolean
+    status?: TaskStatus
+    error?: string
+    retryCount?: number
+  }[]
   params?: ChatParams  // 对话级别的参数配置
   archivedMessages?: Message[][]  // 任务模式整合时归档的消息段
   taskModeOptions?: {
     enableTaskSummary?: boolean  // 是否启用任务总结，默认 false
     mergeThreshold?: number      // 整合阈值，默认 3
+    autoExecute?: boolean        // 是否自动执行（跳过确认），默认 false
+    maxRetries?: number          // 最大重试次数，默认 0
+    skipOnError?: boolean        // 失败时是否跳过继续执行，默认 false
   }
 }
 
@@ -388,23 +406,29 @@ async function planTasks(userInput: string): Promise<{ id: number; description: 
     { role: 'user', content: planningPrompt }
   ]
 
-  const response = await sendMessageToLLM(messagesToSend)
-
-  // 解析 JSON 响应
   try {
-    // 提取 JSON 部分
-    const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/) || response.match(/\{[\s\S]*\}/)
-    const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : response
-    const parsed = JSON.parse(jsonStr)
+    const response = await sendMessageToLLM(messagesToSend)
 
-    if (parsed.tasks && Array.isArray(parsed.tasks)) {
-      return parsed.tasks
+    // 解析 JSON 响应
+    try {
+      // 提取 JSON 部分
+      const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/) || response.match(/\{[\s\S]*\}/)
+      const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : response
+      const parsed = JSON.parse(jsonStr)
+
+      if (parsed.tasks && Array.isArray(parsed.tasks)) {
+        return parsed.tasks
+      }
+      throw new TaskError(TaskErrorType.PARSE_ERROR, 'Invalid response format')
+    } catch (e) {
+      console.error('Failed to parse task list:', e)
+      console.error('Response:', response)
+      if (e instanceof TaskError) throw e
+      throw new TaskError(TaskErrorType.PARSE_ERROR, '无法解析任务列表，请重试', undefined, e instanceof Error ? e : undefined)
     }
-    throw new Error('Invalid response format')
   } catch (e) {
-    console.error('Failed to parse task list:', e)
-    console.error('Response:', response)
-    throw new Error('无法解析任务列表，请重试')
+    if (e instanceof TaskError) throw e
+    throw new TaskError(TaskErrorType.PLANNING_FAILED, formatTaskErrorMessage(e), undefined, e instanceof Error ? e : undefined)
   }
 }
 
@@ -918,10 +942,21 @@ async function executeTaskMode(userInput: string) {
     scrollToBottom()
 
     isTaskPlanning.value = false
-    awaitingTaskConfirmation.value = true
 
-    // 等待用户确认（通过 confirmTaskExecution 函数触发继续执行）
-    return
+    // 检查是否自动执行
+    const autoExecute = chat.taskModeOptions?.autoExecute ?? false
+    if (autoExecute) {
+      // 自动执行：直接调用 confirmTaskExecution
+      taskListDisplay += '\n**自动执行中...**\n'
+      chat.messages[planMsgIndex]!.content = taskListDisplay
+      scrollToBottom()
+      await confirmTaskExecution()
+    } else {
+      // 等待用户确认
+      awaitingTaskConfirmation.value = true
+      // 等待用户确认（通过 confirmTaskExecution 函数触发继续执行）
+      return
+    }
 
   } catch (err) {
     const chat = currentChat.value
@@ -930,8 +965,10 @@ async function executeTaskMode(userInput: string) {
       if (last) {
         if (err instanceof Error && err.name === 'AbortError') {
           last.content = '任务已取消'
+        } else if (err instanceof TaskError) {
+          last.content = err.getUserMessage()
         } else {
-          last.content = '任务执行失败: ' + (err instanceof Error ? err.message : '未知错误')
+          last.content = formatTaskErrorMessage(err)
         }
       }
     }
@@ -1117,8 +1154,10 @@ async function confirmTaskExecution() {
       if (last) {
         if (err instanceof Error && err.name === 'AbortError') {
           last.content = '任务已取消'
+        } else if (err instanceof TaskError) {
+          last.content = err.getUserMessage()
         } else {
-          last.content = '任务执行失败: ' + (err instanceof Error ? err.message : '未知错误')
+          last.content = formatTaskErrorMessage(err)
         }
       }
     }
@@ -1148,6 +1187,48 @@ function cancelTaskExecution() {
   awaitingTaskConfirmation.value = false
   currentTaskIndex.value = -1
   pendingTasks.value = []
+  saveChatHistory()
+  scrollToBottom()
+}
+
+// 重试失败的任务
+async function retryTask(taskId: number) {
+  const chat = currentChat.value
+  if (!chat?.taskList) return
+
+  const task = chat.taskList.find(t => t.id === taskId)
+  if (!task) return
+
+  // 重置任务状态
+  task.status = undefined
+  task.completed = false
+  task.error = undefined
+  task.retryCount = (task.retryCount || 0) + 1
+
+  // 重新执行该任务（简化实现：从该任务开始重新执行）
+  // 实际实现需要更复杂的逻辑来恢复执行上下文
+  chat.messages.push({ role: 'assistant', content: `---\n\n正在重试任务 ${taskId + 1}...`, reasoning: '', copyable: false })
+
+  // TODO: 实现完整的重试逻辑
+  saveChatHistory()
+  scrollToBottom()
+}
+
+// 跳过失败的任务
+async function skipTask(taskId: number) {
+  const chat = currentChat.value
+  if (!chat?.taskList) return
+
+  const task = chat.taskList.find(t => t.id === taskId)
+  if (!task) return
+
+  // 标记为跳过
+  task.status = TaskStatus.SKIPPED
+  task.completed = true // 标记为完成以便继续
+
+  chat.messages.push({ role: 'assistant', content: `---\n\n任务 ${taskId + 1} 已跳过`, reasoning: '', copyable: false })
+
+  // TODO: 继续执行下一个任务
   saveChatHistory()
   scrollToBottom()
 }
@@ -1599,6 +1680,8 @@ onMounted(() => {
         @toggle-settings="showTaskSettings = !showTaskSettings"
         @delete-task="deleteTask"
         @update-task="updateTaskDescription"
+        @retry-task="retryTask"
+        @skip-task="skipTask"
       />
     </div>
 

@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { Task } from '../types/task'
+import { TASK_MODE_CONSTANTS } from '../types/task'
 
 interface TaskModeOptions {
   enableTaskSummary?: boolean
   mergeThreshold?: number
+  autoExecute?: boolean
+  maxRetries?: number
+  skipOnError?: boolean
 }
 
 interface Props {
@@ -27,6 +31,8 @@ const emit = defineEmits<{
   editTasks: []
   deleteTask: [id: number]
   updateTask: [id: number, description: string]
+  retryTask: [id: number]
+  skipTask: [id: number]
 }>()
 
 const editingTaskId = ref<number | null>(null)
@@ -113,9 +119,15 @@ function deleteTask(taskId: number) {
           <!-- 查看模式 -->
           <template v-else>
             <span class="task-description">{{ task.description }}</span>
+            <!-- 确认阶段的操作按钮 -->
             <div v-if="awaitingTaskConfirmation" class="task-actions">
               <button class="task-action-btn" @click="startEdit(task)" title="编辑">✎</button>
               <button class="task-action-btn delete" @click="deleteTask(task.id)" title="删除">🗑</button>
+            </div>
+            <!-- 失败任务的操作按钮 -->
+            <div v-else-if="task.status === 'failed'" class="task-actions task-error-actions">
+              <button class="task-action-btn retry" @click="emit('retryTask', task.id)" title="重试">↻</button>
+              <button class="task-action-btn skip" @click="emit('skipTask', task.id)" title="跳过">→</button>
             </div>
           </template>
         </div>
@@ -133,6 +145,40 @@ function deleteTask(taskId: number) {
           <label class="setting-label">
             <input
               type="checkbox"
+              :checked="taskModeOptions?.autoExecute ?? false"
+              @change="emit('updateOptions', { ...taskModeOptions, autoExecute: ($event.target as HTMLInputElement).checked })"
+            />
+            <span>自动执行</span>
+          </label>
+          <p class="setting-desc">跳过确认步骤，任务规划完成后自动开始执行</p>
+        </div>
+        <div class="setting-item">
+          <label class="setting-label">
+            <input
+              type="checkbox"
+              :checked="taskModeOptions?.skipOnError ?? false"
+              @change="emit('updateOptions', { ...taskModeOptions, skipOnError: ($event.target as HTMLInputElement).checked })"
+            />
+            <span>失败时跳过</span>
+          </label>
+          <p class="setting-desc">任务失败时自动跳过，继续执行后续任务</p>
+        </div>
+        <div class="setting-item">
+          <label class="setting-label">最大重试次数</label>
+          <input
+            type="number"
+            :value="taskModeOptions?.maxRetries ?? TASK_MODE_CONSTANTS.DEFAULT_MAX_RETRIES"
+            @input="emit('updateOptions', { ...taskModeOptions, maxRetries: Number(($event.target as HTMLInputElement).value) })"
+            min="0"
+            max="5"
+            class="setting-input"
+          />
+          <p class="setting-desc">任务失败时的最大重试次数</p>
+        </div>
+        <div class="setting-item">
+          <label class="setting-label">
+            <input
+              type="checkbox"
               :checked="taskModeOptions?.enableTaskSummary ?? false"
               @change="emit('updateOptions', { ...taskModeOptions, enableTaskSummary: ($event.target as HTMLInputElement).checked })"
             />
@@ -146,8 +192,8 @@ function deleteTask(taskId: number) {
             type="number"
             :value="taskModeOptions?.mergeThreshold ?? 3"
             @input="emit('updateOptions', { ...taskModeOptions, mergeThreshold: Number(($event.target as HTMLInputElement).value) })"
-            min="2"
-            max="10"
+            :min="TASK_MODE_CONSTANTS.MIN_MERGE_THRESHOLD"
+            :max="TASK_MODE_CONSTANTS.MAX_MERGE_THRESHOLD"
             class="setting-input"
           />
           <p class="setting-desc">每 N 个任务后进行一次中间整合</p>
@@ -548,6 +594,27 @@ function deleteTask(taskId: number) {
 .task-action-btn.delete:hover {
   background: #fee2e2;
   color: #dc2626;
+}
+
+.task-action-btn.retry:hover {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.task-action-btn.skip:hover {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.task-error-actions {
+  display: flex;
+  gap: 2px;
+}
+
+/* 失败状态的任务样式 */
+.task-item:has(.task-error-actions) {
+  border-color: #fecaca;
+  background: #fef2f2;
 }
 
 .task-edit-mode {
