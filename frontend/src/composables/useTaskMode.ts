@@ -4,16 +4,15 @@
  */
 
 import { ref, computed, type Ref } from 'vue'
+import { WorkingMemoryType } from '../types/task'
 import type {
   Task,
-  TaskModeOptions,
   TaskModeState,
   TaskStatus,
   Message,
-  TaskExecutionContext,
-  TaskExecutionResult,
-  IntermediateMergeResult
+  TaskExecutionContext
 } from '../types/task'
+import { useWorkingMemory } from './useWorkingMemory'
 
 /**
  * 任务规划提示词
@@ -84,7 +83,7 @@ export function useTaskMode(
   activeConfig: Ref<any>,
   activeAssistant: Ref<any>,
   controller: Ref<AbortController | null>,
-  onMessageUpdate: () => void
+  _onMessageUpdate: () => void
 ) {
   // ============ 状态管理 ============
   const state = ref<TaskModeState>({
@@ -101,8 +100,15 @@ export function useTaskMode(
     totalTokens: 0
   })
 
+  // ============ 工作记忆管理 ============
+  let workingMemoryManager: ReturnType<typeof useWorkingMemory> | null = null
+
+  function initWorkingMemory(chatId: string) {
+    workingMemoryManager = useWorkingMemory(chatId)
+    workingMemoryManager.load()
+  }
+
   // ============ Computed ============
-  const taskList = computed(() => currentChat.value?.taskList ?? [])
   const taskModeOptions = computed(() => currentChat.value?.taskModeOptions ?? {})
 
   // ============ 辅助函数 ============
@@ -187,31 +193,33 @@ export function useTaskMode(
   function generateTaskPrompt(
     taskDescription: string,
     previousResult?: string,
-    mergedContext?: string
+    mergedContext?: string,
+    workingMemoryContext?: string
   ): string {
+    let prompt = `请执行以下任务：\n\n任务：${taskDescription}\n\n`
+
+    // 构建上下文部分
+    const contextParts: string[] = []
+
     if (mergedContext) {
-      return `请执行以下任务：
-
-任务：${taskDescription}
-
-前面任务的整合结果：
-${mergedContext}
-
-请专注于完成当前任务，保持简洁清晰。`
-    } else if (previousResult) {
-      return `请执行以下任务：
-
-任务：${taskDescription}
-
-上一个任务的结果总结：${previousResult}
-
-请专注于完成当前任务，保持简洁清晰。`
+      contextParts.push(`前面任务的整合结果：\n${mergedContext}`)
     }
-    return `请执行以下任务：
 
-任务：${taskDescription}
+    if (previousResult) {
+      contextParts.push(`上一个任务的结果总结：${previousResult}`)
+    }
 
-请专注于完成这个任务，保持简洁清晰。`
+    // 新增：工作记忆上下文
+    if (workingMemoryContext) {
+      contextParts.push(`工作记忆（之前任务的积累）：\n${workingMemoryContext}`)
+    }
+
+    if (contextParts.length > 0) {
+      prompt += contextParts.join('\n\n') + '\n\n'
+    }
+
+    prompt += '请专注于完成当前任务，保持简洁清晰。'
+    return prompt
   }
 
   /**
@@ -258,6 +266,56 @@ ${mergedContext}
     messagesToSend.push({ role: 'user', content: taskPrompt })
 
     return messagesToSend
+  }
+
+  /**
+   * 保存任务结果到工作记忆
+   */
+  async function saveTaskResultToWorkingMemory(
+    taskId: number,
+    taskDescription: string,
+    result: string,
+    type: WorkingMemoryType
+  ): Promise<void> {
+    if (!workingMemoryManager) return
+
+    // 检查是否启用工作记忆（默认启用）
+    const options = taskModeOptions.value
+    const enabled = options.workingMemory?.enabled ?? true
+    if (!enabled) return
+
+    await workingMemoryManager.addEntry(type, taskId, taskDescription, result)
+  }
+
+  /**
+   * 获取下一个任务的工作记忆上下文
+   */
+  function getWorkingMemoryForNextTask(taskId: number): {
+    previousNotes?: string
+    previousDrafts?: string
+    previousFinalResults?: string
+  } {
+    if (!workingMemoryManager) return {}
+
+    const allEntries = workingMemoryManager.allEntries.value
+    const previousTasks = allEntries
+      .filter(e => e.taskId < taskId)
+      .sort((a, b) => a.taskId - b.taskId)
+
+    return {
+      previousNotes: previousTasks
+        .filter(e => e.type === 'notes')
+        .map(e => `任务${e.taskId + 1}笔记: ${e.content}`)
+        .join('\n\n'),
+      previousDrafts: previousTasks
+        .filter(e => e.type === 'drafts')
+        .map(e => `任务${e.taskId + 1}草稿: ${e.content}`)
+        .join('\n\n'),
+      previousFinalResults: previousTasks
+        .filter(e => e.type === 'final')
+        .map(e => `任务${e.taskId + 1}结果: ${e.content}`)
+        .join('\n\n')
+    }
   }
 
   /**
@@ -394,7 +452,7 @@ ${mergedContext}
     const validParams: Record<string, any> = {}
     for (const [key, value] of Object.entries(chatParams)) {
       if (value !== undefined) {
-        if (key === 'max_tokens' && value <= 0) continue
+        if (key === 'max_tokens' && typeof value === 'number' && value <= 0) continue
         validParams[key] = value
       }
     }
@@ -672,6 +730,11 @@ ${result}
     executeTaskStreaming,
     summarizeTaskResult,
     performIntermediateMerge,
+
+    // 工作记忆相关
+    initWorkingMemory,
+    saveTaskResultToWorkingMemory,
+    getWorkingMemoryForNextTask,
 
     // 工具方法
     getStats,

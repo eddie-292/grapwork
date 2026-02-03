@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 
@@ -297,7 +297,7 @@ defineExpose({
 
 .messages {
   background: #ffffff;
-  height: calc(78vh);
+  height: calc(75vh);
   overflow: auto;
 }
 

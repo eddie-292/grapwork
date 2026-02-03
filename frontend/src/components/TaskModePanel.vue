@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import type { Task } from '../types/task'
-import { TASK_MODE_CONSTANTS } from '../types/task'
+import { TASK_MODE_CONSTANTS, WorkingMemoryType, type WorkingMemoryEntry } from '../types/task'
+import { useWorkingMemory } from '../composables/useWorkingMemory'
 
 interface TaskModeOptions {
   enableTaskSummary?: boolean
@@ -9,6 +10,11 @@ interface TaskModeOptions {
   autoExecute?: boolean
   maxRetries?: number
   skipOnError?: boolean
+  workingMemory?: {
+    enabled?: boolean
+    autoSave?: boolean
+    maxEntriesPerType?: number
+  }
 }
 
 interface Props {
@@ -19,9 +25,8 @@ interface Props {
   awaitingTaskConfirmation: boolean
   taskModeOptions?: TaskModeOptions
   showSettings?: boolean
+  chatId?: string
 }
-
-defineProps<Props>()
 
 const emit = defineEmits<{
   confirm: []
@@ -35,20 +40,112 @@ const emit = defineEmits<{
   skipTask: [id: number]
 }>()
 
+const props = defineProps<Props>()
+
+// 任务编辑相关状态
 const editingTaskId = ref<number | null>(null)
 const editTaskDescription = ref('')
 
-function startEdit(task: Task) {
+// 工作记忆相关状态
+const showWorkingMemory = ref(false)
+const activeType = ref<WorkingMemoryType>(WorkingMemoryType.FINAL_RESULT)
+const editingEntryId = ref<string | null>(null)
+const editingContent = ref('')
+
+// 工作记忆管理
+const workingMemory = ref(props.chatId ? useWorkingMemory(props.chatId) : null)
+
+// 监听 chatId 变化，重新初始化工作记忆
+watch(() => props.chatId, async (newChatId) => {
+  if (newChatId) {
+    workingMemory.value = useWorkingMemory(newChatId)
+    await workingMemory.value?.load()
+  } else {
+    workingMemory.value = null
+  }
+})
+
+// 记忆类型配置
+const memoryTypes = [
+  { key: WorkingMemoryType.FINAL_RESULT, label: '结果' },
+  { key: WorkingMemoryType.DRAFTS, label: '草稿' },
+  { key: WorkingMemoryType.NOTES, label: '笔记' }
+]
+
+// 计算属性
+const workingMemoryCount = computed(() => {
+  return workingMemory.value?.allEntries.length ?? 0
+})
+
+// 获取特定类型的条目
+function getEntriesByType(type: WorkingMemoryType): WorkingMemoryEntry[] {
+  if (!workingMemory.value) return []
+  return workingMemory.value.getEntriesByType(type)
+}
+
+// 获取当前激活类型的标签
+function getActiveTypeLabel(): string {
+  return memoryTypes.find(t => t.key === activeType.value)?.label ?? ''
+}
+
+// 格式化时间戳
+function formatTimestamp(timestamp: number): string {
+  const date = new Date(timestamp)
+  const now = new Date()
+  const diff = now.getTime() - date.getTime()
+
+  if (diff < 60000) return '刚刚'
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`
+  return `${Math.floor(diff / 86400000)}天前`
+}
+
+// 开始编辑工作记忆条目
+function startEdit(entry: WorkingMemoryEntry) {
+  editingEntryId.value = entry.id
+  editingContent.value = entry.content
+}
+
+// 取消编辑
+function cancelEntryEdit() {
+  editingEntryId.value = null
+  editingContent.value = ''
+}
+
+// 保存编辑
+async function saveEntryEdit(entryId: string) {
+  if (!workingMemory.value) return
+  await workingMemory.value.updateEntry(entryId, editingContent.value)
+  editingEntryId.value = null
+  editingContent.value = ''
+}
+
+// 删除条目
+async function deleteEntry(entryId: string) {
+  if (!confirm('确定要删除这条记忆吗？')) return
+  if (!workingMemory.value) return
+  await workingMemory.value.deleteEntry(entryId)
+}
+
+// 组件挂载时加载工作记忆
+onMounted(async () => {
+  if (workingMemory.value && props.chatId) {
+    await workingMemory.value.load()
+  }
+})
+
+// 任务编辑相关函数
+function startTaskEdit(task: Task) {
   editingTaskId.value = task.id
   editTaskDescription.value = task.description
 }
 
-function cancelEdit() {
+function cancelTaskEdit() {
   editingTaskId.value = null
   editTaskDescription.value = ''
 }
 
-function saveEdit(taskId: number) {
+function saveTaskEdit(taskId: number) {
   if (editTaskDescription.value.trim()) {
     emit('updateTask', taskId, editTaskDescription.value.trim())
     editingTaskId.value = null
@@ -75,6 +172,18 @@ function deleteTask(taskId: number) {
       </div>
     </div>
 
+    <!-- 工作记忆切换按钮 -->
+    <div class="working-memory-toggle" v-if="taskList.length > 0">
+      <button
+        @click="showWorkingMemory = !showWorkingMemory"
+        class="wm-toggle-btn"
+        :class="{ active: showWorkingMemory }"
+      >
+        <span>工作记忆</span>
+        <span class="wm-badge">{{ workingMemoryCount }}</span>
+      </button>
+    </div>
+
     <!-- 确认/取消按钮区域 -->
     <div v-if="awaitingTaskConfirmation" class="task-confirmation">
       <button class="confirm-btn" @click="emit('confirm')">
@@ -87,125 +196,213 @@ function deleteTask(taskId: number) {
       </button>
     </div>
 
-    <div v-if="taskList.length === 0" class="task-panel-empty">
+    <!-- 工作记忆内容区域 -->
+    <div v-if="showWorkingMemory" class="working-memory-section">
+      <!-- 类型筛选 Tab -->
+      <div class="wm-tabs">
+        <button
+          v-for="type in memoryTypes"
+          :key="type.key"
+          @click="activeType = type.key"
+          :class="['wm-tab', { active: activeType === type.key }]"
+        >
+          {{ type.label }}
+          <span class="wm-count">{{ getEntriesByType(type.key).length }}</span>
+        </button>
+      </div>
+
+      <!-- 记忆条目列表 -->
+      <div class="wm-entries">
+        <div
+          v-for="entry in getEntriesByType(activeType)"
+          :key="entry.id"
+          :class="['wm-entry', { editing: editingEntryId === entry.id }]"
+        >
+          <!-- 查看模式 -->
+          <div v-if="editingEntryId !== entry.id" class="wm-entry-view">
+            <div class="wm-entry-header">
+              <span class="wm-task-ref">任务 {{ entry.taskId + 1 }}</span>
+              <span class="wm-timestamp">{{ formatTimestamp(entry.timestamp) }}</span>
+              <div class="wm-entry-actions">
+                <button @click="startEdit(entry)" class="wm-action-btn" title="编辑">✎</button>
+                <button @click="deleteEntry(entry.id)" class="wm-action-btn delete" title="删除">🗑</button>
+              </div>
+            </div>
+            <div class="wm-entry-content">{{ entry.metadata?.summary || entry.content.slice(0, 100) }}</div>
+          </div>
+
+          <!-- 编辑模式 -->
+          <div v-else class="wm-entry-edit">
+            <textarea
+              v-model="editingContent"
+              class="wm-edit-textarea"
+              rows="6"
+            ></textarea>
+            <div class="wm-edit-actions">
+              <button @click="saveEntryEdit(entry.id)" class="wm-edit-btn save">保存</button>
+              <button @click="cancelEntryEdit" class="wm-edit-btn cancel">取消</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 空状态 -->
+        <div v-if="getEntriesByType(activeType).length === 0" class="wm-empty">
+          <p>暂无{{ getActiveTypeLabel() }}内容</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 任务列表（当不显示工作记忆时） -->
+    <div v-else-if="taskList.length === 0" class="task-panel-empty">
       <p>暂无任务</p>
     </div>
 
-    <div v-else class="task-list">
-      <div
-        v-for="(task, idx) in taskList"
-        :key="task.id"
-        :class="['task-item', { active: idx === currentTaskIndex, completed: task.completed, editing: editingTaskId === task.id }]"
-      >
-        <div class="task-icon">
-          <span v-if="task.completed">✓</span>
-          <span v-else-if="idx === currentTaskIndex" class="active-icon">◉</span>
-          <span v-else>○</span>
-        </div>
-        <div class="task-content">
-          <span class="task-number">{{ idx + 1 }}</span>
-          <!-- 编辑模式 -->
-          <div v-if="editingTaskId === task.id && awaitingTaskConfirmation" class="task-edit-mode">
-            <input
-              v-model="editTaskDescription"
-              class="task-edit-input"
-              @keyup.enter="saveEdit(task.id)"
-              @keyup.escape="cancelEdit"
-              ref="editInput"
-            />
-            <button class="task-edit-btn save" @click="saveEdit(task.id)" title="保存">✓</button>
-            <button class="task-edit-btn cancel" @click="cancelEdit" title="取消">✕</button>
+    <div v-else class="task-list-container">
+      <div class="task-list">
+        <div
+          v-for="(task, idx) in taskList"
+          :key="task.id"
+          :class="['task-item', { active: idx === currentTaskIndex, completed: task.completed, editing: editingTaskId === task.id }]"
+        >
+          <div class="task-icon">
+            <span v-if="task.completed">✓</span>
+            <span v-else-if="idx === currentTaskIndex" class="active-icon">◉</span>
+            <span v-else>○</span>
           </div>
-          <!-- 查看模式 -->
-          <template v-else>
-            <span class="task-description">{{ task.description }}</span>
-            <!-- 确认阶段的操作按钮 -->
-            <div v-if="awaitingTaskConfirmation" class="task-actions">
-              <button class="task-action-btn" @click="startEdit(task)" title="编辑">✎</button>
-              <button class="task-action-btn delete" @click="deleteTask(task.id)" title="删除">🗑</button>
+          <div class="task-content">
+            <span class="task-number">{{ idx + 1 }}</span>
+            <!-- 编辑模式 -->
+            <div v-if="editingTaskId === task.id && awaitingTaskConfirmation" class="task-edit-mode">
+              <input
+                v-model="editTaskDescription"
+                class="task-edit-input"
+                @keyup.enter="saveTaskEdit(task.id)"
+                @keyup.escape="cancelTaskEdit"
+                ref="editInput"
+              />
+              <button class="task-edit-btn save" @click="saveTaskEdit(task.id)" title="保存">✓</button>
+              <button class="task-edit-btn cancel" @click="cancelTaskEdit" title="取消">✕</button>
             </div>
-            <!-- 失败任务的操作按钮 -->
-            <div v-else-if="task.status === 'failed'" class="task-actions task-error-actions">
-              <button class="task-action-btn retry" @click="emit('retryTask', task.id)" title="重试">↻</button>
-              <button class="task-action-btn skip" @click="emit('skipTask', task.id)" title="跳过">→</button>
-            </div>
-          </template>
+            <!-- 查看模式 -->
+            <template v-else>
+              <span class="task-description">{{ task.description }}</span>
+              <!-- 确认阶段的操作按钮 -->
+              <div v-if="awaitingTaskConfirmation" class="task-actions">
+                <button class="task-action-btn" @click="startTaskEdit(task)" title="编辑">✎</button>
+                <button class="task-action-btn delete" @click="deleteTask(task.id)" title="删除">🗑</button>
+              </div>
+              <!-- 失败任务的操作按钮 -->
+              <div v-else-if="task.status === 'failed'" class="task-actions task-error-actions">
+                <button class="task-action-btn retry" @click="emit('retryTask', task.id)" title="重试">↻</button>
+                <button class="task-action-btn skip" @click="emit('skipTask', task.id)" title="跳过">→</button>
+              </div>
+            </template>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- 设置面板 -->
-    <div v-if="showSettings" class="task-settings">
-      <div class="settings-header">
-        <h4>任务模式设置</h4>
-        <button class="settings-close-btn" @click="emit('toggleSettings')">✕</button>
-      </div>
-      <div class="settings-content">
-        <div class="setting-item">
-          <label class="setting-label">
-            <input
-              type="checkbox"
-              :checked="taskModeOptions?.autoExecute ?? false"
-              @change="emit('updateOptions', { ...taskModeOptions, autoExecute: ($event.target as HTMLInputElement).checked })"
-            />
-            <span>自动执行</span>
-          </label>
-          <p class="setting-desc">跳过确认步骤，任务规划完成后自动开始执行</p>
-        </div>
-        <div class="setting-item">
-          <label class="setting-label">
-            <input
-              type="checkbox"
-              :checked="taskModeOptions?.skipOnError ?? false"
-              @change="emit('updateOptions', { ...taskModeOptions, skipOnError: ($event.target as HTMLInputElement).checked })"
-            />
-            <span>失败时跳过</span>
-          </label>
-          <p class="setting-desc">任务失败时自动跳过，继续执行后续任务</p>
-        </div>
-        <div class="setting-item">
-          <label class="setting-label">最大重试次数</label>
-          <input
-            type="number"
-            :value="taskModeOptions?.maxRetries ?? TASK_MODE_CONSTANTS.DEFAULT_MAX_RETRIES"
-            @input="emit('updateOptions', { ...taskModeOptions, maxRetries: Number(($event.target as HTMLInputElement).value) })"
-            min="0"
-            max="5"
-            class="setting-input"
-          />
-          <p class="setting-desc">任务失败时的最大重试次数</p>
-        </div>
-        <div class="setting-item">
-          <label class="setting-label">
-            <input
-              type="checkbox"
-              :checked="taskModeOptions?.enableTaskSummary ?? false"
-              @change="emit('updateOptions', { ...taskModeOptions, enableTaskSummary: ($event.target as HTMLInputElement).checked })"
-            />
-            <span>启用任务总结</span>
-          </label>
-          <p class="setting-desc">每个任务完成后生成总结（增加 API 调用）</p>
-        </div>
-        <div class="setting-item">
-          <label class="setting-label">整合阈值</label>
-          <input
-            type="number"
-            :value="taskModeOptions?.mergeThreshold ?? 3"
-            @input="emit('updateOptions', { ...taskModeOptions, mergeThreshold: Number(($event.target as HTMLInputElement).value) })"
-            :min="TASK_MODE_CONSTANTS.MIN_MERGE_THRESHOLD"
-            :max="TASK_MODE_CONSTANTS.MAX_MERGE_THRESHOLD"
-            class="setting-input"
-          />
-          <p class="setting-desc">每 N 个任务后进行一次中间整合</p>
-        </div>
-      </div>
+    <!-- 底部设置按钮区域 -->
+    <div class="bottom-actions">
+      <button class="settings-btn" @click="emit('toggleSettings')" title="任务模式设置">
+        <span>设置</span>
+      </button>
     </div>
-
-    <!-- 设置按钮 -->
-    <button v-if="!showSettings && taskList.length > 0" class="settings-toggle-btn" @click="emit('toggleSettings')" title="任务模式设置">
-      <span>⚙</span>
-    </button>
   </div>
+
+  <!-- 设置对话框 (Teleport to body) -->
+  <Teleport to="body">
+    <div v-if="showSettings" class="dialog-overlay" @click.self="emit('toggleSettings')">
+      <div class="dialog-content">
+        <div class="dialog-header">
+          <h3>任务模式设置</h3>
+          <button class="dialog-close" @click="emit('toggleSettings')">✕</button>
+        </div>
+        <div class="dialog-body">
+          <div class="setting-group">
+            <label class="setting-label">
+              <input
+                type="checkbox"
+                :checked="taskModeOptions?.autoExecute ?? false"
+                @change="emit('updateOptions', { ...taskModeOptions, autoExecute: ($event.target as HTMLInputElement).checked })"
+              />
+              <span>自动执行</span>
+            </label>
+            <p class="setting-desc">跳过确认步骤，任务规划完成后自动开始执行</p>
+          </div>
+
+          <div class="setting-group">
+            <label class="setting-label">
+              <input
+                type="checkbox"
+                :checked="taskModeOptions?.skipOnError ?? false"
+                @change="emit('updateOptions', { ...taskModeOptions, skipOnError: ($event.target as HTMLInputElement).checked })"
+              />
+              <span>失败时跳过</span>
+            </label>
+            <p class="setting-desc">任务失败时自动跳过，继续执行后续任务</p>
+          </div>
+
+          <div class="setting-group">
+            <label class="setting-label">最大重试次数</label>
+            <div class="setting-value-control">
+              <input
+                type="number"
+                :value="taskModeOptions?.maxRetries ?? TASK_MODE_CONSTANTS.DEFAULT_MAX_RETRIES"
+                @input="emit('updateOptions', { ...taskModeOptions, maxRetries: Number(($event.target as HTMLInputElement).value) })"
+                min="0"
+                max="5"
+                class="setting-number"
+              />
+              <span class="setting-value">{{ taskModeOptions?.maxRetries ?? TASK_MODE_CONSTANTS.DEFAULT_MAX_RETRIES }}</span>
+            </div>
+            <p class="setting-desc">任务失败时的最大重试次数</p>
+          </div>
+
+          <div class="setting-group">
+            <label class="setting-label">
+              <input
+                type="checkbox"
+                :checked="taskModeOptions?.enableTaskSummary ?? false"
+                @change="emit('updateOptions', { ...taskModeOptions, enableTaskSummary: ($event.target as HTMLInputElement).checked })"
+              />
+              <span>启用任务总结</span>
+            </label>
+            <p class="setting-desc">每个任务完成后生成总结（增加 API 调用）</p>
+          </div>
+
+          <div class="setting-group">
+            <label class="setting-label">整合阈值</label>
+            <div class="setting-value-control">
+              <input
+                type="range"
+                :value="taskModeOptions?.mergeThreshold ?? 3"
+                @input="emit('updateOptions', { ...taskModeOptions, mergeThreshold: Number(($event.target as HTMLInputElement).value) })"
+                :min="TASK_MODE_CONSTANTS.MIN_MERGE_THRESHOLD"
+                :max="TASK_MODE_CONSTANTS.MAX_MERGE_THRESHOLD"
+                step="1"
+                class="setting-range"
+              />
+              <span class="setting-value">{{ taskModeOptions?.mergeThreshold ?? 3 }}</span>
+            </div>
+            <p class="setting-desc">每 N 个任务后进行一次中间整合</p>
+          </div>
+
+          <div class="setting-group">
+            <label class="setting-label">
+              <input
+                type="checkbox"
+                :checked="taskModeOptions?.workingMemory?.enabled ?? true"
+                @change="emit('updateOptions', { ...taskModeOptions, workingMemory: { ...taskModeOptions?.workingMemory, enabled: ($event.target as HTMLInputElement).checked } })"
+              />
+              <span>启用工作记忆</span>
+            </label>
+            <p class="setting-desc">使用 localStorage 持久化存储任务中间成果</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -275,6 +472,13 @@ function deleteTask(taskId: number) {
   flex: 1;
   overflow-y: auto;
   padding: 12px;
+}
+
+.task-list-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .task-item {
@@ -441,77 +645,108 @@ function deleteTask(taskId: number) {
 }
 
 /* 设置面板 */
-.settings-toggle-btn {
-  position: absolute;
-  bottom: 16px;
-  right: 16px;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: #10a37f;
-  color: white;
-  border: none;
-  cursor: pointer;
-  font-size: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 8px rgba(16, 163, 127, 0.3);
-  transition: all 0.2s;
-}
-
-.settings-toggle-btn:hover {
-  background: #0d8a6c;
-  transform: scale(1.05);
-}
-
-.task-settings {
+/* 底部操作区域 */
+.bottom-actions {
+  padding: 12px 16px;
   border-top: 1px solid #e5e7eb;
   background: #ffffff;
 }
 
-.settings-header {
+.settings-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.settings-btn:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+  color: #374151;
+}
+
+.settings-btn span:first-child {
+  font-size: 16px;
+}
+
+/* 弹出对话框样式 (参考 ChatView.vue) */
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dialog-content {
+  background: #ffffff;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 480px;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.dialog-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 20px 24px;
   border-bottom: 1px solid #e5e7eb;
 }
 
-.settings-header h4 {
+.dialog-header h3 {
   margin: 0;
-  font-size: 13px;
+  font-size: 18px;
   font-weight: 600;
   color: #0f172a;
 }
 
-.settings-close-btn {
-  background: none;
+.dialog-close {
+  background: transparent;
   border: none;
-  font-size: 16px;
+  font-size: 20px;
   color: #6b7280;
   cursor: pointer;
-  padding: 4px;
+  padding: 4px 8px;
   border-radius: 4px;
-  transition: all 0.15s;
+  transition: all 0.2s;
 }
 
-.settings-close-btn:hover {
+.dialog-close:hover {
   background: #f3f4f6;
   color: #0f172a;
 }
 
-.settings-content {
-  padding: 12px 16px;
-  max-height: 200px;
+.dialog-body {
+  padding: 20px 24px;
   overflow-y: auto;
+  flex: 1;
 }
 
-.setting-item {
-  margin-bottom: 16px;
+.setting-group {
+  margin-bottom: 20px;
 }
 
-.setting-item:last-child {
+.setting-group:last-child {
   margin-bottom: 0;
 }
 
@@ -519,10 +754,10 @@ function deleteTask(taskId: number) {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   color: #374151;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
   cursor: pointer;
 }
 
@@ -530,33 +765,77 @@ function deleteTask(taskId: number) {
   width: 16px;
   height: 16px;
   cursor: pointer;
+  accent-color: #10a37f;
 }
 
-.setting-input {
-  width: 60px;
-  padding: 6px 8px;
+.setting-value-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.setting-number {
+  width: 80px;
+  padding: 8px 12px;
   border: 1px solid #e5e7eb;
-  border-radius: 4px;
-  font-size: 13px;
+  border-radius: 6px;
+  font-size: 14px;
   color: #0f172a;
   outline: none;
   transition: border-color 0.2s;
 }
 
-.setting-input:focus {
+.setting-number:focus {
   border-color: #10a37f;
 }
 
-.setting-desc {
-  margin: 4px 0 0 0;
-  font-size: 11px;
-  color: #9ca3af;
-  line-height: 1.4;
+.setting-range {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: #e5e7eb;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
-.task-panel {
-  position: relative;
+.setting-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #10a37f;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
+
+.setting-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #10a37f;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.setting-value {
+  min-width: 30px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #10a37f;
+}
+
+.setting-desc {
+  margin: 8px 0 0 0;
+  font-size: 12px;
+  color: #9ca3af;
+  line-height: 1.5;
+}
+
+/* 任务编辑样式 */
 
 /* 任务编辑样式 */
 .task-item.editing {
@@ -667,5 +946,253 @@ function deleteTask(taskId: number) {
 .task-edit-btn.cancel:hover {
   background: #e5e7eb;
   color: #374151;
+}
+
+/* 工作记忆区域样式 */
+.working-memory-toggle {
+  padding: 8px 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.wm-toggle-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.wm-toggle-btn:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.wm-toggle-btn.active {
+  background: #ecfdf5;
+  border-color: #10a37f;
+  color: #065f46;
+}
+
+.wm-badge {
+  margin-left: auto;
+  padding: 2px 8px;
+  background: #e5e7eb;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.wm-toggle-btn.active .wm-badge {
+  background: #10a37f;
+  color: white;
+}
+
+.working-memory-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.wm-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.wm-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.wm-tab:hover {
+  background: #f3f4f6;
+}
+
+.wm-tab.active {
+  background: #10a37f;
+  color: white;
+}
+
+.wm-count {
+  padding: 2px 6px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.wm-tab.active .wm-count {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.wm-entries {
+  /* flex: 1;
+  overflow-y: auto;
+  padding: 12px; */
+  overflow: auto;
+  padding: 12px;
+  height: calc(73vh);
+}
+
+.wm-entry {
+  margin-bottom: 12px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  transition: all 0.2s;
+}
+
+.wm-entry:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.wm-entry.editing {
+  border-color: #10a37f;
+  box-shadow: 0 0 0 2px rgba(16, 163, 127, 0.1);
+}
+
+.wm-entry-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.wm-task-ref {
+  padding: 2px 8px;
+  background: #ecfdf5;
+  color: #065f46;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.wm-timestamp {
+  margin-left: auto;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.wm-entry-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.wm-action-btn {
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  font-size: 12px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.wm-action-btn:hover {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.wm-action-btn.delete:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.wm-entry-content {
+  font-size: 12px;
+  color: #374151;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.wm-edit-textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 120px;
+}
+
+.wm-edit-textarea:focus {
+  outline: none;
+  border-color: #10a37f;
+}
+
+.wm-edit-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  justify-content: flex-end;
+}
+
+.wm-edit-btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.wm-edit-btn.save {
+  background: #10a37f;
+  color: white;
+}
+
+.wm-edit-btn.save:hover {
+  background: #0d8a6c;
+}
+
+.wm-edit-btn.cancel {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.wm-edit-btn.cancel:hover {
+  background: #e5e7eb;
+}
+
+.wm-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: #9ca3af;
+  font-size: 13px;
 }
 </style>

@@ -3,6 +3,41 @@
  */
 
 /**
+ * 工作记忆类型
+ */
+export enum WorkingMemoryType {
+  NOTES = 'notes',
+  DRAFTS = 'drafts',
+  FINAL_RESULT = 'final'
+}
+
+/**
+ * 单个工作记忆条目
+ */
+export interface WorkingMemoryEntry {
+  id: string
+  type: WorkingMemoryType
+  taskId: number
+  taskDescription: string
+  content: string
+  timestamp: number
+  metadata?: {
+    wordCount?: number
+    summary?: string
+  }
+}
+
+/**
+ * 工作记忆容器
+ */
+export interface WorkingMemory {
+  chatId: string
+  entries: WorkingMemoryEntry[]
+  lastUpdated: number
+  version: number
+}
+
+/**
  * 单个任务
  */
 export interface Task {
@@ -12,6 +47,8 @@ export interface Task {
   status?: TaskStatus
   error?: string
   retryCount?: number
+  /** 关联的工作记忆条目 ID */
+  workingMemoryIds?: string[]
 }
 
 /**
@@ -39,6 +76,15 @@ export interface TaskModeOptions {
   maxRetries?: number
   /** 失败时是否跳过继续执行，默认 false */
   skipOnError?: boolean
+  /** 工作记忆配置 */
+  workingMemory?: {
+    /** 是否启用工作记忆，默认 true */
+    enabled?: boolean
+    /** 是否自动保存，默认 true */
+    autoSave?: boolean
+    /** 每种类型最大条目数，默认 50 */
+    maxEntriesPerType?: number
+  }
 }
 
 /**
@@ -217,8 +263,8 @@ export type ErrorHandler = (error: TaskError) => void
  */
 export function createErrorHandler(
   onError?: ErrorHandler,
-  onRetry?: (taskId: number) => void,
-  onSkip?: (taskId: number) => void
+  _onRetry?: (taskId: number) => void,
+  _onSkip?: (taskId: number) => void
 ): ErrorHandler {
   return (error: TaskError) => {
     console.error('[TaskMode Error]', {

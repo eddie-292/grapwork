@@ -1,21 +1,25 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 import type { ConfigList, AssistantList } from '../types/electron'
 import {
   TASK_MODE_CONSTANTS,
-  type TaskModeOptions,
   TaskStatus,
   TaskError,
   TaskErrorType,
-  formatTaskErrorMessage
+  formatTaskErrorMessage,
+  WorkingMemoryType
 } from '../types/task'
+import { useWorkingMemory } from '../composables/useWorkingMemory'
 import TaskModePanel from './TaskModePanel.vue'
 import NormalChat from './NormalChat.vue'
 
 const router = useRouter()
+
+// 工作记忆管理器（初始化为 null，在任务开始时创建）
+let workingMemoryManager: ReturnType<typeof useWorkingMemory> | null = null
 
 type Role = 'user' | 'assistant' | 'system'
 type Message = { role: Role; content: string, reasoning: string, reasoningDuration?: number, visible?: boolean, copyable?: boolean, archived?: boolean }
@@ -66,6 +70,11 @@ type Chat = {
     autoExecute?: boolean        // 是否自动执行（跳过确认），默认 false
     maxRetries?: number          // 最大重试次数，默认 0
     skipOnError?: boolean        // 失败时是否跳过继续执行，默认 false
+    workingMemory?: {            // 工作记忆配置
+      enabled?: boolean          // 是否启用工作记忆，默认 true
+      autoSave?: boolean         // 是否自动保存，默认 true
+      maxEntriesPerType?: number // 每种类型最大条目数，默认 50
+    }
   }
 }
 
@@ -434,36 +443,97 @@ async function planTasks(userInput: string): Promise<{ id: number; description: 
   }
 }
 
+// ============ 工作记忆辅助函数 ============
+
+/**
+ * 初始化工作记忆管理器
+ */
+function initWorkingMemory(chatId: string) {
+  workingMemoryManager = useWorkingMemory(chatId)
+  workingMemoryManager.load()
+}
+
+/**
+ * 获取下一个任务的工作记忆上下文
+ */
+function getWorkingMemoryForNextTask(taskId: number): {
+  previousNotes?: string
+  previousDrafts?: string
+  previousFinalResults?: string
+} {
+  if (!workingMemoryManager) return {}
+
+  const allEntries = workingMemoryManager.allEntries.value
+  const previousTasks = allEntries
+    .filter(e => e.taskId < taskId)
+    .sort((a, b) => a.taskId - b.taskId)
+
+  return {
+    previousNotes: previousTasks
+      .filter(e => e.type === 'notes')
+      .map(e => `任务${e.taskId + 1}笔记: ${e.content}`)
+      .join('\n\n'),
+    previousDrafts: previousTasks
+      .filter(e => e.type === 'drafts')
+      .map(e => `任务${e.taskId + 1}草稿: ${e.content}`)
+      .join('\n\n'),
+    previousFinalResults: previousTasks
+      .filter(e => e.type === 'final')
+      .map(e => `任务${e.taskId + 1}结果: ${e.content}`)
+      .join('\n\n')
+  }
+}
+
+/**
+ * 保存任务结果到工作记忆
+ */
+async function saveTaskResultToWorkingMemory(
+  taskId: number,
+  taskDescription: string,
+  result: string,
+  type: WorkingMemoryType
+): Promise<void> {
+  if (!workingMemoryManager) return
+
+  // 检查是否启用工作记忆（默认启用）
+  const chat = currentChat.value
+  const enabled = chat?.taskModeOptions?.workingMemory?.enabled ?? true
+  if (!enabled) return
+
+  await workingMemoryManager.addEntry(type, taskId, taskDescription, result)
+}
+
 // 生成任务执行提示（携带上一个任务的总结或中间整合结果）
 function generateTaskPrompt(
   taskDescription: string,
   previousResult?: string,
-  mergedContext?: string
+  mergedContext?: string,
+  workingMemoryContext?: string
 ): string {
+  let prompt = `请执行以下任务：\n\n任务：${taskDescription}\n\n`
+
+  // 构建上下文部分
+  const contextParts: string[] = []
+
   if (mergedContext) {
-    // 有中间整合结果时，优先使用整合结果作为上下文
-    return `请执行以下任务：
-
-任务：${taskDescription}
-
-前面任务的整合结果：
-${mergedContext}
-
-请专注于完成当前任务，保持简洁清晰。`
-  } else if (previousResult) {
-    return `请执行以下任务：
-
-任务：${taskDescription}
-
-上一个任务的结果总结：${previousResult}
-
-请专注于完成当前任务，保持简洁清晰。`
+    contextParts.push(`前面任务的整合结果：\n${mergedContext}`)
   }
-  return `请执行以下任务：
 
-任务：${taskDescription}
+  if (previousResult) {
+    contextParts.push(`上一个任务的结果总结：${previousResult}`)
+  }
 
-请专注于完成这个任务，保持简洁清晰。`
+  // 工作记忆上下文
+  if (workingMemoryContext) {
+    contextParts.push(`工作记忆（之前任务的积累）：\n${workingMemoryContext}`)
+  }
+
+  if (contextParts.length > 0) {
+    prompt += contextParts.join('\n\n') + '\n\n'
+  }
+
+  prompt += '请专注于完成当前任务，保持简洁清晰。'
+  return prompt
 }
 
 // 流式执行单个任务
@@ -472,6 +542,7 @@ async function executeTaskStreaming(
   previousResult: string | undefined,
   mergedContext: string | undefined,
   conversationHistory: Message[],
+  workingMemoryContext: string | undefined,  // 新增：工作记忆上下文
   onDelta: (delta: string) => void,
   onReasoningDelta: (delta: string) => void,
   onReasoningDuration: (duration: number) => void
@@ -480,7 +551,7 @@ async function executeTaskStreaming(
     throw new Error('请先配置并启用一个 LLM 接口')
   }
 
-  const prompt = generateTaskPrompt(taskDescription, previousResult, mergedContext)
+  const prompt = generateTaskPrompt(taskDescription, previousResult, mergedContext, workingMemoryContext)
 
   // 构建消息列表：系统提示 + 对话历史（排除当前添加的用户消息） + 当前任务提示
   const messagesToSend: { role: string; content: string }[] = []
@@ -1001,6 +1072,9 @@ async function confirmTaskExecution() {
   const chat = currentChat.value
   const tasks = pendingTasks.value
 
+  // 初始化工作记忆
+  initWorkingMemory(chat.id)
+
   try {
     awaitingTaskConfirmation.value = false
     isTaskExecuting.value = true
@@ -1019,6 +1093,18 @@ async function confirmTaskExecution() {
       const task = tasks[i]
       if (!task) break
 
+      // 获取工作记忆上下文
+      const workingMemory = getWorkingMemoryForNextTask(i)
+      let workingMemoryContext = ''
+
+      if (workingMemory.previousNotes || workingMemory.previousDrafts || workingMemory.previousFinalResults) {
+        workingMemoryContext = [
+          workingMemory.previousNotes,
+          workingMemory.previousDrafts,
+          workingMemory.previousFinalResults
+        ].filter(Boolean).join('\n\n')
+      }
+
       // 添加任务执行消息
       const taskMsgIndex = chat.messages.length
       const taskPrompt = i === 0
@@ -1030,12 +1116,13 @@ async function confirmTaskExecution() {
       const msg = chat.messages[taskMsgIndex + 1]
       if (!msg) break
 
-      // 流式执行任务（携带完整的对话历史）
+      // 流式执行任务（携带完整的对话历史和工作记忆上下文）
       await executeTaskStreaming(
         task.description,
         i === 0 ? undefined : previousResult,
         mergedContext,
         chat.messages.slice(0, -1), // 传递当前聊天历史的所有消息
+        workingMemoryContext || undefined, // 新增：工作记忆上下文
         (delta) => {
           msg.content += delta
           scrollToBottom()
@@ -1047,6 +1134,14 @@ async function confirmTaskExecution() {
         (duration) => {
           msg.reasoningDuration = duration
         }
+      )
+
+      // 保存任务输出到工作记忆
+      await saveTaskResultToWorkingMemory(
+        i,
+        task.description,
+        msg.content,
+        WorkingMemoryType.FINAL_RESULT
       )
 
       // 保存任务输出用于最终整合
@@ -1138,6 +1233,7 @@ async function confirmTaskExecution() {
       undefined,
       undefined,
       chat.messages.slice(0, -1),
+      undefined, // 工作记忆上下文
       (delta) => {
         integrationMsg.content += delta
         scrollToBottom()
@@ -1352,6 +1448,16 @@ function switchChat(chatId: string) {
 
 function deleteChat(chatId: string, event: Event) {
   event.stopPropagation()
+
+  // 清理工作记忆
+  try {
+    const wm = useWorkingMemory(chatId)
+    wm.clear()
+    console.log(`Working memory cleared for chat ${chatId}`)
+  } catch (e) {
+    console.error('Failed to clear working memory:', e)
+  }
+
   chatList.value = chatList.value.filter(c => c.id !== chatId)
   if (currentChatId.value === chatId) {
     currentChatId.value = chatList.value.length > 0 ? chatList.value[0]?.id ?? null : null
@@ -1493,6 +1599,16 @@ onMounted(() => {
   // 普通 chat 组件会在内部处理 autoResizeTextarea
   if (textareaRef.value) {
     autoResizeTextarea()
+  }
+})
+
+// 监听会话切换，加载工作记忆
+watch(currentChatId, (newChatId) => {
+  if (newChatId) {
+    const chat = chatList.value.find(c => c.id === newChatId)
+    if (chat?.isTaskMode) {
+      initWorkingMemory(newChatId)
+    }
   }
 })
 </script>
@@ -1715,6 +1831,7 @@ onMounted(() => {
         :awaiting-task-confirmation="awaitingTaskConfirmation"
         :task-mode-options="currentChat?.taskModeOptions"
         :show-settings="showTaskSettings"
+        :chat-id="currentChatId ?? undefined"
         @confirm="confirmTaskExecution"
         @cancel="cancelTaskExecution"
         @update-options="updateTaskModeOptions"
@@ -2135,7 +2252,7 @@ onMounted(() => {
 
 .messages {
   background: #ffffff;
-  height: calc(78vh);
+  height: calc(75vh);
   overflow: auto;
 }
 
