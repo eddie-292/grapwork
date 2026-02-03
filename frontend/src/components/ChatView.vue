@@ -13,6 +13,7 @@ import {
   formatTaskErrorMessage
 } from '../types/task'
 import TaskModePanel from './TaskModePanel.vue'
+import NormalChat from './NormalChat.vue'
 
 const router = useRouter()
 
@@ -183,6 +184,7 @@ const activeAssistant = computed(() => {
 })
 const messages = computed(() => currentChat.value?.messages || [])
 const messagesRef = ref<HTMLDivElement | null>(null)
+const normalChatRef = ref<InstanceType<typeof NormalChat> | null>(null)
 // 分组会话：任务模式和普通会话
 const taskModeChats = computed(() => chatList.value.filter(c => c.isTaskMode === true))
 const normalChats = computed(() => chatList.value.filter(c => c.isTaskMode === false || c.isTaskMode === undefined))
@@ -854,6 +856,10 @@ async function executeNormalChat(text: string) {
               // 如果这是第一次接收推理内容，记录开始时间
               if (!reasoningStartTime.value[assistantIndex]) {
                 reasoningStartTime.value[assistantIndex] = Date.now()
+                // 同步到 NormalChat 组件
+                if (normalChatRef.value) {
+                  normalChatRef.value.setReasoningStartTime(assistantIndex, Date.now())
+                }
               }
               // 实时更新消息的推理时长（秒）
               msg.reasoningDuration = Math.floor((Date.now() - reasoningStartTime.value[assistantIndex]) / 1000)
@@ -889,6 +895,10 @@ async function executeNormalChat(text: string) {
     const last = currentMessages[currentMessages.length - 1]
     if (last && last.reasoning) {
       reasoningExpanded.value[currentMessages.length - 1] = false
+      // 同步到 NormalChat 组件
+      if (normalChatRef.value) {
+        normalChatRef.value.setReasoningExpanded(currentMessages.length - 1, false)
+      }
     }
     saveChatHistory()
     scrollToBottom()
@@ -1291,6 +1301,13 @@ function updateTaskDescription(taskId: number, newDescription: string) {
 }
 
 function scrollToBottom() {
+  // 普通会话模式使用 NormalChat 组件的方法
+  if (!taskMode.value && normalChatRef.value) {
+    normalChatRef.value.scrollToBottom()
+    return
+  }
+
+  // 任务模式使用原来的方式
   if (!autoScrollEnabled.value) return
   const el = messagesRef.value
   if (!el) return
@@ -1473,6 +1490,7 @@ onMounted(() => {
   loadAssistants()
   loadHighlightTheme()
   scrollToBottom()
+  // 普通 chat 组件会在内部处理 autoResizeTextarea
   if (textareaRef.value) {
     autoResizeTextarea()
   }
@@ -1555,7 +1573,30 @@ onMounted(() => {
           </div>
         </div>
       </header>
-      <main class="main">
+      <!-- 普通会话模式 -->
+      <NormalChat
+        v-if="!taskMode"
+        :messages="messages"
+        :input="input"
+        :sending="sending"
+        :active-config="activeConfig"
+        :active-assistant="activeAssistant"
+        :current-chat="currentChat"
+        :assistant-list="assistantList"
+        :config-list="configList"
+        @send="send"
+        @cancel="cancel"
+        @update:input="input = $event"
+        @toggle-reasoning="toggleReasoning"
+        @open-params-dialog="openParamsDialog"
+        @change-assistant="changeAssistant"
+        @change-config="changeChatConfig"
+        @update:is-task-mode="val => { if (currentChat) currentChat.isTaskMode = val }"
+        ref="normalChatRef"
+      />
+
+      <!-- 任务模式 -->
+      <main v-else class="main">
         <div class="messages" ref="messagesRef" @scroll="handleMessagesScroll">
           <div v-if="messages.length === 0" class="welcome">
             <h2>欢迎使用 OpenChat Desktop</h2>
