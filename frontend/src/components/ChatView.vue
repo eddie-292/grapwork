@@ -946,11 +946,6 @@ window.copyCodeBlock = async (btn: HTMLElement) => {
   }
 }
 
-window.previewHtml = (btn: HTMLElement) => {
-  const base64Code = btn.getAttribute('data-html-code') || ''
-  openHtmlPreview(base64Code)
-}
-
 async function loadConfig() {
   const config = await storage.getConfigList()
   if (config) {
@@ -2151,6 +2146,12 @@ function cancelLogout() {
 }
 
 onMounted(async () => {
+  // 设置全局预览函数（任务模式使用）
+  window.previewHtml = (btn: HTMLElement) => {
+    const base64Code = btn.getAttribute('data-html-code') || ''
+    openHtmlPreview(base64Code)
+  }
+
   await loadChatHistory()
   await loadConfig()
   await loadAssistants()
@@ -2170,6 +2171,18 @@ watch(currentChatId, (newChatId) => {
     const chat = chatList.value.find(c => c.id === newChatId)
     if (chat?.isTaskMode) {
       initWorkingMemory(newChatId)
+    }
+  }
+})
+
+// 监听任务模式切换，确保全局函数正确设置
+watch(taskMode, async (isTaskMode) => {
+  if (isTaskMode) {
+    // 等待 NormalChat 组件卸载完成后再设置函数
+    await new Promise(resolve => setTimeout(resolve, 0))
+    window.previewHtml = (btn: HTMLElement) => {
+      const base64Code = btn.getAttribute('data-html-code') || ''
+      openHtmlPreview(base64Code)
     }
   }
 })

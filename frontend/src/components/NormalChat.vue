@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
@@ -210,11 +210,17 @@ function openHtmlPreview(base64Code: string) {
   showHtmlPreview.value = true
 }
 
-// 声明全局函数供HTML中的onclick使用
-;(window as any).previewHtml = function (btn: HTMLElement) {
-  const base64Code = (btn as HTMLElement).getAttribute('data-html-code') || ''
-  openHtmlPreview(base64Code)
-}
+// 组件挂载时设置全局函数，卸载时清理
+onMounted(() => {
+  ;(window as any).previewHtml = function (btn: HTMLElement) {
+    const base64Code = btn.getAttribute('data-html-code') || ''
+    openHtmlPreview(base64Code)
+  }
+})
+
+onUnmounted(() => {
+  delete (window as any).previewHtml
+})
 
 // Expose functions for parent component
 defineExpose({
