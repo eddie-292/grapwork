@@ -92,7 +92,8 @@ md.renderer.rules.fence = (tokens, idx) => {
 
   const info = token.info ? md.utils.unescapeAll(token.info).trim() : ''
   const lang = info ? info.split(/\s+/g)[0] : ''
-  let code = token.content
+  const rawCode = token.content // 保存原始代码
+  let code = rawCode
 
   if (lang && hljs.getLanguage(lang)) {
     try {
@@ -106,11 +107,19 @@ md.renderer.rules.fence = (tokens, idx) => {
 
   const copyBtn = `<button class="code-copy-btn" onclick="window.copyCodeBlock(this)" title="复制代码">复制</button>`
 
-  // 为HTML代码块添加预览按钮
+  // 为HTML代码块添加预览按钮（使用 data 属性存储代码）
   let previewBtn = ''
   if (lang === 'html') {
-    const escapedCode = code.replace(/`/g, '\\`').replace(/"/g, '&quot;')
-    previewBtn = `<button class="code-preview-btn" onclick="window.previewHtml(this, \`${escapedCode}\`)" title="预览HTML">预览</button>`
+    // 使用btoa进行Base64编码（浏览器环境）
+    try {
+      const base64Code = btoa(rawCode)
+      previewBtn = `<button class="code-preview-btn" data-html-code="${base64Code}" onclick="window.previewHtml(this)" title="预览HTML">预览</button>`
+    } catch {
+      // 如果包含Unicode字符导致btoa失败，使用UTF-8编码
+      const utf8Bytes = encodeURIComponent(rawCode).replace(/%([0-9A-F]{2})/g, (_match, p1) => String.fromCharCode(parseInt(p1, 16)))
+      const base64Code = btoa(utf8Bytes)
+      previewBtn = `<button class="code-preview-btn" data-html-code="${base64Code}" onclick="window.previewHtml(this)" title="预览HTML">预览</button>`
+    }
   }
 
   return `<pre><code class="hljs language-${lang}">${code}</code>${copyBtn}${previewBtn}</pre>`
@@ -199,17 +208,25 @@ function toggleTaskMode(e: Event) {
 }
 
 // HTML预览功能
-function openHtmlPreview(htmlCode: string) {
-  // 解码HTML实体
-  const textarea = document.createElement('textarea')
-  textarea.innerHTML = htmlCode
-  htmlPreviewContent.value = textarea.value
-  showHtmlPreview.value = true
+function openHtmlPreview(base64Code: string) {
+  try {
+    // 尝试直接解码
+    const htmlCode = atob(base64Code)
+    htmlPreviewContent.value = htmlCode
+    showHtmlPreview.value = true
+  } catch {
+    // 如果失败，尝试UTF-8解码
+    const utf8Bytes = atob(base64Code)
+    const htmlCode = decodeURIComponent(utf8Bytes.split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''))
+    htmlPreviewContent.value = htmlCode
+    showHtmlPreview.value = true
+  }
 }
 
 // 声明全局函数供HTML中的onclick使用
-;(window as any).previewHtml = function (_btn: HTMLElement, htmlCode: string) {
-  openHtmlPreview(htmlCode)
+;(window as any).previewHtml = function (btn: HTMLElement) {
+  const base64Code = (btn as HTMLElement).getAttribute('data-html-code') || ''
+  openHtmlPreview(base64Code)
 }
 
 // Expose functions for parent component
@@ -534,7 +551,7 @@ defineExpose({
 .msg-bubble :deep(.code-preview-btn) {
   position: absolute;
   top: 8px;
-  right: 60px;
+  right: 72px;
   background: rgba(16, 163, 127, 0.9);
   border: 1px solid #10a37f;
   border-radius: 4px;
