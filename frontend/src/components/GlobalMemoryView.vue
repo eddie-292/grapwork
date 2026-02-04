@@ -277,7 +277,7 @@ onMounted(async () => {
   background: #f3f4f6;
   border: 1px solid #e5e7eb;
   color: #374151;
-  border-radius: 8px;
+  border-radius: 999px;
   cursor: pointer;
   transition: background 0.2s;
   font-size: 14px;
