@@ -137,6 +137,7 @@ function saveGlobalMemory(memory: GlobalMemory): boolean {
       fs.mkdirSync(dir, { recursive: true })
     }
     fs.writeFileSync(GLOBAL_MEMORY_PATH, JSON.stringify(memory, null, 2), 'utf-8')
+    console.log("GLOBAL_MEMORY_PATH:", GLOBAL_MEMORY_PATH)
     return true
   } catch (error) {
     console.error('Failed to save global memory:', error)
