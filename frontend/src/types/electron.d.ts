@@ -25,6 +25,31 @@ export interface ConfigList {
   activeIndex: number
 }
 
+// 全局记忆类型
+export type GlobalMemoryType = 'preferences' | 'settings' | 'general_info' | 'custom'
+
+export interface GlobalMemoryEntry {
+  id: string
+  type: GlobalMemoryType
+  category: string
+  title: string
+  content: string
+  keywords: string[]
+  enabled: boolean
+  createdAt: number
+  updatedAt: number
+  metadata?: {
+    usageCount?: number
+    lastUsedAt?: number
+  }
+}
+
+export interface GlobalMemory {
+  entries: GlobalMemoryEntry[]
+  version: number
+  lastUpdated: number
+}
+
 interface ElectronAPI {
   getConfig: () => Promise<ConfigList>
   saveConfig: (config: ConfigList) => Promise<boolean>
@@ -35,6 +60,8 @@ interface ElectronAPI {
     messages: any[]
     extra_body?: string
   }) => Promise<{ success: boolean; error?: string; status?: number; headers?: Record<string, string> }>
+  getGlobalMemory: () => Promise<GlobalMemory>
+  saveGlobalMemory: (memory: GlobalMemory) => Promise<boolean>
 }
 
 declare global {

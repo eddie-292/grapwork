@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
+import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
 
 type Role = 'user' | 'assistant' | 'system'
 export type Message = { role: Role; content: string; reasoning: string; reasoningDuration?: number; visible?: boolean; copyable?: boolean; archived?: boolean }
@@ -31,6 +32,29 @@ const emit = defineEmits<{
   'change-config': [index: string]
   'update:is-task-mode': [value: boolean]
 }>()
+
+// 全局记忆对话框状态
+const showSaveToGlobalMemoryDialog = ref(false)
+const saveToGlobalMemoryContent = ref('')
+const saveToGlobalMemoryKeywords = ref<string[]>([])
+
+// 提取关键词的简单函数
+function extractKeywords(content: string): string[] {
+  // 简单分词（中英文混合）
+  const words = content
+    .toLowerCase()
+    .split(/[\s\u4e00-\u9fa5,;.!?。，；！？、]+/)
+    .filter(w => w.length > 1)
+  // 去重并返回前 5 个
+  return Array.from(new Set(words)).slice(0, 5)
+}
+
+// 打开保存到全局记忆对话框
+function openSaveToGlobalMemoryDialog(content: string) {
+  saveToGlobalMemoryContent.value = content
+  saveToGlobalMemoryKeywords.value = extractKeywords(content)
+  showSaveToGlobalMemoryDialog.value = true
+}
 
 // Refs
 const messagesRef = ref<HTMLDivElement | null>(null)
@@ -216,6 +240,9 @@ defineExpose({
                 <button class="copy-btn" @click="copyMarkdown(m.content)" title="复制 Markdown">
                   Copy Markdown
                 </button>
+                <button class="copy-btn" @click="openSaveToGlobalMemoryDialog(m.content)" title="保存为全局记忆">
+                  + Global Memory
+                </button>
               </div>
             </div>
           </div>
@@ -283,6 +310,15 @@ defineExpose({
         </div>
       </div>
     </form>
+
+    <!-- 快速保存到全局记忆对话框 -->
+    <SaveToGlobalMemoryDialog
+      :show="showSaveToGlobalMemoryDialog"
+      :initial-content="saveToGlobalMemoryContent"
+      :initial-keywords="saveToGlobalMemoryKeywords"
+      @close="showSaveToGlobalMemoryDialog = false"
+      @saved="showSaveToGlobalMemoryDialog = false"
+    />
   </main>
 </template>
 

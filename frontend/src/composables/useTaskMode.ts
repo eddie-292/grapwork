@@ -13,6 +13,7 @@ import type {
   TaskExecutionContext
 } from '../types/task'
 import { useWorkingMemory } from './useWorkingMemory'
+import { useGlobalMemory } from './useGlobalMemory'
 
 /**
  * 任务规划提示词
@@ -121,6 +122,12 @@ export function useTaskMode(
     workingMemoryManager.load()
   }
 
+  // ============ 全局记忆管理 ============
+  const globalMemoryManager = useGlobalMemory()
+
+  // 初始化时加载全局记忆
+  globalMemoryManager.load()
+
   // ============ Computed ============
   const taskModeOptions = computed(() => currentChat.value?.taskModeOptions ?? {})
 
@@ -207,12 +214,18 @@ export function useTaskMode(
     taskDescription: string,
     previousResult?: string,
     mergedContext?: string,
-    workingMemoryContext?: string
+    workingMemoryContext?: string,
+    globalMemoryContext?: string  // 新增：全局记忆上下文
   ): string {
     let prompt = `请执行以下任务：\n\n任务：${taskDescription}\n\n`
 
     // 构建上下文部分
     const contextParts: string[] = []
+
+    // 全局记忆放在最前面（最高优先级）
+    if (globalMemoryContext) {
+      contextParts.push(globalMemoryContext)
+    }
 
     if (mergedContext) {
       contextParts.push(`前面任务的整合结果：\n${mergedContext}`)
@@ -222,7 +235,7 @@ export function useTaskMode(
       contextParts.push(`上一个任务的结果总结：${previousResult}`)
     }
 
-    // 新增：工作记忆上下文
+    // 工作记忆上下文
     if (workingMemoryContext) {
       contextParts.push(`工作记忆（之前任务的积累）：\n${workingMemoryContext}`)
     }
@@ -499,10 +512,15 @@ ${content}
       throw new TaskError(TaskErrorType.API_ERROR, '请先配置并启用一个 LLM 接口')
     }
 
+    // 生成智能匹配的全局记忆上下文
+    const globalMemoryContext = globalMemoryManager.generateInjectContext(context.taskDescription)
+
     const prompt = generateTaskPrompt(
       context.taskDescription,
       context.previousResult,
-      context.mergedContext
+      context.mergedContext,
+      context.workingMemoryContext,  // 工作记忆上下文
+      globalMemoryContext  // 全局记忆上下文
     )
 
     const messagesToSend = buildMessages(context.conversationHistory, prompt)
@@ -798,6 +816,9 @@ ${result}
     saveTaskResultToWorkingMemory,
     getWorkingMemoryForNextTask,
     mergeWorkingMemory,
+
+    // 全局记忆相关
+    globalMemoryManager,
 
     // 工具方法
     getStats,

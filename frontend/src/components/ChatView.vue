@@ -12,13 +12,41 @@ import {
   WorkingMemoryType
 } from '../types/task'
 import { useWorkingMemory } from '../composables/useWorkingMemory'
+import { useGlobalMemory } from '../composables/useGlobalMemory'
 import TaskModePanel from './TaskModePanel.vue'
 import NormalChat from './NormalChat.vue'
+import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
 
 const router = useRouter()
 
 // 工作记忆管理器（初始化为 null，在任务开始时创建）
 let workingMemoryManager: ReturnType<typeof useWorkingMemory> | null = null
+
+// 全局记忆管理器
+const globalMemoryManager = useGlobalMemory()
+
+// 快速保存到全局记忆对话框状态
+const showSaveToGlobalMemoryDialog = ref(false)
+const saveToGlobalMemoryContent = ref('')
+const saveToGlobalMemoryKeywords = ref<string[]>([])
+
+// 提取关键词的简单函数
+function extractKeywords(content: string): string[] {
+  // 简单分词（中英文混合）
+  const words = content
+    .toLowerCase()
+    .split(/[\s\u4e00-\u9fa5,;.!?。，；！？、]+/)
+    .filter(w => w.length > 1)
+  // 去重并返回前 5 个
+  return Array.from(new Set(words)).slice(0, 5)
+}
+
+// 打开保存到全局记忆对话框
+function openSaveToGlobalMemoryDialog(content: string) {
+  saveToGlobalMemoryContent.value = content
+  saveToGlobalMemoryKeywords.value = extractKeywords(content)
+  showSaveToGlobalMemoryDialog.value = true
+}
 
 type Role = 'user' | 'assistant' | 'system'
 type Message = { role: Role; content: string, reasoning: string, reasoningDuration?: number, visible?: boolean, copyable?: boolean, archived?: boolean }
@@ -946,6 +974,17 @@ async function executeNormalChat(text: string) {
       content: m.content
     }))
 
+    // 生成智能匹配的全局记忆上下文
+    const globalMemoryContext = globalMemoryManager.generateInjectContext(text)
+
+    // 如果有全局记忆，添加到 system prompt 之前
+    if (globalMemoryContext) {
+      messagesToSend.unshift({
+        role: 'system',
+        content: globalMemoryContext + '\n\n请在回复时考虑这些偏好。'
+      })
+    }
+
     // 如果配置了助理，添加 system prompt 到消息开头
     if (activeAssistant.value?.systemPrompt && activeAssistant.value.systemPrompt.trim()) {
       messagesToSend.unshift({
@@ -1840,6 +1879,8 @@ onMounted(() => {
   loadConfig()
   loadAssistants()
   loadHighlightTheme()
+  // 加载全局记忆
+  globalMemoryManager.load()
   scrollToBottom()
   // 普通 chat 组件会在内部处理 autoResizeTextarea
   if (textareaRef.value) {
@@ -1987,6 +2028,9 @@ watch(currentChatId, (newChatId) => {
                   </button>
                   <button class="copy-btn" @click="copyMarkdown(m.content)" title="复制 Markdown">
                     Copy Markdown
+                  </button>
+                  <button class="copy-btn" @click="openSaveToGlobalMemoryDialog(m.content)" title="保存为全局记忆">
+                    + Global Memory
                   </button>
                 </div>
               </div>
@@ -2226,6 +2270,15 @@ watch(currentChatId, (newChatId) => {
         </div>
       </div>
     </Teleport>
+
+    <!-- 快速保存到全局记忆对话框 -->
+    <SaveToGlobalMemoryDialog
+      :show="showSaveToGlobalMemoryDialog"
+      :initial-content="saveToGlobalMemoryContent"
+      :initial-keywords="saveToGlobalMemoryKeywords"
+      @close="showSaveToGlobalMemoryDialog = false"
+      @saved="showSaveToGlobalMemoryDialog = false"
+    />
   </div>
 </template>
 

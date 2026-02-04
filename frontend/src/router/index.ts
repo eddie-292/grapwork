@@ -3,6 +3,7 @@ import ChatView from '../components/ChatView.vue'
 import LoginView from '../components/LoginView.vue'
 import SettingsView from '../components/SettingsView.vue'
 import AssistantView from '../components/AssistantView.vue'
+import GlobalMemoryView from '../components/GlobalMemoryView.vue'
 
 // 检查登录状态
 function isAuthenticated(): boolean {
@@ -32,6 +33,12 @@ const routes: RouteRecordRaw[] = [
     path: '/assistants',
     name: 'Assistants',
     component: AssistantView,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/global-memory',
+    name: 'GlobalMemory',
+    component: GlobalMemoryView,
     meta: { requiresAuth: true }
   }
 ]

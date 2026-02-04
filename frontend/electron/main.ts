@@ -7,6 +7,9 @@ const __dirname = path.dirname(__filename)
 // 配置文件路径
 const CONFIG_PATH = path.join(app.getPath('userData'), 'config.json')
 
+// 全局记忆文件路径
+const GLOBAL_MEMORY_PATH = path.join(app.getPath('userData'), 'global-memory.json')
+
 interface AppConfig {
   apiUrl: string
   apiKey: string
@@ -18,6 +21,29 @@ interface AppConfig {
 interface ConfigList {
   configs: AppConfig[]
   activeIndex: number
+}
+
+// 全局记忆接口
+interface GlobalMemoryEntry {
+  id: string
+  type: string
+  category: string
+  title: string
+  content: string
+  keywords: string[]
+  enabled: boolean
+  createdAt: number
+  updatedAt: number
+  metadata?: {
+    usageCount?: number
+    lastUsedAt?: number
+  }
+}
+
+interface GlobalMemory {
+  entries: GlobalMemoryEntry[]
+  version: number
+  lastUpdated: number
 }
 
 // 默认配置
@@ -83,6 +109,41 @@ function saveConfig(config: ConfigList): boolean {
   }
 }
 
+// 默认全局记忆
+const defaultGlobalMemory: GlobalMemory = {
+  entries: [],
+  version: 1,
+  lastUpdated: Date.now()
+}
+
+// 读取全局记忆
+function loadGlobalMemory(): GlobalMemory {
+  try {
+    if (fs.existsSync(GLOBAL_MEMORY_PATH)) {
+      const data = fs.readFileSync(GLOBAL_MEMORY_PATH, 'utf-8')
+      return { ...defaultGlobalMemory, ...JSON.parse(data) }
+    }
+  } catch (error) {
+    console.error('Failed to load global memory:', error)
+  }
+  return defaultGlobalMemory
+}
+
+// 保存全局记忆
+function saveGlobalMemory(memory: GlobalMemory): boolean {
+  try {
+    const dir = path.dirname(GLOBAL_MEMORY_PATH)
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
+    }
+    fs.writeFileSync(GLOBAL_MEMORY_PATH, JSON.stringify(memory, null, 2), 'utf-8')
+    return true
+  } catch (error) {
+    console.error('Failed to save global memory:', error)
+    return false
+  }
+}
+
 // IPC 处理程序
 ipcMain.handle('get-config', () => {
   return loadConfig()
@@ -90,6 +151,15 @@ ipcMain.handle('get-config', () => {
 
 ipcMain.handle('save-config', (_event, config: ConfigList) => {
   return saveConfig(config)
+})
+
+// 全局记忆 IPC 处理程序
+ipcMain.handle('get-global-memory', () => {
+  return loadGlobalMemory()
+})
+
+ipcMain.handle('save-global-memory', (_event, memory: GlobalMemory) => {
+  return saveGlobalMemory(memory)
 })
 
 ipcMain.handle('chat-request', async (_event, { apiUrl, apiKey, model, messages, extra_body }) => {

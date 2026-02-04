@@ -313,6 +313,12 @@ function clearChatHistory() {
             代码高亮主题
           </button>
           <button
+            class="nav-item"
+            @click="router.push('/global-memory')"
+          >
+            全局记忆管理
+          </button>
+          <button
             class="nav-item danger"
             @click="clearChatHistory"
           >
