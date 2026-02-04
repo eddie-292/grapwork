@@ -102,6 +102,13 @@ type Chat = {
       maxEntriesPerType?: number // 每种类型最大条目数，默认 50
     }
   }
+  // 任务执行上下文（用于错误后继续执行）
+  taskExecutionContext?: {
+    nextTaskIndex: number       // 下一个要执行的任务索引
+    previousResult?: string     // 上一个任务的总结结果
+    mergedContext?: string      // 中间整合结果
+    accumulatedTokens: number   // 累积的 TOKEN 数量
+  }
 }
 
 const md: MarkdownIt = new MarkdownIt({
@@ -187,6 +194,7 @@ const sending = computed(() => currentChat.value?.sending ?? false)
 const isTaskPlanning = ref(false)
 const isTaskExecuting = ref(false)
 const awaitingTaskConfirmation = ref(false)
+const executionFailed = ref(false)  // 标记任务执行是否失败（用于显示继续执行按钮）
 const pendingTasks = ref<{ id: number; description: string }[]>([])
 // 保存原始用户输入用于重新规划
 const originalUserInput = ref('')
@@ -198,6 +206,16 @@ const tempParams = ref<ChatParams>({ ...DEFAULT_CHAT_PARAMS })
 // taskList 从当前会话获取，如果没有则返回空数组
 const taskList = computed(() => currentChat.value?.taskList ?? [])
 const currentTaskIndex = ref(-1)
+
+// 检测是否有未完成的任务（用于显示继续执行按钮）
+const hasIncompleteTasks = computed(() => {
+  const chat = currentChat.value
+  if (!chat?.taskList || chat.taskList.length === 0) return false
+  // 如果有未完成的任务，且不在执行中，也不在等待确认
+  return chat.taskList.some(t => !t.completed) &&
+         !isTaskExecuting.value &&
+         !awaitingTaskConfirmation.value
+})
 //const taskResults = ref<string[]>([])
 const configList = ref<ConfigList>({
   configs: [],
@@ -1481,6 +1499,19 @@ async function confirmTaskExecution() {
           last.content = formatTaskErrorMessage(err)
         }
       }
+      // 如果是网络错误等可恢复错误，保存执行上下文以便继续执行
+      if (!(err instanceof Error && err.name === 'AbortError')) {
+        // 找到下一个未完成的任务索引
+        const nextTaskIndex = chat.taskList?.findIndex(t => !t.completed) ?? 0
+        if (nextTaskIndex >= 0 && nextTaskIndex < (chat.taskList?.length ?? 0)) {
+          // 保存执行上下文（这里简化处理，实际 previousResult 和 mergedContext 无法恢复）
+          chat.taskExecutionContext = {
+            nextTaskIndex,
+            accumulatedTokens: 0  // 简化处理，重置 token 计数
+          }
+          executionFailed.value = true
+        }
+      }
     }
   } finally {
     if (currentChat.value) {
@@ -1491,7 +1522,10 @@ async function confirmTaskExecution() {
     isTaskExecuting.value = false
     awaitingTaskConfirmation.value = false
     currentTaskIndex.value = -1
-    pendingTasks.value = []
+    // 如果是可恢复错误，保留 pendingTasks 以便继续执行
+    if (!executionFailed.value) {
+      pendingTasks.value = []
+    }
     saveChatHistory()
     scrollToBottom()
   }
@@ -1510,8 +1544,206 @@ function cancelTaskExecution() {
   awaitingTaskConfirmation.value = false
   currentTaskIndex.value = -1
   pendingTasks.value = []
+  executionFailed.value = false
   saveChatHistory()
   scrollToBottom()
+}
+
+// 继续执行任务（从失败处恢复）
+async function continueTaskExecution() {
+  const chat = currentChat.value
+  if (!chat || !chat.taskList) return
+
+  // 恢复 pendingTasks 从 taskList
+  pendingTasks.value = chat.taskList.map(t => ({ id: t.id, description: t.description }))
+
+  // 添加继续执行提示
+  chat.messages.push({ role: 'assistant', content: '---\n\n**继续执行任务...**', reasoning: '', copyable: false })
+
+  // 初始化工作记忆
+  await initWorkingMemory(chat.id)
+
+  // 创建 AbortController
+  controllers.value[chat.id] = new AbortController()
+  chat.sending = true
+
+  try {
+    isTaskExecuting.value = true
+    executionFailed.value = false
+
+    const tasks = pendingTasks.value
+    // 如果有保存的执行上下文，使用它；否则自动计算下一个未完成的任务索引
+    let startIndex = chat.taskExecutionContext?.nextTaskIndex
+    if (startIndex === undefined) {
+      startIndex = chat.taskList.findIndex(t => !t.completed)
+      if (startIndex < 0) startIndex = 0
+    }
+
+    // 清除执行上下文
+    chat.taskExecutionContext = undefined
+
+    // 简单的 TOKEN 估算函数
+    function estimateTokens(text: string): number {
+      return Math.ceil(text.length * 0.6)
+    }
+
+    let accumulatedTokens = 0  // 简化处理，重新开始计数
+    const tokenThreshold = chat.taskModeOptions?.tokenThreshold ?? 8000
+
+    // 从失败的任务开始继续执行
+    for (let i = startIndex; i < tasks.length; i++) {
+      const chatController = controllers.value[currentChat.value!.id]
+      if (chatController?.signal.aborted) {
+        throw new Error('用户取消')
+      }
+
+      currentTaskIndex.value = i
+      const task = tasks[i]
+      if (!task) break
+
+      // 获取工作记忆上下文
+      const workingMemory = getWorkingMemoryForNextTask(i)
+      let workingMemoryContext = ''
+
+      if (workingMemory.previousNotes || workingMemory.previousDrafts || workingMemory.previousFinalResults) {
+        workingMemoryContext = await mergeWorkingMemory(
+          workingMemory.previousNotes,
+          workingMemory.previousDrafts,
+          workingMemory.previousFinalResults
+        )
+      }
+
+      // 添加任务执行消息
+      const taskMsgIndex = chat.messages.length
+      const taskPrompt = i === 0
+        ? `**任务 ${i + 1}/${tasks.length}**: ${task.description}`
+        : `请继续完成以下任务：${task.description}`
+      chat.messages.push({ role: 'user', content: taskPrompt, reasoning: '', visible: false, copyable: false })
+      chat.messages.push({ role: 'assistant', content: '', reasoning: '' })
+
+      const msg = chat.messages[taskMsgIndex + 1]
+      if (!msg) break
+
+      // 流式执行任务
+      await executeTaskStreaming(
+        task.description,
+        undefined,  // 简化处理，不使用 previousResult
+        undefined,  // 简化处理，不使用 mergedContext
+        chat.messages.slice(0, -1),
+        workingMemoryContext || undefined,
+        (delta) => {
+          msg.content += delta
+          scrollToBottom()
+        },
+        (reasoningDelta) => {
+          msg.reasoning += reasoningDelta
+          scrollToBottom()
+        },
+        (duration) => {
+          msg.reasoningDuration = duration
+        }
+      )
+
+      // 保存到工作记忆
+      await saveTaskResultToWorkingMemory(
+        i,
+        task.description,
+        msg.content,
+        WorkingMemoryType.FINAL_RESULT
+      )
+
+      accumulatedTokens += estimateTokens(msg.content)
+
+      // 标记任务完成
+      const currentTask = chat.taskList[i]
+      if (currentTask) {
+        currentTask.completed = true
+      }
+
+      // 推理内容完成后自动折叠
+      if (msg.reasoning) {
+        reasoningExpanded.value[taskMsgIndex + 1] = false
+      }
+
+      scrollToBottom()
+    }
+
+    // 检查是否需要额外的最终整合
+    isTaskExecuting.value = false
+    const lastTask = tasks[tasks.length - 1]
+    const hasIntegrationTask = lastTask?.description?.includes('整合验证')
+
+    if (!hasIntegrationTask) {
+      chat.messages.push({ role: 'assistant', content: '**正在整合最终回答...**', reasoning: '', copyable: false })
+      const integrationMsgIndex = chat.messages.length
+      chat.messages.push({ role: 'assistant', content: '', reasoning: '' })
+
+      const integrationMsg = chat.messages[integrationMsgIndex]
+      if (!integrationMsg) return
+
+      await executeTaskStreaming(
+        '整合最终回答',
+        undefined,
+        undefined,
+        chat.messages.slice(0, -1),
+        undefined,
+        (delta) => {
+          integrationMsg.content += delta
+          scrollToBottom()
+        },
+        () => {},
+        () => {}
+      )
+
+      chat.messages.splice(integrationMsgIndex - 1, 1)
+
+      if (integrationMsg.reasoning) {
+        reasoningExpanded.value[integrationMsgIndex] = false
+      }
+    }
+
+    chat.messages.push({ role: 'assistant', content: '---\n\n**所有任务已完成！**', reasoning: '', copyable: false })
+
+  } catch (err) {
+    const chat = currentChat.value
+    if (chat) {
+      const last = chat.messages[chat.messages.length - 1]
+      if (last) {
+        if (err instanceof Error && err.name === 'AbortError') {
+          last.content = '任务已取消'
+        } else if (err instanceof TaskError) {
+          last.content = err.getUserMessage()
+        } else {
+          last.content = formatTaskErrorMessage(err)
+        }
+      }
+      // 再次保存执行上下文
+      if (!(err instanceof Error && err.name === 'AbortError')) {
+        const nextTaskIndex = chat.taskList?.findIndex(t => !t.completed) ?? 0
+        if (nextTaskIndex >= 0 && nextTaskIndex < (chat.taskList?.length ?? 0)) {
+          chat.taskExecutionContext = {
+            nextTaskIndex,
+            accumulatedTokens: 0
+          }
+          executionFailed.value = true
+        }
+      }
+    }
+  } finally {
+    if (currentChat.value) {
+      currentChat.value.sending = false
+      delete controllers.value[currentChat.value.id]
+    }
+    isTaskPlanning.value = false
+    isTaskExecuting.value = false
+    awaitingTaskConfirmation.value = false
+    currentTaskIndex.value = -1
+    if (!executionFailed.value) {
+      pendingTasks.value = []
+    }
+    saveChatHistory()
+    scrollToBottom()
+  }
 }
 
 // 处理重新规划请求
@@ -2119,11 +2351,13 @@ watch(currentChatId, (newChatId) => {
         :current-task-index="currentTaskIndex"
         :task-list="taskList"
         :awaiting-task-confirmation="awaitingTaskConfirmation"
+        :execution-failed="hasIncompleteTasks || executionFailed"
         :task-mode-options="currentChat?.taskModeOptions"
         :show-settings="showTaskSettings"
         :chat-id="currentChatId ?? undefined"
         @confirm="confirmTaskExecution"
         @cancel="cancelTaskExecution"
+        @continue-execution="continueTaskExecution"
         @update-options="updateTaskModeOptions"
         @toggle-settings="showTaskSettings = !showTaskSettings"
         @delete-task="deleteTask"

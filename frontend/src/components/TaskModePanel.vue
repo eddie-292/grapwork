@@ -26,6 +26,7 @@ interface Props {
   taskModeOptions?: TaskModeOptions
   showSettings?: boolean
   chatId?: string
+  executionFailed?: boolean  // 新增：是否执行失败（显示继续按钮）
 }
 
 const emit = defineEmits<{
@@ -39,6 +40,7 @@ const emit = defineEmits<{
   retryTask: [id: number]
   skipTask: [id: number]
   revisePlan: [feedback: string]
+  continueExecution: []  // 新增：继续执行事件
 }>()
 
 const props = defineProps<Props>()
@@ -214,6 +216,16 @@ function submitRevision() {
       </button>
       <button class="revise-btn" @click="showRevisionInput = !showRevisionInput" title="重新规划">
         <span>重新规划</span>
+      </button>
+      <button class="cancel-btn" @click="emit('cancel')">
+        <span>取消</span>
+      </button>
+    </div>
+
+    <!-- 继续执行按钮区域（任务执行失败时显示） -->
+    <div v-if="executionFailed && taskList.length > 0" class="task-confirmation">
+      <button class="continue-btn" @click="emit('continueExecution')">
+        <span>继续执行</span>
       </button>
       <button class="cancel-btn" @click="emit('cancel')">
         <span>取消</span>
@@ -721,6 +733,33 @@ function submitRevision() {
 }
 
 .revise-btn span:first-child {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* 继续执行按钮样式 */
+.continue-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: #dbeafe;
+  border: 1px solid #3b82f6;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1d4ed8;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.continue-btn:hover {
+  background: #bfdbfe;
+}
+
+.continue-btn span:first-child {
   font-size: 14px;
   font-weight: 600;
 }
