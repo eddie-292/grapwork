@@ -370,7 +370,7 @@ function cancel() {
 }
 
 .checkbox-label {
-  display: flex;
+  display: flex !important;
   align-items: center;
   gap: 8px;
   cursor: pointer;
@@ -379,8 +379,6 @@ function cancel() {
 }
 
 .checkbox-label input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
   cursor: pointer;
   accent-color: #10a37f;
 }
