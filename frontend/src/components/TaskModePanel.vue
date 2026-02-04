@@ -210,15 +210,12 @@ function submitRevision() {
     <!-- 确认/取消按钮区域 -->
     <div v-if="awaitingTaskConfirmation" class="task-confirmation">
       <button class="confirm-btn" @click="emit('confirm')">
-        <span>✓</span>
         <span>开始执行</span>
       </button>
       <button class="revise-btn" @click="showRevisionInput = !showRevisionInput" title="重新规划">
-        <span>✎</span>
         <span>重新规划</span>
       </button>
       <button class="cancel-btn" @click="emit('cancel')">
-        <span>✕</span>
         <span>取消</span>
       </button>
     </div>
@@ -308,13 +305,27 @@ function submitRevision() {
           :key="task.id"
           :class="['task-item', { active: idx === currentTaskIndex, completed: task.completed, editing: editingTaskId === task.id }]"
         >
-          <div class="task-icon">
-            <span v-if="task.completed">✓</span>
-            <span v-else-if="idx === currentTaskIndex" class="active-icon">◉</span>
-            <span v-else>○</span>
-          </div>
-          <div class="task-content">
+          <!-- 第一行：状态、序号、按钮 -->
+          <div class="task-header">
+            <div class="task-icon">
+              <span v-if="task.completed">✓</span>
+              <span v-else-if="idx === currentTaskIndex" class="active-icon">◉</span>
+              <span v-else>○</span>
+            </div>
             <span class="task-number">{{ idx + 1 }}</span>
+            <!-- 确认阶段的操作按钮 -->
+            <div v-if="awaitingTaskConfirmation && editingTaskId !== task.id" class="task-actions">
+              <button class="task-action-btn" @click="startTaskEdit(task)" title="编辑">✎</button>
+              <button class="task-action-btn delete" @click="deleteTask(task.id)" title="删除">🗑</button>
+            </div>
+            <!-- 失败任务的操作按钮 -->
+            <div v-else-if="task.status === 'failed' && editingTaskId !== task.id" class="task-actions task-error-actions">
+              <button class="task-action-btn retry" @click="emit('retryTask', task.id)" title="重试">↻</button>
+              <button class="task-action-btn skip" @click="emit('skipTask', task.id)" title="跳过">→</button>
+            </div>
+          </div>
+          <!-- 第二行：内容 -->
+          <div class="task-body">
             <!-- 编辑模式 -->
             <div v-if="editingTaskId === task.id && awaitingTaskConfirmation" class="task-edit-mode">
               <input
@@ -328,19 +339,7 @@ function submitRevision() {
               <button class="task-edit-btn cancel" @click="cancelTaskEdit" title="取消">✕</button>
             </div>
             <!-- 查看模式 -->
-            <template v-else>
-              <span class="task-description">{{ task.description }}</span>
-              <!-- 确认阶段的操作按钮 -->
-              <div v-if="awaitingTaskConfirmation" class="task-actions">
-                <button class="task-action-btn" @click="startTaskEdit(task)" title="编辑">✎</button>
-                <button class="task-action-btn delete" @click="deleteTask(task.id)" title="删除">🗑</button>
-              </div>
-              <!-- 失败任务的操作按钮 -->
-              <div v-else-if="task.status === 'failed'" class="task-actions task-error-actions">
-                <button class="task-action-btn retry" @click="emit('retryTask', task.id)" title="重试">↻</button>
-                <button class="task-action-btn skip" @click="emit('skipTask', task.id)" title="跳过">→</button>
-              </div>
-            </template>
+            <span v-else class="task-description">{{ task.description }}</span>
           </div>
         </div>
       </div>
@@ -530,8 +529,8 @@ function submitRevision() {
 
 .task-item {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  flex-direction: column;
+  gap: 8px;
   padding: 12px;
   margin-bottom: 8px;
   background: #ffffff;
@@ -563,7 +562,9 @@ function submitRevision() {
 .task-icon {
   flex-shrink: 0;
   width: 20px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: #6b7280;
 }
 
@@ -588,12 +589,19 @@ function submitRevision() {
   }
 }
 
-.task-content {
-  flex: 1;
+/* 第一行：状态、序号、按钮 */
+.task-header {
   display: flex;
+  align-items: center;
   gap: 8px;
+}
+
+/* 第二行：内容 */
+.task-body {
+  display: flex;
   align-items: flex-start;
-  min-width: 0; /* 允许 flex 子元素收缩 */
+  min-width: 0;
+  padding-left: 28px; /* 对齐序号右侧 */
 }
 
 .task-number {
@@ -643,7 +651,7 @@ function submitRevision() {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 10px 16px;
+  padding: 8px 10px;
   background: #10a37f;
   color: #ffffff;
   border: none;
@@ -669,7 +677,7 @@ function submitRevision() {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 10px 16px;
+  padding: 8px 10px;
   background: #f3f4f6;
   color: #374151;
   border: 1px solid #e5e7eb;
@@ -697,10 +705,10 @@ function submitRevision() {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 12px;
+  padding: 8px 10px;
   background: #fef3c7;
   border: 1px solid #f59e0b;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 12px;
   font-weight: 500;
   color: #92400e;
@@ -999,6 +1007,7 @@ function submitRevision() {
   display: flex;
   gap: 2px;
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 .task-action-btn {
@@ -1103,7 +1112,7 @@ function submitRevision() {
 /* 工作记忆区域样式 */
 .working-memory-toggle {
   padding: 8px 16px;
-  border-bottom: 1px solid #e5e7eb;
+  /* border-bottom: 1px solid #e5e7eb; */
 }
 
 .wm-toggle-btn {
