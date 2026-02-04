@@ -34,5 +34,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   chatRequest: (params: { apiUrl: string; apiKey: string; model: string; messages: any[] }) =>
     ipcRenderer.invoke('chat-request', params),
   getGlobalMemory: () => ipcRenderer.invoke('get-global-memory'),
-  saveGlobalMemory: (memory: GlobalMemory) => ipcRenderer.invoke('save-global-memory', memory)
+  saveGlobalMemory: (memory: GlobalMemory) => ipcRenderer.invoke('save-global-memory', memory),
+  openExternal: (url: string) => ipcRenderer.invoke('open-external', url)
 })

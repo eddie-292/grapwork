@@ -333,6 +333,23 @@ function openHtmlPreview(base64Code: string) {
   showHtmlPreview.value = true
 }
 
+// 链接点击处理
+async function handleLinkClick(e: MouseEvent) {
+  const target = e.target as HTMLElement
+  const anchor = target.closest('a')
+  if (anchor) {
+    e.preventDefault()
+    const href = anchor.getAttribute('href')
+    if (href && window.electronAPI?.openExternal) {
+      try {
+        await window.electronAPI.openExternal(href)
+      } catch (err) {
+        console.error('Failed to open external URL:', err)
+      }
+    }
+  }
+}
+
 // 任务规划提示词
 const TASK_PLANNING_PROMPT = `你是一个任务规划助手。请将用户的请求分解为一系列清晰、具体的子任务。
 
@@ -2288,7 +2305,7 @@ watch(taskMode, async (isTaskMode) => {
 
       <!-- 任务模式 -->
       <main v-else class="main">
-        <div class="messages" ref="messagesRef" @scroll="handleMessagesScroll">
+        <div class="messages" ref="messagesRef" @scroll="handleMessagesScroll" @click="handleLinkClick">
           <div v-if="messages.length === 0" class="welcome">
             <h2>欢迎使用 OpenChat Desktop</h2>
             <p>支持任何 OpenAI 标准 API 的桌面聊天应用</p>
@@ -3048,6 +3065,13 @@ watch(taskMode, async (isTaskMode) => {
 .msg-bubble :deep(code) {
   font-family: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 13px;
+}
+
+/* 链接样式 - 禁用默认行为 */
+.msg-bubble :deep(a) {
+  color: #10a37f;
+  text-decoration: none;
+  cursor: pointer;
 }
 
 /* Table styles */

@@ -222,6 +222,23 @@ onUnmounted(() => {
   delete (window as any).previewHtml
 })
 
+// 链接点击处理
+async function handleLinkClick(e: MouseEvent) {
+  const target = e.target as HTMLElement
+  const anchor = target.closest('a')
+  if (anchor) {
+    e.preventDefault()
+    const href = anchor.getAttribute('href')
+    if (href && window.electronAPI?.openExternal) {
+      try {
+        await window.electronAPI.openExternal(href)
+      } catch (err) {
+        console.error('Failed to open external URL:', err)
+      }
+    }
+  }
+}
+
 // Expose functions for parent component
 defineExpose({
   scrollToBottom: () => {
@@ -246,7 +263,7 @@ defineExpose({
 
 <template>
   <main class="main">
-    <div class="messages" ref="messagesRef" @scroll="handleMessagesScroll">
+    <div class="messages" ref="messagesRef" @scroll="handleMessagesScroll" @click="handleLinkClick">
       <div v-if="messages.length === 0" class="welcome">
         <h2>欢迎使用 OpenChat Desktop</h2>
         <p>支持任何 OpenAI 标准 API 的桌面聊天应用</p>
@@ -563,6 +580,13 @@ defineExpose({
 .msg-bubble :deep(code) {
   font-family: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 13px;
+}
+
+/* 链接样式 - 禁用默认行为 */
+.msg-bubble :deep(a) {
+  color: #10a37f;
+  text-decoration: none;
+  cursor: pointer;
 }
 
 /* Table styles */

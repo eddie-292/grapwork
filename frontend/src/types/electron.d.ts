@@ -62,6 +62,7 @@ interface ElectronAPI {
   }) => Promise<{ success: boolean; error?: string; status?: number; headers?: Record<string, string> }>
   getGlobalMemory: () => Promise<GlobalMemory>
   saveGlobalMemory: (memory: GlobalMemory) => Promise<boolean>
+  openExternal: (url: string) => Promise<void>
 }
 
 declare global {

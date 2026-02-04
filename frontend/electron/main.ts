@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import path from 'path'
 import fs from 'fs'
 
@@ -161,6 +161,11 @@ ipcMain.handle('get-global-memory', () => {
 
 ipcMain.handle('save-global-memory', (_event, memory: GlobalMemory) => {
   return saveGlobalMemory(memory)
+})
+
+// 在外部浏览器中打开链接
+ipcMain.handle('open-external', async (_event, url: string) => {
+  await shell.openExternal(url)
 })
 
 ipcMain.handle('chat-request', async (_event, { apiUrl, apiKey, model, messages, extra_body }) => {
