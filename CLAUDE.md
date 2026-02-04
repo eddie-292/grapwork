@@ -4,7 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**OpenChat Desktop** - A cross-platform desktop chat application (Electron + Vue 3 + TypeScript) that supports any OpenAI-compatible LLM API. Features a unique **Task Mode** that decomposes complex user requests into executable subtasks with working memory management.
+**OpenChat Desktop** - A cross-platform desktop chat application (Electron + Vue 3 + TypeScript) that supports any OpenAI-compatible LLM API. Features:
+- **Task Mode**: Decomposes complex user requests into executable subtasks with working memory management
+- **Global Memory**: Persistent knowledge storage for user preferences and custom context
+- **Assistant System**: Custom AI assistant/system prompt management
 
 ## Development Commands
 
@@ -56,18 +59,24 @@ frontend/
 │   └── preload.ts        # Context bridge for renderer→main communication
 ├── src/
 │   ├── components/
-│   │   ├── ChatView.vue        # Main chat interface + task mode UI
-│   │   ├── NormalChat.vue      # Standard chat mode component
-│   │   ├── TaskModePanel.vue   # Task list display and controls
-│   │   ├── SettingsView.vue    # API configuration management
-│   │   ├── AssistantView.vue   # Assistant system prompt management
-│   │   └── LoginView.vue       # Authentication entry point
+│   │   ├── ChatView.vue             # Main chat interface + task mode UI
+│   │   ├── NormalChat.vue           # Standard chat mode component
+│   │   ├── TaskModePanel.vue        # Task list display and controls
+│   │   ├── SettingsView.vue         # API configuration management
+│   │   ├── AssistantView.vue        # Assistant system prompt management
+│   │   ├── GlobalMemoryView.vue     # Global memory management UI
+│   │   ├── SaveToGlobalMemoryDialog.vue
+│   │   ├── GlobalMemoryFormDialog.vue
+│   │   ├── ConfirmDialog.vue        # Generic confirmation dialog
+│   │   └── LoginView.vue            # Authentication entry point
 │   ├── composables/
-│   │   ├── useTaskMode.ts      # Task planning, execution, retry logic
-│   │   └── useWorkingMemory.ts # Persistent task memory (localStorage)
+│   │   ├── useTaskMode.ts           # Task planning, execution, retry logic
+│   │   ├── useWorkingMemory.ts      # Per-chat task memory (localStorage)
+│   │   └── useGlobalMemory.ts       # Global knowledge storage (Electron)
 │   ├── types/
-│   │   ├── task.ts             # Task mode TypeScript definitions
-│   │   └── electron.d.ts       # Electron IPC API types
+│   │   ├── task.ts                  # Task mode TypeScript definitions
+│   │   ├── globalMemory.ts          # Global memory type definitions
+│   │   └── electron.d.ts            # Electron IPC API types
 │   └── router/
 │       └── index.ts            # Vue Router config with auth guards
 ├── vite.config.ts              # Renderer build config
@@ -77,7 +86,7 @@ frontend/
 
 ### Task Mode Architecture
 
-The most distinctive feature - executes complex multi-step requests:
+Executes complex multi-step requests:
 
 1. **Planning Phase**: LLM decomposes user request into 3-6 subtasks
 2. **Execution Phase**: Sequential task execution with streaming
@@ -89,8 +98,24 @@ The most distinctive feature - executes complex multi-step requests:
 Key types:
 - `TaskModeState`: Tracks planning/execution status
 - `Task`: Individual task with status, retry count, error handling
-- `WorkingMemoryEntry`: Stored by task ID and type
+- `WorkingMemoryEntry`: Stored by task ID and type (per-chat)
 - `TaskError`: Typed errors with user-friendly messages
+
+### Global Memory Architecture
+
+Cross-session persistent knowledge storage system:
+
+1. **Storage**: Electron main process stores in `{userData}/global-memory.json`
+2. **Types**: PREFERENCES, SETTINGS, GENERAL_INFO, CUSTOM
+3. **Smart Injection**: Automatic keyword-based matching for context injection
+4. **Management**: CRUD operations via `useGlobalMemory.ts` composable
+
+**Flow**: `GlobalMemoryView.vue` → `useGlobalMemory.ts` → Electron IPC → file system
+
+Key types:
+- `GlobalMemoryEntry`: Individual memory with keywords, metadata
+- `GlobalMemory`: Container with entries array and version tracking
+- `GlobalMemoryType`: Enum of memory categories
 
 ### IPC Communication
 
@@ -98,11 +123,15 @@ Renderer → Main process handlers:
 - `get-config`: Load API configurations
 - `save-config`: Persist API configurations
 - `chat-request`: Initiate streaming chat completion
+- `getGlobalMemory`: Load global memory entries
+- `saveGlobalMemory`: Persist global memory entries
 
 Config storage location (platform-specific):
 - macOS: `~/Library/Application Support/openchat-desktop/config.json`
 - Windows: `%APPDATA%/openchat-desktop/config.json`
 - Linux: `~/.config/openchat-desktop/config.json`
+
+Global memory stored in same directory as `global-memory.json`
 
 ### Streaming Response Handling
 
@@ -137,6 +166,24 @@ Per-chat configuration:
 - `skipOnError`: Continue execution on task failure
 - `workingMemory.{enabled, autoSave, maxEntriesPerType}`
 
+### Assistant System
+
+Custom system prompts/assistants management:
+- Stored in `localStorage` as `assistants`
+- Each assistant has: `id`, `name`, `emoji`, `systemPrompt`, `createdAt`
+- Active assistant tracked via `activeIndex`
+- Managed in `AssistantView.vue` component
+
+### Global Memory Types
+
+Memory entry categories:
+- `PREFERENCES`: User UI preferences (colors, styles)
+- `SETTINGS`: General application settings
+- `GENERAL_INFO`: General knowledge/information
+- `CUSTOM`: User-defined custom types
+
+Each entry includes keywords for smart matching and metadata tracking (usage count, last used).
+
 ## Common Development Patterns
 
 ### Adding New Chat Features
@@ -155,6 +202,19 @@ Provider must support OpenAI `/chat/completions` format. For custom parameters, 
 2. Add execution logic in `composables/useTaskMode.ts`
 3. Update `composables/useWorkingMemory.ts` for memory integration
 
+### Adding Global Memory Types
+
+1. Add new enum value to `GlobalMemoryType` in `types/globalMemory.ts`
+2. Update UI in `GlobalMemoryView.vue` to handle new type
+3. Add matching logic in `useGlobalMemory.ts` if needed
+
+### Electron IPC Patterns
+
+To add new IPC handlers:
+1. Define interface in `src/types/electron.d.ts` (window.electronAPI)
+2. Add handler in `electron/main.ts` using `ipcMain.handle()`
+3. Expose in `electron/preload.ts` via `contextBridge.exposeInMainWorld()`
+
 ### Routing
 
 Uses hash-based routing with auth guard checking `localStorage.getItem('isLoggedIn')`. Routes defined in `src/router/index.ts`.
@@ -172,3 +232,5 @@ Dual build process:
 2. Configure API: Click gear icon → Add API config
 3. Test chat: Send message → Verify streaming response
 4. Test Task Mode: Enable → Send complex request → Verify task breakdown
+5. Test Global Memory: Add entry via dialog → Verify auto-injection in new chats
+6. Test Assistants: Create assistant → Select → Verify system prompt applied
