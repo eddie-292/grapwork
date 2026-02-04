@@ -39,7 +39,6 @@ const iconName = computed(() => {
 <template>
   <div class="modal-overlay" v-if="show" @click.self="$emit('cancel')">
     <div class="modal-content confirm-modal">
-      <div class="confirm-icon">{{ iconName }}</div>
       <h3>{{ title }}</h3>
       <p>{{ message }}</p>
       <div class="modal-footer">

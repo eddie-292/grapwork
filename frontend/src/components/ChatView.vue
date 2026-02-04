@@ -16,6 +16,7 @@ import { useGlobalMemory } from '../composables/useGlobalMemory'
 import TaskModePanel from './TaskModePanel.vue'
 import NormalChat from './NormalChat.vue'
 import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
+import ConfirmDialog from './ConfirmDialog.vue'
 import { storage } from '../services/StorageService'
 
 const router = useRouter()
@@ -30,6 +31,9 @@ const globalMemoryManager = useGlobalMemory()
 const showSaveToGlobalMemoryDialog = ref(false)
 const saveToGlobalMemoryContent = ref('')
 const saveToGlobalMemoryKeywords = ref<string[]>([])
+
+// 退出登录确认对话框状态
+const showLogoutConfirmDialog = ref(false)
 
 // 提取关键词的简单函数
 function extractKeywords(content: string): string[] {
@@ -2102,9 +2106,18 @@ async function loadChatHistory() {
   }
 }
 
-async function logout() {
+function logout() {
+  showLogoutConfirmDialog.value = true
+}
+
+async function confirmLogout() {
   await storage.clearLoginInfo()
   router.push('/login')
+  showLogoutConfirmDialog.value = false
+}
+
+function cancelLogout() {
+  showLogoutConfirmDialog.value = false
 }
 
 onMounted(async () => {
@@ -2513,6 +2526,18 @@ watch(currentChatId, (newChatId) => {
       :initial-keywords="saveToGlobalMemoryKeywords"
       @close="showSaveToGlobalMemoryDialog = false"
       @saved="showSaveToGlobalMemoryDialog = false"
+    />
+
+    <!-- 退出登录确认对话框 -->
+    <ConfirmDialog
+      :show="showLogoutConfirmDialog"
+      title="退出登录"
+      message="确定要退出登录吗？"
+      confirm-text="确认退出"
+      cancel-text="取消"
+      type="warning"
+      @confirm="confirmLogout"
+      @cancel="cancelLogout"
     />
   </div>
 </template>
