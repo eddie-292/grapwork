@@ -977,21 +977,24 @@ async function executeNormalChat(text: string) {
     // 生成智能匹配的全局记忆上下文
     const globalMemoryContext = globalMemoryManager.generateInjectContext(text)
 
-    // 如果有全局记忆，添加到 system prompt 之前
-    if (globalMemoryContext) {
-      messagesToSend.unshift({
-        role: 'system',
-        content: globalMemoryContext + '\n\n请在回复时考虑这些偏好。'
-      })
+    // 构建 system prompt（合并 assistant system prompt 和 global memory）
+    let systemPrompt = ''
+    if (activeAssistant.value?.systemPrompt && activeAssistant.value.systemPrompt.trim()) {
+      systemPrompt = activeAssistant.value.systemPrompt.trim()
+    } else {
+      systemPrompt = '你是一个有用的助手'
     }
 
-    // 如果配置了助理，添加 system prompt 到消息开头
-    if (activeAssistant.value?.systemPrompt && activeAssistant.value.systemPrompt.trim()) {
-      messagesToSend.unshift({
-        role: 'system',
-        content: activeAssistant.value.systemPrompt.trim()
-      })
+    // 如果有全局记忆，追加到 system prompt
+    if (globalMemoryContext) {
+      systemPrompt += '\n\n' + globalMemoryContext + '\n\n请在回复时考虑这些偏好。'
     }
+
+    // 添加合并后的 system prompt 到消息开头
+    messagesToSend.unshift({
+      role: 'system',
+      content: systemPrompt
+    })
 
     let resp: Response
 
