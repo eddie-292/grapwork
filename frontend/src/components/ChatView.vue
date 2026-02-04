@@ -444,9 +444,9 @@ async function planTasks(userInput: string): Promise<{ id: number; description: 
 /**
  * 初始化工作记忆管理器
  */
-function initWorkingMemory(chatId: string) {
+async function initWorkingMemory(chatId: string) {
   workingMemoryManager = useWorkingMemory(chatId)
-  workingMemoryManager.load()
+  await workingMemoryManager.load()
 }
 
 /**
@@ -489,13 +489,20 @@ async function saveTaskResultToWorkingMemory(
   result: string,
   type: WorkingMemoryType
 ): Promise<void> {
-  if (!workingMemoryManager) return
+  if (!workingMemoryManager) {
+    console.error(`[Task ${taskId}] 工作记忆管理器未初始化`)
+    return
+  }
 
   // 检查是否启用工作记忆（默认启用）
   const chat = currentChat.value
   const enabled = chat?.taskModeOptions?.workingMemory?.enabled ?? true
-  if (!enabled) return
+  if (!enabled) {
+    console.log(`[Task ${taskId}] 工作记忆已禁用`)
+    return
+  }
 
+  console.log(`[Task ${taskId}] 正在保存到工作记忆，类型: ${type}, 内容长度: ${result.length}`)
   await workingMemoryManager.addEntry(type, taskId, taskDescription, result)
 }
 
@@ -1116,7 +1123,7 @@ async function confirmTaskExecution() {
   const tasks = pendingTasks.value
 
   // 初始化工作记忆
-  initWorkingMemory(chat.id)
+  await initWorkingMemory(chat.id)
 
   try {
     awaitingTaskConfirmation.value = false
@@ -1147,6 +1154,11 @@ async function confirmTaskExecution() {
 
       // 获取工作记忆上下文（合并后）
       const workingMemory = getWorkingMemoryForNextTask(i)
+      console.log(`[Task ${i}] 获取工作记忆:`, {
+        previousNotes: workingMemory.previousNotes ? '有' : '无',
+        previousDrafts: workingMemory.previousDrafts ? '有' : '无',
+        previousFinalResults: workingMemory.previousFinalResults ? '有' : '无'
+      })
       let workingMemoryContext = ''
 
       if (workingMemory.previousNotes || workingMemory.previousDrafts || workingMemory.previousFinalResults) {
@@ -1196,6 +1208,10 @@ async function confirmTaskExecution() {
         msg.content,
         WorkingMemoryType.FINAL_RESULT
       )
+
+      // 调试：验证工作记忆是否保存成功
+      const savedCount = workingMemoryManager?.allEntries.value.length ?? 0
+      console.log(`[Task ${i}] 工作记忆已保存，当前条目数: ${savedCount}`)
 
       // 保存任务输出用于最终整合
       taskOutputs.push(msg.content)

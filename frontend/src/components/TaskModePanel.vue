@@ -65,6 +65,14 @@ watch(() => props.chatId, async (newChatId) => {
   }
 })
 
+// 监听工作记忆显示状态变化，显示时重新加载数据
+watch(showWorkingMemory, async (show) => {
+  if (show && workingMemory.value && props.chatId) {
+    // 重新从 localStorage 加载最新数据
+    await workingMemory.value.load()
+  }
+})
+
 // 记忆类型配置
 const memoryTypes = [
   { key: WorkingMemoryType.FINAL_RESULT, label: '结果' },
