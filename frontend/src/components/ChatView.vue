@@ -17,6 +17,7 @@ import TaskModePanel from './TaskModePanel.vue'
 import NormalChat from './NormalChat.vue'
 import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
+import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
 import { storage } from '../services/StorageService'
 
 const router = useRouter()
@@ -31,6 +32,10 @@ const globalMemoryManager = useGlobalMemory()
 const showSaveToGlobalMemoryDialog = ref(false)
 const saveToGlobalMemoryContent = ref('')
 const saveToGlobalMemoryKeywords = ref<string[]>([])
+
+// HTML预览对话框状态
+const showHtmlPreview = ref(false)
+const htmlPreviewContent = ref('')
 
 // 退出登录确认对话框状态
 const showLogoutConfirmDialog = ref(false)
@@ -155,7 +160,14 @@ md.renderer.rules.fence = (tokens, idx) => {
   // 添加复制按钮
   const copyBtn = `<button class="code-copy-btn" onclick="window.copyCodeBlock(this)" title="复制代码">复制</button>`
 
-  return `<pre><code class="hljs language-${lang}">${code}</code>${copyBtn}</pre>`
+  // 为HTML代码块添加预览按钮
+  let previewBtn = ''
+  if (lang === 'html') {
+    const escapedCode = code.replace(/`/g, '\\`').replace(/"/g, '&quot;')
+    previewBtn = `<button class="code-preview-btn" onclick="window.previewHtml(this, \`${escapedCode}\`)" title="预览HTML">预览</button>`
+  }
+
+  return `<pre><code class="hljs language-${lang}">${code}</code>${copyBtn}${previewBtn}</pre>`
 }
 
 // 加载代码高亮主题
@@ -307,6 +319,20 @@ async function copyRenderedText(content: string) {
 
 async function copyMarkdown(content: string) {
   copyText(content)
+}
+
+// HTML预览功能
+function openHtmlPreview(htmlCode: string) {
+  // 解码HTML实体
+  const textarea = document.createElement('textarea')
+  textarea.innerHTML = htmlCode
+  htmlPreviewContent.value = textarea.value
+  showHtmlPreview.value = true
+}
+
+// 声明全局函数供HTML中的onclick使用
+;(window as any).previewHtml = function (_btn: HTMLElement, htmlCode: string) {
+  openHtmlPreview(htmlCode)
 }
 
 // 任务规划提示词
@@ -2301,6 +2327,7 @@ watch(currentChatId, (newChatId) => {
                         <div class="msg-reasoning-bubble" v-html="render(archivedMsg.reasoning)" />
                       </div>
                       <div class="msg-bubble-wrapper">
+                        <!-- 渲染输出内容 -->
                         <div class="msg-bubble" v-html="render(archivedMsg.content)" />
                       </div>
                     </div>
@@ -2526,6 +2553,13 @@ watch(currentChatId, (newChatId) => {
       :initial-keywords="saveToGlobalMemoryKeywords"
       @close="showSaveToGlobalMemoryDialog = false"
       @saved="showSaveToGlobalMemoryDialog = false"
+    />
+
+    <!-- HTML预览对话框 -->
+    <HtmlPreviewDialog
+      :show="showHtmlPreview"
+      :html-content="htmlPreviewContent"
+      @close="showHtmlPreview = false"
     />
 
     <!-- 退出登录确认对话框 -->
@@ -2973,6 +3007,25 @@ watch(currentChatId, (newChatId) => {
   background: #ffffff;
   color: #0f172a;
   border-color: #d1d5db;
+}
+
+.msg-bubble :deep(.code-preview-btn) {
+  position: absolute;
+  top: 8px;
+  right: 60px;
+  background: rgba(16, 163, 127, 0.9);
+  border: 1px solid #10a37f;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: #ffffff;
+}
+
+.msg-bubble :deep(.code-preview-btn:hover) {
+  background: #0d8a6c;
+  border-color: #0d8a6c;
 }
 
 .msg-bubble :deep(code) {

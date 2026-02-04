@@ -268,12 +268,13 @@ onMounted(async () => {
 
 .header h1 {
   margin: 0;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
+  color: #0f172a;
 }
 
 .back-btn {
-  padding: 8px 16px;
+  padding: 6px 12px;
   background: #f3f4f6;
   border: 1px solid #e5e7eb;
   color: #374151;

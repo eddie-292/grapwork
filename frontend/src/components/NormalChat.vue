@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
+import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
 
 type Role = 'user' | 'assistant' | 'system'
 export type Message = { role: Role; content: string; reasoning: string; reasoningDuration?: number; visible?: boolean; copyable?: boolean; archived?: boolean }
@@ -37,6 +38,10 @@ const emit = defineEmits<{
 const showSaveToGlobalMemoryDialog = ref(false)
 const saveToGlobalMemoryContent = ref('')
 const saveToGlobalMemoryKeywords = ref<string[]>([])
+
+// HTML预览对话框状态
+const showHtmlPreview = ref(false)
+const htmlPreviewContent = ref('')
 
 // 提取关键词的简单函数
 function extractKeywords(content: string): string[] {
@@ -101,7 +106,14 @@ md.renderer.rules.fence = (tokens, idx) => {
 
   const copyBtn = `<button class="code-copy-btn" onclick="window.copyCodeBlock(this)" title="复制代码">复制</button>`
 
-  return `<pre><code class="hljs language-${lang}">${code}</code>${copyBtn}</pre>`
+  // 为HTML代码块添加预览按钮
+  let previewBtn = ''
+  if (lang === 'html') {
+    const escapedCode = code.replace(/`/g, '\\`').replace(/"/g, '&quot;')
+    previewBtn = `<button class="code-preview-btn" onclick="window.previewHtml(this, \`${escapedCode}\`)" title="预览HTML">预览</button>`
+  }
+
+  return `<pre><code class="hljs language-${lang}">${code}</code>${copyBtn}${previewBtn}</pre>`
 }
 
 // Functions
@@ -186,6 +198,20 @@ function toggleTaskMode(e: Event) {
   emit('update:is-task-mode', target.checked)
 }
 
+// HTML预览功能
+function openHtmlPreview(htmlCode: string) {
+  // 解码HTML实体
+  const textarea = document.createElement('textarea')
+  textarea.innerHTML = htmlCode
+  htmlPreviewContent.value = textarea.value
+  showHtmlPreview.value = true
+}
+
+// 声明全局函数供HTML中的onclick使用
+;(window as any).previewHtml = function (_btn: HTMLElement, htmlCode: string) {
+  openHtmlPreview(htmlCode)
+}
+
 // Expose functions for parent component
 defineExpose({
   scrollToBottom: () => {
@@ -232,6 +258,7 @@ defineExpose({
               <div v-show="reasoningExpanded[i]" class="msg-reasoning-bubble" v-html="render(m.reasoning)" />
             </div>
             <div class="msg-bubble-wrapper">
+              <!-- 渲染输出内容 -->
               <div class="msg-bubble" v-html="render(m.content)" />
               <div class="msg-actions" v-if="m.copyable !== false">
                 <button class="copy-btn" @click="copyRenderedText(m.content)" title="复制文本">
@@ -318,6 +345,13 @@ defineExpose({
       :initial-keywords="saveToGlobalMemoryKeywords"
       @close="showSaveToGlobalMemoryDialog = false"
       @saved="showSaveToGlobalMemoryDialog = false"
+    />
+
+    <!-- HTML预览对话框 -->
+    <HtmlPreviewDialog
+      :show="showHtmlPreview"
+      :html-content="htmlPreviewContent"
+      @close="showHtmlPreview = false"
     />
   </main>
 </template>
@@ -495,6 +529,25 @@ defineExpose({
   background: #ffffff;
   color: #0f172a;
   border-color: #d1d5db;
+}
+
+.msg-bubble :deep(.code-preview-btn) {
+  position: absolute;
+  top: 8px;
+  right: 60px;
+  background: rgba(16, 163, 127, 0.9);
+  border: 1px solid #10a37f;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: #ffffff;
+}
+
+.msg-bubble :deep(.code-preview-btn:hover) {
+  background: #0d8a6c;
+  border-color: #0d8a6c;
 }
 
 .msg-bubble :deep(code) {
