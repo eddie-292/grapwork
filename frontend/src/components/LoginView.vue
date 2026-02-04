@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { storage } from '../services/StorageService'
 
 const router = useRouter()
 const username = ref('')
@@ -8,7 +9,7 @@ const password = ref('')
 const loading = ref(false)
 const error = ref('')
 
-function handleLogin() {
+async function handleLogin() {
   if (!username.value || !password.value) {
     error.value = '请输入用户名和密码'
     return
@@ -18,11 +19,11 @@ function handleLogin() {
   error.value = ''
 
   // 模拟登录验证（实际项目中应该调用后端 API）
-  setTimeout(() => {
+  setTimeout(async () => {
     if (username.value === 'admin' && password.value === 'admin') {
-      // 登录成功，保存登录状态
-      localStorage.setItem('isLoggedIn', 'true')
-      localStorage.setItem('username', username.value)
+      // 登录成功，保存登录状态到持久层
+      await storage.setIsLoggedIn(true)
+      await storage.setUsername(username.value)
       // 重定向到主页
       router.push('/')
     } else {

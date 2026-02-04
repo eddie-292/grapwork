@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import type { Assistant, AssistantList } from '../types/electron'
 import ConfirmDialog from './ConfirmDialog.vue'
+import { storage } from '../services/StorageService'
 
 const router = useRouter()
 
@@ -36,12 +37,15 @@ const emojiOptions = [
 ]
 
 onMounted(async () => {
-  const saved = localStorage.getItem('assistant-list')
-  if (saved) {
-    try {
-      assistantList.value = JSON.parse(saved)
-    } catch (e) {
-      console.error('Failed to parse assistant list:', e)
+  // 直接从新的持久层加载（不需要迁移逻辑，因为持久层已经使用相同的 localStorage 键）
+  try {
+    assistantList.value = await storage.getAssistantListFull()
+  } catch (e) {
+    console.error('Failed to load assistant list from storage:', e)
+    // 确保始终有默认值
+    assistantList.value = {
+      assistants: [],
+      activeIndex: -1
     }
   }
 })
@@ -111,8 +115,8 @@ function saveCurrentAssistant() {
   saveAssistants()
 }
 
-function saveAssistants() {
-  localStorage.setItem('assistant-list', JSON.stringify(assistantList.value))
+async function saveAssistants() {
+  await storage.saveAssistantListFull(assistantList.value)
 }
 
 function goBack() {

@@ -4,10 +4,30 @@ import LoginView from '../components/LoginView.vue'
 import SettingsView from '../components/SettingsView.vue'
 import AssistantView from '../components/AssistantView.vue'
 import GlobalMemoryView from '../components/GlobalMemoryView.vue'
+import { storage } from '../services/StorageService'
 
-// 检查登录状态
-function isAuthenticated(): boolean {
-  return localStorage.getItem('isLoggedIn') === 'true'
+// 检查登录状态（兼容旧版本 localStorage）
+async function isAuthenticated(): Promise<boolean> {
+  // 先检查新的持久层
+  const loggedIn = await storage.getIsLoggedIn()
+  // 如果持久层有数据，直接返回
+  // 兼容旧版本 localStorage（用于数据迁移）
+  if (!loggedIn) {
+    const oldLoggedIn = localStorage.getItem('isLoggedIn') === 'true'
+    if (oldLoggedIn) {
+      // 迁移到新的持久层
+      await storage.setIsLoggedIn(true)
+      const oldUsername = localStorage.getItem('username')
+      if (oldUsername) {
+        await storage.setUsername(oldUsername)
+      }
+      // 清除旧数据
+      localStorage.removeItem('isLoggedIn')
+      localStorage.removeItem('username')
+      return true
+    }
+  }
+  return loggedIn
 }
 
 const routes: RouteRecordRaw[] = [
@@ -49,13 +69,14 @@ const router = createRouter({
 })
 
 // 路由守卫：检查登录状态
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to, _from, next) => {
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
+  const loggedIn = await isAuthenticated()
 
-  if (requiresAuth && !isAuthenticated()) {
+  if (requiresAuth && !loggedIn) {
     // 需要登录但未登录，重定向到登录页
     next('/login')
-  } else if (to.path === '/login' && isAuthenticated()) {
+  } else if (to.path === '/login' && loggedIn) {
     // 已登录但访问登录页，重定向到主页
     next('/')
   } else {

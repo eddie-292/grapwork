@@ -16,6 +16,7 @@ import { useGlobalMemory } from '../composables/useGlobalMemory'
 import TaskModePanel from './TaskModePanel.vue'
 import NormalChat from './NormalChat.vue'
 import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
+import { storage } from '../services/StorageService'
 
 const router = useRouter()
 
@@ -149,7 +150,7 @@ md.renderer.rules.fence = (tokens, idx) => {
 // 加载代码高亮主题
 async function loadHighlightTheme() {
   try {
-    const savedTheme = localStorage.getItem('highlight-theme')
+    const savedTheme = await storage.getHighlightTheme()
     if (!savedTheme) return
 
     // 移除旧的主题样式
@@ -899,30 +900,21 @@ window.copyCodeBlock = async (btn: HTMLElement) => {
 }
 
 async function loadConfig() {
-  if (window.electronAPI) {
-    // Electron 环境（优先使用 IPC）
-    configList.value = await window.electronAPI.getConfig()
-    return
-  }
-
-  const saved = localStorage.getItem('llm-config-list')
-  if (saved) {
-    try {
-      configList.value = JSON.parse(saved)
-    } catch (e) {
-      console.error('Failed to parse config list:', e)
-    }
+  const config = await storage.getConfigList()
+  if (config) {
+    configList.value = config
   }
 }
 
-function loadAssistants() {
-  const saved = localStorage.getItem('assistant-list')
-  if (saved) {
-    try {
-      assistantList.value = JSON.parse(saved)
-    } catch (e) {
-      console.error('Failed to parse assistant list:', e)
+async function loadAssistants() {
+  try {
+    const assistants = await storage.getAssistantList()
+    assistantList.value = {
+      assistants,
+      activeIndex: assistantList.value.activeIndex
     }
+  } catch (e) {
+    console.error('Failed to load assistant list:', e)
   }
 }
 
@@ -974,8 +966,19 @@ async function executeNormalChat(text: string) {
       content: m.content
     }))
 
+    // 确保全局记忆已加载（如果未加载则立即加载）
+    if (!globalMemoryManager.memory.value) {
+      await globalMemoryManager.load()
+    }
+
+    // 调试：检查全局记忆状态
+    console.log('[GlobalMemory] memory.value:', globalMemoryManager.memory.value)
+    console.log('[GlobalMemory] entries:', globalMemoryManager.entries.value)
+    console.log('[GlobalMemory] user message:', text)
+
     // 生成智能匹配的全局记忆上下文
     const globalMemoryContext = globalMemoryManager.generateInjectContext(text)
+    console.log('[GlobalMemory] generated context:', globalMemoryContext)
 
     // 构建 system prompt（合并 assistant system prompt 和 global memory）
     let systemPrompt = ''
@@ -1848,42 +1851,37 @@ function updateTaskModeOptions(options: { enableTaskSummary?: boolean; tokenThre
   }
 }
 
-function saveChatHistory() {
-  localStorage.setItem('chat-history', JSON.stringify(chatList.value))
+async function saveChatHistory() {
+  await storage.saveChatHistory(chatList.value)
 }
 
-function loadChatHistory() {
-  const saved = localStorage.getItem('chat-history')
-  if (saved) {
-    try {
-      chatList.value = JSON.parse(saved)
-      if (chatList.value.length > 0) {
-        currentChatId.value = chatList.value[0]?.id ?? null
-      } else {
-        createNewChat()
-      }
-    } catch (e) {
-      console.error('Failed to load chat history:', e)
+async function loadChatHistory() {
+  try {
+    const history = await storage.getChatHistory()
+    chatList.value = history
+    if (chatList.value.length > 0) {
+      currentChatId.value = chatList.value[0]?.id ?? null
+    } else {
       createNewChat()
     }
-  } else {
+  } catch (e) {
+    console.error('Failed to load chat history:', e)
     createNewChat()
   }
 }
 
-function logout() {
-  localStorage.removeItem('isLoggedIn')
-  localStorage.removeItem('username')
+async function logout() {
+  await storage.clearLoginInfo()
   router.push('/login')
 }
 
-onMounted(() => {
-  loadChatHistory()
-  loadConfig()
-  loadAssistants()
-  loadHighlightTheme()
+onMounted(async () => {
+  await loadChatHistory()
+  await loadConfig()
+  await loadAssistants()
+  await loadHighlightTheme()
   // 加载全局记忆
-  globalMemoryManager.load()
+  await globalMemoryManager.load()
   scrollToBottom()
   // 普通 chat 组件会在内部处理 autoResizeTextarea
   if (textareaRef.value) {

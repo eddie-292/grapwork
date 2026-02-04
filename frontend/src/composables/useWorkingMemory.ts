@@ -1,13 +1,13 @@
 /**
  * 工作记忆管理 Composable
- * 提供基于 localStorage 的持久化任务工作记忆存储
+ * 提供基于统一持久层的持久化任务工作记忆存储
  */
 
 import { ref, computed, type Ref } from 'vue'
 import { WorkingMemoryType } from '../types/task'
 import type { WorkingMemory, WorkingMemoryEntry } from '../types/task'
+import { storage } from '../services/StorageService'
 
-const WORKING_MEMORY_PREFIX = 'task-working-memory'
 const WORKING_MEMORY_VERSION = 1
 const DEFAULT_MAX_ENTRIES = 50
 
@@ -17,36 +17,30 @@ export function useWorkingMemory(chatId: string) {
   const error = ref<Error | null>(null)
 
   /**
-   * 生成 localStorage key
-   */
-  function getStorageKey(): string {
-    return `${WORKING_MEMORY_PREFIX}-${chatId}`
-  }
-
-  /**
    * 加载工作记忆
    */
   async function load(): Promise<WorkingMemory | null> {
     isLoading.value = true
     try {
-      const key = getStorageKey()
-      const saved = localStorage.getItem(key)
+      const result = await storage.getWorkingMemory(chatId)
 
-      if (!saved) {
+      if (!result) {
         memory.value = null
         return null
       }
 
-      const parsed = JSON.parse(saved) as WorkingMemory
-
       // 版本检查
-      if (parsed.version !== WORKING_MEMORY_VERSION) {
+      if (result.version !== WORKING_MEMORY_VERSION) {
         console.warn('Working memory version mismatch, migrating...')
-        return migrateWorkingMemory(parsed)
+        const migrated = migrateWorkingMemory(result)
+        memory.value = migrated
+        // 自动保存迁移后的数据
+        await save()
+        return migrated
       }
 
-      memory.value = parsed
-      return parsed
+      memory.value = result
+      return result
     } catch (e) {
       error.value = e instanceof Error ? e : new Error('Failed to load working memory')
       console.error('Failed to load working memory:', e)
@@ -67,18 +61,16 @@ export function useWorkingMemory(chatId: string) {
 
     try {
       memory.value.lastUpdated = Date.now()
-      const key = getStorageKey()
-      const json = JSON.stringify(memory.value)
 
       // 检查配额
+      const json = JSON.stringify(memory.value)
       const sizeInBytes = new Blob([json]).size
       if (sizeInBytes > 4 * 1024 * 1024) {
         // 4MB 警告阈值
         console.warn(`Working memory size exceeds 4MB (${Math.round(sizeInBytes / 1024 / 1024)}MB), consider cleanup`)
       }
 
-      localStorage.setItem(key, json)
-      return true
+      return await storage.saveWorkingMemory(chatId, memory.value)
     } catch (e) {
       if (e instanceof Error && e.name === 'QuotaExceededError') {
         // 配额超限处理
@@ -189,8 +181,7 @@ export function useWorkingMemory(chatId: string) {
    * 清空工作记忆
    */
   async function clear(): Promise<void> {
-    const key = getStorageKey()
-    localStorage.removeItem(key)
+    await storage.deleteWorkingMemory(chatId)
     memory.value = null
   }
 

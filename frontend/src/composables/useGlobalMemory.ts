@@ -1,5 +1,6 @@
 import { ref, computed, toRaw, type Ref } from 'vue'
 import type { GlobalMemory, GlobalMemoryEntry, GlobalMemoryType } from '../types/globalMemory'
+import { storage } from '../services/StorageService'
 
 const GLOBAL_MEMORY_VERSION = 1
 
@@ -22,13 +23,7 @@ export function useGlobalMemory() {
   async function load(): Promise<GlobalMemory | null> {
     isLoading.value = true
     try {
-      if (window.electronAPI) {
-        memory.value = await window.electronAPI.getGlobalMemory()
-      } else {
-        // 开发环境：从 localStorage 读取
-        const saved = localStorage.getItem('global-memory')
-        memory.value = saved ? JSON.parse(saved) : null
-      }
+      memory.value = await storage.getGlobalMemory()
 
       if (!memory.value) {
         // 初始化默认值
@@ -60,19 +55,9 @@ export function useGlobalMemory() {
     try {
       memory.value.lastUpdated = Date.now()
 
-      if (window.electronAPI) {
-        // Use toRaw to remove Vue's reactivity proxy before IPC
-        const plainMemory = toRaw(memory.value)
-        console.log('[GlobalMemory] Saving to file system via Electron API:', plainMemory)
-        const result = await window.electronAPI.saveGlobalMemory(plainMemory)
-        console.log('[GlobalMemory] Save result:', result)
-        return result
-      } else {
-        console.log('[GlobalMemory] Saving to localStorage:', memory.value)
-        localStorage.setItem('global-memory', JSON.stringify(memory.value))
-        console.log('[GlobalMemory] Saved to localStorage successfully')
-        return true
-      }
+      // Use toRaw to remove Vue's reactivity proxy before saving
+      const plainMemory = toRaw(memory.value)
+      return await storage.saveGlobalMemory(plainMemory)
     } catch (e) {
       console.error('[GlobalMemory] Save failed:', e)
       error.value = e instanceof Error ? e : new Error('Failed to save global memory')
@@ -175,7 +160,11 @@ export function useGlobalMemory() {
    * 根据用户消息的关键词计算相关性分数
    */
   function findRelevantEntries(userMessage: string, maxEntries = 5): GlobalMemoryEntry[] {
-    if (!memory.value || memory.value.entries.length === 0) return []
+    console.log('[findRelevantEntries] memory.value:', memory.value)
+    if (!memory.value || memory.value.entries.length === 0) {
+      console.log('[findRelevantEntries] No memory or entries')
+      return []
+    }
 
     const messageLower = userMessage.toLowerCase()
     const messageWords = new Set(
@@ -185,6 +174,7 @@ export function useGlobalMemory() {
     )
 
     const enabledEntries = memory.value.entries.filter(e => e.enabled)
+    console.log('[findRelevantEntries] enabledEntries:', enabledEntries.length, 'total:', memory.value.entries.length)
     if (enabledEntries.length === 0) return []
 
     // 计算每个条目的相关性分数
@@ -223,15 +213,19 @@ export function useGlobalMemory() {
         }
       }
 
+      console.log(`[findRelevantEntries] Entry "${entry.title}": score=${score}, keywords=${entry.keywords}`)
       return { entry, score }
     })
 
     // 过滤掉分数为 0 的，按分数排序，返回前 N 个
-    return scored
+    const result = scored
       .filter(s => s.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, maxEntries)
       .map(s => s.entry)
+
+    console.log('[findRelevantEntries] result:', result)
+    return result
   }
 
   /**
@@ -239,6 +233,7 @@ export function useGlobalMemory() {
    * 用于 LLM 请求中
    */
   function generateInjectContext(userMessage: string): string {
+    // 使用智能匹配（如果想要总是注入所有启用的记忆，改用 memory.value.entries.filter(e => e.enabled)）
     const relevantEntries = findRelevantEntries(userMessage)
 
     if (relevantEntries.length === 0) return ''

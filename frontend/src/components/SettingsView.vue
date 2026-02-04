@@ -5,6 +5,7 @@ import hljs from 'highlight.js'
 import MarkdownIt from 'markdown-it'
 import type { AppConfig, ConfigList } from '../types/electron'
 import ConfirmDialog from './ConfirmDialog.vue'
+import { storage } from '../services/StorageService'
 
 const router = useRouter()
 
@@ -97,32 +98,18 @@ const isElectronEnv =
   navigator.userAgent.toLowerCase().includes('electron')
 
 onMounted(async () => {
-  if (window.electronAPI) {
-    configList.value = await window.electronAPI.getConfig()
-    // 如果没有配置，自动显示添加表单
-    if (configList.value.configs.length === 0) {
-      showEditForm.value = true
-    }
-    return
+  // 加载配置列表
+  const config = await storage.getConfigList()
+  if (config) {
+    configList.value = config
   }
-
-  if (!window.electronAPI || isElectronEnv) {
-    const saved = localStorage.getItem('llm-config-list')
-    if (saved) {
-      try {
-        configList.value = JSON.parse(saved)
-      } catch (e) {
-        console.error('Failed to parse config list:', e)
-      }
-    }
-    // 如果没有配置，自动显示添加表单
-    if (configList.value.configs.length === 0) {
-      showEditForm.value = true
-    }
+  // 如果没有配置，自动显示添加表单
+  if (configList.value.configs.length === 0) {
+    showEditForm.value = true
   }
 
   // 加载保存的代码高亮主题
-  const savedTheme = localStorage.getItem('highlight-theme')
+  const savedTheme = await storage.getHighlightTheme()
   if (savedTheme) {
     selectedHighlightTheme.value = savedTheme
   }
@@ -199,30 +186,14 @@ async function saveAllConfigs() {
   message.value = ''
 
   try {
-    if (window.electronAPI) {
-      // 将响应式对象转换为纯对象，避免克隆错误
-      const plainConfig: ConfigList = {
-        configs: configList.value.configs.map(cfg => ({
-          name: cfg.name,
-          apiUrl: cfg.apiUrl,
-          apiKey: cfg.apiKey,
-          model: cfg.model,
-          enabled: cfg.enabled,
-          extra_body: cfg.extra_body || ''
-        })),
-        activeIndex: configList.value.activeIndex
-      }
-
-      const success = await window.electronAPI.saveConfig(plainConfig)
-      if (!success) {
-        throw new Error('保存失败，请重试')
-      }
-    } else if (isElectronEnv || !window.electronAPI) {
-      localStorage.setItem('llm-config-list', JSON.stringify(configList.value))
+    // 保存配置列表
+    const configSuccess = await storage.saveConfigList(configList.value)
+    if (!configSuccess) {
+      throw new Error('配置保存失败，请重试')
     }
 
     // 保存代码高亮主题
-    localStorage.setItem('highlight-theme', selectedHighlightTheme.value)
+    await storage.saveHighlightTheme(selectedHighlightTheme.value)
     await loadHighlightTheme(selectedHighlightTheme.value)
 
     message.value = '设置已保存'
@@ -274,9 +245,9 @@ function goBack() {
   router.push('/')
 }
 
-function clearChatHistory() {
+async function clearChatHistory() {
   if (confirm('确定要清空所有对话历史吗？此操作不可恢复。')) {
-    localStorage.removeItem('chat-history')
+    await storage.delete('chat-history')
     message.value = '对话历史已清空'
     setTimeout(() => {
       message.value = ''
