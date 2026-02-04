@@ -157,6 +157,8 @@ const isTaskPlanning = ref(false)
 const isTaskExecuting = ref(false)
 const awaitingTaskConfirmation = ref(false)
 const pendingTasks = ref<{ id: number; description: string }[]>([])
+// 保存原始用户输入用于重新规划
+const originalUserInput = ref('')
 // 任务模式设置状态
 const showTaskSettings = ref(false)
 // 参数配置对话框状态
@@ -445,6 +447,50 @@ async function planTasks(userInput: string): Promise<{ id: number; description: 
       console.error('Response:', response)
       if (e instanceof TaskError) throw e
       throw new TaskError(TaskErrorType.PARSE_ERROR, '无法解析任务列表，请重试', undefined, e instanceof Error ? e : undefined)
+    }
+  } catch (e) {
+    if (e instanceof TaskError) throw e
+    throw new TaskError(TaskErrorType.PLANNING_FAILED, formatTaskErrorMessage(e), undefined, e instanceof Error ? e : undefined)
+  }
+}
+
+// 重新规划任务列表
+async function reviseTaskPlan(
+  userInput: string,
+  currentTasks: { id: number; description: string }[],
+  feedback: string
+): Promise<{ id: number; description: string }[]> {
+  // 构建当前任务列表的文本描述
+  const currentTasksText = currentTasks
+    .map((task, idx) => `${idx + 1}. ${task.description}`)
+    .join('\n')
+
+  const revisionPrompt = `${TASK_PLANNING_PROMPT}\n\n原始用户请求：${userInput}\n\n当前任务列表：\n${currentTasksText}\n\n用户反馈意见：${feedback}\n\n请根据用户的反馈意见，对当前任务列表进行优化调整。`
+
+  const messagesToSend: { role: string; content: string }[] = [
+    { role: 'system', content: activeAssistant.value?.systemPrompt || '你是一个有用的助手' },
+    { role: 'user', content: revisionPrompt }
+  ]
+
+  try {
+    const response = await sendMessageToLLM(messagesToSend)
+
+    // 解析 JSON 响应
+    try {
+      // 提取 JSON 部分
+      const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/) || response.match(/\{[\s\S]*\}/)
+      const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : response
+      const parsed = JSON.parse(jsonStr)
+
+      if (parsed.tasks && Array.isArray(parsed.tasks)) {
+        return parsed.tasks
+      }
+      throw new TaskError(TaskErrorType.PARSE_ERROR, 'Invalid response format')
+    } catch (e) {
+      console.error('Failed to parse revised task list:', e)
+      console.error('Response:', response)
+      if (e instanceof TaskError) throw e
+      throw new TaskError(TaskErrorType.PARSE_ERROR, '无法解析优化后的任务列表，请重试', undefined, e instanceof Error ? e : undefined)
     }
   } catch (e) {
     if (e instanceof TaskError) throw e
@@ -1063,6 +1109,9 @@ async function executeTaskMode(userInput: string) {
   const chat = currentChat.value
   if (!chat) return
 
+  // 保存原始用户输入用于重新规划
+  originalUserInput.value = userInput
+
   // 标记为任务模式会话
   chat.isTaskMode = true
 
@@ -1405,6 +1454,72 @@ function cancelTaskExecution() {
   pendingTasks.value = []
   saveChatHistory()
   scrollToBottom()
+}
+
+// 处理重新规划请求
+async function handleRevisePlan(feedback: string) {
+  const chat = currentChat.value
+  if (!chat || pendingTasks.value.length === 0) return
+
+  try {
+    isTaskPlanning.value = true
+    sending.value = true
+
+    // 获取当前任务列表显示消息的索引（第一条用户消息之后的消息）
+    const planMsgIndex = 1
+
+    // 更新消息显示正在重新规划
+    if (chat.messages[planMsgIndex]) {
+      chat.messages[planMsgIndex]!.content = '**正在根据反馈优化任务规划...**'
+      scrollToBottom()
+    }
+
+    // 调用重新规划函数
+    const revisedTasks = await reviseTaskPlan(
+      originalUserInput.value,
+      pendingTasks.value,
+      feedback
+    )
+
+    // 更新任务列表
+    pendingTasks.value = revisedTasks
+    if (chat) {
+      chat.taskList = revisedTasks.map((t, i) => ({
+        id: i,
+        description: t.description,
+        completed: false
+      }))
+    }
+
+    // 显示更新后的任务列表
+    let taskListDisplay = '**任务规划已更新**\n\n'
+    revisedTasks.forEach((task, idx) => {
+      taskListDisplay += `${idx + 1}. ${task.description}\n`
+    })
+    taskListDisplay += `\n💡 您的反馈：${feedback}`
+
+    if (chat.messages[planMsgIndex]) {
+      chat.messages[planMsgIndex]!.content = taskListDisplay
+      chat.messages[planMsgIndex]!.copyable = false
+    }
+
+    saveChatHistory()
+    scrollToBottom()
+
+  } catch (err) {
+    const planMsgIndex = 1
+    if (chat && chat.messages[planMsgIndex]) {
+      if (err instanceof TaskError) {
+        chat.messages[planMsgIndex]!.content = err.getUserMessage()
+      } else {
+        chat.messages[planMsgIndex]!.content = '重新规划失败: ' + (err instanceof Error ? err.message : '未知错误')
+      }
+    }
+  } finally {
+    isTaskPlanning.value = false
+    sending.value = false
+    // 保持 awaitingTaskConfirmation 为 true，用户可以继续修改或开始执行
+  }
 }
 
 // 重试失败的任务
@@ -1950,6 +2065,7 @@ watch(currentChatId, (newChatId) => {
         @update-task="updateTaskDescription"
         @retry-task="retryTask"
         @skip-task="skipTask"
+        @revise-plan="handleRevisePlan"
       />
     </div>
 

@@ -38,6 +38,7 @@ const emit = defineEmits<{
   updateTask: [id: number, description: string]
   retryTask: [id: number]
   skipTask: [id: number]
+  revisePlan: [feedback: string]
 }>()
 
 const props = defineProps<Props>()
@@ -45,6 +46,10 @@ const props = defineProps<Props>()
 // 任务编辑相关状态
 const editingTaskId = ref<number | null>(null)
 const editTaskDescription = ref('')
+
+// 规划修改相关状态
+const planRevisionFeedback = ref('')
+const showRevisionInput = ref(false)
 
 // 工作记忆相关状态
 const showWorkingMemory = ref(false)
@@ -166,6 +171,16 @@ function deleteTask(taskId: number) {
     emit('deleteTask', taskId)
   }
 }
+
+// 提交重新规划请求
+function submitRevision() {
+  const feedback = planRevisionFeedback.value.trim()
+  if (feedback) {
+    emit('revisePlan', feedback)
+    planRevisionFeedback.value = ''
+    showRevisionInput.value = false
+  }
+}
 </script>
 
 <template>
@@ -198,9 +213,30 @@ function deleteTask(taskId: number) {
         <span>✓</span>
         <span>开始执行</span>
       </button>
+      <button class="revise-btn" @click="showRevisionInput = !showRevisionInput" title="重新规划">
+        <span>✎</span>
+        <span>重新规划</span>
+      </button>
       <button class="cancel-btn" @click="emit('cancel')">
         <span>✕</span>
         <span>取消</span>
+      </button>
+    </div>
+
+    <!-- 重新规划输入框 -->
+    <div v-if="awaitingTaskConfirmation && showRevisionInput" class="plan-revision-section">
+      <div class="revision-header">
+        <span>请输入修改意见：</span>
+        <button class="close-revision-btn" @click="showRevisionInput = false; planRevisionFeedback = ''">✕</button>
+      </div>
+      <textarea
+        v-model="planRevisionFeedback"
+        class="revision-textarea"
+        rows="3"
+        placeholder="例如：将任务2和任务3合并、增加测试任务、减少任务数量等..."
+      ></textarea>
+      <button class="submit-revision-btn" @click="submitRevision" :disabled="!planRevisionFeedback.trim()">
+        重新生成任务列表
       </button>
     </div>
 
@@ -653,6 +689,111 @@ function deleteTask(taskId: number) {
 .cancel-btn span:first-child {
   font-size: 14px;
   font-weight: 600;
+}
+
+.revise-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #92400e;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.revise-btn:hover {
+  background: #fde68a;
+}
+
+.revise-btn span:first-child {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* 重新规划输入框区域 */
+.plan-revision-section {
+  padding: 12px 16px;
+  background: #fefce8;
+  border-top: 1px solid #fde047;
+  border-bottom: 1px solid #fde047;
+}
+
+.revision-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #854d0e;
+}
+
+.close-revision-btn {
+  background: none;
+  border: none;
+  color: #854d0e;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px;
+  line-height: 1;
+}
+
+.close-revision-btn:hover {
+  color: #713f12;
+}
+
+.revision-textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #fde047;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 60px;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.revision-textarea:focus {
+  outline: none;
+  border-color: #eab308;
+  box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.1);
+}
+
+.revision-textarea::placeholder {
+  color: #ca8a04;
+  opacity: 0.7;
+}
+
+.submit-revision-btn {
+  margin-top: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: #f59e0b;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.submit-revision-btn:hover:not(:disabled) {
+  background: #d97706;
+}
+
+.submit-revision-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* 设置面板 */
