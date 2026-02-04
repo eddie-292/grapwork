@@ -50,6 +50,7 @@ type Chat = {
   assistantId?: string
   configId?: number
   isTaskMode?: boolean
+  sending?: boolean  // 当前会话的发送状态
   taskList?: {
     id: number
     description: string
@@ -146,11 +147,12 @@ async function loadHighlightTheme() {
 const chatList = ref<Chat[]>([])
 const currentChatId = ref<string | null>(null)
 const input = ref('')
-const sending = ref(false)
-const controller = ref<AbortController | null>(null)
+const controllers = ref<Record<string, AbortController>>({})
 const showSidebar = ref(true)
 // 任务模式 - 基于当前会话的 computed 属性
 const taskMode = computed(() => currentChat.value?.isTaskMode ?? false)
+// 发送状态 - 基于当前会话的 computed 属性
+const sending = computed(() => currentChat.value?.sending ?? false)
 // 新会话前的任务模式选择（只在会话为空时可编辑）
 //const pendingTaskMode = ref(false)
 const isTaskPlanning = ref(false)
@@ -719,7 +721,7 @@ async function executeTaskStreaming(
       ...validParams,
       ...extraBodyParams,
     }),
-    signal: controller.value!.signal,
+    signal: controllers.value[currentChat.value!.id]!.signal,
   })
 
   if (!resp.body) {
@@ -898,7 +900,7 @@ function loadAssistants() {
 
 async function send() {
   const text = input.value.trim()
-  if (!text || sending.value) return
+  if (!text || (currentChat.value?.sending)) return
 
   if (!activeConfig.value?.apiKey) {
     alert('请先配置并启用一个 LLM 接口')
@@ -932,8 +934,10 @@ async function executeNormalChat(text: string) {
     currentChat.value.messages.push({ role: 'assistant', content: '',  reasoning: '' })
   }
 
-  sending.value = true
-  controller.value = new AbortController()
+  if (currentChat.value) {
+    currentChat.value.sending = true
+    controllers.value[currentChat.value.id] = new AbortController()
+  }
 
   try {
     const currentMessages = currentChat.value?.messages || []
@@ -994,7 +998,7 @@ async function executeNormalChat(text: string) {
           ...validParams,
           ...extraBodyParams,
         }),
-        signal: controller.value.signal,
+        signal: controllers.value[currentChat.value!.id]!.signal,
       })
     } else {
       resp = await fetch('/api/chat', {
@@ -1003,7 +1007,7 @@ async function executeNormalChat(text: string) {
         body: JSON.stringify({
           messages: messagesToSend
         }),
-        signal: controller.value.signal,
+        signal: controllers.value[currentChat.value!.id]!.signal,
       })
     }
 
@@ -1087,8 +1091,10 @@ async function executeNormalChat(text: string) {
       }
     }
   } finally {
-    sending.value = false
-    controller.value = null
+    if (currentChat.value) {
+      currentChat.value.sending = false
+      delete controllers.value[currentChat.value.id]
+    }
     // 推理内容完成后自动折叠
     const currentMessages = currentChat.value?.messages || []
     const last = currentMessages[currentMessages.length - 1]
@@ -1127,8 +1133,10 @@ async function executeTaskMode(userInput: string) {
   const planMsgIndex = chat.messages.length
   chat.messages.push({ role: 'assistant', content: '', reasoning: '' })
 
-  sending.value = true
-  controller.value = new AbortController()
+  if (currentChat.value) {
+    currentChat.value.sending = true
+    controllers.value[currentChat.value.id] = new AbortController()
+  }
 
   try {
     // 1. 任务规划阶段
@@ -1187,8 +1195,10 @@ async function executeTaskMode(userInput: string) {
   } finally {
     // 只有在等待确认时才保持 sending 状态为 true
     if (!awaitingTaskConfirmation.value) {
-      sending.value = false
-      controller.value = null
+      if (currentChat.value) {
+        currentChat.value.sending = false
+        delete controllers.value[currentChat.value.id]
+      }
       isTaskPlanning.value = false
       currentTaskIndex.value = -1
       saveChatHistory()
@@ -1225,7 +1235,8 @@ async function confirmTaskExecution() {
     }
 
     for (let i = 0; i < tasks.length; i++) {
-      if (controller.value!.signal.aborted) {
+      const chatController = controllers.value[currentChat.value!.id]
+      if (chatController?.signal.aborted) {
         throw new Error('用户取消')
       }
 
@@ -1427,8 +1438,10 @@ async function confirmTaskExecution() {
       }
     }
   } finally {
-    sending.value = false
-    controller.value = null
+    if (currentChat.value) {
+      currentChat.value.sending = false
+      delete controllers.value[currentChat.value.id]
+    }
     isTaskPlanning.value = false
     isTaskExecuting.value = false
     awaitingTaskConfirmation.value = false
@@ -1444,9 +1457,9 @@ function cancelTaskExecution() {
   if (currentChat.value) {
     // 添加取消消息
     currentChat.value.messages.push({ role: 'assistant', content: '---\n\n任务执行已取消', reasoning: '', copyable: false })
+    currentChat.value.sending = false
+    delete controllers.value[currentChat.value.id]
   }
-  sending.value = false
-  controller.value = null
   isTaskPlanning.value = false
   isTaskExecuting.value = false
   awaitingTaskConfirmation.value = false
@@ -1463,7 +1476,9 @@ async function handleRevisePlan(feedback: string) {
 
   try {
     isTaskPlanning.value = true
-    sending.value = true
+    if (currentChat.value) {
+    currentChat.value.sending = true
+  }
 
     // 获取当前任务列表显示消息的索引（第一条用户消息之后的消息）
     const planMsgIndex = 1
@@ -1517,7 +1532,9 @@ async function handleRevisePlan(feedback: string) {
     }
   } finally {
     isTaskPlanning.value = false
-    sending.value = false
+    if (currentChat.value) {
+      currentChat.value.sending = false
+    }
     // 保持 awaitingTaskConfirmation 为 true，用户可以继续修改或开始执行
   }
 }
@@ -1565,10 +1582,13 @@ async function skipTask(taskId: number) {
 }
 
 function cancel() {
-  if (controller.value) {
-    controller.value.abort()
-    sending.value = false
-    controller.value = null
+  if (currentChat.value) {
+    const chatController = controllers.value[currentChat.value.id]
+    if (chatController) {
+      chatController.abort()
+      currentChat.value.sending = false
+      delete controllers.value[currentChat.value.id]
+    }
   }
 }
 
