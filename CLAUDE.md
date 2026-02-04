@@ -8,6 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Task Mode**: Decomposes complex user requests into executable subtasks with working memory management
 - **Global Memory**: Persistent knowledge storage for user preferences and custom context
 - **Assistant System**: Custom AI assistant/system prompt management
+- **Unified Storage**: Pluggable storage backend system (LocalStorage, FileSystem, HTTP) with type-safe APIs
 
 ## Development Commands
 
@@ -68,14 +69,23 @@ frontend/
 │   │   ├── SaveToGlobalMemoryDialog.vue
 │   │   ├── GlobalMemoryFormDialog.vue
 │   │   ├── ConfirmDialog.vue        # Generic confirmation dialog
+│   │   ├── HtmlPreviewDialog.vue    # HTML content preview in iframe
 │   │   └── LoginView.vue            # Authentication entry point
 │   ├── composables/
 │   │   ├── useTaskMode.ts           # Task planning, execution, retry logic
-│   │   ├── useWorkingMemory.ts      # Per-chat task memory (localStorage)
-│   │   └── useGlobalMemory.ts       # Global knowledge storage (Electron)
+│   │   ├── useWorkingMemory.ts      # Per-chat task memory
+│   │   └── useGlobalMemory.ts       # Global knowledge storage
+│   ├── services/
+│   │   ├── StorageService.ts        # Unified storage layer (singleton)
+│   │   └── storage/
+│   │       ├── LocalStorageBackend.ts    # localStorage implementation
+│   │       ├── FileSystemBackend.ts     # Electron fs implementation
+│   │       └── HttpBackend.ts            # Remote HTTP storage
 │   ├── types/
 │   │   ├── task.ts                  # Task mode TypeScript definitions
 │   │   ├── globalMemory.ts          # Global memory type definitions
+│   │   ├── storage.ts               # Storage service type definitions
+│   │   ├── chat.ts                  # Chat message types
 │   │   └── electron.d.ts            # Electron IPC API types
 │   └── router/
 │       └── index.ts            # Vue Router config with auth guards
@@ -105,33 +115,63 @@ Key types:
 
 Cross-session persistent knowledge storage system:
 
-1. **Storage**: Electron main process stores in `{userData}/global-memory.json`
+1. **Storage**: Uses unified StorageService (see below) - defaults to LocalStorage
 2. **Types**: PREFERENCES, SETTINGS, GENERAL_INFO, CUSTOM
 3. **Smart Injection**: Automatic keyword-based matching for context injection
 4. **Management**: CRUD operations via `useGlobalMemory.ts` composable
 
-**Flow**: `GlobalMemoryView.vue` → `useGlobalMemory.ts` → Electron IPC → file system
+**Flow**: `GlobalMemoryView.vue` → `useGlobalMemory.ts` → `StorageService` → Backend
 
 Key types:
 - `GlobalMemoryEntry`: Individual memory with keywords, metadata
 - `GlobalMemory`: Container with entries array and version tracking
 - `GlobalMemoryType`: Enum of memory categories
 
+### Storage Service Architecture
+
+**NEW**: Unified storage layer providing pluggable backends and type-safe APIs:
+
+1. **Backends**: `LocalStorageBackend`, `FileSystemBackend`, `HttpBackend`
+2. **Singleton Pattern**: `StorageService.getInstance()` provides global access
+3. **Event System**: Emits events on storage operations (get, set, delete, clear)
+4. **High-Level APIs**: Type-safe methods for specific data types (config, memory, assistants, etc.)
+
+**Flow**: Components/Composables → `StorageService` → Backend (LocalStorage/FileSystem/HTTP)
+
+Key types in `types/storage.ts`:
+- `IStorageBackend`: Interface all backends must implement
+- `StorageKey`: Enum of all storage keys (IS_LOGGED_IN, LLM_CONFIG_LIST, GLOBAL_MEMORY, etc.)
+- `StorageResult<T>`: Wrapper for operation results with success/error handling
+- `StorageBackendType`: Enum of available backend types
+
+Usage example:
+```typescript
+import { storage } from '@/services/StorageService';
+
+// High-level API
+const config = await storage.getConfigList();
+await storage.saveConfigList(newConfig);
+
+// Low-level API
+const result = await storage.get<CustomType>('custom-key');
+await storage.set('custom-key', customValue);
+```
+
 ### IPC Communication
 
-Renderer → Main process handlers:
+Renderer → Main process handlers (legacy, being migrated to StorageService):
 - `get-config`: Load API configurations
 - `save-config`: Persist API configurations
 - `chat-request`: Initiate streaming chat completion
-- `getGlobalMemory`: Load global memory entries
-- `saveGlobalMemory`: Persist global memory entries
+- `getGlobalMemory`: Load global memory entries (migrated to StorageService)
+- `saveGlobalMemory`: Persist global memory entries (migrated to StorageService)
 
-Config storage location (platform-specific):
+**Note**: Most storage now uses the unified `StorageService` instead of direct IPC. See Storage Service Architecture above.
+
+Config storage location (platform-specific, when using Electron backend):
 - macOS: `~/Library/Application Support/openchat-desktop/config.json`
 - Windows: `%APPDATA%/openchat-desktop/config.json`
 - Linux: `~/.config/openchat-desktop/config.json`
-
-Global memory stored in same directory as `global-memory.json`
 
 ### Streaming Response Handling
 
@@ -169,10 +209,11 @@ Per-chat configuration:
 ### Assistant System
 
 Custom system prompts/assistants management:
-- Stored in `localStorage` as `assistants`
+- Stored via `StorageService` (defaults to LocalStorage backend)
 - Each assistant has: `id`, `name`, `emoji`, `systemPrompt`, `createdAt`
 - Active assistant tracked via `activeIndex`
 - Managed in `AssistantView.vue` component
+- Storage key: `StorageKey.ASSISTANT_LIST`
 
 ### Global Memory Types
 
@@ -185,6 +226,23 @@ Memory entry categories:
 Each entry includes keywords for smart matching and metadata tracking (usage count, last used).
 
 ## Common Development Patterns
+
+### Adding Storage Operations
+
+1. Use `StorageService` from `@/services/StorageService` (singleton)
+2. Import the singleton: `import { storage } from '@/services/StorageService'`
+3. For new storage keys, add to `StorageKey` enum in `types/storage.ts`
+4. Use high-level APIs when available (e.g., `storage.getConfigList()`)
+5. For custom data, use low-level `storage.get<T>()` / `storage.set<T>()`
+
+**Do NOT** use `localStorage` directly - always use `StorageService` for consistency.
+
+### Adding New Storage Backends
+
+1. Create new backend class in `services/storage/` implementing `IStorageBackend`
+2. Add new enum value to `StorageBackendType` in `types/storage.ts`
+3. Register backend in `StorageService.createBackend()` method
+4. Configure and switch via `storage.configureHttpBackend()` / `storage.switchBackend()`
 
 ### Adding New Chat Features
 
@@ -210,6 +268,11 @@ Provider must support OpenAI `/chat/completions` format. For custom parameters, 
 
 ### Electron IPC Patterns
 
+**Note**: Most storage now uses `StorageService` instead of IPC. Only use IPC for:
+- Native OS operations (file dialogs, system notifications)
+- Window management
+- Processes/external applications
+
 To add new IPC handlers:
 1. Define interface in `src/types/electron.d.ts` (window.electronAPI)
 2. Add handler in `electron/main.ts` using `ipcMain.handle()`
@@ -217,9 +280,9 @@ To add new IPC handlers:
 
 ### Routing
 
-Uses hash-based routing with auth guard checking `localStorage.getItem('isLoggedIn')`. Routes defined in `src/router/index.ts`.
+Uses hash-based routing with auth guard checking `storage.getIsLoggedIn()`. Routes defined in `src/router/index.ts`.
 
-**Authentication**: Simple token-based auth stored in `localStorage`. The `isLoggedIn` flag gates access to main routes (LoginView.vue sets it on successful auth).
+**Authentication**: Simple token-based auth stored via `StorageService`. The `isLoggedIn` flag gates access to main routes (LoginView.vue sets it on successful auth).
 
 ## Build System
 
