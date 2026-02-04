@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGlobalMemory } from '../composables/useGlobalMemory'
 import { GlobalMemoryType, type GlobalMemoryEntry } from '../types/globalMemory'
+import GlobalMemoryFormDialog from './GlobalMemoryFormDialog.vue'
 
 const router = useRouter()
 const globalMemoryManager = useGlobalMemory()
@@ -20,14 +21,6 @@ const searchQuery = ref('')
 // Dialog state
 const showEntryDialog = ref(false)
 const editingEntry = ref<GlobalMemoryEntry | null>(null)
-const formData = ref({
-  type: GlobalMemoryType.PREFERENCES,
-  category: '',
-  title: '',
-  content: '',
-  keywords: '',
-  enabled: true
-})
 
 // Type options
 const typeOptions = [
@@ -95,77 +88,12 @@ function goBack() {
 
 function openAddDialog() {
   editingEntry.value = null
-  formData.value = {
-    type: GlobalMemoryType.PREFERENCES,
-    category: '',
-    title: '',
-    content: '',
-    keywords: '',
-    enabled: true
-  }
   showEntryDialog.value = true
 }
 
 function openEditDialog(entry: GlobalMemoryEntry) {
   editingEntry.value = entry
-  formData.value = {
-    type: entry.type,
-    category: entry.category,
-    title: entry.title,
-    content: entry.content,
-    keywords: entry.keywords.join(', '),
-    enabled: entry.enabled
-  }
   showEntryDialog.value = true
-}
-
-async function saveEntry() {
-  try {
-    // Validate
-    if (!formData.value.category.trim()) {
-      alert('请输入分类')
-      return
-    }
-    if (!formData.value.title.trim()) {
-      alert('请输入标题')
-      return
-    }
-    if (!formData.value.content.trim()) {
-      alert('请输入内容')
-      return
-    }
-
-    const keywords = formData.value.keywords
-      .split(',')
-      .map(k => k.trim())
-      .filter(k => k.length > 0)
-
-    if (editingEntry.value) {
-      // Update existing entry
-      await globalMemoryManager.updateEntry(editingEntry.value.id, {
-        type: formData.value.type,
-        category: formData.value.category.trim(),
-        title: formData.value.title.trim(),
-        content: formData.value.content.trim(),
-        keywords,
-        enabled: formData.value.enabled
-      })
-    } else {
-      // Add new entry
-      await globalMemoryManager.addEntry(
-        formData.value.type,
-        formData.value.category.trim(),
-        formData.value.title.trim(),
-        formData.value.content.trim(),
-        keywords
-      )
-    }
-
-    showEntryDialog.value = false
-  } catch (error) {
-    console.error('Failed to save entry:', error)
-    alert('保存失败：' + (error instanceof Error ? error.message : '未知错误'))
-  }
 }
 
 async function deleteEntry(id: string) {
@@ -311,87 +239,12 @@ onMounted(async () => {
     </div>
 
     <!-- Add/Edit Dialog -->
-    <div v-if="showEntryDialog" class="dialog-overlay" @click.self="showEntryDialog = false">
-      <div class="dialog">
-        <h2>{{ editingEntry ? '编辑记忆' : '添加记忆' }}</h2>
-
-        <form @submit.prevent="saveEntry">
-          <div class="form-group">
-            <label>类型</label>
-            <select v-model="formData.type" class="form-control">
-              <option :value="GlobalMemoryType.PREFERENCES">用户偏好</option>
-              <option :value="GlobalMemoryType.SETTINGS">通用设置</option>
-              <option :value="GlobalMemoryType.GENERAL_INFO">通用信息</option>
-              <option :value="GlobalMemoryType.CUSTOM">自定义</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label>分类</label>
-            <input
-              v-model="formData.category"
-              type="text"
-              class="form-control"
-              placeholder="例如：ui_preferences, code_style"
-              list="category-suggestions"
-            />
-            <datalist id="category-suggestions">
-              <option value="ui_preferences">UI 偏好</option>
-              <option value="code_style">代码风格</option>
-              <option value="response_format">回复格式</option>
-              <option value="communication">沟通方式</option>
-            </datalist>
-          </div>
-
-          <div class="form-group">
-            <label>标题</label>
-            <input
-              v-model="formData.title"
-              type="text"
-              class="form-control"
-              placeholder="例如：按钮颜色偏好"
-            />
-          </div>
-
-          <div class="form-group">
-            <label>内容</label>
-            <textarea
-              v-model="formData.content"
-              class="form-control textarea"
-              rows="5"
-              placeholder="详细描述你的偏好或设置..."
-            ></textarea>
-          </div>
-
-          <div class="form-group">
-            <label>关键词（逗号分隔，用于智能匹配）</label>
-            <input
-              v-model="formData.keywords"
-              type="text"
-              class="form-control"
-              placeholder="例如：按钮, 颜色, 样式, UI"
-            />
-            <small class="form-hint">关键词将用于智能匹配，当聊天内容包含这些关键词时会自动注入此记忆</small>
-          </div>
-
-          <div class="form-group checkbox-group">
-            <label class="checkbox-label">
-              <input type="checkbox" v-model="formData.enabled" />
-              <span>启用此记忆</span>
-            </label>
-          </div>
-
-          <div class="dialog-actions">
-            <button type="button" class="btn-secondary" @click="showEntryDialog = false">
-              取消
-            </button>
-            <button type="submit" class="btn-primary">
-              {{ editingEntry ? '保存' : '添加' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <GlobalMemoryFormDialog
+      :show="showEntryDialog"
+      :entry="editingEntry"
+      @close="showEntryDialog = false"
+      @saved="showEntryDialog = false"
+    />
   </div>
 </template>
 
@@ -408,7 +261,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px;
+  padding: 16px 24px;
   border-bottom: 1px solid #e5e7eb;
   background: #ffffff;
 }
@@ -692,131 +545,5 @@ onMounted(async () => {
 .action-btn.delete:hover {
   border-color: #ef4444;
   color: #ef4444;
-}
-
-/* Dialog styles */
-.dialog-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.dialog {
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 24px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 90vh;
-  overflow-y: auto;
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-}
-
-.dialog h2 {
-  margin: 0 0 20px 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: #0f172a;
-}
-
-.form-group {
-  margin-bottom: 16px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #374151;
-}
-
-.form-control {
-  width: 100%;
-  padding: 10px 12px;
-  background: #ffffff;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  color: #374151;
-  font-size: 14px;
-  transition: border-color 0.2s;
-}
-
-.form-control:focus {
-  outline: none;
-  border-color: #10a37f;
-}
-
-.textarea {
-  resize: vertical;
-  min-height: 100px;
-  font-family: inherit;
-}
-
-.form-hint {
-  display: block;
-  margin-top: 4px;
-  font-size: 11px;
-  color: #9ca3af;
-}
-
-.checkbox-group {
-  margin-bottom: 20px;
-}
-
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-}
-
-.checkbox-label input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-}
-
-.dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 20px;
-}
-
-.btn-primary, .btn-secondary {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-primary {
-  background: #10a37f;
-  color: white;
-}
-
-.btn-primary:hover {
-  background: #0d8c6c;
-}
-
-.btn-secondary {
-  background: #f3f4f6;
-  color: #374151;
-}
-
-.btn-secondary:hover {
-  background: #e5e7eb;
 }
 </style>
