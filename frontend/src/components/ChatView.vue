@@ -272,8 +272,21 @@ const TASK_PLANNING_PROMPT = `你是一个任务规划助手。请将用户的�
 要求：
 1. 任务要具体、可执行
 2. 任务之间要有逻辑顺序
-3. 通常 3-6 个任务为宜
-4. 只返回 JSON，不要有其他文字`
+3. 通常 3-6 个子任务为宜
+4. **最后一个任务必须是整合验证任务**，格式为："整合验证：将以上所有子任务的输出进行整合、验证和完善，确保最终结果完整、准确、连贯"
+5. 只返回 JSON，不要有其他文字
+
+示例：
+\`\`\`json
+{
+  "tasks": [
+    {"id": 1, "description": "分析用户需求"},
+    {"id": 2, "description": "设计系统架构"},
+    {"id": 3, "description": "实现核心功能"},
+    {"id": 4, "description": "整合验证：将以上所有子任务的输出进行整合、验证和完善，确保最终结果完整、准确、连贯"}
+  ]
+}
+\`\`\``
 
 // Qwen 思考标签流式解析器（用于流式输出场景）
 interface QwenStreamParser {
@@ -742,13 +755,32 @@ async function performIntermediateMerge(
   completedTaskCount: number,
   totalTaskCount: number
 ): Promise<string> {
-  const mergePrompt = `请将以下已完成任务的执行结果整合成一段连贯的总结，这段总结将作为后续任务的上下文。
+  const mergePrompt = `请将以下已完成任务的执行结果进行智能整合，为后续任务提供清晰的上下文。
 
 已完成的任务数量：${completedTaskCount + 1}/${totalTaskCount}
 
-请整合这些任务的结果，提取关键信息和中间结论，为后续任务提供清晰的上下文。
+## 整合策略
 
-只返回整合后的内容，不要有其他文字。`
+**必须完整保留的内容：**
+- 所有代码块（包括\`\`\`代码\`\`\`标记和完整代码）
+- 具体的数据结构、配置、列表
+- 关键的技术细节、参数、数值
+- 文章的核心段落、重要论述
+- 任务的主要输出结果
+
+**可以概括的内容：**
+- 任务执行过程的描述性文字
+- 过渡性说明和重复信息
+- AI的思考过程（reasoning内容）
+- 非实质性的礼貌用语
+
+## 输出格式要求
+
+1. 保持内容的原始顺序，确保上下文连贯
+2. 代码块必须原样保留，不可省略
+3. 用简洁的语言概括非关键部分
+4. 确保后续任务能够基于整合后的内容继续工作
+5. 不要添加任何额外的说明文字，直接输出整合后的内容`
 
   const messagesToSend: { role: string; content: string }[] = []
   if (activeAssistant.value?.systemPrompt && activeAssistant.value.systemPrompt.trim()) {
@@ -1287,38 +1319,45 @@ async function confirmTaskExecution() {
       scrollToBottom()
     }
 
-    // 3. 最终整合：将所有任务输出整合成完整的回答
+    // 3. 检查是否需要额外的最终整合
     isTaskExecuting.value = false
 
-    // 添加整合消息
-    chat.messages.push({ role: 'assistant', content: '**正在整合最终回答...**', reasoning: '', copyable: false })
-    const integrationMsgIndex = chat.messages.length
-    chat.messages.push({ role: 'assistant', content: '', reasoning: '' })
+    // 检查最后一个任务是否已经是整合验证任务
+    const lastTask = tasks[tasks.length - 1]
+    const hasIntegrationTask = lastTask?.description?.includes('整合验证')
 
-    const integrationMsg = chat.messages[integrationMsgIndex]
-    if (!integrationMsg) return
+    if (!hasIntegrationTask) {
+      // 向后兼容：如果没有整合验证任务，执行硬编码的最终整合
+      // 添加整合消息
+      chat.messages.push({ role: 'assistant', content: '**正在整合最终回答...**', reasoning: '', copyable: false })
+      const integrationMsgIndex = chat.messages.length
+      chat.messages.push({ role: 'assistant', content: '', reasoning: '' })
 
-    // 发送整合请求（携带完整对话历史）
-    await executeTaskStreaming(
-      '整合最终回答',
-      undefined,
-      undefined,
-      chat.messages.slice(0, -1),
-      undefined, // 工作记忆上下文
-      (delta) => {
-        integrationMsg.content += delta
-        scrollToBottom()
-      },
-      () => {},
-      () => {}
-    )
+      const integrationMsg = chat.messages[integrationMsgIndex]
+      if (!integrationMsg) return
 
-    // 移除"正在整合"消息，用最终结果替换
-    chat.messages.splice(integrationMsgIndex - 1, 1)
+      // 发送整合请求（携带完整对话历史）
+      await executeTaskStreaming(
+        '整合最终回答',
+        undefined,
+        undefined,
+        chat.messages.slice(0, -1),
+        undefined, // 工作记忆上下文
+        (delta) => {
+          integrationMsg.content += delta
+          scrollToBottom()
+        },
+        () => {},
+        () => {}
+      )
 
-    // 推理内容完成后自动折叠
-    if (integrationMsg.reasoning) {
-      reasoningExpanded.value[integrationMsgIndex] = false
+      // 移除"正在整合"消息，用最终结果替换
+      chat.messages.splice(integrationMsgIndex - 1, 1)
+
+      // 推理内容完成后自动折叠
+      if (integrationMsg.reasoning) {
+        reasoningExpanded.value[integrationMsgIndex] = false
+      }
     }
 
     // 4. 任务完成
