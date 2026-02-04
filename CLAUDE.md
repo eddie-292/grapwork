@@ -219,12 +219,19 @@ To add new IPC handlers:
 
 Uses hash-based routing with auth guard checking `localStorage.getItem('isLoggedIn')`. Routes defined in `src/router/index.ts`.
 
+**Authentication**: Simple token-based auth stored in `localStorage`. The `isLoggedIn` flag gates access to main routes (LoginView.vue sets it on successful auth).
+
 ## Build System
 
 Dual build process:
 - **Renderer**: Vite → `dist/` (Vue SPA)
 - **Electron**: esbuild → `dist-electron/main.cjs`, `preload.cjs`
 - **Package**: electron-builder → `release/` (.dmg, .exe, .AppImage, .deb)
+
+**Build details**:
+- Path alias `@` maps to `src/` directory (configured in vite.config.ts)
+- ASAR packaging enabled (`asar: true` in electron-builder.json)
+- Dev server proxies `/api` to `localhost:8787` for optional web server mode
 
 ## Testing the Application
 
