@@ -115,10 +115,32 @@ function cancel() {
           list="category-suggestions"
         />
         <datalist id="category-suggestions">
-          <option value="ui_preferences">UI 偏好</option>
-          <option value="code_style">代码风格</option>
-          <option value="response_format">回复格式</option>
-          <option value="communication">沟通方式</option>
+          <!-- UI/UX 相关 -->
+          <option value="ui_preferences">🎨 UI 偏好</option>
+          <option value="theme">🌓 主题设置</option>
+          <option value="layout">📐 布局偏好</option>
+
+          <!-- 代码相关 -->
+          <option value="code_style">💻 代码风格</option>
+          <option value="programming_language">🔧 编程语言</option>
+          <option value="framework">📦 框架偏好</option>
+          <option value="design_pattern">🏗️ 设计模式</option>
+
+          <!-- 交互相关 -->
+          <option value="response_format">📝 回复格式</option>
+          <option value="communication">💬 沟通方式</option>
+          <option value="language">🌍 语言偏好</option>
+          <option value="tone">🎭 语气风格</option>
+
+          <!-- 工作相关 -->
+          <option value="workflow">⚡ 工作流</option>
+          <option value="project_context">📁 项目上下文</option>
+          <option value="team_convention">👥 团队规范</option>
+
+          <!-- 其他 -->
+          <option value="habits">🔄 个人习惯</option>
+          <option value="constraints">⚠️ 约束条件</option>
+          <option value="goals">🎯 目标偏好</option>
         </datalist>
       </div>
 
