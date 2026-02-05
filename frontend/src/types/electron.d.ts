@@ -50,6 +50,32 @@ export interface GlobalMemory {
   lastUpdated: number
 }
 
+// MCP 服务器配置
+export interface MCPServerConfig {
+  id: string
+  name: string
+  transportType: 'stdio' | 'sse'
+  command?: string
+  args?: string[]
+  env?: Record<string, string>
+  url?: string
+}
+
+// MCP 工具调用结果
+export interface MCPToolCallResult {
+  success: boolean
+  content: string
+  error?: string
+  isError?: boolean
+}
+
+// MCP 工具列表结果
+export interface MCPToolsListResult {
+  success: boolean
+  tools: any[]
+  error?: string
+}
+
 interface ElectronAPI {
   getConfig: () => Promise<ConfigList>
   saveConfig: (config: ConfigList) => Promise<boolean>
@@ -63,6 +89,16 @@ interface ElectronAPI {
   getGlobalMemory: () => Promise<GlobalMemory>
   saveGlobalMemory: (memory: GlobalMemory) => Promise<boolean>
   openExternal: (url: string) => Promise<void>
+  // MCP 工具调用
+  mcpCallTool: (
+    serverConfig: MCPServerConfig,
+    toolName: string,
+    args: Record<string, any>
+  ) => Promise<MCPToolCallResult>
+  // MCP 列出工具
+  mcpListTools: (serverConfig: MCPServerConfig) => Promise<MCPToolsListResult>
+  // MCP 清理
+  mcpCleanup: () => Promise<{ success: boolean }>
 }
 
 declare global {

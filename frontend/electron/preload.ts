@@ -28,6 +28,17 @@ export interface GlobalMemory {
   lastUpdated: number
 }
 
+// MCP 服务器配置
+export interface MCPServerConfig {
+  id: string
+  name: string
+  transportType: 'stdio' | 'sse'
+  command?: string
+  args?: string[]
+  env?: Record<string, string>
+  url?: string
+}
+
 contextBridge.exposeInMainWorld('electronAPI', {
   getConfig: () => ipcRenderer.invoke('get-config'),
   saveConfig: (config: AppConfig) => ipcRenderer.invoke('save-config', config),
@@ -35,5 +46,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('chat-request', params),
   getGlobalMemory: () => ipcRenderer.invoke('get-global-memory'),
   saveGlobalMemory: (memory: GlobalMemory) => ipcRenderer.invoke('save-global-memory', memory),
-  openExternal: (url: string) => ipcRenderer.invoke('open-external', url)
+  openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
+  // MCP 工具调用
+  mcpCallTool: (serverConfig: MCPServerConfig, toolName: string, args: Record<string, any>) =>
+    ipcRenderer.invoke('mcp-call-tool', serverConfig, toolName, args),
+  // MCP 列出工具
+  mcpListTools: (serverConfig: MCPServerConfig) =>
+    ipcRenderer.invoke('mcp-list-tools', serverConfig),
+  // MCP 清理
+  mcpCleanup: () =>
+    ipcRenderer.invoke('mcp-cleanup')
 })

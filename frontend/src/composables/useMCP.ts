@@ -2,7 +2,7 @@
  * MCP (Model Context Protocol) 管理组件
  * 用于管理 MCP 服务器配置、与 LLM Function Calling 集成
  */
-import { ref, computed } from 'vue'
+import { ref, computed, toRaw } from 'vue'
 import { storage } from '@/services/StorageService'
 import type {
   MCPServer,
@@ -12,6 +12,11 @@ import type {
   MCPToolResult,
   MCPChatMessage,
 } from '@/types/mcp'
+
+// 检查是否在 Electron 环境中
+const isElectronEnv =
+  typeof navigator !== 'undefined' &&
+  navigator.userAgent.toLowerCase().includes('electron')
 
 // 使用 MCP 的 composable
 export function useMCP() {
@@ -212,21 +217,61 @@ export function useMCP() {
         }
       }
 
-      // 实际执行工具调用
-      // 这里需要与 Electron 主进程通信来执行实际的 MCP 工具调用
+      // 通过 Electron 主进程执行工具调用
       console.log('[MCP] Executing tool:', {
         server: targetServer.name,
         tool: toolCall.function.name,
         arguments: args
       })
 
-      // 临时返回模拟结果
+      // 调用 Electron 主进程的 MCP 工具执行
+      if (!isElectronEnv) {
+        return {
+          toolCallId: toolCall.id,
+          content: '',
+          error: 'MCP 工具调用需要在 Electron 环境中运行'
+        }
+      }
+
+      if (!window.electronAPI?.mcpCallTool) {
+        return {
+          toolCallId: toolCall.id,
+          content: '',
+          error: 'Electron API 不可用，请确保在 Electron 应用中运行'
+        }
+      }
+
+      // 使用 toRaw 确保传递的是纯对象，而不是 Vue 响应式代理
+      const rawServer = toRaw(targetServer)
+      const result = await window.electronAPI.mcpCallTool(
+        {
+          id: rawServer.id,
+          name: rawServer.name,
+          transportType: rawServer.transportType,
+          command: rawServer.command,
+          args: rawServer.args,
+          env: rawServer.env,
+          url: rawServer.url
+        },
+        toolCall.function.name,
+        args
+      )
+
+      if (result.isError || !result.success) {
+        return {
+          toolCallId: toolCall.id,
+          content: result.content,
+          error: result.error || '工具调用失败'
+        }
+      }
+
       return {
         toolCallId: toolCall.id,
-        content: `工具 "${toolCall.function.name}" 执行成功（模拟结果）\n参数: ${JSON.stringify(args, null, 2)}\n\n注意：实际 MCP 工具调用功能需要在 Electron 主进程中实现 IPC 通信。`
+        content: result.content
       }
 
     } catch (e: any) {
+      console.log(e)
       return {
         toolCallId: toolCall.id,
         content: '',
