@@ -1030,7 +1030,10 @@ async function executeNormalChat(text: string) {
       updateChatTitle(currentChat.value.id, text)
     }
     currentChat.value.messages.push({ role: 'user', content: text, reasoning: '' })
+    const assistantIndex = currentChat.value.messages.length
     currentChat.value.messages.push({ role: 'assistant', content: '',  reasoning: '' })
+    // 清除该消息索引的推理开始时间，确保新的推理从 0 开始计时
+    delete reasoningStartTime.value[assistantIndex]
   }
 
   if (currentChat.value) {
@@ -1313,6 +1316,8 @@ async function continueChatAfterToolCalls(messages: any[], mcpTools: any[]) {
   // 添加新的 assistant 消息用于接收后续响应
   messages.push({ role: 'assistant', content: '', reasoning: '' })
   const assistantIndex = messages.length - 1
+  // 清除该消息索引的推理开始时间，确保新的推理从 0 开始计时
+  delete reasoningStartTime.value[assistantIndex]
 
   try {
     const apiBase = normalizeApiUrl(activeConfig.value.apiUrl)
@@ -1481,6 +1486,8 @@ async function executeTaskMode(userInput: string) {
   // 添加任务模式开始的系统消息
   const planMsgIndex = chat.messages.length
   chat.messages.push({ role: 'assistant', content: '', reasoning: '' })
+  // 清除该消息索引的推理开始时间，确保新的推理从 0 开始计时
+  delete reasoningStartTime.value[planMsgIndex]
 
   if (currentChat.value) {
     currentChat.value.sending = true
@@ -1620,6 +1627,8 @@ async function confirmTaskExecution() {
       chat.messages.push({ role: 'assistant', content: '', reasoning: '' })
 
       const msg = chat.messages[taskMsgIndex + 1]
+      // 清除该消息索引的推理开始时间，确保新的推理从 0 开始计时
+      delete reasoningStartTime.value[taskMsgIndex + 1]
       if (!msg) break
 
       // 流式执行任务（携带完整的对话历史和工作记忆上下文）
@@ -1741,6 +1750,8 @@ async function confirmTaskExecution() {
       chat.messages.push({ role: 'assistant', content: '**正在整合最终回答...**', reasoning: '', copyable: false })
       const integrationMsgIndex = chat.messages.length
       chat.messages.push({ role: 'assistant', content: '', reasoning: '' })
+      // 清除该消息索引的推理开始时间，确保新的推理从 0 开始计时
+      delete reasoningStartTime.value[integrationMsgIndex]
 
       const integrationMsg = chat.messages[integrationMsgIndex]
       if (!integrationMsg) return
@@ -1908,6 +1919,8 @@ async function continueTaskExecution() {
       chat.messages.push({ role: 'assistant', content: '', reasoning: '' })
 
       const msg = chat.messages[taskMsgIndex + 1]
+      // 清除该消息索引的推理开始时间，确保新的推理从 0 开始计时
+      delete reasoningStartTime.value[taskMsgIndex + 1]
       if (!msg) break
 
       // 流式执行任务
@@ -1963,6 +1976,8 @@ async function continueTaskExecution() {
       chat.messages.push({ role: 'assistant', content: '**正在整合最终回答...**', reasoning: '', copyable: false })
       const integrationMsgIndex = chat.messages.length
       chat.messages.push({ role: 'assistant', content: '', reasoning: '' })
+      // 清除该消息索引的推理开始时间，确保新的推理从 0 开始计时
+      delete reasoningStartTime.value[integrationMsgIndex]
 
       const integrationMsg = chat.messages[integrationMsgIndex]
       if (!integrationMsg) return
