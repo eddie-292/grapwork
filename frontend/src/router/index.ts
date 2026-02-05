@@ -4,6 +4,7 @@ import LoginView from '../components/LoginView.vue'
 import SettingsView from '../components/SettingsView.vue'
 import AssistantView from '../components/AssistantView.vue'
 import GlobalMemoryView from '../components/GlobalMemoryView.vue'
+import MCPView from '../components/MCPView.vue'
 import { storage } from '../services/StorageService'
 
 // 检查登录状态（兼容旧版本 localStorage）
@@ -59,6 +60,12 @@ const routes: RouteRecordRaw[] = [
     path: '/global-memory',
     name: 'GlobalMemory',
     component: GlobalMemoryView,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/mcp',
+    name: 'MCP',
+    component: MCPView,
     meta: { requiresAuth: true }
   }
 ]

@@ -160,9 +160,9 @@ export function useGlobalMemory() {
    * 根据用户消息的关键词计算相关性分数
    */
   function findRelevantEntries(userMessage: string, maxEntries = 5): GlobalMemoryEntry[] {
-    console.log('[findRelevantEntries] memory.value:', memory.value)
+    //console.log('[findRelevantEntries] memory.value:', memory.value)
     if (!memory.value || memory.value.entries.length === 0) {
-      console.log('[findRelevantEntries] No memory or entries')
+      //console.log('[findRelevantEntries] No memory or entries')
       return []
     }
 
@@ -174,7 +174,7 @@ export function useGlobalMemory() {
     )
 
     const enabledEntries = memory.value.entries.filter(e => e.enabled)
-    console.log('[findRelevantEntries] enabledEntries:', enabledEntries.length, 'total:', memory.value.entries.length)
+    //console.log('[findRelevantEntries] enabledEntries:', enabledEntries.length, 'total:', memory.value.entries.length)
     if (enabledEntries.length === 0) return []
 
     // 计算每个条目的相关性分数
@@ -213,7 +213,7 @@ export function useGlobalMemory() {
         }
       }
 
-      console.log(`[findRelevantEntries] Entry "${entry.title}": score=${score}, keywords=${entry.keywords}`)
+      //console.log(`[findRelevantEntries] Entry "${entry.title}": score=${score}, keywords=${entry.keywords}`)
       return { entry, score }
     })
 
@@ -224,7 +224,7 @@ export function useGlobalMemory() {
       .slice(0, maxEntries)
       .map(s => s.entry)
 
-    console.log('[findRelevantEntries] result:', result)
+    //console.log('[findRelevantEntries] result:', result)
     return result
   }
 

@@ -34,7 +34,7 @@ interface HighlightTheme {
 // 预览代码高亮
 const previewCode = `\`\`\`javascript
 const hello = "Hello, World!"
-console.log(hello);
+//console.log(hello);
 \`\`\``
 
 // 添加一个版本号，强制在主题变化时重新渲染

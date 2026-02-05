@@ -4,10 +4,13 @@
 
 export interface ChatMessage {
   id: string;
-  role: 'user' | 'assistant' | 'system';
+  role: 'user' | 'assistant' | 'system' | 'tool';
   content: string;
   timestamp: number;
   reasoning?: string; // 推理内容（DeepSeek 等）
+  // MCP Function Calling 相关
+  tool_calls?: any[]; // OpenAI 格式的工具调用
+  tool_call_id?: string; // 工具结果消息对应的调用 ID
 }
 
 export interface Chat {

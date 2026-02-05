@@ -25,6 +25,9 @@ export enum StorageKey {
 
   // 工作记忆（动态键：task-working-memory-${chatId}）
   WORKING_MEMORY_PREFIX = 'task-working-memory-',
+
+  // MCP (Model Context Protocol) 服务器配置
+  MCP_SERVER_LIST = 'mcp-server-list',
 }
 
 // 存储后端类型

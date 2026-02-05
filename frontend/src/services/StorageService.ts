@@ -19,6 +19,7 @@ import type { AppConfig, ConfigList } from '@/types/electron';
 import type { GlobalMemory, GlobalMemoryEntry } from '@/types/globalMemory';
 import type { Assistant } from '@/types/electron';
 import type { ChatMessage } from '@/types/chat';
+import type { MCPServerList } from '@/types/mcp';
 
 export class StorageService {
   private static instance: StorageService;
@@ -420,6 +421,33 @@ export class StorageService {
     return allKeys
       .filter(key => key.startsWith(StorageKey.WORKING_MEMORY_PREFIX))
       .map(key => key.replace(StorageKey.WORKING_MEMORY_PREFIX, ''));
+  }
+
+  // ==================== MCP 服务器配置 ====================
+
+  /**
+   * 获取 MCP 服务器列表
+   */
+  async getMCPServerList(): Promise<MCPServerList | null> {
+    const result = await this.get<MCPServerList>(StorageKey.MCP_SERVER_LIST);
+    return result.data ?? { servers: [], activeServerIds: [] };
+  }
+
+  /**
+   * 保存 MCP 服务器列表
+   */
+  async saveMCPServerList(serverList: MCPServerList): Promise<boolean> {
+    const result = await this.set(StorageKey.MCP_SERVER_LIST, serverList);
+    return result.success;
+  }
+
+  /**
+   * 获取激活的 MCP 服务器列表
+   */
+  async getActiveMCPServers(): Promise<MCPServerList['servers']> {
+    const serverList = await this.getMCPServerList();
+    if (!serverList) return [];
+    return serverList.servers.filter(s => serverList.activeServerIds.includes(s.id) && s.enabled);
   }
 }
 

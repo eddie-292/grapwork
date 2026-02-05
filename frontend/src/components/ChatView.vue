@@ -13,6 +13,7 @@ import {
 } from '../types/task'
 import { useWorkingMemory } from '../composables/useWorkingMemory'
 import { useGlobalMemory } from '../composables/useGlobalMemory'
+import { useMCP } from '../composables/useMCP'
 import TaskModePanel from './TaskModePanel.vue'
 import NormalChat from './NormalChat.vue'
 import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
@@ -27,6 +28,9 @@ let workingMemoryManager: ReturnType<typeof useWorkingMemory> | null = null
 
 // 全局记忆管理器
 const globalMemoryManager = useGlobalMemory()
+
+// MCP 管理器
+const mcpManager = useMCP()
 
 // 快速保存到全局记忆对话框状态
 const showSaveToGlobalMemoryDialog = ref(false)
@@ -58,8 +62,19 @@ function openSaveToGlobalMemoryDialog(content: string) {
   showSaveToGlobalMemoryDialog.value = true
 }
 
-type Role = 'user' | 'assistant' | 'system'
-type Message = { role: Role; content: string, reasoning: string, reasoningDuration?: number, visible?: boolean, copyable?: boolean, archived?: boolean }
+type Role = 'user' | 'assistant' | 'system' | 'tool'
+type Message = {
+  role: Role
+  content: string
+  reasoning: string
+  reasoningDuration?: number
+  visible?: boolean
+  copyable?: boolean
+  archived?: boolean
+  // MCP Function Calling 相关
+  tool_calls?: any[]
+  tool_call_id?: string
+}
 
 // OpenAI 兼容的对话参数配置
 type ChatParams = {
@@ -651,11 +666,11 @@ async function saveTaskResultToWorkingMemory(
   const chat = currentChat.value
   const enabled = chat?.taskModeOptions?.workingMemory?.enabled ?? true
   if (!enabled) {
-    console.log(`[Task ${taskId}] 工作记忆已禁用`)
+    //console.log(`[Task ${taskId}] 工作记忆已禁用`)
     return
   }
 
-  console.log(`[Task ${taskId}] 正在保存到工作记忆，类型: ${type}, 内容长度: ${result.length}`)
+  //console.log(`[Task ${taskId}] 正在保存到工作记忆，类型: ${type}, 内容长度: ${result.length}`)
   await workingMemoryManager.addEntry(type, taskId, taskDescription, result)
 }
 
@@ -1036,13 +1051,18 @@ async function executeNormalChat(text: string) {
     }
 
     // 调试：检查全局记忆状态
-    console.log('[GlobalMemory] memory.value:', globalMemoryManager.memory.value)
-    console.log('[GlobalMemory] entries:', globalMemoryManager.entries.value)
-    console.log('[GlobalMemory] user message:', text)
+    ////console.log('[GlobalMemory] memory.value:', globalMemoryManager.memory.value)
+    ////console.log('[GlobalMemory] entries:', globalMemoryManager.entries.value)
+    ////console.log('[GlobalMemory] user message:', text)
 
     // 生成智能匹配的全局记忆上下文
     const globalMemoryContext = globalMemoryManager.generateInjectContext(text)
-    console.log('[GlobalMemory] generated context:', globalMemoryContext)
+    ////console.log('[GlobalMemory] generated context:', globalMemoryContext)
+
+    // 生成 MCP tools 数组（如果有激活的工具）
+    await mcpManager.loadServers()
+    const mcpTools = mcpManager.generateOpenAITools()
+    //console.log('[MCP] Active tools:', mcpTools.length)
 
     // 构建 system prompt（合并 assistant system prompt 和 global memory）
     let systemPrompt = ''
@@ -1104,6 +1124,7 @@ async function executeNormalChat(text: string) {
           model: activeConfig.value.model,
           messages: messagesToSend,
           stream: true,
+          ...(mcpTools.length > 0 ? { tools: mcpTools } : {}),
           ...validParams,
           ...extraBodyParams,
         }),
@@ -1132,6 +1153,9 @@ async function executeNormalChat(text: string) {
     // 创建流式解析器
     const qwenParser = createQwenStreamParser()
 
+    // 用于收集 tool_calls
+    const currentToolCallsMap: Map<number, any> = new Map()
+
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
@@ -1142,7 +1166,7 @@ async function executeNormalChat(text: string) {
         const line = part.trim()
         if (!line.startsWith('data:')) continue
         const data = line.slice(5).trim()
-        //console.log('data:' + data)
+        console.log(data)
         if (data === '[DONE]') {
           break
         }
@@ -1185,7 +1209,66 @@ async function executeNormalChat(text: string) {
             if (msg) msg.content += delta
             scrollToBottom()
           }
+
+          //配置--tool-call-parser llama4_json返回格式：
+          //<tool_call> {"name": "bing_search", "arguments": {"query": "TypeScript 教程 入门 初学者"}} </tool_call>
+          const deltaToolCalls = json?.choices?.[0]?.delta?.tool_calls
+          if (deltaToolCalls && Array.isArray(deltaToolCalls)) {
+            for (const toolCall of deltaToolCalls) {
+              const index = toolCall.index
+              if (index !== undefined) {
+                if (!currentToolCallsMap.has(index)) {
+                  currentToolCallsMap.set(index, {
+                    id: toolCall.id || '',
+                    type: toolCall.type || 'function',
+                    function: {
+                      name: toolCall.function?.name || '',
+                      arguments: toolCall.function?.arguments || ''
+                    }
+                  })
+                } else {
+                  const existing = currentToolCallsMap.get(index)!
+                  if (toolCall.id) existing.id = toolCall.id
+                  if (toolCall.function?.name) existing.function.name = toolCall.function.name
+                  if (toolCall.function?.arguments) {
+                    existing.function.arguments += toolCall.function.arguments
+                  }
+                }
+              }
+            }
+          }
         } catch {
+        }
+      }
+    }
+
+    // 流结束后，检查是否有 tool_calls
+    const finalToolCalls = Array.from(currentToolCallsMap.values())
+    if (finalToolCalls.length > 0 && mcpTools.length > 0) {
+      const msg = currentMessages[assistantIndex]
+      if (msg) {
+        msg.tool_calls = finalToolCalls
+        console.log('[MCP] Received tool_calls:', finalToolCalls)
+
+        // 执行工具调用
+        try {
+          const toolResults = await mcpManager.executeToolCalls(finalToolCalls)
+
+          // 将工具结果添加到消息列表
+          for (const resultMsg of toolResults) {
+            currentMessages.push({
+              role: resultMsg.role as any,
+              content: resultMsg.content,
+              reasoning: '',
+              tool_call_id: resultMsg.tool_call_id
+            } as any)
+          }
+
+          // 继续对话，发送包含工具结果的请求
+          await continueChatAfterToolCalls(currentMessages, mcpTools)
+        } catch (e) {
+          console.error('[MCP] Tool execution failed:', e)
+          msg.content += `\n\n[工具执行失败: ${e}]`
         }
       }
     }
@@ -1214,6 +1297,163 @@ async function executeNormalChat(text: string) {
         normalChatRef.value.setReasoningExpanded(currentMessages.length - 1, false)
       }
     }
+    saveChatHistory()
+    scrollToBottom()
+  }
+}
+
+// 工具调用后继续对话
+async function continueChatAfterToolCalls(messages: any[], mcpTools: any[]) {
+  if (!currentChat.value || !activeConfig.value) return
+
+  const chat = currentChat.value
+  chat.sending = true
+  controllers.value[chat.id] = new AbortController()
+
+  // 添加新的 assistant 消息用于接收后续响应
+  messages.push({ role: 'assistant', content: '', reasoning: '' })
+  const assistantIndex = messages.length - 1
+
+  try {
+    const apiBase = normalizeApiUrl(activeConfig.value.apiUrl)
+
+    // 构建消息数组（包含工具结果）
+    const messagesToSend = messages.slice(0, -1).map(m => {
+      const msg: any = { role: m.role, content: m.content }
+      if (m.tool_call_id) msg.tool_call_id = m.tool_call_id
+      if (m.tool_calls) msg.tool_calls = m.tool_calls
+      return msg
+    })
+
+    const resp = await fetch(`${apiBase}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${activeConfig.value.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: activeConfig.value.model,
+        messages: messagesToSend,
+        stream: true,
+        tools: mcpTools,
+      }),
+      signal: controllers.value[chat.id]!.signal,
+    })
+
+    if (!resp.body) {
+      throw new Error('No response body')
+    }
+
+    const reader = resp.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    const qwenParser = createQwenStreamParser()
+    const currentToolCallsMap: Map<number, any> = new Map()
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const parts = buffer.split('\n\n')
+      buffer = parts.pop() || ''
+
+      for (const part of parts) {
+        const line = part.trim()
+        if (!line.startsWith('data:')) continue
+        const data = line.slice(5).trim()
+        if (data === '[DONE]') break
+
+        try {
+          const json = JSON.parse(data)
+          let reasoning_delta = json?.choices?.[0]?.delta?.reasoning_content ?? ''
+          if (!reasoning_delta) {
+            reasoning_delta = json?.choices?.[0]?.delta?.reasoning ?? ''
+          }
+          let delta = json?.choices?.[0]?.delta?.content ?? ''
+
+          if (delta && !reasoning_delta) {
+            const parsed = parseQwenStreamDelta(qwenParser, delta)
+            if (parsed.reasoning) reasoning_delta = parsed.reasoning
+            delta = parsed.content
+          }
+
+          const msg = messages[assistantIndex]
+          if (reasoning_delta) {
+            if (!reasoningStartTime.value[assistantIndex]) {
+              reasoningStartTime.value[assistantIndex] = Date.now()
+            }
+            msg.reasoningDuration = Math.floor((Date.now() - reasoningStartTime.value[assistantIndex]) / 1000)
+            msg.reasoning += reasoning_delta
+            scrollToBottom()
+          }
+
+          if (delta) {
+            msg.content += delta
+            scrollToBottom()
+          }
+
+          // 处理嵌套的 tool_calls（LLM 可能再次调用工具）
+          const deltaToolCalls = json?.choices?.[0]?.delta?.tool_calls
+          if (deltaToolCalls && Array.isArray(deltaToolCalls)) {
+            for (const toolCall of deltaToolCalls) {
+              const index = toolCall.index
+              if (index !== undefined) {
+                if (!currentToolCallsMap.has(index)) {
+                  currentToolCallsMap.set(index, {
+                    id: toolCall.id || '',
+                    type: toolCall.type || 'function',
+                    function: {
+                      name: toolCall.function?.name || '',
+                      arguments: toolCall.function?.arguments || ''
+                    }
+                  })
+                } else {
+                  const existing = currentToolCallsMap.get(index)!
+                  if (toolCall.id) existing.id = toolCall.id
+                  if (toolCall.function?.name) existing.function.name = toolCall.function.name
+                  if (toolCall.function?.arguments) {
+                    existing.function.arguments += toolCall.function.arguments
+                  }
+                }
+              }
+            }
+          }
+        } catch {
+        }
+      }
+    }
+
+    // 处理第二轮工具调用
+    const finalToolCalls = Array.from(currentToolCallsMap.values())
+    if (finalToolCalls.length > 0) {
+      const msg = messages[assistantIndex]
+      if (msg) {
+        msg.tool_calls = finalToolCalls
+        const toolResults = await mcpManager.executeToolCalls(finalToolCalls as any)
+        for (const resultMsg of toolResults) {
+          messages.push({
+            role: resultMsg.role as any,
+            content: resultMsg.content,
+            reasoning: '',
+            tool_call_id: resultMsg.tool_call_id
+          } as any)
+        }
+        // 递归调用继续对话
+        await continueChatAfterToolCalls(messages, mcpTools)
+      }
+    }
+  } catch (err) {
+    const msg = messages[assistantIndex]
+    if (msg) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        msg.content = '对话已取消'
+      } else {
+        msg.content = '对话失败: ' + (err instanceof Error ? err.message : '未知错误')
+      }
+    }
+  } finally {
+    chat.sending = false
+    delete controllers.value[chat.id]
     saveChatHistory()
     scrollToBottom()
   }
@@ -1355,11 +1595,11 @@ async function confirmTaskExecution() {
 
       // 获取工作记忆上下文（合并后）
       const workingMemory = getWorkingMemoryForNextTask(i)
-      console.log(`[Task ${i}] 获取工作记忆:`, {
-        previousNotes: workingMemory.previousNotes ? '有' : '无',
-        previousDrafts: workingMemory.previousDrafts ? '有' : '无',
-        previousFinalResults: workingMemory.previousFinalResults ? '有' : '无'
-      })
+      //console.log(`[Task ${i}] 获取工作记忆:`, {
+      //   previousNotes: workingMemory.previousNotes ? '有' : '无',
+      //   previousDrafts: workingMemory.previousDrafts ? '有' : '无',
+      //   previousFinalResults: workingMemory.previousFinalResults ? '有' : '无'
+      // })
       let workingMemoryContext = ''
 
       if (workingMemory.previousNotes || workingMemory.previousDrafts || workingMemory.previousFinalResults) {
@@ -1412,7 +1652,7 @@ async function confirmTaskExecution() {
 
       // 调试：验证工作记忆是否保存成功
       const savedCount = workingMemoryManager?.allEntries.value.length ?? 0
-      console.log(`[Task ${i}] 工作记忆已保存，当前条目数: ${savedCount}`)
+      //console.log(`[Task ${i}] 工作记忆已保存，当前条目数: ${savedCount}`)
 
       // 保存任务输出用于最终整合
       taskOutputs.push(msg.content)
@@ -2021,7 +2261,7 @@ function deleteChat(chatId: string, event: Event) {
   try {
     const wm = useWorkingMemory(chatId)
     wm.clear()
-    console.log(`Working memory cleared for chat ${chatId}`)
+    //console.log(`Working memory cleared for chat ${chatId}`)
   } catch (e) {
     console.error('Failed to clear working memory:', e)
   }
@@ -2173,6 +2413,7 @@ onMounted(async () => {
   await loadConfig()
   await loadAssistants()
   await loadHighlightTheme()
+  await mcpManager.loadServers()
   // 加载全局记忆
   await globalMemoryManager.load()
   scrollToBottom()
@@ -2271,6 +2512,9 @@ watch(taskMode, async (isTaskMode) => {
           <div class="header-actions">
             <button class="assistant-btn" @click="router.push('/assistants')" title="社区助理">
               <span>社区助理</span>
+            </button>
+            <button class="mcp-btn" @click="router.push('/mcp')" title="MCP 服务器">
+              <span>MCP</span>
             </button>
             <button class="settings-btn" @click="router.push('/settings')" title="设置">
               设置
@@ -2852,6 +3096,21 @@ watch(taskMode, async (isTaskMode) => {
 
 .assistant-btn:hover {
   background: #dcfce7;
+}
+
+.mcp-btn {
+  background: #f0fdf400;
+  border: 1px solid #86efac00;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 999px;
+  transition: background 0.2s, border-color 0.2s;
+  min-width: 40px;
+}
+
+.mcp-btn:hover {
+  background: #dbeafe;
 }
 
 .logout-btn {

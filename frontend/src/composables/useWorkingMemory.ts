@@ -198,7 +198,7 @@ export function useWorkingMemory(chatId: string) {
       memory.value.entries = memory.value.entries.filter(e => !toRemove.includes(e))
       try {
         await save()
-        console.log('Cleaned up old drafts to free space')
+        //console.log('Cleaned up old drafts to free space')
         return true
       } catch (e) {
         console.error('Draft cleanup failed:', e)
@@ -212,7 +212,7 @@ export function useWorkingMemory(chatId: string) {
       memory.value.entries = memory.value.entries.filter(e => !toRemove.includes(e))
       try {
         await save()
-        console.log('Cleaned up old notes to free space')
+        //console.log('Cleaned up old notes to free space')
         return true
       } catch (e) {
         console.error('Note cleanup failed:', e)
@@ -230,7 +230,7 @@ export function useWorkingMemory(chatId: string) {
       }))
       try {
         await save()
-        console.log('Compressed long content to free space')
+        //console.log('Compressed long content to free space')
         return true
       } catch (e) {
         console.error('Compression failed:', e)
