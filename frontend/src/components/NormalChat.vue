@@ -5,8 +5,18 @@ import hljs from 'highlight.js'
 import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
 import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
 
-type Role = 'user' | 'assistant' | 'system'
-export type Message = { role: Role; content: string; reasoning: string; reasoningDuration?: number; visible?: boolean; copyable?: boolean; archived?: boolean }
+type Role = 'user' | 'assistant' | 'system' | 'tool'
+export type Message = {
+  role: Role
+  content: string
+  reasoning: string
+  reasoningDuration?: number
+  visible?: boolean
+  copyable?: boolean
+  archived?: boolean
+  tool_call_id?: string
+  tool_calls?: any[]
+}
 
 // Props
 interface Props {
@@ -67,6 +77,67 @@ const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const autoScrollEnabled = ref(true)
 const reasoningExpanded = ref<Record<number, boolean>>({})
 const reasoningStartTime = ref<Record<number, number>>({})
+const toolResultExpanded = ref<Record<number, boolean>>({})
+
+// 获取工具名称（从 tool_calls 中查找对应的工具调用）
+function getToolName(message: Message, messages: Message[]): string {
+  if (!message.tool_call_id) return 'Tool'
+
+  // 向前查找包含 tool_calls 的 assistant 消息
+  for (let i = messages.indexOf(message) - 1; i >= 0; i--) {
+    const msg = messages[i]
+    if (msg?.tool_calls && msg.tool_calls.length > 0) {
+      const toolCall = msg.tool_calls.find((tc: any) => tc.id === message.tool_call_id)
+      if (toolCall) {
+        return toolCall.function.name
+      }
+    }
+  }
+
+  return 'Tool'
+}
+
+// 切换工具结果展开状态
+function toggleToolResult(index: number) {
+  toolResultExpanded.value[index] = !toolResultExpanded.value[index]
+}
+
+// 复制工具结果
+async function copyToolResult(content: string) {
+  await copyText(content)
+}
+
+// 格式化工具结果显示（尝试解析 JSON）
+function formatToolResult(content: string): { isJson: boolean; formatted: string; html?: string } {
+  try {
+    const parsed = JSON.parse(content)
+    const formatted = JSON.stringify(parsed, null, 2)
+    // 添加 JSON 语法高亮
+    const highlighted = formatted
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/("(?:u[\dA-Fa-f]{4}|\\[^u]|[^\\"])*"(\s*:)?)/g, (match) => {
+        let cls = 'json-string'
+        if (/:$/.test(match)) {
+          cls = 'json-key'
+        }
+        return `<span class="${cls}">${match}</span>`
+      })
+      .replace(/\b(true|false|null)\b/g, '<span class="json-boolean">$1</span>')
+      .replace(/\b(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\b/g, '<span class="json-number">$1</span>')
+    return {
+      isJson: true,
+      formatted,
+      html: highlighted
+    }
+  } catch {
+    return {
+      isJson: false,
+      formatted: content
+    }
+  }
+}
 
 // Markdown renderer
 const md: MarkdownIt = new MarkdownIt({
@@ -270,8 +341,35 @@ defineExpose({
         <p>点击右上角的"设置"配置你的 LLM 接口</p>
       </div>
       <template v-for="(m, i) in messages" :key="i">
+        <!-- 工具调用结果消息 -->
+        <div v-if="m.visible !== false && m.role === 'tool'" class="msg-row tool">
+          <div class="msg-content">
+            <div class="tool-result-card">
+              <div class="tool-result-header" @click="toggleToolResult(i)">
+                <div class="tool-result-title">
+                  <span class="tool-result-name">{{ getToolName(m, messages) }}</span>
+                  <span class="tool-result-status">
+                    <span class="check-icon">✓</span>
+                    <span class="status-text">已完成</span>
+                  </span>
+                </div>
+                <div class="tool-result-actions">
+                  <button class="tool-action-btn" title="复制结果" @click.stop="copyToolResult(m.content)">
+                    📋
+                  </button>
+                  <span class="expand-icon">{{ toolResultExpanded[i] ? '▼' : '▶' }}</span>
+                </div>
+              </div>
+              <div v-show="toolResultExpanded[i]" class="tool-result-body">
+                <pre class="tool-result-code"><code v-if="formatToolResult(m.content).html" v-html="formatToolResult(m.content).html"></code><code v-else>{{ formatToolResult(m.content).formatted }}</code></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 普通消息 -->
         <div
-          v-if="m.visible !== false"
+          v-else-if="m.visible !== false"
           :class="['msg-row', m.role]"
         >
           <div class="msg-content">
@@ -826,5 +924,138 @@ defineExpose({
   font-size: 14px;
   color: #374151;
   font-weight: 500;
+}
+
+/* 工具结果样式 */
+.msg-row.tool {
+  padding: 12px 0;
+}
+
+.tool-result-card {
+  background: #f7f7f8;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 8px;
+  max-width: 900px;
+}
+
+.tool-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s;
+}
+
+.tool-result-header:hover {
+  background: #f0f0f1;
+}
+
+.tool-result-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.tool-result-name {
+  font-family: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+  font-size: 14px;
+  color: #0f172a;
+  font-weight: 500;
+}
+
+.tool-result-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #22c55e;
+}
+
+.check-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background: #22c55e;
+  color: white;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.status-text {
+  font-weight: 500;
+}
+
+.tool-result-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tool-action-btn {
+  background: transparent;
+  border: none;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+  display: flex;
+  align-items: center;
+}
+
+.tool-action-btn:hover {
+  opacity: 1;
+}
+
+.expand-icon {
+  font-size: 10px;
+  color: #6b7280;
+  transition: transform 0.2s;
+}
+
+.tool-result-body {
+  border-top: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.tool-result-code {
+  margin: 0;
+  padding: 16px;
+  overflow-x: auto;
+  font-family: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #0f172a;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* JSON 语法高亮 */
+.tool-result-code code {
+  color: #0f172a;
+}
+
+.tool-result-code .json-key {
+  color: #9333ea; /* 紫色 - 键名 */
+}
+
+.tool-result-code .json-string {
+  color: #22c55e; /* 绿色 - 字符串值 */
+}
+
+.tool-result-code .json-boolean {
+  color: #eab308; /* 黄色 - 布尔值和 null */
+}
+
+.tool-result-code .json-number {
+  color: #3b82f6; /* 蓝色 - 数字 */
 }
 </style>
