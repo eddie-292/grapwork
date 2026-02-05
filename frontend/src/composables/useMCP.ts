@@ -212,7 +212,7 @@ export function useMCP() {
         }
       }
 
-      // TODO: 实际执行工具调用
+      // 实际执行工具调用
       // 这里需要与 Electron 主进程通信来执行实际的 MCP 工具调用
       console.log('[MCP] Executing tool:', {
         server: targetServer.name,
