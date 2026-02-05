@@ -1,13 +1,52 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import path from 'path'
 import fs from 'fs'
-import { spawn, ChildProcess } from 'child_process'
+import { spawn, ChildProcess, execSync } from 'child_process'
 
 const __dirname = path.dirname(__filename)
 
 // ============================================================================
 // MCP Client Implementation
 // ============================================================================
+
+// 检查命令是否存在
+function commandExists(command: string): boolean {
+  try {
+    // 检查是否是绝对路径
+    if (path.isAbsolute(command)) {
+      return fs.existsSync(command)
+    }
+
+    // 检查命令是否在 PATH 中
+    const isWindows = process.platform === 'win32'
+    const exts = isWindows ? ['.exe', '.cmd', '.bat'] : ['']
+
+    for (const ext of exts) {
+      try {
+        execSync(`command -v "${command}${ext}" 2>/dev/null || which "${command}${ext}" 2>/dev/null || type "${command}${ext}" > /dev/null 2>&1`, {
+          stdio: 'ignore'
+        })
+        return true
+      } catch {
+        // 继续尝试下一个扩展
+      }
+    }
+
+    // Windows 上尝试 where 命令
+    if (isWindows) {
+      try {
+        execSync(`where "${command}"`, { stdio: 'ignore' })
+        return true
+      } catch {
+        return false
+      }
+    }
+
+    return false
+  } catch {
+    return false
+  }
+}
 
 // MCP 相关类型定义
 interface MCPServerConfig {
@@ -57,6 +96,20 @@ class MCPClient {
 
     return new Promise((resolve, reject) => {
       try {
+        // 检查命令是否存在
+        if (!commandExists(this.config.command!)) {
+          reject(new Error(
+            `MCP server command not found: "${this.config.command}"\n\n` +
+            `Please check:\n` +
+            `1. The command path is correct\n` +
+            `2. Use an absolute path if the command is not in your PATH\n` +
+            `3. For npm packages, use: npx <package-name>\n` +
+            `4. For Python scripts, use: python /path/to/script.py\n` +
+            `5. For Node scripts, use: node /path/to/script.js`
+          ))
+          return
+        }
+
         const args = this.config.args || []
         const env = { ...process.env, ...this.config.env }
 
@@ -68,12 +121,18 @@ class MCPClient {
 
         this.process = spawn(this.config.command, args, {
           env,
-          stdio: ['pipe', 'pipe', 'inherit']
+          stdio: ['pipe', 'pipe', 'pipe']
         })
 
-        if (!this.process.stdin || !this.process.stdout) {
+        if (!this.process.stdin || !this.process.stdout || !this.process.stderr) {
           throw new Error('Failed to create stdio pipes')
         }
+
+        // 捕获 stderr 输出用于调试
+        let stderrOutput = ''
+        this.process.stderr.on('data', (data: Buffer) => {
+          stderrOutput += data.toString()
+        })
 
         // 处理 stdout（接收响应）
         this.process.stdout.on('data', (data: Buffer) => {
@@ -83,12 +142,35 @@ class MCPClient {
         // 处理错误
         this.process.on('error', (error) => {
           console.error('[MCP] Process error:', error)
-          this.rejectAllPending(error)
+          const errorMsg = `Failed to start MCP server: ${error.message}. ` +
+            `Please check if the command "${this.config.command}" is valid and in your PATH.`
+          this.rejectAllPending(new Error(errorMsg))
         })
 
         this.process.on('exit', (code, signal) => {
           console.log(`[MCP] Process exited: code=${code}, signal=${signal}`)
-          this.rejectAllPending(new Error(`Process exited: ${signal || code}`))
+
+          // 提供更详细的错误信息
+          let errorMsg = `Process exited: ${signal || code}`
+          if (stderrOutput) {
+            errorMsg += `\nStderr output: ${stderrOutput}`
+          }
+
+          if (code === 127 || code === 128) {
+            errorMsg = `Command not found: "${this.config.command}". ` +
+              `Please check:\n` +
+              `1. The command path is correct\n` +
+              `2. The command is in your PATH or use absolute path\n` +
+              `3. The command has execute permissions\n` +
+              (stderrOutput ? `\nStderr: ${stderrOutput}` : '')
+          } else if (code !== 0 && code !== null) {
+            errorMsg += `\nExit code ${code} typically indicates a configuration or runtime error.`
+            if (stderrOutput) {
+              errorMsg += `\n\nStderr output:\n${stderrOutput}`
+            }
+          }
+
+          this.rejectAllPending(new Error(errorMsg))
         })
 
         // 初始化 MCP 会话
