@@ -2942,9 +2942,9 @@ watch(taskMode, async (isTaskMode) => {
 }
 
 .chat-list {
-  flex: 1;
-  overflow-y: auto;
+  overflow: auto;
   padding: 8px;
+  height: calc(100vh - 80px);
 }
 
 .chat-item {
