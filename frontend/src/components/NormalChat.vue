@@ -944,7 +944,7 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 1px 16px;
   cursor: pointer;
   user-select: none;
   transition: background 0.2s;

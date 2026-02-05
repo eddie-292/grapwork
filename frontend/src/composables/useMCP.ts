@@ -248,6 +248,7 @@ export function useMCP() {
           id: rawServer.id,
           name: rawServer.name,
           transportType: rawServer.transportType,
+          simpleCommand: rawServer.simpleCommand,
           command: rawServer.command,
           args: rawServer.args,
           env: rawServer.env,

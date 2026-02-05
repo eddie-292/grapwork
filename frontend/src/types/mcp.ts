@@ -10,6 +10,7 @@ export interface MCPServer {
   description?: string          // 服务器描述
   transportType: MCPTransportType  // 传输类型
   enabled: boolean              // 是否启用
+  simpleCommand?: boolean       // 是否为简单命令（非 MCP 服务器）
   createdAt: number             // 创建时间
   updatedAt: number             // 更新时间
 

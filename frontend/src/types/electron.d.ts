@@ -55,6 +55,7 @@ export interface MCPServerConfig {
   id: string
   name: string
   transportType: 'stdio' | 'sse'
+  simpleCommand?: boolean  // 是否为简单命令（非 MCP 服务器）
   command?: string
   args?: string[]
   env?: Record<string, string>

@@ -57,6 +57,7 @@ interface MCPServerConfig {
   args?: string[]
   env?: Record<string, string>
   url?: string
+  simpleCommand?: boolean // 是否为简单命令（非 MCP 服务器）
 }
 
 interface MCPMessage {
@@ -72,6 +73,130 @@ interface MCPMessage {
   }
 }
 
+// 简单命令白名单 - 只允许执行安全的命令
+const SIMPLE_COMMAND_WHITELIST = [
+  'date',           // 显示/设置系统时间
+  'ls', 'la', 'll', 'dir',  // 列出目录内容
+  'pwd',            // 打印工作目录
+  'echo',           // 输出文本
+  'cat',            // 显示文件内容
+  'head', 'tail',   // 显示文件头部/尾部
+  'wc',             // 统计行数、字数等
+  'grep',           // 文本搜索
+  'whoami',         // 显示当前用户
+  'hostname',       // 显示主机名
+  'uname',          // 显示系统信息
+  'cal',            // 显示日历
+  'uptime',         // 显示系统运行时间
+  'df', 'du',       // 磁盘使用情况
+  'ps',             // 进程列表
+  'env',            // 环境变量
+]
+
+// 简单命令执行器 - 用于执行一次性命令（非 MCP 服务器）
+class SimpleCommandExecutor {
+  private config: MCPServerConfig
+
+  constructor(config: MCPServerConfig) {
+    this.config = config
+  }
+
+  // 验证命令是否在白名单中
+  private validateCommand(command: string): { valid: boolean; error?: string } {
+    // 获取基础命令（忽略路径和参数）
+    let baseCommand = command.split(' ')[0]
+    baseCommand = path.basename(baseCommand) // 提取命令名称，忽略路径如 /bin/date
+
+    if (!SIMPLE_COMMAND_WHITELIST.includes(baseCommand)) {
+      return {
+        valid: false,
+        error: `Command "${baseCommand}" is not in the whitelist. ` +
+          `Allowed commands: ${SIMPLE_COMMAND_WHITELIST.join(', ')}`
+      }
+    }
+
+    // 额外安全检查：禁止危险的命令组合
+    const fullCmd = command.toLowerCase()
+    if (fullCmd.includes(' rm ') || fullCmd.startsWith('rm ') || fullCmd.includes('\trm\t')) {
+      return { valid: false, error: 'Command "rm" is not allowed for safety reasons' }
+    }
+
+    if (fullCmd.includes('>') || fullCmd.includes('>>')) {
+      return { valid: false, error: 'Output redirection is not allowed' }
+    }
+
+    if (fullCmd.includes('|')) {
+      return { valid: false, error: 'Pipe is not allowed for security reasons' }
+    }
+
+    if (fullCmd.includes('&') || fullCmd.includes(';')) {
+      return { valid: false, error: 'Command chaining is not allowed' }
+    }
+
+    return { valid: true }
+  }
+
+  // 列出可用工具（简单命令模式下只有一个通用执行器）
+  async listTools(): Promise<any[]> {
+    const command = this.config.command || 'unknown'
+    return [{
+      name: 'execute',
+      description: `Execute simple command: ${command}`,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          args: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Command arguments'
+          }
+        }
+      }
+    }]
+  }
+
+  // 调用工具（执行命令）
+  async callTool(name: string, args: Record<string, any>): Promise<any> {
+    const command = this.config.command!
+    const commandArgs = this.config.args || []
+
+    // 验证命令
+    const validation = this.validateCommand(command)
+    if (!validation.valid) {
+      throw new Error(validation.error)
+    }
+
+    console.log('[SimpleCommand] Executing:', { command, args: commandArgs })
+
+    try {
+      const fullCommand = commandArgs.length > 0 ? `${command} ${commandArgs.join(' ')}` : command
+
+      const output = execSync(fullCommand, {
+        encoding: 'utf-8',
+        env: { ...process.env, ...this.config.env },
+        maxBuffer: 10 * 1024 * 1024 // 10MB buffer
+      })
+
+      return {
+        content: [{
+          type: 'text',
+          text: output.trim()
+        }],
+        isError: false
+      }
+    } catch (error: any) {
+      console.error('[SimpleCommand] Execution failed:', error)
+      return {
+        content: [{
+          type: 'text',
+          text: error.stderr?.toString() || error.message || 'Command execution failed'
+        }],
+        isError: true
+      }
+    }
+  }
+}
+
 // MCP 客户端类 - 用于与 MCP 服务器通信
 class MCPClient {
   private process: ChildProcess | null = null
@@ -81,6 +206,7 @@ class MCPClient {
     reject: (error: Error) => void
   }>()
   private initialized = false
+  private receiveBuffer = '' // 接收缓冲区，用于处理不完整的 JSON
 
   constructor(private config: MCPServerConfig) {}
 
@@ -193,6 +319,7 @@ class MCPClient {
     }
     this.initialized = false
     this.pendingRequests.clear()
+    this.receiveBuffer = ''
   }
 
   // 初始化 MCP 协议
@@ -247,28 +374,135 @@ class MCPClient {
 
   // 处理来自 MCP 服务器的响应
   private handleMessage(data: string): void {
-    const lines = data.split('\n').filter((line: string) => line.trim())
+    // 将新数据添加到缓冲区
+    this.receiveBuffer += data
 
-    for (const line of lines) {
-      try {
-        const message: MCPMessage = JSON.parse(line)
+    // 尝试解析完整的 JSON 对象
+    let iterations = 0
+    const maxIterations = 100 // 防止无限循环
 
-        // 处理响应
-        if (message.id !== undefined) {
-          const pending = this.pendingRequests.get(message.id)
-          if (pending) {
-            this.pendingRequests.delete(message.id)
+    while (this.receiveBuffer.length > 0 && iterations < maxIterations) {
+      iterations++
 
-            if (message.error) {
-              pending.reject(new Error(message.error.message))
-            } else {
-              pending.resolve(message.result)
+      // 跳过前导空白
+      this.receiveBuffer = this.receiveBuffer.trimStart()
+      if (this.receiveBuffer.length === 0) break
+
+      // 检查缓冲区是否以有效的 JSON 开始字符开头
+      const firstChar = this.receiveBuffer[0]
+      if (firstChar !== '{' && firstChar !== '[') {
+        // 不是 JSON 对象或数组，将其包装成 JSON（可能是调试输出）
+        const newlineIndex = this.receiveBuffer.indexOf('\n')
+        let nonJsonContent = ''
+
+        if (newlineIndex >= 0) {
+          nonJsonContent = this.receiveBuffer.slice(0, newlineIndex)
+          this.receiveBuffer = this.receiveBuffer.slice(newlineIndex + 1)
+        } else {
+          // 没有换行符，处理整个缓冲区
+          nonJsonContent = this.receiveBuffer
+          this.receiveBuffer = ''
+        }
+
+        // 将非 JSON 内容包装成 JSON 消息
+        const wrappedMessage: MCPMessage = {
+          jsonrpc: '2.0',
+          method: 'stdout',
+          params: {
+            content: nonJsonContent,
+            timestamp: Date.now()
+          }
+        }
+
+        // 处理包装后的消息
+        console.log('[MCP] Wrapped non-JSON content as stdout notification:', nonJsonContent.slice(0, 100))
+
+        // 作为服务器通知处理
+        if (wrappedMessage.method) {
+          console.log('[MCP] Server notification:', wrappedMessage.method, wrappedMessage.params)
+        }
+
+        continue
+      }
+
+      let depth = 0
+      let inString = false
+      let escapeNext = false
+      let objEnd = -1
+
+      // 查找完整的 JSON 对象
+      for (let i = 0; i < this.receiveBuffer.length; i++) {
+        const char = this.receiveBuffer[i]
+
+        if (escapeNext) {
+          escapeNext = false
+          continue
+        }
+
+        if (char === '\\') {
+          escapeNext = true
+          continue
+        }
+
+        if (char === '"') {
+          inString = !inString
+          continue
+        }
+
+        if (!inString) {
+          if (char === '{' || char === '[') {
+            depth++
+          } else if (char === '}' || char === ']') {
+            depth--
+            if (depth === 0) {
+              objEnd = i + 1
+              break
             }
           }
         }
-      } catch (error) {
-        console.error('[MCP] Failed to parse message:', error, line)
       }
+
+      // 如果找到了完整的 JSON 对象
+      if (objEnd > 0) {
+        const jsonStr = this.receiveBuffer.slice(0, objEnd)
+        this.receiveBuffer = this.receiveBuffer.slice(objEnd)
+        // 清理前导空白，为下一个对象做准备
+        this.receiveBuffer = this.receiveBuffer.trimStart()
+
+        try {
+          const message: MCPMessage = JSON.parse(jsonStr)
+
+          // 处理响应
+          if (message.id !== undefined) {
+            const pending = this.pendingRequests.get(message.id)
+            if (pending) {
+              this.pendingRequests.delete(message.id)
+
+              if (message.error) {
+                pending.reject(new Error(message.error.message))
+              } else {
+                pending.resolve(message.result)
+              }
+            }
+          } else if (message.method) {
+            // 处理服务器发起的通知（如日志等）
+            console.log('[MCP] Server notification:', message.method, message.params)
+          }
+        } catch (error) {
+          console.error('[MCP] Failed to parse message:', error, jsonStr)
+          // 跳过无法解析的消息
+          this.receiveBuffer = this.receiveBuffer.trimStart()
+        }
+      } else {
+        // 没有找到完整的 JSON 对象，等待更多数据
+        break
+      }
+    }
+
+    // 如果达到最大迭代次数，清空缓冲区以防止无限循环
+    if (iterations >= maxIterations) {
+      console.error('[MCP] Max iterations reached, clearing buffer. Buffer content:', this.receiveBuffer.slice(0, 200))
+      this.receiveBuffer = ''
     }
   }
 
@@ -320,17 +554,27 @@ class MCPClient {
 // MCP 客户端管理器 - 管理多个 MCP 服务器连接
 class MCPClientManager {
   private clients = new Map<string, MCPClient>()
+  private simpleExecutors = new Map<string, SimpleCommandExecutor>()
 
-  // 获取或创建客户端
-  async getClient(config: MCPServerConfig): Promise<MCPClient> {
+  // 获取或创建客户端（支持 MCP 服务器和简单命令）
+  async getClient(config: MCPServerConfig): Promise<MCPClient | SimpleCommandExecutor> {
+    // 如果是简单命令，返回 SimpleCommandExecutor
+    if (config.simpleCommand) {
+      let executor = this.simpleExecutors.get(config.id)
+      if (!executor) {
+        executor = new SimpleCommandExecutor(config)
+        this.simpleExecutors.set(config.id, executor)
+      }
+      return executor
+    }
+
+    // 否则使用标准 MCP 客户端
     let client = this.clients.get(config.id)
-
     if (!client) {
       client = new MCPClient(config)
       await client.start()
       this.clients.set(config.id, client)
     }
-
     return client
   }
 
@@ -341,6 +585,10 @@ class MCPClientManager {
       client.stop()
       this.clients.delete(serverId)
     }
+    const executor = this.simpleExecutors.get(serverId)
+    if (executor) {
+      this.simpleExecutors.delete(serverId)
+    }
   }
 
   // 清理所有客户端
@@ -349,6 +597,7 @@ class MCPClientManager {
       client.stop()
     }
     this.clients.clear()
+    this.simpleExecutors.clear()
   }
 }
 
@@ -538,6 +787,16 @@ ipcMain.handle('mcp-call-tool', async (_event, serverConfig: MCPServerConfig, to
 
     const client = await mcpManager.getClient(serverConfig)
     const result = await client.callTool(toolName, args)
+
+    // 检查结果中是否包含错误标志（SimpleCommandExecutor 可能返回）
+    if (result.isError) {
+      return {
+        success: false,
+        content: '',
+        error: 'Command execution failed',
+        isError: true
+      }
+    }
 
     // 处理结果格式
     let content = ''

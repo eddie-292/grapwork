@@ -32,6 +32,7 @@ const newServerForm = ref({
   description: '',
   transportType: 'stdio' as MCPTransportType,
   enabled: true,
+  simpleCommand: false,  // 是否为简单命令
   // STDIO 配置
   command: '',
   args: [] as string[],
@@ -73,6 +74,7 @@ function resetForm() {
     description: '',
     transportType: 'stdio' as MCPTransportType,
     enabled: true,
+    simpleCommand: false,
     command: '',
     args: [],
     env: {},
@@ -96,6 +98,7 @@ function openEditForm(server: MCPServer) {
     description: server.description || '',
     transportType: server.transportType,
     enabled: server.enabled,
+    simpleCommand: server.simpleCommand || false,
     command: server.command || '',
     args: server.args || [],
     env: server.env || {},
@@ -184,6 +187,7 @@ async function handleAddServer() {
       description: newServerForm.value.description,
       transportType: newServerForm.value.transportType,
       enabled: newServerForm.value.enabled,
+      simpleCommand: newServerForm.value.simpleCommand,
       command: newServerForm.value.command,
       args,
       env,
@@ -208,6 +212,7 @@ async function handleUpdateServer() {
       description: newServerForm.value.description,
       transportType: newServerForm.value.transportType,
       enabled: newServerForm.value.enabled,
+      simpleCommand: newServerForm.value.simpleCommand,
       command: newServerForm.value.command,
       args,
       env,
@@ -292,9 +297,17 @@ function getTransportLabel(type: MCPTransportType): string {
 
           <!-- STDIO 配置 -->
           <template v-if="newServerForm.transportType === 'stdio'">
+            <div class="form-group checkbox-group">
+              <label title="勾选后表示这是一个简单命令（如 date、ls 等），不需要实现 MCP 协议">
+                <input type="checkbox" v-model="newServerForm.simpleCommand" />
+                简单命令模式（非 MCP 服务器）
+              </label>
+              <small>勾选此项表示该命令是简单的一次性命令（如 date、ls），不支持 MCP 协议</small>
+            </div>
+
             <div class="form-group">
               <label>执行命令 *</label>
-              <input v-model="newServerForm.command" type="text" placeholder="例如: npx" class="input" />
+              <input v-model="newServerForm.command" type="text" placeholder="例如: npx 或 date" class="input" />
             </div>
 
             <div class="form-group">
@@ -408,6 +421,14 @@ function getTransportLabel(type: MCPTransportType): string {
 
           <!-- STDIO 配置 -->
           <template v-if="newServerForm.transportType === 'stdio'">
+            <div class="form-group checkbox-group">
+              <label title="勾选后表示这是一个简单命令（如 date、ls 等），不需要实现 MCP 协议">
+                <input type="checkbox" v-model="newServerForm.simpleCommand" />
+                简单命令模式（非 MCP 服务器）
+              </label>
+              <small>勾选此项表示该命令是简单的一次性命令（如 date、ls），不支持 MCP 协议</small>
+            </div>
+
             <div class="form-group">
               <label>执行命令 *</label>
               <input v-model="newServerForm.command" type="text" class="input" />
