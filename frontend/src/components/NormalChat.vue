@@ -236,6 +236,7 @@ async function copyMarkdown(content: string) {
 }
 
 function toggleReasoning(index: number) {
+  reasoningExpanded.value[index] = !reasoningExpanded.value[index]
   emit('toggle-reasoning', index)
 }
 
