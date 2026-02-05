@@ -3328,7 +3328,7 @@ watch(taskMode, async (isTaskMode) => {
 
 /* 链接样式 - 禁用默认行为 */
 .msg-bubble :deep(a) {
-  color: #10a37f;
+  color: #000000;
   text-decoration: none;
   cursor: pointer;
 }
