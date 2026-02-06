@@ -925,11 +925,6 @@ function canFetchTools(server: MCPServer): boolean {
   background: #fef2f2;
 }
 
-.refresh-btn {
-  border-color: #3b82f6;
-  color: #3b82f6;
-}
-
 .refresh-btn:hover:not(:disabled) {
   border-color: #2563eb;
   color: #2563eb;
