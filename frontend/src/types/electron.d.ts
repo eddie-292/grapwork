@@ -100,6 +100,8 @@ interface ElectronAPI {
   mcpListTools: (serverConfig: MCPServerConfig) => Promise<MCPToolsListResult>
   // MCP 清理
   mcpCleanup: () => Promise<{ success: boolean }>
+  // 选择文件夹
+  selectFolder: () => Promise<{ success: boolean; path: string }>
 }
 
 declare global {

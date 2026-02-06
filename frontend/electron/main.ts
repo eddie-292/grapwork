@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, shell, dialog } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import { spawn, ChildProcess, execSync } from 'child_process'
@@ -774,6 +774,23 @@ ipcMain.handle('save-global-memory', (_event, memory: GlobalMemory) => {
 // 在外部浏览器中打开链接
 ipcMain.handle('open-external', async (_event, url: string) => {
   await shell.openExternal(url)
+})
+
+// 选择文件夹对话框
+ipcMain.handle('select-folder', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openDirectory'],
+    title: '选择文件夹'
+  })
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return { success: false, path: '' }
+  }
+
+  return {
+    success: true,
+    path: result.filePaths[0]
+  }
 })
 
 // ============================================================================

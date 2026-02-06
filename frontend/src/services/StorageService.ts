@@ -449,6 +449,32 @@ export class StorageService {
     if (!serverList) return [];
     return serverList.servers.filter(s => serverList.activeServerIds.includes(s.id) && s.enabled);
   }
+
+  // ==================== 选中的文件夹 ====================
+
+  /**
+   * 获取选中的文件夹路径
+   */
+  async getSelectedFolder(): Promise<string | null> {
+    const result = await this.get<string>(StorageKey.SELECTED_FOLDER);
+    return result.data ?? null;
+  }
+
+  /**
+   * 保存选中的文件夹路径
+   */
+  async saveSelectedFolder(folderPath: string): Promise<boolean> {
+    const result = await this.set(StorageKey.SELECTED_FOLDER, folderPath);
+    return result.success;
+  }
+
+  /**
+   * 清除选中的文件夹路径
+   */
+  async clearSelectedFolder(): Promise<boolean> {
+    const result = await this.delete(StorageKey.SELECTED_FOLDER);
+    return result.success;
+  }
 }
 
 // 导出单例

@@ -55,5 +55,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('mcp-list-tools', serverConfig),
   // MCP 清理
   mcpCleanup: () =>
-    ipcRenderer.invoke('mcp-cleanup')
+    ipcRenderer.invoke('mcp-cleanup'),
+  // 选择文件夹
+  selectFolder: () =>
+    ipcRenderer.invoke('select-folder')
 })

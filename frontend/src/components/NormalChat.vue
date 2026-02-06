@@ -4,6 +4,7 @@ import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
 import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
+import { storage } from '@/services/StorageService'
 
 type Role = 'user' | 'assistant' | 'system' | 'tool'
 export type Message = {
@@ -54,6 +55,11 @@ const saveToGlobalMemoryKeywords = ref<string[]>([])
 // HTML预览对话框状态
 const showHtmlPreview = ref(false)
 const htmlPreviewContent = ref('')
+
+// 选中的文件夹路径
+const selectedFolderPath = ref<string>('')
+// 文件夹对话框状态
+const showFolderDialog = ref(false)
 
 // 提取关键词的简单函数
 function extractKeywords(content: string): string[] {
@@ -285,10 +291,15 @@ function openHtmlPreview(base64Code: string) {
 }
 
 // 组件挂载时设置全局函数，卸载时清理
-onMounted(() => {
+onMounted(async () => {
   ;(window as any).previewHtml = function (btn: HTMLElement) {
     const base64Code = btn.getAttribute('data-html-code') || ''
     openHtmlPreview(base64Code)
+  }
+  // 加载已保存的文件夹路径
+  const savedFolder = await storage.getSelectedFolder()
+  if (savedFolder) {
+    selectedFolderPath.value = savedFolder
   }
 })
 
@@ -311,6 +322,35 @@ async function handleLinkClick(e: MouseEvent) {
       }
     }
   }
+}
+
+// 选择文件夹
+function handleSelectFolder() {
+  showFolderDialog.value = true
+}
+
+// 从对话框选择文件夹
+async function selectFolderFromDialog() {
+  if (window.electronAPI?.selectFolder) {
+    try {
+      const result = await window.electronAPI.selectFolder()
+      if (result.success && result.path) {
+        selectedFolderPath.value = result.path
+        await storage.saveSelectedFolder(result.path)
+        showFolderDialog.value = false
+      }
+    } catch (err) {
+      console.error('Failed to select folder:', err)
+      alert('选择文件夹失败')
+    }
+  }
+}
+
+// 清除文件夹
+async function handleClearFolder() {
+  selectedFolderPath.value = ''
+  await storage.clearSelectedFolder()
+  showFolderDialog.value = false
 }
 
 // Expose functions for parent component
@@ -478,6 +518,20 @@ defineExpose({
           <button type="button" class="btn ghost" @click="handleCancel" :disabled="!sending">
             取消
           </button>
+          <button
+            type="button"
+            class="btn folder"
+            :class="{ 'has-folder': selectedFolderPath }"
+            @click="handleSelectFolder"
+            :title="selectedFolderPath || '选择文件夹'"
+          >
+            <template v-if="selectedFolderPath">
+              ✓ {{ selectedFolderPath.split('/').pop() || selectedFolderPath.split('\\').pop() || '文件夹' }}
+            </template>
+            <template v-else>
+              未选择目录
+            </template>
+          </button>
         </div>
       </div>
     </form>
@@ -497,6 +551,31 @@ defineExpose({
       :html-content="htmlPreviewContent"
       @close="showHtmlPreview = false"
     />
+
+    <!-- 文件夹选择对话框 -->
+    <div v-if="showFolderDialog" class="dialog-overlay" @click.self="showFolderDialog = false">
+      <div class="dialog-content folder-dialog">
+        <h3>📁 选择文件夹</h3>
+        <div v-if="selectedFolderPath" class="current-folder">
+          <span class="folder-label">当前选中的文件夹</span>
+          <span class="folder-path" :title="selectedFolderPath">{{ selectedFolderPath }}</span>
+        </div>
+        <div v-else class="no-folder">
+          📂 暂未选择文件夹
+        </div>
+        <div class="dialog-actions">
+          <button v-if="selectedFolderPath" type="button" class="dialog-btn danger" @click="handleClearFolder">
+            清除
+          </button>
+          <button type="button" class="dialog-btn primary" @click="selectFolderFromDialog">
+            {{ selectedFolderPath ? '更换文件夹' : '选择文件夹' }}
+          </button>
+          <button type="button" class="dialog-btn ghost" @click="showFolderDialog = false">
+            取消
+          </button>
+        </div>
+      </div>
+    </div>
   </main>
 </template>
 
@@ -852,6 +931,37 @@ defineExpose({
   color: #9ca3af;
 }
 
+/* 文件夹按钮 */
+.btn.folder {
+  padding: 8px 14px;
+  font-size: 13px;
+  background: #f3f4f6;
+  color: #6b7280;
+  border-color: #e5e7eb;
+  transition: all 0.2s;
+  min-width: 80px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn.folder.has-folder {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #86efac;
+  font-weight: 500;
+}
+
+.btn.folder:hover {
+  transform: scale(1.02);
+}
+
+.btn.folder.has-folder:hover {
+  background: #bbf7d0;
+  border-color: #22c55e;
+}
+
 /* 参数配置按钮 */
 .params-btn {
   background: #f3f4f6;
@@ -1120,5 +1230,131 @@ defineExpose({
 
 .tool-result-code .json-number {
   color: #3b82f6; /* 蓝色 - 数字 */
+}
+
+/* 文件夹对话框样式 */
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dialog-content {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.folder-dialog {
+  min-width: 400px;
+  max-width: 600px;
+}
+
+.folder-dialog h3 {
+  margin: 0 0 20px 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #0f172a;
+  text-align: center;
+}
+
+.current-folder {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.no-folder {
+  padding: 32px 16px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  color: #94a3b8;
+  text-align: center;
+  font-size: 14px;
+}
+
+.folder-dialog .folder-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.folder-dialog .folder-path {
+  font-size: 14px;
+  color: #334155;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+  word-break: break-all;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  padding-top: 8px;
+}
+
+.dialog-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.dialog-btn.primary {
+  background: #10a37f;
+  color: #ffffff;
+}
+
+.dialog-btn.primary:hover {
+  background: #0d8a6c;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(16, 163, 127, 0.2);
+}
+
+.dialog-btn.ghost {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.dialog-btn.ghost:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.dialog-btn.danger {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.dialog-btn.danger:hover {
+  background: #fee2e2;
+  color: #b91c1c;
 }
 </style>

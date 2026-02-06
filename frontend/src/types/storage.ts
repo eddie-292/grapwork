@@ -28,6 +28,9 @@ export enum StorageKey {
 
   // MCP (Model Context Protocol) 服务器配置
   MCP_SERVER_LIST = 'mcp-server-list',
+
+  // 选中的文件夹路径
+  SELECTED_FOLDER = 'selected-folder',
 }
 
 // 存储后端类型
