@@ -532,7 +532,7 @@ defineExpose({
               ✓ {{ selectedFolderPath.split('/').pop() || selectedFolderPath.split('\\').pop() || '文件夹' }}
             </template>
             <template v-else>
-              未选择目录
+              文件整理
             </template>
           </button>
         </div>
