@@ -267,23 +267,23 @@ export function useMCP() {
           }
         }
       },
-      {
-        type: 'function',
-        function: {
-          name: 'delete_item',
-          description: '删除文件或文件夹。注意：删除文件夹将递归删除其所有内容。',
-          parameters: {
-            type: 'object',
-            properties: {
-              path: {
-                type: 'string',
-                description: '要删除的文件或文件夹路径（相对于工作目录）'
-              }
-            },
-            required: ['path']
-          }
-        }
-      }
+      // {
+      //   type: 'function',
+      //   function: {
+      //     name: 'delete_item',
+      //     description: '删除文件或文件夹。注意：删除文件夹将递归删除其所有内容。',
+      //     parameters: {
+      //       type: 'object',
+      //       properties: {
+      //         path: {
+      //           type: 'string',
+      //           description: '要删除的文件或文件夹路径（相对于工作目录）'
+      //         }
+      //       },
+      //       required: ['path']
+      //     }
+      //   }
+      // }
     ]
   }
 
