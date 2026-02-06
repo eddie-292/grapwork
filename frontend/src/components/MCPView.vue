@@ -16,7 +16,8 @@ const {
   updateServer,
   deleteServer,
   toggleServerActive,
-  toggleServerEnabled
+  toggleServerEnabled,
+  refreshServerTools
 } = useMCP()
 
 // 表单状态
@@ -25,6 +26,7 @@ const showEditForm = ref(false)
 const editingServer = ref<MCPServer | null>(null)
 const showDeleteConfirm = ref(false)
 const serverToDelete = ref<MCPServer | null>(null)
+const refreshingServerId = ref<string | null>(null)
 
 // 新建服务器表单数据
 const newServerForm = ref({
@@ -115,6 +117,16 @@ function openEditForm(server: MCPServer) {
   toolParametersInput.value = (server.tools || []).map(tool =>
     JSON.stringify(tool.function.parameters || {}, null, 2)
   )
+  // 修复工具数据的类型问题（确保 description 有默认值）
+  if (newServerForm.value.tools) {
+    newServerForm.value.tools = newServerForm.value.tools.map(tool => ({
+      ...tool,
+      function: {
+        ...tool.function,
+        description: tool.function.description || ''
+      }
+    }))
+  }
   showEditForm.value = true
 }
 
@@ -256,6 +268,31 @@ function goBack() {
 function getTransportLabel(type: MCPTransportType): string {
   return transportTypeOptions.find(opt => opt.value === type)?.label || type
 }
+
+// 从服务器刷新工具列表
+async function handleRefreshTools(server: MCPServer) {
+  refreshingServerId.value = server.id
+  try {
+    const tools = await refreshServerTools(server.id)
+    console.log(`[MCP] Server "${server.name}" tools refreshed:`, tools.length, 'tools')
+    // 刷新当前表单中的工具（如果正在编辑）
+    if (editingServer.value && editingServer.value.id === server.id) {
+      newServerForm.value.tools = tools
+      toolParametersInput.value = tools.map(tool =>
+        JSON.stringify(tool.function.parameters || {}, null, 2)
+      )
+    }
+  } catch (e) {
+    console.error('Failed to refresh tools:', e)
+  } finally {
+    refreshingServerId.value = null
+  }
+}
+
+// 判断是否可以从服务器获取工具（仅 MCP 服务器支持，简单命令不支持）
+function canFetchTools(server: MCPServer): boolean {
+  return !server.simpleCommand && server.enabled
+}
 </script>
 
 <template>
@@ -374,7 +411,7 @@ function getTransportLabel(type: MCPTransportType): string {
                   placeholder='&#123;&#10;  "type": "object",&#10;  "properties": &#123;...&#125;,&#10;  "required": []&#10;&#125;'
                   class="input textarea code-input"
                   rows="6"
-                  @blur="updateToolParameters(index, toolParametersInput[index])"
+                  @blur="updateToolParameters(index, toolParametersInput[index] || '')"
                 />
                 <small>JSON 格式的参数定义，符合 JSON Schema 规范</small>
               </div>
@@ -466,13 +503,25 @@ function getTransportLabel(type: MCPTransportType): string {
           <div class="form-section">
             <div class="form-section-header">
               <h4>工具配置 (OpenAI Function Calling 格式)</h4>
-              <button type="button" class="btn small" @click="addToolDefinition">
-                + 添加工具
-              </button>
+              <div class="form-section-actions">
+                <button
+                  v-if="editingServer && canFetchTools(editingServer)"
+                  type="button"
+                  class="btn small secondary"
+                  :disabled="refreshingServerId === editingServer.id"
+                  @click="handleRefreshTools(editingServer)"
+                >
+                  {{ refreshingServerId === editingServer.id ? '刷新中...' : '从服务器获取' }}
+                </button>
+                <button type="button" class="btn small" @click="addToolDefinition">
+                  + 添加工具
+                </button>
+              </div>
             </div>
 
             <div v-if="newServerForm.tools.length === 0" class="empty-tools-hint">
-              <small>此服务器暂无工具定义。点击上方按钮添加工具。</small>
+              <small v-if="editingServer && canFetchTools(editingServer)">此服务器暂无工具定义。点击"从服务器获取"自动获取工具列表，或点击"+ 添加工具"手动添加。</small>
+              <small v-else>此服务器暂无工具定义。点击上方按钮添加工具。</small>
             </div>
 
             <div v-for="(tool, index) in newServerForm.tools" :key="index" class="tool-config-card">
@@ -498,7 +547,7 @@ function getTransportLabel(type: MCPTransportType): string {
                   placeholder='&#123;&#10;  "type": "object",&#10;  "properties": &#123;...&#125;,&#10;  "required": []&#10;&#125;'
                   class="input textarea code-input"
                   rows="6"
-                  @blur="updateToolParameters(index, toolParametersInput[index])"
+                  @blur="updateToolParameters(index, toolParametersInput[index] || '')"
                 />
                 <small>JSON 格式的参数定义，符合 JSON Schema 规范</small>
               </div>
@@ -581,6 +630,10 @@ function getTransportLabel(type: MCPTransportType): string {
                 <code>{{ server.url }}</code>
               </div>
             </template>
+            <div class="detail-item">
+              <span class="detail-label">工具:</span>
+              <code>{{ server.tools?.length || 0 }} 个</code>
+            </div>
           </div>
 
           <div class="card-actions">
@@ -602,6 +655,16 @@ function getTransportLabel(type: MCPTransportType): string {
             </button>
             <button class="action-btn edit-btn" @click="openEditForm(server)" title="编辑">
               编辑
+            </button>
+            <button
+              v-if="canFetchTools(server)"
+              class="action-btn refresh-btn"
+              :class="{ loading: refreshingServerId === server.id }"
+              @click="handleRefreshTools(server)"
+              :disabled="refreshingServerId === server.id"
+              title="从服务器刷新工具列表"
+            >
+              {{ refreshingServerId === server.id ? '刷新中...' : '刷新工具' }}
             </button>
             <button class="action-btn delete-btn" @click="confirmDelete(server)" title="删除">
               删除
@@ -862,6 +925,27 @@ function getTransportLabel(type: MCPTransportType): string {
   background: #fef2f2;
 }
 
+.refresh-btn {
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  border-color: #2563eb;
+  color: #2563eb;
+  background: #eff6ff;
+}
+
+.refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.refresh-btn.loading {
+  background: #eff6ff;
+  border-color: #3b82f6;
+}
+
 /* 模态框样式 */
 .modal-overlay {
   position: fixed;
@@ -1043,6 +1127,11 @@ function getTransportLabel(type: MCPTransportType): string {
   font-size: 16px;
   font-weight: 600;
   color: #1a1a2e;
+}
+
+.form-section-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .btn.small {

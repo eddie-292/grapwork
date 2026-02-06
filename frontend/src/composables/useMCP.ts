@@ -302,6 +302,76 @@ export function useMCP() {
   }
 
   /**
+   * 从 MCP 服务器获取工具列表
+   * @param server 服务器配置
+   * @returns 工具列表
+   */
+  async function fetchServerTools(server: MCPServer): Promise<MCPToolDefinition[]> {
+    if (!isElectronEnv || !window.electronAPI?.mcpListTools) {
+      throw new Error('Electron 环境不可用')
+    }
+
+    try {
+      // 使用 toRaw 移除响应式代理，避免序列化错误
+      const rawServer = toRaw(server)
+      const result = await window.electronAPI.mcpListTools({
+        id: rawServer.id,
+        name: rawServer.name,
+        transportType: rawServer.transportType,
+        simpleCommand: rawServer.simpleCommand,
+        command: rawServer.command,
+        args: rawServer.args,
+        env: rawServer.env,
+        url: rawServer.url
+      })
+
+      if (!result.success) {
+        throw new Error(result.error || '获取工具列表失败')
+      }
+
+      // 转换为 OpenAI Function Calling 格式
+      const tools: MCPToolDefinition[] = result.tools.map((tool: any) => ({
+        type: 'function',
+        function: {
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.inputSchema
+        }
+      }))
+
+      return tools
+    } catch (e: any) {
+      throw new Error(`获取工具列表失败: ${e?.message || e}`)
+    }
+  }
+
+  /**
+   * 从服务器刷新工具并更新配置
+   * @param serverId 服务器 ID
+   */
+  async function refreshServerTools(serverId: string) {
+    const server = serverList.value.servers.find(s => s.id === serverId)
+    if (!server) {
+      throw new Error('服务器不存在')
+    }
+
+    loading.value = true
+    error.value = null
+
+    try {
+      const tools = await fetchServerTools(server)
+      // 更新服务器的工具列表
+      await updateServer(serverId, { tools })
+      return tools
+    } catch (e: any) {
+      error.value = e?.message || '刷新工具列表失败'
+      throw e
+    } finally {
+      loading.value = false
+    }
+  }
+
+  /**
    * 检查是否有激活的 MCP 工具
    */
   const hasActiveTools = computed(() => {
@@ -321,6 +391,9 @@ export function useMCP() {
     deleteServer,
     toggleServerActive,
     toggleServerEnabled,
+    // 工具获取相关
+    fetchServerTools,
+    refreshServerTools,
     // Function Calling 相关
     generateOpenAITools,
     parseToolCalls,
