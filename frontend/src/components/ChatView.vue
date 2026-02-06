@@ -74,6 +74,8 @@ type Message = {
   // MCP Function Calling 相关
   tool_calls?: any[]
   tool_call_id?: string
+  // 工具执行状态
+  toolStatus?: 'pending' | 'running' | 'success' | 'error'
 }
 
 // OpenAI 兼容的对话参数配置
@@ -1255,16 +1257,31 @@ async function executeNormalChat(text: string) {
 
         // 执行工具调用
         try {
+          // 先添加执行中的工具消息
+          const toolCallIds = finalToolCalls.map(tc => tc.id)
+          for (const toolCallId of toolCallIds) {
+            currentMessages.push({
+              role: 'tool' as any,
+              content: '执行中...',
+              reasoning: '',
+              tool_call_id: toolCallId,
+              toolStatus: 'running'
+            })
+          }
+          scrollToBottom()
+
           const toolResults = await mcpManager.executeToolCalls(finalToolCalls)
 
-          // 将工具结果添加到消息列表
+          // 更新工具结果消息
+          let resultIndex = currentMessages.length - toolResults.length
           for (const resultMsg of toolResults) {
-            currentMessages.push({
-              role: resultMsg.role as any,
-              content: resultMsg.content,
-              reasoning: '',
-              tool_call_id: resultMsg.tool_call_id
-            } as any)
+            const targetMsg = currentMessages[resultIndex]
+            if (targetMsg && targetMsg.tool_call_id === resultMsg.tool_call_id) {
+              targetMsg.content = resultMsg.content
+              // 根据内容判断是否成功
+              targetMsg.toolStatus = resultMsg.content.startsWith('Error:') ? 'error' : 'success'
+            }
+            resultIndex++
           }
 
           // 继续对话，发送包含工具结果的请求
@@ -1434,15 +1451,34 @@ async function continueChatAfterToolCalls(messages: any[], mcpTools: any[]) {
       const msg = messages[assistantIndex]
       if (msg) {
         msg.tool_calls = finalToolCalls
-        const toolResults = await mcpManager.executeToolCalls(finalToolCalls as any)
-        for (const resultMsg of toolResults) {
+
+        // 先添加执行中的工具消息
+        const toolCallIds = finalToolCalls.map(tc => tc.id)
+        for (const toolCallId of toolCallIds) {
           messages.push({
-            role: resultMsg.role as any,
-            content: resultMsg.content,
+            role: 'tool' as any,
+            content: '执行中...',
             reasoning: '',
-            tool_call_id: resultMsg.tool_call_id
-          } as any)
+            tool_call_id: toolCallId,
+            toolStatus: 'running'
+          })
         }
+        scrollToBottom()
+
+        const toolResults = await mcpManager.executeToolCalls(finalToolCalls as any)
+
+        // 更新工具结果消息
+        let resultIndex = messages.length - toolResults.length
+        for (const resultMsg of toolResults) {
+          const targetMsg = messages[resultIndex]
+          if (targetMsg && targetMsg.tool_call_id === resultMsg.tool_call_id) {
+            targetMsg.content = resultMsg.content
+            // 根据内容判断是否成功
+            targetMsg.toolStatus = resultMsg.content.startsWith('Error:') ? 'error' : 'success'
+          }
+          resultIndex++
+        }
+
         // 递归调用继续对话
         await continueChatAfterToolCalls(messages, mcpTools)
       }

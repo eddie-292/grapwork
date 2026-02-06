@@ -16,6 +16,8 @@ export type Message = {
   archived?: boolean
   tool_call_id?: string
   tool_calls?: any[]
+  // 工具执行状态
+  toolStatus?: 'pending' | 'running' | 'success' | 'error'
 }
 
 // Props
@@ -349,8 +351,24 @@ defineExpose({
               <div class="tool-result-header" @click="toggleToolResult(i)">
                 <div class="tool-result-title">
                   <span class="tool-result-name">{{ getToolName(m, messages) }}</span>
-                  <span class="tool-result-status">
-                    <span class="check-icon">✓</span>
+                  <!-- 执行中状态 -->
+                  <span v-if="m.toolStatus === 'running'" class="tool-result-status status-running">
+                    <span class="status-spinner"></span>
+                    <span class="status-text">执行中</span>
+                  </span>
+                  <!-- 成功状态 -->
+                  <span v-else-if="m.toolStatus === 'success'" class="tool-result-status status-success">
+                    <span class="status-icon status-icon-success">✓</span>
+                    <span class="status-text">已完成</span>
+                  </span>
+                  <!-- 错误状态 -->
+                  <span v-else-if="m.toolStatus === 'error'" class="tool-result-status status-error">
+                    <span class="status-icon status-icon-error">✕</span>
+                    <span class="status-text">执行失败</span>
+                  </span>
+                  <!-- 默认成功状态（向后兼容） -->
+                  <span v-else class="tool-result-status status-success">
+                    <span class="status-icon status-icon-success">✓</span>
                     <span class="status-text">已完成</span>
                   </span>
                 </div>
@@ -969,25 +987,69 @@ defineExpose({
   font-weight: 500;
 }
 
+/* 工具执行状态通用样式 */
 .tool-result-status {
   display: flex;
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  color: #22c55e;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: 500;
 }
 
-.check-icon {
+/* 执行中状态 */
+.status-running {
+  color: #2563eb;
+  /* background: #dbeafe; */
+}
+
+.status-running .status-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #2563eb;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 成功状态 */
+.status-success {
+  color: #16a34a;
+  /* background: #dcfce7; */
+}
+
+.status-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 18px;
   height: 18px;
-  background: #22c55e;
-  color: white;
   border-radius: 50%;
   font-size: 12px;
   font-weight: bold;
+}
+
+.status-icon-success {
+  background: #22c55e;
+  color: white;
+}
+
+/* 错误状态 */
+.status-error {
+  color: #dc2626;
+  background: #fee2e2;
+}
+
+.status-icon-error {
+  background: #ef4444;
+  color: white;
 }
 
 .status-text {
