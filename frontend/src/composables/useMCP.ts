@@ -313,17 +313,19 @@ export function useMCP() {
 
     try {
       // 使用 toRaw 移除响应式代理，避免序列化错误
+      // 只传递必要的配置字段，不包含 tools 等可能包含不可序列化数据的字段
       const rawServer = toRaw(server)
-      const result = await window.electronAPI.mcpListTools({
+      const serverConfig = {
         id: rawServer.id,
         name: rawServer.name,
         transportType: rawServer.transportType,
         simpleCommand: rawServer.simpleCommand,
         command: rawServer.command,
-        args: rawServer.args,
-        env: rawServer.env,
+        args: rawServer.args ? [...rawServer.args] : [],
+        env: rawServer.env ? { ...rawServer.env } : {},
         url: rawServer.url
-      })
+      }
+      const result = await window.electronAPI.mcpListTools(serverConfig)
 
       if (!result.success) {
         throw new Error(result.error || '获取工具列表失败')
