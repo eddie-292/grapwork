@@ -2595,6 +2595,7 @@ watch(taskMode, async (isTaskMode) => {
         @change-assistant="changeAssistant"
         @change-config="changeChatConfig"
         @update:is-task-mode="val => { if (currentChat) currentChat.isTaskMode = val }"
+        @clear-assistant="changeAssistant('')"
         ref="normalChatRef"
       />
 

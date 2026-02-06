@@ -45,6 +45,7 @@ const emit = defineEmits<{
   'change-assistant': [id: string]
   'change-config': [index: string]
   'update:is-task-mode': [value: boolean]
+  'clear-assistant': []
 }>()
 
 // 全局记忆对话框状态
@@ -337,6 +338,8 @@ async function selectFolderFromDialog() {
       if (result.success && result.path) {
         selectedFolderPath.value = result.path
         await storage.saveSelectedFolder(result.path)
+        // 清空助理选择
+        emit('clear-assistant')
         showFolderDialog.value = false
       }
     } catch (err) {
