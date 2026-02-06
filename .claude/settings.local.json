@@ -7,7 +7,10 @@
       "Bash(ls:*)",
       "Bash(npm run build:renderer:*)",
       "Bash(npm run build:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(npx tsc:*)",
+      "Bash(pkill:*)",
+      "Bash(npx esbuild:*)"
     ]
   }
 }

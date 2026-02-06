@@ -46,6 +46,7 @@ const emit = defineEmits<{
   'change-config': [index: string]
   'update:is-task-mode': [value: boolean]
   'clear-assistant': []
+  'folder-changed': [path: string]
 }>()
 
 // 全局记忆对话框状态
@@ -338,6 +339,8 @@ async function selectFolderFromDialog() {
       if (result.success && result.path) {
         selectedFolderPath.value = result.path
         await storage.saveSelectedFolder(result.path)
+        // 通知父组件文件夹已更改
+        emit('folder-changed', result.path)
         // 清空助理选择
         emit('clear-assistant')
         showFolderDialog.value = false
@@ -353,6 +356,7 @@ async function selectFolderFromDialog() {
 async function handleClearFolder() {
   selectedFolderPath.value = ''
   await storage.clearSelectedFolder()
+  emit('folder-changed', '')
   showFolderDialog.value = false
 }
 

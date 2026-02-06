@@ -58,5 +58,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('mcp-cleanup'),
   // 选择文件夹
   selectFolder: () =>
-    ipcRenderer.invoke('select-folder')
+    ipcRenderer.invoke('select-folder'),
+  // 文件操作工具
+  fileOperation: (operation: string, args: Record<string, any>) =>
+    ipcRenderer.invoke('file-operation', operation, args)
 })

@@ -27,6 +27,9 @@ export function useMCP() {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
+  // 内置文件操作工具的工作目录
+  const selectedFolder = ref<string>('')
+
   // 加载 MCP 服务器列表
   async function loadServers() {
     loading.value = true
@@ -150,8 +153,153 @@ export function useMCP() {
       }
     }
 
+    // 添加内置文件操作工具（如果选择了文件夹）
+    if (selectedFolder.value) {
+      tools.push(...getBuiltinFileTools())
+    }
+
     //console.log('[MCP] Total tools to send:', tools.length)
     return tools
+  }
+
+  /**
+   * 获取内置文件操作工具列表
+   */
+  function getBuiltinFileTools(): MCPToolDefinition[] {
+    return [
+      {
+        type: 'function',
+        function: {
+          name: 'list_directory',
+          description: '列出指定目录中的文件和子目录。路径是相对于工作目录的相对路径。',
+          parameters: {
+            type: 'object',
+            properties: {
+              path: {
+                type: 'string',
+                description: '要列出的目录路径（相对于工作目录），默认为当前目录"."'
+              }
+            }
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'create_directory',
+          description: '在指定路径创建新文件夹。',
+          parameters: {
+            type: 'object',
+            properties: {
+              path: {
+                type: 'string',
+                description: '父目录路径（相对于工作目录），默认为当前目录"."'
+              },
+              name: {
+                type: 'string',
+                description: '要创建的文件夹名称'
+              }
+            },
+            required: ['name']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'move_file',
+          description: '移动文件或文件夹到新位置。',
+          parameters: {
+            type: 'object',
+            properties: {
+              path: {
+                type: 'string',
+                description: '源文件或文件夹路径（相对于工作目录）'
+              },
+              newPath: {
+                type: 'string',
+                description: '目标路径（相对于工作目录）'
+              }
+            },
+            required: ['path', 'newPath']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'copy_file',
+          description: '复制文件或文件夹到新位置。',
+          parameters: {
+            type: 'object',
+            properties: {
+              path: {
+                type: 'string',
+                description: '源文件或文件夹路径（相对于工作目录）'
+              },
+              newPath: {
+                type: 'string',
+                description: '目标路径（相对于工作目录）'
+              }
+            },
+            required: ['path', 'newPath']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'rename_item',
+          description: '重命名文件或文件夹（保持在同一目录下）。',
+          parameters: {
+            type: 'object',
+            properties: {
+              path: {
+                type: 'string',
+                description: '要重命名的文件或文件夹路径（相对于工作目录）'
+              },
+              name: {
+                type: 'string',
+                description: '新名称'
+              }
+            },
+            required: ['path', 'name']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'delete_item',
+          description: '删除文件或文件夹。注意：删除文件夹将递归删除其所有内容。',
+          parameters: {
+            type: 'object',
+            properties: {
+              path: {
+                type: 'string',
+                description: '要删除的文件或文件夹路径（相对于工作目录）'
+              }
+            },
+            required: ['path']
+          }
+        }
+      }
+    ]
+  }
+
+  /**
+   * 检查工具是否为内置文件操作工具
+   */
+  function isBuiltinFileTool(toolName: string): boolean {
+    const builtinTools = [
+      'list_directory',
+      'create_directory',
+      'move_file',
+      'copy_file',
+      'rename_item',
+      'delete_item'
+    ]
+    return builtinTools.includes(toolName)
   }
 
   /**
@@ -188,6 +336,64 @@ export function useMCP() {
    */
   async function executeToolCall(toolCall: OpenAIToolCall): Promise<MCPToolResult> {
     try {
+      // 首先检查是否是内置文件操作工具
+      if (isBuiltinFileTool(toolCall.function.name)) {
+        // 解析参数
+        let args: Record<string, any> = {}
+        try {
+          args = JSON.parse(toolCall.function.arguments)
+        } catch (e) {
+          return {
+            toolCallId: toolCall.id,
+            content: '',
+            error: `工具参数解析失败: ${e}`
+          }
+        }
+
+        // 添加工作目录路径
+        args.basePath = selectedFolder.value
+
+        console.log('[Builtin File Tool] Executing:', {
+          tool: toolCall.function.name,
+          arguments: args
+        })
+
+        // 调用 Electron 主进程的文件操作
+        if (!isElectronEnv) {
+          return {
+            toolCallId: toolCall.id,
+            content: '',
+            error: '文件操作需要在 Electron 环境中运行'
+          }
+        }
+
+        if (!window.electronAPI?.fileOperation) {
+          return {
+            toolCallId: toolCall.id,
+            content: '',
+            error: 'Electron API 不可用'
+          }
+        }
+
+        const result = await window.electronAPI.fileOperation(
+          toolCall.function.name,
+          args
+        )
+
+        if (result.error) {
+          return {
+            toolCallId: toolCall.id,
+            content: '',
+            error: result.error
+          }
+        }
+
+        return {
+          toolCallId: toolCall.id,
+          content: result.content || ''
+        }
+      }
+
       // 查找工具所属的服务器
       let targetServer: MCPServer | null = null
       for (const server of activeServers.value) {
@@ -386,6 +592,7 @@ export function useMCP() {
     error,
     activeServers,
     hasActiveTools,
+    selectedFolder,
     loadServers,
     saveServers,
     addServer,
@@ -401,6 +608,12 @@ export function useMCP() {
     parseToolCalls,
     executeToolCall,
     executeToolCalls,
-    createToolResultMessage
+    createToolResultMessage,
+    // 文件工具相关
+    setSelectedFolder: (folder: string) => {
+      selectedFolder.value = folder
+    },
+    getSelectedFolder: () => selectedFolder.value,
+    isBuiltinFileTool
   }
 }

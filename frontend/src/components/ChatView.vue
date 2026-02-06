@@ -2467,12 +2467,24 @@ onMounted(async () => {
   await mcpManager.loadServers()
   // 加载全局记忆
   await globalMemoryManager.load()
+
+  // 加载选中的文件夹并同步到 mcpManager
+  const savedFolder = await storage.getSelectedFolder()
+  if (savedFolder) {
+    mcpManager.setSelectedFolder(savedFolder)
+  }
+
   scrollToBottom()
   // 普通 chat 组件会在内部处理 autoResizeTextarea
   if (textareaRef.value) {
     autoResizeTextarea()
   }
 })
+
+// 处理文件夹变化
+function handleFolderChanged(path: string) {
+  mcpManager.setSelectedFolder(path)
+}
 
 // 监听会话切换，加载工作记忆
 watch(currentChatId, (newChatId) => {
@@ -2596,6 +2608,7 @@ watch(taskMode, async (isTaskMode) => {
         @change-config="changeChatConfig"
         @update:is-task-mode="val => { if (currentChat) currentChat.isTaskMode = val }"
         @clear-assistant="changeAssistant('')"
+        @folder-changed="handleFolderChanged"
         ref="normalChatRef"
       />
 

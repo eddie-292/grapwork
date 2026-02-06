@@ -876,6 +876,283 @@ ipcMain.handle('mcp-cleanup', () => {
   return { success: true }
 })
 
+// ============================================================================
+// Built-in File Operation Tools
+// ============================================================================
+
+// 文件操作处理器
+ipcMain.handle('file-operation', async (_event, operation: string, args: Record<string, any>) => {
+  try {
+    const { basePath = '', path: itemPath = '', newPath = '', name = '' } = args
+
+    if (!basePath) {
+      return {
+        success: false,
+        error: '未选择工作目录，请先选择文件夹'
+      }
+    }
+
+    // 解析完整路径（确保路径安全，防止路径遍历攻击）
+    const resolveSafePath = (targetPath: string): string => {
+      // 移除开头的路径分隔符
+      const cleanPath = targetPath.replace(/^[/\\]+/, '')
+      // 拼接基础路径
+      const fullPath = path.join(basePath, cleanPath)
+      // 解析为绝对路径并规范化
+      const resolved = path.resolve(fullPath)
+      // 确保解析后的路径在基础路径内（防止路径遍历）
+      if (!resolved.startsWith(path.resolve(basePath))) {
+        throw new Error('路径遍历攻击检测：路径必须在基础目录内')
+      }
+      return resolved
+    }
+
+    switch (operation) {
+      case 'list_directory': {
+        const targetPath = resolveSafePath(itemPath || '.')
+
+        if (!fs.existsSync(targetPath)) {
+          return {
+            success: false,
+            error: `目录不存在: ${itemPath}`
+          }
+        }
+
+        const stat = fs.statSync(targetPath)
+        if (!stat.isDirectory()) {
+          return {
+            success: false,
+            error: `路径不是目录: ${itemPath}`
+          }
+        }
+
+        const entries = fs.readdirSync(targetPath, { withFileTypes: true })
+        const items = entries.map(entry => ({
+          name: entry.name,
+          type: entry.isDirectory() ? 'directory' : 'file'
+        }))
+
+        return {
+          success: true,
+          content: JSON.stringify({
+            path: itemPath || '.',
+            items
+          }, null, 2)
+        }
+      }
+
+      case 'create_directory': {
+        if (!name) {
+          return {
+            success: false,
+            error: '缺少必需参数: name'
+          }
+        }
+
+        const targetPath = resolveSafePath(path.join(itemPath || '', name))
+
+        if (fs.existsSync(targetPath)) {
+          return {
+            success: false,
+            error: `目录已存在: ${name}`
+          }
+        }
+
+        fs.mkdirSync(targetPath, { recursive: true })
+
+        return {
+          success: true,
+          content: JSON.stringify({
+            message: `目录创建成功: ${name}`,
+            path: path.join(itemPath || '.', name)
+          }, null, 2)
+        }
+      }
+
+      case 'move_file': {
+        if (!itemPath || !newPath) {
+          return {
+            success: false,
+            error: '缺少必需参数: path 和 newPath'
+          }
+        }
+
+        const sourcePath = resolveSafePath(itemPath)
+        const destPath = resolveSafePath(newPath)
+
+        if (!fs.existsSync(sourcePath)) {
+          return {
+            success: false,
+            error: `源路径不存在: ${itemPath}`
+          }
+        }
+
+        // 确保目标目录存在
+        const destDir = path.dirname(destPath)
+        if (!fs.existsSync(destDir)) {
+          fs.mkdirSync(destDir, { recursive: true })
+        }
+
+        fs.renameSync(sourcePath, destPath)
+
+        return {
+          success: true,
+          content: JSON.stringify({
+            message: '移动成功',
+            from: itemPath,
+            to: newPath
+          }, null, 2)
+        }
+      }
+
+      case 'copy_file': {
+        if (!itemPath || !newPath) {
+          return {
+            success: false,
+            error: '缺少必需参数: path 和 newPath'
+          }
+        }
+
+        const sourcePath = resolveSafePath(itemPath)
+        const destPath = resolveSafePath(newPath)
+
+        if (!fs.existsSync(sourcePath)) {
+          return {
+            success: false,
+            error: `源路径不存在: ${itemPath}`
+          }
+        }
+
+        // 确保目标目录存在
+        const destDir = path.dirname(destPath)
+        if (!fs.existsSync(destDir)) {
+          fs.mkdirSync(destDir, { recursive: true })
+        }
+
+        const stat = fs.statSync(sourcePath)
+        if (stat.isDirectory()) {
+          // 递归复制目录
+          copyDirectoryRecursive(sourcePath, destPath)
+        } else {
+          fs.copyFileSync(sourcePath, destPath)
+        }
+
+        return {
+          success: true,
+          content: JSON.stringify({
+            message: '复制成功',
+            from: itemPath,
+            to: newPath
+          }, null, 2)
+        }
+      }
+
+      case 'rename_item': {
+        if (!itemPath || !name) {
+          return {
+            success: false,
+            error: '缺少必需参数: path 和 name'
+          }
+        }
+
+        const sourcePath = resolveSafePath(itemPath)
+        const parentDir = path.dirname(sourcePath)
+        const destPath = path.join(parentDir, name)
+
+        if (!fs.existsSync(sourcePath)) {
+          return {
+            success: false,
+            error: `路径不存在: ${itemPath}`
+          }
+        }
+
+        if (fs.existsSync(destPath)) {
+          return {
+            success: false,
+            error: `目标名称已存在: ${name}`
+          }
+        }
+
+        fs.renameSync(sourcePath, destPath)
+
+        return {
+          success: true,
+          content: JSON.stringify({
+            message: '重命名成功',
+            from: itemPath,
+            to: path.join(path.dirname(itemPath), name)
+          }, null, 2)
+        }
+      }
+
+      case 'delete_item': {
+        if (!itemPath) {
+          return {
+            success: false,
+            error: '缺少必需参数: path'
+          }
+        }
+
+        const targetPath = resolveSafePath(itemPath)
+
+        if (!fs.existsSync(targetPath)) {
+          return {
+            success: false,
+            error: `路径不存在: ${itemPath}`
+          }
+        }
+
+        const stat = fs.statSync(targetPath)
+        if (stat.isDirectory()) {
+          fs.rmSync(targetPath, { recursive: true, force: true })
+        } else {
+          fs.unlinkSync(targetPath)
+        }
+
+        return {
+          success: true,
+          content: JSON.stringify({
+            message: '删除成功',
+            path: itemPath
+          }, null, 2)
+        }
+      }
+
+      default:
+        return {
+          success: false,
+          error: `未知的文件操作: ${operation}`
+        }
+    }
+  } catch (error) {
+    console.error('[File Operation] Failed:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '操作失败'
+    }
+  }
+})
+
+// 递归复制目录的辅助函数
+function copyDirectoryRecursive(source: string, target: string): void {
+  if (!fs.existsSync(target)) {
+    fs.mkdirSync(target, { recursive: true })
+  }
+
+  const entries = fs.readdirSync(source, { withFileTypes: true })
+
+  for (const entry of entries) {
+    const srcPath = path.join(source, entry.name)
+    const destPath = path.join(target, entry.name)
+
+    if (entry.isDirectory()) {
+      copyDirectoryRecursive(srcPath, destPath)
+    } else {
+      fs.copyFileSync(srcPath, destPath)
+    }
+  }
+}
+
 ipcMain.handle('chat-request', async (_event, { apiUrl, apiKey, model, messages, extra_body }) => {
   try {
     // 解析 extra_body 参数
