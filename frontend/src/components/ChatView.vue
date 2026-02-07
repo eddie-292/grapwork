@@ -714,7 +714,13 @@ async function executeTaskStreaming(
 
   // 添加对话历史
   conversationHistory.forEach(msg => {
-    messagesToSend.push({ role: msg.role, content: msg.content })
+    const msgObj: any = { role: msg.role, content: msg.content }
+    // DeepSeek 思考模型要求：如果历史消息中有 assistant 消息包含 reasoning_content，
+    // 后续所有的 assistant 消息都必须包含此字段（即使是空字符串）
+    if (msg.role === 'assistant') {
+      msgObj.reasoning_content = msg.reasoning || ''
+    }
+    messagesToSend.push(msgObj)
   })
 
   // 添加当前任务提示
@@ -879,7 +885,13 @@ async function performIntermediateMerge(
 
   // 添加对话历史
   conversationHistory.forEach(msg => {
-    messagesToSend.push({ role: msg.role, content: msg.content })
+    const msgObj: any = { role: msg.role, content: msg.content }
+    // DeepSeek 思考模型要求：如果历史消息中有 assistant 消息包含 reasoning_content，
+    // 后续所有的 assistant 消息都必须包含此字段（即使是空字符串）
+    if (msg.role === 'assistant') {
+      msgObj.reasoning_content = msg.reasoning || ''
+    }
+    messagesToSend.push(msgObj)
   })
 
   messagesToSend.push({ role: 'user', content: mergePrompt })
@@ -981,6 +993,11 @@ async function executeNormalChat(text: string) {
       const msg: any = { role: m.role, content: m.content }
       if (m.tool_call_id) msg.tool_call_id = m.tool_call_id
       if (m.tool_calls) msg.tool_calls = m.tool_calls
+      // DeepSeek 思考模型要求：如果历史消息中有 assistant 消息包含 reasoning_content，
+      // 后续所有的 assistant 消息都必须包含此字段（即使是空字符串）
+      if (m.role === 'assistant') {
+        msg.reasoning_content = m.reasoning || ''
+      }
       return msg
     })
 
@@ -1278,6 +1295,11 @@ async function continueChatAfterToolCalls(messages: any[], mcpTools: any[]) {
       const msg: any = { role: m.role, content: m.content }
       if (m.tool_call_id) msg.tool_call_id = m.tool_call_id
       if (m.tool_calls) msg.tool_calls = m.tool_calls
+      // DeepSeek 思考模型要求：如果历史消息中有 assistant 消息包含 reasoning_content，
+      // 后续所有的 assistant 消息都必须包含此字段（即使是空字符串）
+      if (m.role === 'assistant') {
+        msg.reasoning_content = m.reasoning || ''
+      }
       return msg
     })
 
