@@ -155,7 +155,7 @@ export function useMCP() {
 
     // 添加内置文件操作工具（如果选择了文件夹）
     if (selectedFolder.value) {
-      tools.push(...getBuiltinFileTools())
+      tools.push(...getBuiltinFileTools(selectedFolder.value))
     }
 
     //console.log('[MCP] Total tools to send:', tools.length)
@@ -165,19 +165,21 @@ export function useMCP() {
   /**
    * 获取内置文件操作工具列表
    */
-  function getBuiltinFileTools(): MCPToolDefinition[] {
+  function getBuiltinFileTools(workDir: string): MCPToolDefinition[] {
+    // 工作目录说明，添加到每个工具描述中
+    const workDirContext = `当前工作目录: ${workDir}。所有文件操作都在此目录范围内进行。`
     return [
       {
         type: 'function',
         function: {
           name: 'list_directory',
-          description: '列出指定目录中的文件和子目录。路径是相对于工作目录的相对路径。',
+          description: `${workDirContext} 列出指定目录中的文件和子目录。在执行其他文件操作前，建议先使用此工具了解目录结构。可以递归查看子目录内容。`,
           parameters: {
             type: 'object',
             properties: {
               path: {
                 type: 'string',
-                description: '要列出的目录路径（相对于工作目录），默认为当前目录"."'
+                description: '要列出的目录路径（相对于工作目录）。示例："." 查看当前目录，"src" 查看 src 子目录，"docs/api" 查看嵌套子目录。'
               }
             }
           }
@@ -271,17 +273,17 @@ export function useMCP() {
         type: 'function',
         function: {
           name: 'glob',
-          description: '快速进行文件模式匹配（支持 glob 通配符）。',
+          description: `${workDirContext} 快速进行文件模式匹配（支持 glob 通配符）。用于查找特定文件或列出目录内容。例如：pattern="*.html" 查找所有 HTML 文件。`,
           parameters: {
             type: 'object',
             properties: {
               pattern: {
                 type: 'string',
-                description: '匹配文件的模式（如 *.js, src/**/*.ts）'
+                description: '匹配文件的模式（如 *.js, **/*.html, src/**/*.ts）'
               },
               path: {
                 type: 'string',
-                description: '搜索的根目录路径（必须为绝对路径）'
+                description: '搜索的根目录路径（相对于工作目录），默认为当前目录"."。例如："src", "docs", "."'
               }
             },
             required: ['pattern']
@@ -292,7 +294,7 @@ export function useMCP() {
         type: 'function',
         function: {
           name: 'grep',
-          description: '在文件内容中搜索指定正则表达式。',
+          description: `${workDirContext} 在文件内容中搜索指定正则表达式。使用前建议先用 list_directory 查看目录结构。如果不知道目标文件位置，可以搜索整个工作目录（path="."）并使用 include 参数限制文件类型。`,
           parameters: {
             type: 'object',
             properties: {
@@ -302,11 +304,11 @@ export function useMCP() {
               },
               path: {
                 type: 'string',
-                description: '搜索的目录路径（必须为绝对路径）'
+                description: '搜索的目录路径（相对于工作目录）。例如："src", ".", "docs"。如果不指定则搜索整个工作目录。'
               },
               include: {
                 type: 'string',
-                description: '包含的文件类型模式（如 .js, .{ts,tsx}）'
+                description: '包含的文件类型模式（如 .js, .{ts,tsx}），用于过滤要搜索的文件类型'
               }
             },
             required: ['pattern']
@@ -480,10 +482,10 @@ export function useMCP() {
         // 添加工作目录路径
         args.basePath = selectedFolder.value
 
-        console.log('[Builtin File Tool] Executing:', {
+        console.log('[Builtin File Tool] Executing:', JSON.stringify({
           tool: toolCall.function.name,
           arguments: args
-        })
+        }))
 
         // 调用 Electron 主进程的文件操作
         if (!isElectronEnv) {

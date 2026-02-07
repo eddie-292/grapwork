@@ -403,6 +403,59 @@ function parseQwenStreamDelta(
   return result
 }
 
+/**
+ * Qwen 工具调用格式解析器
+ * Qwen 模型将工具调用以文本标签形式嵌入在 content 中
+ * 格式: <tool_call>{"name": "tool_name", "arguments": {...}}</tool_call>
+ */
+interface QwenToolCall {
+  name: string
+  arguments: any
+}
+
+function parseQwenToolCalls(content: string): { toolCalls: any[]; cleanedContent: string } {
+  // 匹配
+  const QWEN_TOOL_CALL_PATTERN = /<tool_call>\s*\n?([\s\S]*?)\n?<\/tool_call>/g
+
+  const toolCalls: any[] = []
+  let cleanedContent = content
+  let matchIndex = 0
+
+  let match
+  while ((match = QWEN_TOOL_CALL_PATTERN.exec(content)) !== null) {
+    try {
+      const toolCallJson = match[1] ?? ''
+      const parsed: QwenToolCall = JSON.parse(toolCallJson)
+
+      // 生成唯一的 tool_call_id
+      const toolCallId = `call_${Date.now()}_${matchIndex}`
+
+      // 转换为 OpenAI 格式
+      toolCalls.push({
+        id: toolCallId,
+        type: 'function',
+        function: {
+          name: parsed.name,
+          arguments: typeof parsed.arguments === 'string'
+            ? parsed.arguments
+            : JSON.stringify(parsed.arguments)
+        }
+      })
+
+      matchIndex++
+    } catch (e) {
+      console.error('[Qwen Tool Call] Failed to parse tool call:', match?.[1], e)
+    }
+  }
+
+  // 从内容中移除工具调用标签（保持可见内容干净）
+  if (toolCalls.length > 0) {
+    cleanedContent = content.replace(QWEN_TOOL_CALL_PATTERN, '').trim()
+  }
+
+  return { toolCalls, cleanedContent }
+}
+
 // 发送消息到 LLM（支持流式响应）
 async function sendMessageToLLM(messages: { role: string; content: string }[]): Promise<string> {
   if (!activeConfig.value?.apiKey) {
@@ -1199,12 +1252,27 @@ async function executeNormalChat(text: string) {
     }
 
     // 流结束后，检查是否有 tool_calls
-    const finalToolCalls = Array.from(currentToolCallsMap.values())
+    let finalToolCalls = Array.from(currentToolCallsMap.values())
+
+    // 如果没有检测到 OpenAI 格式的 tool_calls，检查 Qwen 格式的工具调用
+    if (finalToolCalls.length === 0 && mcpTools.length > 0) {
+      const msg = currentMessages[assistantIndex]
+      if (msg) {
+        const { toolCalls: qwenToolCalls, cleanedContent } = parseQwenToolCalls(msg.content)
+        if (qwenToolCalls.length > 0) {
+          console.log('[Qwen Tool Call] Detected Qwen-style tool calls:', qwenToolCalls)
+          finalToolCalls = qwenToolCalls
+          // 清理内容中的工具调用标签
+          msg.content = cleanedContent
+        }
+      }
+    }
+
     if (finalToolCalls.length > 0 && mcpTools.length > 0) {
       const msg = currentMessages[assistantIndex]
       if (msg) {
         msg.tool_calls = finalToolCalls
-        console.log('[MCP] Received tool_calls:', finalToolCalls)
+        console.log('[MCP] Processing tool_calls:', finalToolCalls)
 
         // 执行工具调用
         try {
@@ -1402,7 +1470,22 @@ async function continueChatAfterToolCalls(messages: any[], mcpTools: any[]) {
     }
 
     // 处理第二轮工具调用
-    const finalToolCalls = Array.from(currentToolCallsMap.values())
+    let finalToolCalls = Array.from(currentToolCallsMap.values())
+
+    // 如果没有检测到 OpenAI 格式的 tool_calls，检查 Qwen 格式的工具调用
+    if (finalToolCalls.length === 0) {
+      const msg = messages[assistantIndex]
+      if (msg) {
+        const { toolCalls: qwenToolCalls, cleanedContent } = parseQwenToolCalls(msg.content)
+        if (qwenToolCalls.length > 0) {
+          console.log('[Qwen Tool Call] Detected Qwen-style tool calls (nested):', qwenToolCalls)
+          finalToolCalls = qwenToolCalls
+          // 清理内容中的工具调用标签
+          msg.content = cleanedContent
+        }
+      }
+    }
+
     if (finalToolCalls.length > 0) {
       const msg = messages[assistantIndex]
       if (msg) {

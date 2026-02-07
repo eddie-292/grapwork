@@ -1120,7 +1120,8 @@ ipcMain.handle('file-operation', async (_event, operation: string, args: Record<
 
       case 'glob': {
         const { pattern = '' } = args
-        const searchPath = args.path ? path.resolve(args.path) : basePath
+        // 将相对路径解析为基于 basePath 的绝对路径
+        const searchPath = args.path ? path.resolve(basePath, args.path) : basePath
 
         if (!pattern) {
           return {
@@ -1129,8 +1130,11 @@ ipcMain.handle('file-operation', async (_event, operation: string, args: Record<
           }
         }
 
-        // 验证搜索路径是否在基础路径内
-        if (!searchPath.startsWith(path.resolve(basePath))) {
+        // 验证搜索路径是否在基础路径内（使用规范化后的路径比较）
+        const normalizedBasePath = path.resolve(basePath)
+        const normalizedSearchPath = path.resolve(searchPath)
+        const relativePath = path.relative(normalizedBasePath, normalizedSearchPath)
+        if (relativePath.startsWith('..')) {
           return {
             success: false,
             error: '搜索路径必须在基础目录内'
@@ -1175,7 +1179,8 @@ ipcMain.handle('file-operation', async (_event, operation: string, args: Record<
 
       case 'grep': {
         const { pattern = '' } = args
-        const searchPath = args.path ? path.resolve(args.path) : basePath
+        // 将相对路径解析为基于 basePath 的绝对路径
+        const searchPath = args.path ? path.resolve(basePath, args.path) : basePath
         const includePattern = args.include || ''
 
         if (!pattern) {
@@ -1185,8 +1190,11 @@ ipcMain.handle('file-operation', async (_event, operation: string, args: Record<
           }
         }
 
-        // 验证搜索路径是否在基础路径内
-        if (!searchPath.startsWith(path.resolve(basePath))) {
+        // 验证搜索路径是否在基础路径内（使用规范化后的路径比较）
+        const normalizedBasePath = path.resolve(basePath)
+        const normalizedSearchPath = path.resolve(searchPath)
+        const relativePath = path.relative(normalizedBasePath, normalizedSearchPath)
+        if (relativePath.startsWith('..')) {
           return {
             success: false,
             error: '搜索路径必须在基础目录内'

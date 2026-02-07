@@ -10,7 +10,10 @@
       "Bash(npm run:*)",
       "Bash(npx tsc:*)",
       "Bash(pkill:*)",
-      "Bash(npx esbuild:*)"
+      "Bash(npx esbuild:*)",
+      "Bash(npx vue-tsc:*)",
+      "Bash(npm --prefix /Users/eddie/Documents/idea_code/openchat/frontend run build:renderer)",
+      "Bash(npm --prefix:*)"
     ]
   }
 }
