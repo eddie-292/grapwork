@@ -523,7 +523,7 @@ defineExpose({
               ✓ {{ selectedFolderPath.split('/').pop() || selectedFolderPath.split('\\').pop() || '文件夹' }}
             </template>
             <template v-else>
-              文件整理
+              工作空间
             </template>
           </button>
         </div>
@@ -1148,7 +1148,6 @@ defineExpose({
 /* 错误状态 */
 .status-error {
   color: #dc2626;
-  background: #fee2e2;
 }
 
 .status-icon-error {

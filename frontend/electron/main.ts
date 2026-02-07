@@ -1118,6 +1118,365 @@ ipcMain.handle('file-operation', async (_event, operation: string, args: Record<
         }
       }
 
+      case 'glob': {
+        const { pattern = '' } = args
+        const searchPath = args.path ? path.resolve(args.path) : basePath
+
+        if (!pattern) {
+          return {
+            success: false,
+            error: '缺少必需参数: pattern'
+          }
+        }
+
+        // 验证搜索路径是否在基础路径内
+        if (!searchPath.startsWith(path.resolve(basePath))) {
+          return {
+            success: false,
+            error: '搜索路径必须在基础目录内'
+          }
+        }
+
+        if (!fs.existsSync(searchPath)) {
+          return {
+            success: false,
+            error: `搜索路径不存在: ${args.path}`
+          }
+        }
+
+        try {
+          const globPattern = path.join(searchPath, pattern)
+          const { glob: globUtil } = await import('glob')
+          const files = await globUtil(globPattern, {
+            windowsPathsNoEscape: true,
+            nodir: false,
+            dot: false
+          })
+
+          // 返回相对路径
+          const relativeFiles = files.map(f => path.relative(searchPath, f))
+
+          return {
+            success: true,
+            content: JSON.stringify({
+              pattern,
+              path: searchPath,
+              files: relativeFiles,
+              count: relativeFiles.length
+            }, null, 2)
+          }
+        } catch (error: any) {
+          return {
+            success: false,
+            error: `Glob 搜索失败: ${error?.message || error}`
+          }
+        }
+      }
+
+      case 'grep': {
+        const { pattern = '' } = args
+        const searchPath = args.path ? path.resolve(args.path) : basePath
+        const includePattern = args.include || ''
+
+        if (!pattern) {
+          return {
+            success: false,
+            error: '缺少必需参数: pattern'
+          }
+        }
+
+        // 验证搜索路径是否在基础路径内
+        if (!searchPath.startsWith(path.resolve(basePath))) {
+          return {
+            success: false,
+            error: '搜索路径必须在基础目录内'
+          }
+        }
+
+        if (!fs.existsSync(searchPath)) {
+          return {
+            success: false,
+            error: `搜索路径不存在: ${args.path}`
+          }
+        }
+
+        try {
+          const regex = new RegExp(pattern)
+          const results: Array<{ file: string; line: number; content: string }> = []
+
+          // 递归搜索文件
+          const searchInDirectory = (dir: string) => {
+            const entries = fs.readdirSync(dir, { withFileTypes: true })
+
+            for (const entry of entries) {
+              const fullPath = path.join(dir, entry.name)
+
+              if (entry.isDirectory()) {
+                // 递归搜索子目录
+                searchInDirectory(fullPath)
+              } else if (entry.isFile()) {
+                // 检查文件扩展名是否匹配 include pattern
+                if (includePattern) {
+                  const ext = path.extname(entry.name)
+                  const includeRegex = new RegExp(includePattern.replace(/[{}]/g, ''))
+                  if (!includeRegex.test(ext) && !includeRegex.test(entry.name)) {
+                    continue
+                  }
+                }
+
+                try {
+                  const content = fs.readFileSync(fullPath, 'utf-8')
+                  const lines = content.split('\n')
+
+                  lines.forEach((line, index) => {
+                    if (regex.test(line)) {
+                      results.push({
+                        file: path.relative(searchPath, fullPath),
+                        line: index + 1,
+                        content: line.trim()
+                      })
+                    }
+                  })
+                } catch (err) {
+                  // 跳过无法读取的文件（二进制文件等）
+                }
+              }
+            }
+          }
+
+          searchInDirectory(searchPath)
+
+          return {
+            success: true,
+            content: JSON.stringify({
+              pattern,
+              path: searchPath,
+              include: includePattern,
+              matches: results.length,
+              results: results.slice(0, 100) // 限制结果数量
+            }, null, 2)
+          }
+        } catch (error: any) {
+          return {
+            success: false,
+            error: `Grep 搜索失败: ${error?.message || error}`
+          }
+        }
+      }
+
+      case 'read_file': {
+        const { file_path = '' } = args
+        const limit = args.limit || 2000
+        const offset = args.offset || 1
+
+        if (!file_path) {
+          return {
+            success: false,
+            error: '缺少必需参数: file_path'
+          }
+        }
+
+        const targetPath = path.isAbsolute(file_path) ? file_path : resolveSafePath(file_path)
+
+        // 对于绝对路径，验证是否在基础路径内
+        if (path.isAbsolute(file_path) && !targetPath.startsWith(path.resolve(basePath))) {
+          return {
+            success: false,
+            error: '文件路径必须在基础目录内'
+          }
+        }
+
+        if (!fs.existsSync(targetPath)) {
+          return {
+            success: false,
+            error: `文件不存在: ${file_path}`
+          }
+        }
+
+        const stat = fs.statSync(targetPath)
+        if (stat.isDirectory()) {
+          return {
+            success: false,
+            error: `路径是目录而不是文件: ${file_path}`
+          }
+        }
+
+        try {
+          const content = fs.readFileSync(targetPath, 'utf-8')
+          const lines = content.split('\n')
+
+          const startLine = Math.max(0, offset - 1)
+          const endLine = Math.min(lines.length, startLine + limit)
+          const selectedLines = lines.slice(startLine, endLine)
+
+          // 添加行号
+          const numberedLines = selectedLines.map((line, idx) => {
+            const lineNum = startLine + idx + 1
+            return `${String(lineNum).padStart(4, ' ')}\t${line}`
+          })
+
+          return {
+            success: true,
+            content: JSON.stringify({
+              file_path,
+              total_lines: lines.length,
+              lines_shown: selectedLines.length,
+              start_line: startLine + 1,
+              end_line: endLine,
+              content: numberedLines.join('\n')
+            }, null, 2)
+          }
+        } catch (error: any) {
+          return {
+            success: false,
+            error: `读取文件失败: ${error?.message || error}`
+          }
+        }
+      }
+
+      case 'write_file': {
+        const { file_path = '', content = '' } = args
+
+        if (!file_path) {
+          return {
+            success: false,
+            error: '缺少必需参数: file_path'
+          }
+        }
+
+        if (content === undefined || content === null) {
+          return {
+            success: false,
+            error: '缺少必需参数: content'
+          }
+        }
+
+        const targetPath = path.isAbsolute(file_path) ? file_path : resolveSafePath(file_path)
+
+        // 对于绝对路径，验证是否在基础路径内
+        if (path.isAbsolute(file_path) && !targetPath.startsWith(path.resolve(basePath))) {
+          return {
+            success: false,
+            error: '文件路径必须在基础目录内'
+          }
+        }
+
+        // 确保父目录存在
+        const parentDir = path.dirname(targetPath)
+        if (!fs.existsSync(parentDir)) {
+          fs.mkdirSync(parentDir, { recursive: true })
+        }
+
+        try {
+          fs.writeFileSync(targetPath, String(content), 'utf-8')
+
+          return {
+            success: true,
+            content: JSON.stringify({
+              message: '文件写入成功',
+              file_path,
+              bytes_written: Buffer.byteLength(String(content), 'utf-8')
+            }, null, 2)
+          }
+        } catch (error: any) {
+          return {
+            success: false,
+            error: `写入文件失败: ${error?.message || error}`
+          }
+        }
+      }
+
+      case 'edit_file': {
+        const { file_path = '', old_string = '', new_string = '', replace_all = false } = args
+
+        if (!file_path) {
+          return {
+            success: false,
+            error: '缺少必需参数: file_path'
+          }
+        }
+
+        if (!old_string || old_string === '') {
+          return {
+            success: false,
+            error: '缺少必需参数: old_string（不能为空）'
+          }
+        }
+
+        if (new_string === undefined || new_string === null) {
+          return {
+            success: false,
+            error: '缺少必需参数: new_string'
+          }
+        }
+
+        const targetPath = path.isAbsolute(file_path) ? file_path : resolveSafePath(file_path)
+
+        // 对于绝对路径，验证是否在基础路径内
+        if (path.isAbsolute(file_path) && !targetPath.startsWith(path.resolve(basePath))) {
+          return {
+            success: false,
+            error: '文件路径必须在基础目录内'
+          }
+        }
+
+        if (!fs.existsSync(targetPath)) {
+          return {
+            success: false,
+            error: `文件不存在: ${file_path}`
+          }
+        }
+
+        const stat = fs.statSync(targetPath)
+        if (stat.isDirectory()) {
+          return {
+            success: false,
+            error: `路径是目录而不是文件: ${file_path}`
+          }
+        }
+
+        try {
+          let content = fs.readFileSync(targetPath, 'utf-8')
+
+          // 检查 old_string 是否存在
+          if (!content.includes(old_string)) {
+            return {
+              success: false,
+              error: `未找到要替换的文本: "${old_string.slice(0, 50)}${old_string.length > 50 ? '...' : ''}"`
+            }
+          }
+
+          // 计算替换次数
+          let replaceCount = 0
+          if (replace_all) {
+            const matches = content.split(old_string)
+            replaceCount = matches.length - 1
+            content = content.split(old_string).join(new_string)
+          } else {
+            // 只替换第一个匹配项
+            content = content.replace(old_string, new_string)
+            replaceCount = 1
+          }
+
+          fs.writeFileSync(targetPath, content, 'utf-8')
+
+          return {
+            success: true,
+            content: JSON.stringify({
+              message: '文件编辑成功',
+              file_path,
+              replacements_made: replaceCount,
+              replace_all
+            }, null, 2)
+          }
+        } catch (error: any) {
+          return {
+            success: false,
+            error: `编辑文件失败: ${error?.message || error}`
+          }
+        }
+      }
+
       default:
         return {
           success: false,

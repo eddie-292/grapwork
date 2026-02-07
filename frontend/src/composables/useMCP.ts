@@ -267,6 +267,128 @@ export function useMCP() {
           }
         }
       },
+      {
+        type: 'function',
+        function: {
+          name: 'glob',
+          description: '快速进行文件模式匹配（支持 glob 通配符）。',
+          parameters: {
+            type: 'object',
+            properties: {
+              pattern: {
+                type: 'string',
+                description: '匹配文件的模式（如 *.js, src/**/*.ts）'
+              },
+              path: {
+                type: 'string',
+                description: '搜索的根目录路径（必须为绝对路径）'
+              }
+            },
+            required: ['pattern']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'grep',
+          description: '在文件内容中搜索指定正则表达式。',
+          parameters: {
+            type: 'object',
+            properties: {
+              pattern: {
+                type: 'string',
+                description: '要搜索的正则表达式'
+              },
+              path: {
+                type: 'string',
+                description: '搜索的目录路径（必须为绝对路径）'
+              },
+              include: {
+                type: 'string',
+                description: '包含的文件类型模式（如 .js, .{ts,tsx}）'
+              }
+            },
+            required: ['pattern']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'read_file',
+          description: '从本地文件系统读取文件内容。',
+          parameters: {
+            type: 'object',
+            properties: {
+              file_path: {
+                type: 'string',
+                description: '要读取的文件路径'
+              },
+              limit: {
+                type: 'number',
+                description: '限制读取的行数（默认为 2000）'
+              },
+              offset: {
+                type: 'number',
+                description: '从第几行开始读取（从 1 开始）'
+              }
+            },
+            required: ['file_path']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'write_file',
+          description: '将内容写入本地文件系统。',
+          parameters: {
+            type: 'object',
+            properties: {
+              file_path: {
+                type: 'string',
+                description: '目标文件路径'
+              },
+              content: {
+                type: 'string',
+                description: '要写入的文本内容'
+              }
+            },
+            required: ['file_path', 'content']
+          }
+        }
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'edit_file',
+          description: '在文件中执行精确的字符串替换。',
+          parameters: {
+            type: 'object',
+            properties: {
+              file_path: {
+                type: 'string',
+                description: '要修改的文件路径'
+              },
+              old_string: {
+                type: 'string',
+                description: '要被替换的原始文本'
+              },
+              new_string: {
+                type: 'string',
+                description: '替换后的新文本'
+              },
+              replace_all: {
+                type: 'boolean',
+                description: '是否替换所有匹配项（默认为 false）'
+              }
+            },
+            required: ['file_path', 'old_string', 'new_string']
+          }
+        }
+      },
+      // 为了安全，删除展示不启用
       // {
       //   type: 'function',
       //   function: {
@@ -297,6 +419,11 @@ export function useMCP() {
       'move_file',
       'copy_file',
       'rename_item',
+      'glob',
+      'grep',
+      'read_file',
+      'write_file',
+      'edit_file',
       'delete_item'
     ]
     return builtinTools.includes(toolName)
