@@ -496,19 +496,6 @@ defineExpose({
         >
           参数
         </button>
-        <!-- 任务模式切换 -->
-        <div class="task-mode-toggle" v-if="currentChat?.messages.length === 0">
-          <label class="toggle-label">
-            <input
-              type="checkbox"
-              :checked="currentChat?.isTaskMode"
-              :disabled="sending"
-              @change="toggleTaskMode"
-            >
-            <span class="toggle-switch"></span>
-            <span class="toggle-text">任务模式</span>
-          </label>
-        </div>
       </div>
 
       <div class="composer">
