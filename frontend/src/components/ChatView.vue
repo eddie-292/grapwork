@@ -2972,8 +2972,6 @@ watch(currentChatId, (newChatId) => {
 }
 
 .header-inner {
-  max-width: 900px;
-  margin: 0 auto;
   height: 56px;
   display: flex;
   align-items: center;
