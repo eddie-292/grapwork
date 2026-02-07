@@ -16,6 +16,7 @@ import { useGlobalMemory } from '../composables/useGlobalMemory'
 import { useMCP } from '../composables/useMCP'
 import TaskModePanel from './TaskModePanel.vue'
 import NormalChat from './NormalChat.vue'
+import TaskChat from './TaskChat.vue'
 import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
@@ -275,13 +276,12 @@ const activeAssistant = computed(() => {
   return assistantList.value.assistants.find(a => a.id === chat.assistantId) || null
 })
 const messages = computed(() => currentChat.value?.messages || [])
-const messagesRef = ref<HTMLDivElement | null>(null)
+// messagesRef, textareaRef, autoScrollEnabled 已移至 TaskChat 组件
 const normalChatRef = ref<InstanceType<typeof NormalChat> | null>(null)
+const taskChatRef = ref<InstanceType<typeof TaskChat> | null>(null)
 // 分组会话：任务模式和普通会话
 const taskModeChats = computed(() => chatList.value.filter(c => c.isTaskMode === true))
 const normalChats = computed(() => chatList.value.filter(c => c.isTaskMode === false || c.isTaskMode === undefined))
-const textareaRef = ref<HTMLTextAreaElement | null>(null)
-const autoScrollEnabled = ref(true)
 const isElectronEnv =
   typeof navigator !== 'undefined' &&
   navigator.userAgent.toLowerCase().includes('electron')
@@ -296,76 +296,7 @@ function normalizeApiUrl(url: string) {
   return url.replace(/\/+$/, '')
 }
 
-function handleMessagesScroll() {
-  const el = messagesRef.value
-  if (!el) return
-  const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight
-  autoScrollEnabled.value = distanceToBottom <= 80
-}
-
-function autoResizeTextarea() {
-  const textarea = textareaRef.value
-  if (!textarea) return
-
-  textarea.style.height = 'auto'
-  const newHeight = Math.min(Math.max(textarea.scrollHeight, 22), 51)
-  textarea.style.height = newHeight + 'px'
-}
-
-function render(content: string) {
-  return md.render(content)
-}
-
-function stripHtml(html: string): string {
-  const div = document.createElement('div')
-  div.innerHTML = html
-  return div.textContent || div.innerText || ''
-}
-
-async function copyText(content: string) {
-  try {
-    await navigator.clipboard.writeText(content)
-    //alert('已复制')
-  } catch (err) {
-    console.error('Failed to copy:', err)
-    alert('复制失败')
-  }
-}
-
-async function copyRenderedText(content: string) {
-  const rendered = render(content)
-  copyText(stripHtml(rendered))
-}
-
-async function copyMarkdown(content: string) {
-  copyText(content)
-}
-
-// HTML预览功能
-function openHtmlPreview(base64Code: string) {
-  // 使用UTF-8解码
-  const utf8Bytes = atob(base64Code)
-  const htmlCode = decodeURIComponent(utf8Bytes.split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''))
-  htmlPreviewContent.value = htmlCode
-  showHtmlPreview.value = true
-}
-
-// 链接点击处理
-async function handleLinkClick(e: MouseEvent) {
-  const target = e.target as HTMLElement
-  const anchor = target.closest('a')
-  if (anchor) {
-    e.preventDefault()
-    const href = anchor.getAttribute('href')
-    if (href && window.electronAPI?.openExternal) {
-      try {
-        await window.electronAPI.openExternal(href)
-      } catch (err) {
-        console.error('Failed to open external URL:', err)
-      }
-    }
-  }
-}
+// handleMessagesScroll, autoResizeTextarea, render, stripHtml, copyText 函数已移至 TaskChat 组件
 
 // 任务规划提示词
 const TASK_PLANNING_PROMPT = `你是一个任务规划助手。请将用户的请求分解为一系列清晰、具体的子任务。
@@ -1045,10 +976,13 @@ async function executeNormalChat(text: string) {
 
   try {
     const currentMessages = currentChat.value?.messages || []
-    const messagesToSend = currentMessages.slice(0, -1).map(m => ({
-      role: m.role,
-      content: m.content
-    }))
+    // 构建消息数组，需要包含 tool_call_id 和 tool_calls 字段
+    const messagesToSend = currentMessages.slice(0, -1).map(m => {
+      const msg: any = { role: m.role, content: m.content }
+      if (m.tool_call_id) msg.tool_call_id = m.tool_call_id
+      if (m.tool_calls) msg.tool_calls = m.tool_calls
+      return msg
+    })
 
     // 确保全局记忆已加载（如果未加载则立即加载）
     if (!globalMemoryManager.memory.value) {
@@ -1605,6 +1539,10 @@ async function confirmTaskExecution() {
   const chat = currentChat.value
   const tasks = pendingTasks.value
 
+  // 初始化 AbortController
+  controllers.value[chat.id] = new AbortController()
+  chat.sending = true
+
   // 初始化工作记忆
   await initWorkingMemory(chat.id)
 
@@ -1694,10 +1632,6 @@ async function confirmTaskExecution() {
         msg.content,
         WorkingMemoryType.FINAL_RESULT
       )
-
-      // 调试：验证工作记忆是否保存成功
-      const savedCount = workingMemoryManager?.allEntries.value.length ?? 0
-      //console.log(`[Task ${i}] 工作记忆已保存，当前条目数: ${savedCount}`)
 
       // 保存任务输出用于最终整合
       taskOutputs.push(msg.content)
@@ -1921,7 +1855,6 @@ async function continueTaskExecution() {
     }
 
     let accumulatedTokens = 0  // 简化处理，重新开始计数
-    const tokenThreshold = chat.taskModeOptions?.tokenThreshold ?? 8000
 
     // 从失败的任务开始继续执行
     for (let i = startIndex; i < tasks.length; i++) {
@@ -2262,13 +2195,11 @@ function scrollToBottom() {
     return
   }
 
-  // 任务模式使用原来的方式
-  if (!autoScrollEnabled.value) return
-  const el = messagesRef.value
-  if (!el) return
-  requestAnimationFrame(() => {
-    el.scrollTop = el.scrollHeight
-  })
+  // 任务模式使用 TaskChat 组件的方法
+  if (taskMode.value && taskChatRef.value) {
+    taskChatRef.value.scrollToBottom()
+    return
+  }
 }
 
 function createNewChat(isTaskModeChat: boolean = false) {
@@ -2454,12 +2385,6 @@ function cancelLogout() {
 }
 
 onMounted(async () => {
-  // 设置全局预览函数（任务模式使用）
-  window.previewHtml = (btn: HTMLElement) => {
-    const base64Code = btn.getAttribute('data-html-code') || ''
-    openHtmlPreview(base64Code)
-  }
-
   await loadChatHistory()
   await loadConfig()
   await loadAssistants()
@@ -2475,10 +2400,6 @@ onMounted(async () => {
   }
 
   scrollToBottom()
-  // 普通 chat 组件会在内部处理 autoResizeTextarea
-  if (textareaRef.value) {
-    autoResizeTextarea()
-  }
 })
 
 // 处理文件夹变化
@@ -2492,18 +2413,6 @@ watch(currentChatId, (newChatId) => {
     const chat = chatList.value.find(c => c.id === newChatId)
     if (chat?.isTaskMode) {
       initWorkingMemory(newChatId)
-    }
-  }
-})
-
-// 监听任务模式切换，确保全局函数正确设置
-watch(taskMode, async (isTaskMode) => {
-  if (isTaskMode) {
-    // 等待 NormalChat 组件卸载完成后再设置函数
-    await new Promise(resolve => setTimeout(resolve, 0))
-    window.previewHtml = (btn: HTMLElement) => {
-      const base64Code = btn.getAttribute('data-html-code') || ''
-      openHtmlPreview(base64Code)
     }
   }
 })
@@ -2613,119 +2522,27 @@ watch(taskMode, async (isTaskMode) => {
       />
 
       <!-- 任务模式 -->
-      <main v-else class="main">
-        <div class="messages" ref="messagesRef" @scroll="handleMessagesScroll" @click="handleLinkClick">
-          <div v-if="messages.length === 0" class="welcome">
-            <h2>欢迎使用 OpenChat Desktop</h2>
-            <p>支持任何 OpenAI 标准 API 的桌面聊天应用</p>
-            <p>点击右上角的"设置"配置你的 LLM 接口</p>
-          </div>
-          <template v-for="(m, i) in messages" :key="i">
-          <div
-            v-if="m.visible !== false"
-            :class="['msg-row', m.role]"
-          >
-            <div class="msg-content">
-              <div v-if="m.reasoning" class="reasoning-section">
-                <button class="reasoning-toggle" @click="toggleReasoning(i)">
-                  <span>{{ reasoningExpanded[i] ? '▼' : '▶' }}</span>
-                  <span v-if="sending && i === messages.length - 1 && m.reasoning" class="reasoning-spinner"></span>
-                  <span>思考</span>
-                  <span v-if="m.reasoningDuration">{{ m.reasoningDuration }}s</span>
-                </button>
-                <div v-show="reasoningExpanded[i]" class="msg-reasoning-bubble" v-html="render(m.reasoning)" />
-              </div>
-              <div class="msg-bubble-wrapper">
-                <div class="msg-bubble" v-html="render(m.content)" />
-                <div class="msg-actions" v-if="m.copyable !== false">
-                  <button class="copy-btn" @click="copyRenderedText(m.content)" title="复制文本">
-                    Copy Text
-                  </button>
-                  <button class="copy-btn" @click="copyMarkdown(m.content)" title="复制 Markdown">
-                    Copy Markdown
-                  </button>
-                  <button class="copy-btn" @click="openSaveToGlobalMemoryDialog(m.content)" title="保存为全局记忆">
-                    + Global Memory
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-          </template>
-
-          <!-- 归档历史消息区域 -->
-          <template v-if="currentChat?.archivedMessages && currentChat.archivedMessages.length > 0">
-            <div v-for="(archiveGroup, groupIdx) in currentChat.archivedMessages" :key="`archive-${groupIdx}`" class="archive-section">
-              <button class="archive-toggle" @click="toggleArchived(groupIdx)">
-                <span>{{ archivedExpanded[groupIdx] ? '▼' : '▶' }}</span>
-                <span>归档历史 #{{ groupIdx + 1 }}</span>
-                <span class="archive-count">({{ archiveGroup.length }} 条消息)</span>
-              </button>
-              <div v-show="archivedExpanded[groupIdx]" class="archive-messages">
-                <template v-for="(archivedMsg, msgIdx) in archiveGroup" :key="`archived-${groupIdx}-${msgIdx}`">
-                  <div :class="['msg-row', archivedMsg.role, 'archived']">
-                    <div class="msg-content">
-                      <div v-if="archivedMsg.reasoning" class="reasoning-section archived-reasoning">
-                        <span class="archived-label">思考内容</span>
-                        <div class="msg-reasoning-bubble" v-html="render(archivedMsg.reasoning)" />
-                      </div>
-                      <div class="msg-bubble-wrapper">
-                        <!-- 渲染输出内容 -->
-                        <div class="msg-bubble" v-html="render(archivedMsg.content)" />
-                      </div>
-                    </div>
-                  </div>
-                </template>
-              </div>
-            </div>
-          </template>
-        </div>
-        <form class="inputbar" @submit.prevent="send">
-          <div class="model-bar">
-            <select :disabled="(currentChat?.messages?.length ?? 0) > 0" :value="currentChat?.assistantId || ''" @change="changeAssistant(($event.target as HTMLSelectElement).value)" class="assistant-select">
-              <option value="">无助理</option>
-              <option v-for="assistant in assistantList.assistants" :key="assistant.id" :value="assistant.id">
-                {{ assistant.emoji }} {{ assistant.name }}
-              </option>
-            </select>
-            <select :value="currentChat?.configId ?? ''" @change="changeChatConfig(($event.target as HTMLSelectElement).value)" class="config-select">
-              <option value="">选择模型</option>
-              <option v-for="(config, index) in configList.configs" :key="index" :value="index">
-                {{ config.name || config.model }}
-              </option>
-            </select>
-            <!-- 参数配置按钮 -->
-            <button type="button" class="params-btn" @click="openParamsDialog" title="对话参数配置" :disabled="!currentChat">
-              参数
-            </button>
-            <!-- 任务模式 -->
-            <div class="task-mode-toggle" v-if="currentChat?.messages.length === 0">
-              <label class="toggle-label">
-                <input type="checkbox" v-model="currentChat.isTaskMode" :disabled="sending">
-                <span class="toggle-switch"></span>
-                <span class="toggle-text">任务模式</span>
-              </label>
-            </div>
-          </div>
-
-          <div class="composer">
-            <textarea
-              v-model="input"
-              class="textarea"
-              placeholder="输入消息，回车发送，Shift+Enter 换行"
-              @keydown.enter.exact.prevent="send"
-              @input="autoResizeTextarea"
-              ref="textareaRef"
-            />
-            <div class="actions">
-              <button type="submit" class="btn primary" :disabled="sending">发送</button>
-              <button type="button" class="btn ghost" @click="cancel" :disabled="!sending">
-                取消
-              </button>
-            </div>
-          </div>
-        </form>
-      </main>
+      <TaskChat
+        v-else
+        :messages="messages"
+        :input="input"
+        :sending="sending"
+        :active-config="activeConfig"
+        :active-assistant="activeAssistant"
+        :current-chat="currentChat"
+        :assistant-list="assistantList"
+        :config-list="configList"
+        @send="send"
+        @cancel="cancel"
+        @update:input="input = $event"
+        @toggle-reasoning="toggleReasoning"
+        @toggle-archived="toggleArchived"
+        @open-params-dialog="openParamsDialog"
+        @change-assistant="changeAssistant"
+        @change-config="changeChatConfig"
+        @open-save-global-memory="openSaveToGlobalMemoryDialog"
+        ref="taskChatRef"
+      />
     </div>
       <TaskModePanel
         v-if="taskMode"
