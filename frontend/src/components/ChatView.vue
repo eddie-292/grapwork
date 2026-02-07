@@ -2237,8 +2237,6 @@ function switchChat(chatId: string) {
 }
 
 function switchMode(isTaskMode: boolean) {
-  if (!currentChat.value) return
-
   // 如果当前没有对话，创建新对话
   if (!currentChatId.value) {
     createNewChat(isTaskMode)
@@ -2246,37 +2244,17 @@ function switchMode(isTaskMode: boolean) {
   }
 
   // 如果当前对话已经是目标模式，不做处理
-  if (currentChat.value.isTaskMode === isTaskMode) return
+  const current = currentChat.value
+  if (current && current.isTaskMode === isTaskMode) return
 
-  // 如果当前对话有消息，提示用户是否切换
-  if (currentChat.value.messages.length > 0) {
-    // 切换模式 - 直接切换，不创建新对话
-    currentChat.value.isTaskMode = isTaskMode
-    // 切换模式时重置任务相关状态
-    if (!isTaskMode) {
-      // 切换到普通模式时，清理工作记忆
-      try {
-        if (workingMemoryManager) {
-          workingMemoryManager.clear()
-          workingMemoryManager = null
-        }
-      } catch (e) {
-        console.error('Failed to clear working memory:', e)
-      }
-      // 重置任务状态
-      isTaskPlanning.value = false
-      isTaskExecuting.value = false
-      awaitingTaskConfirmation.value = false
-      executionFailed.value = false
-      pendingTasks.value = []
-      currentTaskIndex.value = -1
-    }
-    saveChatHistory()
+  // 查找目标模式的第一个会话
+  const targetModeChats = isTaskMode ? taskModeChats.value : normalChats.value
+  if (targetModeChats.length > 0) {
+    // 切换到目标模式的第一个会话
+    switchChat(targetModeChats[0].id)
   } else {
-    // 如果当前对话没有消息，直接切换模式
-    currentChat.value.isTaskMode = isTaskMode
-    currentChat.value.title = isTaskMode ? '任务模式新对话' : '新对话'
-    saveChatHistory()
+    // 如果目标模式没有会话，创建新会话
+    createNewChat(isTaskMode)
   }
 }
 
@@ -2466,7 +2444,7 @@ watch(currentChatId, (newChatId) => {
   <div class="container">
     <aside class="sidebar" :class="{ collapsed: !showSidebar }">
       <div class="sidebar-header">
-        <button class="new-chat-btn" @click="createNewChat(false)">
+        <button class="new-chat-btn" @click="createNewChat(taskMode)">
           <span class="plus-icon">+</span>
           新对话
         </button>
@@ -2476,27 +2454,11 @@ watch(currentChatId, (newChatId) => {
         </button>
       </div>
       <div class="chat-list">
-        <!-- 任务模式会话分组 -->
-        <div v-if="taskModeChats.length > 0" class="chat-group">
-          <div class="chat-group-title">任务模式</div>
-          <div
-            v-for="chat in taskModeChats"
-            :key="chat.id"
-            :class="['chat-item', { active: chat.id === currentChatId }]"
-            @click="switchChat(chat.id)"
-          >
-            <div class="chat-title">{{ chat.title }}</div>
-            <button class="delete-chat-btn" @click="deleteChat(chat.id, $event)" title="删除对话">
-              ✕
-            </button>
-          </div>
-        </div>
-
-        <!-- 普通会话分组 -->
+        <!-- 根据当前模式显示对应会话 -->
         <div class="chat-group">
-          <div class="chat-group-title">普通会话</div>
+          <div class="chat-group-title">{{ taskMode ? '任务模式' : '普通会话' }}</div>
           <div
-            v-for="chat in normalChats"
+            v-for="chat in (taskMode ? taskModeChats : normalChats)"
             :key="chat.id"
             :class="['chat-item', { active: chat.id === currentChatId }]"
             @click="switchChat(chat.id)"
@@ -2509,7 +2471,7 @@ watch(currentChatId, (newChatId) => {
         </div>
 
         <!-- 空状态提示 -->
-        <div v-if="chatList.length === 0" class="empty-state">
+        <div v-if="(taskMode ? taskModeChats : normalChats).length === 0" class="empty-state">
           暂无对话
         </div>
       </div>
