@@ -8,6 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Task Mode**: Decomposes complex user requests into executable subtasks with working memory management
 - **Global Memory**: Persistent knowledge storage for user preferences and custom context
 - **Assistant System**: Custom AI assistant/system prompt management
+- **MCP Support**: Model Context Protocol integration for extensible tool/function calling with STDIO/SSE transports
 - **Unified Storage**: Pluggable storage backend system (LocalStorage, FileSystem, HTTP) with type-safe APIs
 
 ## Development Commands
@@ -62,10 +63,12 @@ frontend/
 │   ├── components/
 │   │   ├── ChatView.vue             # Main chat interface + task mode UI
 │   │   ├── NormalChat.vue           # Standard chat mode component
+│   │   ├── TaskChat.vue             # Task mode specialized chat component
 │   │   ├── TaskModePanel.vue        # Task list display and controls
 │   │   ├── SettingsView.vue         # API configuration management
 │   │   ├── AssistantView.vue        # Assistant system prompt management
 │   │   ├── GlobalMemoryView.vue     # Global memory management UI
+│   │   ├── MCPView.vue              # MCP server configuration management
 │   │   ├── SaveToGlobalMemoryDialog.vue
 │   │   ├── GlobalMemoryFormDialog.vue
 │   │   ├── ConfirmDialog.vue        # Generic confirmation dialog
@@ -74,7 +77,8 @@ frontend/
 │   ├── composables/
 │   │   ├── useTaskMode.ts           # Task planning, execution, retry logic
 │   │   ├── useWorkingMemory.ts      # Per-chat task memory
-│   │   └── useGlobalMemory.ts       # Global knowledge storage
+│   │   ├── useGlobalMemory.ts       # Global knowledge storage
+│   │   └── useMCP.ts                # MCP server management
 │   ├── services/
 │   │   ├── StorageService.ts        # Unified storage layer (singleton)
 │   │   └── storage/
@@ -85,6 +89,7 @@ frontend/
 │   │   ├── task.ts                  # Task mode TypeScript definitions
 │   │   ├── globalMemory.ts          # Global memory type definitions
 │   │   ├── storage.ts               # Storage service type definitions
+│   │   ├── mcp.ts                   # MCP (Model Context Protocol) types
 │   │   ├── chat.ts                  # Chat message types
 │   │   └── electron.d.ts            # Electron IPC API types
 │   └── router/
@@ -127,9 +132,32 @@ Key types:
 - `GlobalMemory`: Container with entries array and version tracking
 - `GlobalMemoryType`: Enum of memory categories
 
+### MCP (Model Context Protocol) Architecture
+
+Extensible tool/function calling system that integrates with OpenAI-compatible APIs:
+
+1. **Transport Types**: STDIO (child process) and SSE (Server-Sent Events)
+2. **Server Management**: Configure multiple MCP servers with enable/disable per chat
+3. **Tool Integration**: Automatically converts MCP tools to OpenAI Function Calling format
+4. **Execution**: Handles tool calls, results, and error handling in chat flow
+
+**Flow**: `MCPView.vue` → `useMCP.ts` → `StorageService` → Tool execution in `ChatView.vue`
+
+Key types in `types/mcp.ts`:
+- `MCPServer`: Server configuration (command, args, env for STDIO; url for SSE)
+- `MCPToolDefinition`: Tool schema matching OpenAI function format
+- `OpenAIToolCall`: Tool call requests from LLM
+- `MCPToolResult`: Tool execution results returned to LLM
+- `MCPChatMessage`: Extended chat message with tool role support
+
+Usage pattern:
+- MCP tools are automatically injected into API requests as `tools` array
+- LLM responses with `tool_calls` are executed via configured MCP servers
+- Tool results are appended as `role: 'tool'` messages for context
+
 ### Storage Service Architecture
 
-**NEW**: Unified storage layer providing pluggable backends and type-safe APIs:
+Unified storage layer providing pluggable backends and type-safe APIs:
 
 1. **Backends**: `LocalStorageBackend`, `FileSystemBackend`, `HttpBackend`
 2. **Singleton Pattern**: `StorageService.getInstance()` provides global access
@@ -140,7 +168,7 @@ Key types:
 
 Key types in `types/storage.ts`:
 - `IStorageBackend`: Interface all backends must implement
-- `StorageKey`: Enum of all storage keys (IS_LOGGED_IN, LLM_CONFIG_LIST, GLOBAL_MEMORY, etc.)
+- `StorageKey`: Enum of all storage keys (IS_LOGGED_IN, LLM_CONFIG_LIST, GLOBAL_MEMORY, MCP_SERVER_LIST, etc.)
 - `StorageResult<T>`: Wrapper for operation results with success/error handling
 - `StorageBackendType`: Enum of available backend types
 
@@ -211,7 +239,8 @@ Per-chat configuration:
 Custom system prompts/assistants management:
 - Stored via `StorageService` (defaults to LocalStorage backend)
 - Each assistant has: `id`, `name`, `emoji`, `systemPrompt`, `createdAt`
-- Active assistant tracked via `activeIndex`
+- Stored as `{ assistants: Assistant[], activeIndex: number }` structure
+- Active assistant tracked via `activeIndex` field
 - Managed in `AssistantView.vue` component
 - Storage key: `StorageKey.ASSISTANT_LIST`
 
@@ -266,6 +295,18 @@ Provider must support OpenAI `/chat/completions` format. For custom parameters, 
 2. Update UI in `GlobalMemoryView.vue` to handle new type
 3. Add matching logic in `useGlobalMemory.ts` if needed
 
+### Adding MCP Tools/Integrations
+
+For custom tools without MCP servers, configure as "Simple Commands" in `MCPView.vue`:
+- Set `simpleCommand: true` on MCPServer
+- Tools are exposed via OpenAI Function Calling format
+- Executed through IPC to Electron main process
+
+For full MCP servers:
+- STDIO: Configure `command`, `args`, `env` for local MCP server processes
+- SSE: Configure `url` for remote MCP server endpoints
+- Tools are auto-discovered from server via `listTools` call
+
 ### Electron IPC Patterns
 
 **Note**: Most storage now uses `StorageService` instead of IPC. Only use IPC for:
@@ -304,3 +345,4 @@ Dual build process:
 4. Test Task Mode: Enable → Send complex request → Verify task breakdown
 5. Test Global Memory: Add entry via dialog → Verify auto-injection in new chats
 6. Test Assistants: Create assistant → Select → Verify system prompt applied
+7. Test MCP: Configure MCP server → Enable for chat → Verify tool calling works
