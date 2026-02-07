@@ -2236,6 +2236,50 @@ function switchChat(chatId: string) {
   currentChatId.value = chatId
 }
 
+function switchMode(isTaskMode: boolean) {
+  if (!currentChat.value) return
+
+  // 如果当前没有对话，创建新对话
+  if (!currentChatId.value) {
+    createNewChat(isTaskMode)
+    return
+  }
+
+  // 如果当前对话已经是目标模式，不做处理
+  if (currentChat.value.isTaskMode === isTaskMode) return
+
+  // 如果当前对话有消息，提示用户是否切换
+  if (currentChat.value.messages.length > 0) {
+    // 切换模式 - 直接切换，不创建新对话
+    currentChat.value.isTaskMode = isTaskMode
+    // 切换模式时重置任务相关状态
+    if (!isTaskMode) {
+      // 切换到普通模式时，清理工作记忆
+      try {
+        if (workingMemoryManager) {
+          workingMemoryManager.clear()
+          workingMemoryManager = null
+        }
+      } catch (e) {
+        console.error('Failed to clear working memory:', e)
+      }
+      // 重置任务状态
+      isTaskPlanning.value = false
+      isTaskExecuting.value = false
+      awaitingTaskConfirmation.value = false
+      executionFailed.value = false
+      pendingTasks.value = []
+      currentTaskIndex.value = -1
+    }
+    saveChatHistory()
+  } else {
+    // 如果当前对话没有消息，直接切换模式
+    currentChat.value.isTaskMode = isTaskMode
+    currentChat.value.title = isTaskMode ? '任务模式新对话' : '新对话'
+    saveChatHistory()
+  }
+}
+
 function deleteChat(chatId: string, event: Event) {
   event.stopPropagation()
 
@@ -2480,6 +2524,21 @@ watch(currentChatId, (newChatId) => {
           <div class="brand" v-if="showSidebar" >
             <div class="brand-dot" />
             <span>OpenChat Desktop</span>
+          </div>
+          <!-- 任务模式/普通模式切换器 -->
+          <div class="mode-switcher" v-if="currentChatId">
+            <button
+              :class="['mode-switcher-btn', { active: !taskMode }]"
+              @click="switchMode(false)"
+            >
+              普通
+            </button>
+            <button
+              :class="['mode-switcher-btn', { active: taskMode }]"
+              @click="switchMode(true)"
+            >
+              任务
+            </button>
           </div>
           <div class="header-actions">
             <button class="assistant-btn" @click="router.push('/assistants')" title="社区助理">
@@ -2943,6 +3002,39 @@ watch(currentChatId, (newChatId) => {
   height: 10px;
   border-radius: 999px;
   background: #10a37f;
+}
+
+/* 模式切换器样式 */
+.mode-switcher {
+  display: flex;
+  align-items: center;
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 3px;
+  gap: 3px;
+  margin-left: 16px;
+}
+
+.mode-switcher-btn {
+  padding: 6px 16px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+  transition: all 0.2s ease;
+}
+
+.mode-switcher-btn:hover {
+  color: #374151;
+}
+
+.mode-switcher-btn.active {
+  background: #ffffff;
+  color: #111827;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .settings-btn {
