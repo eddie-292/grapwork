@@ -489,7 +489,7 @@ defineExpose({
         >
           <option value="">无助理</option>
           <option v-for="assistant in assistantList.assistants" :key="assistant.id" :value="assistant.id">
-            {{ assistant.emoji }} {{ assistant.name }}
+            {{ assistant.name }}
           </option>
         </select>
         <select :value="currentChat?.configId ?? ''" @change="changeConfig" class="config-select">

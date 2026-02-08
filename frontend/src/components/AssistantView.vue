@@ -7,6 +7,34 @@ import { storage } from '../services/StorageService'
 
 const router = useRouter()
 
+interface AvatarIcon {
+  id: string
+  name: string
+  path: string
+  viewBox?: string
+}
+
+const avatarIcons: AvatarIcon[] = [
+  { id: 'robot', name: '机器人', path: 'M12 2a2 2 0 0 1 2 2v2h4a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-1v1a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v-1H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4V4a2 2 0 0 1 2-2zm0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z' },
+  { id: 'code', name: '代码', path: 'M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z' },
+  { id: 'terminal', name: '终端', path: 'M4 17l6-6-6-6M12 19h8' },
+  { id: 'brain', name: '大脑', path: 'M9.5 2A5.5 5.5 0 0 1 15 7.5c0 1.1-.3 2.1-.9 3A5.5 5.5 0 0 1 14.5 22c-1.5 0-2.8-.6-3.8-1.5A5.5 5.5 0 0 1 2 14.5c0-1.5.6-2.8 1.5-3.8A5.5 5.5 0 0 1 9.5 2z' },
+  { id: 'lightbulb', name: '想法', path: 'M9 21h6M12 3a7 7 0 0 0-7 7c0 2 1 3.8 2.6 5.2L9 18h6l1.4-2.8A7 7 0 0 0 19 10a7 7 0 0 0-7-7z' },
+  { id: 'rocket', name: '火箭', path: 'M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z' },
+  { id: 'palette', name: '艺术', path: 'M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z' },
+  { id: 'document', name: '文档', path: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z M14 2v6h6M16 13H8M16 17H8M10 9H8' },
+  { id: 'tool', name: '工具', path: 'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z' },
+  { id: 'chart', name: '图表', path: 'M3 3v18h18M18 17V9M13 17V5M8 17v-3' },
+  { id: 'search', name: '搜索', path: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z' },
+  { id: 'message', name: '消息', path: 'M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z' },
+  { id: 'target', name: '目标', path: 'M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z M12 18a6 6 0 100-12 6 6 0 000 12z M12 14a2 2 0 100-4 2 2 0 000 4z' },
+  { id: 'star', name: '星星', path: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z' },
+  { id: 'microscope', name: '研究', path: 'M6 12l-4 4 4 4M18 12l4 4-4 4M9.5 4l5 16' },
+  { id: 'graduation', name: '学习', path: 'M22 10v6M2 10l10-5 10 5-10 5z M12 12v9 M12 17l5-2 M12 17l-5-2' },
+  { id: 'book', name: '书本', path: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z' },
+  { id: 'sparkle', name: '闪耀', path: 'M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2z' },
+]
+
 const assistantList = ref<AssistantList>({
   assistants: [],
   activeIndex: -1
@@ -15,7 +43,7 @@ const assistantList = ref<AssistantList>({
 const currentAssistant = ref<Assistant>({
   id: '',
   name: '',
-  emoji: '🤖',
+  emoji: 'robot',
   systemPrompt: '',
   createdAt: 0
 })
@@ -30,11 +58,10 @@ const deleteMessage = computed(() => {
   return `确定要删除 "${name}" 这个助理吗？此操作无法撤销。`
 })
 
-const emojiOptions = [
-  '🤖', '👨‍💻', '👩‍💻', '🧑‍🎨', '🧑‍🏫', '🧑‍⚕️', '🧑‍💼',
-  '🎯', '💡', '🚀', '🎨', '📝', '🔧', '📊', '🔍',
-  '🧠', '💬', '🎭', '🌟', '🔬', '🎓', '📚', '✨'
-]
+function getAvatarPath(iconId: string): string {
+  const icon = avatarIcons.find(i => i.id === iconId)
+  return icon?.path ?? avatarIcons[0]?.path ?? 'M12 2a2 2 0 0 1 2 2v2h4a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-1v1a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v-1H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4V4a2 2 0 0 1 2-2zm0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z'
+}
 
 onMounted(async () => {
   // 直接从新的持久层加载（不需要迁移逻辑，因为持久层已经使用相同的 localStorage 键）
@@ -89,7 +116,7 @@ function saveCurrentAssistant() {
     assistantList.value.assistants[editingIndex.value] = {
       id: currentAssistant.value.id,
       name: currentAssistant.value.name || '',
-      emoji: currentAssistant.value.emoji || '🤖',
+      emoji: currentAssistant.value.emoji || 'robot',
       systemPrompt: currentAssistant.value.systemPrompt || '',
       createdAt: currentAssistant.value.createdAt
     }
@@ -97,7 +124,7 @@ function saveCurrentAssistant() {
     const newAssistant: Assistant = {
       id: Date.now().toString(),
       name: currentAssistant.value.name || '',
-      emoji: currentAssistant.value.emoji || '🤖',
+      emoji: currentAssistant.value.emoji || 'robot',
       systemPrompt: currentAssistant.value.systemPrompt || '',
       createdAt: Date.now()
     }
@@ -106,7 +133,7 @@ function saveCurrentAssistant() {
   currentAssistant.value = {
     id: '',
     name: '',
-    emoji: '🤖',
+    emoji: 'robot',
     systemPrompt: '',
     createdAt: 0
   }
@@ -136,7 +163,7 @@ function truncateText(text: string, maxLength: number): string {
         返回
       </button>
       <h1>社区助理</h1>
-      <button class="add-btn" @click="showEditForm = true; editingIndex = -1; currentAssistant = { id: '', name: '', emoji: '🤖', systemPrompt: '', createdAt: 0 }">
+      <button class="add-btn" @click="showEditForm = true; editingIndex = -1; currentAssistant = { id: '', name: '', emoji: 'robot', systemPrompt: '', createdAt: 0 }">
         + 新建助理
       </button>
     </header>
@@ -160,16 +187,19 @@ function truncateText(text: string, maxLength: number): string {
           </div>
 
           <div class="form-group">
-            <label>头像 (Emoji)</label>
-            <div class="emoji-selector">
+            <label>头像</label>
+            <div class="avatar-selector">
               <button
-                v-for="emoji in emojiOptions"
-                :key="emoji"
-                class="emoji-btn"
-                :class="{ selected: currentAssistant.emoji === emoji }"
-                @click="currentAssistant.emoji = emoji"
+                v-for="icon in avatarIcons"
+                :key="icon.id"
+                class="avatar-btn"
+                :class="{ selected: currentAssistant.emoji === icon.id }"
+                @click="currentAssistant.emoji = icon.id"
+                :title="icon.name"
               >
-                {{ emoji }}
+                <svg :viewBox="icon.viewBox || '0 0 24 24'" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path :d="icon.path" />
+                </svg>
               </button>
             </div>
           </div>
@@ -209,9 +239,13 @@ function truncateText(text: string, maxLength: number): string {
 
     <div class="assistant-content">
       <div v-if="assistantList.assistants.length === 0" class="empty-state">
-        <div class="empty-icon">🤖</div>
+        <div class="empty-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M12 2a2 2 0 0 1 2 2v2h4a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-1v1a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v-1H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4V4a2 2 0 0 1 2-2zm0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" />
+          </svg>
+        </div>
         <p>暂无社区助理</p>
-        <button class="btn primary" @click="showEditForm = true; editingIndex = -1; currentAssistant = { id: '', name: '', emoji: '🤖', systemPrompt: '', createdAt: 0 }">
+        <button class="btn primary" @click="showEditForm = true; editingIndex = -1; currentAssistant = { id: '', name: '', emoji: 'robot', systemPrompt: '', createdAt: 0 }">
           + 创建第一个助理
         </button>
       </div>
@@ -223,7 +257,9 @@ function truncateText(text: string, maxLength: number): string {
           class="assistant-card"
         >
           <div class="card-avatar">
-            {{ assistant.emoji }}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path :d="getAvatarPath(assistant.emoji)" />
+            </svg>
           </div>
           <div class="card-info">
             <h3 class="card-title">{{ assistant.name }}</h3>
@@ -321,8 +357,15 @@ function truncateText(text: string, maxLength: number): string {
 }
 
 .empty-icon {
-  font-size: 64px;
-  opacity: 0.5;
+  width: 80px;
+  height: 80px;
+  opacity: 0.3;
+  color: #6b7280;
+}
+
+.empty-icon svg {
+  width: 100%;
+  height: 100%;
 }
 
 .empty-state p {
@@ -362,8 +405,13 @@ function truncateText(text: string, maxLength: number): string {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 32px;
   border: 2px solid #e8ecf1;
+  color: #10a37f;
+}
+
+.card-avatar svg {
+  width: 32px;
+  height: 32px;
 }
 
 .card-info {
@@ -536,35 +584,41 @@ function truncateText(text: string, maxLength: number): string {
   font-size: 13px;
 }
 
-.emoji-selector {
+.avatar-selector {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
 }
 
-.emoji-btn {
-  font-size: 24px;
-  padding: 8px 14px;
+.avatar-btn {
+  padding: 8px;
   border: 2px solid #e8ecf1;
   border-radius: 8px;
   background: #ffffff;
   cursor: pointer;
   transition: all 0.2s;
-  min-width: 46px;
-  min-height: 46px;
+  width: 46px;
+  height: 46px;
   display: flex;
   align-items: center;
   justify-content: center;
+  color: #4a5568;
 }
 
-.emoji-btn:hover {
+.avatar-btn svg {
+  width: 24px;
+  height: 24px;
+}
+
+.avatar-btn:hover {
   border-color: #10a37f;
   background: #f0fdf4;
 }
 
-.emoji-btn.selected {
+.avatar-btn.selected {
   border-color: #10a37f;
   background: #10a37f;
+  color: white;
 }
 
 .modal-footer {
