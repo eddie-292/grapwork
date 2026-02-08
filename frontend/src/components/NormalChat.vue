@@ -5,6 +5,11 @@ import hljs from 'highlight.js'
 import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
 import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
 import { storage } from '@/services/StorageService'
+import CopyIcon from './icons/CopyIcon.vue'
+import ChevronDownIcon from './icons/ChevronDownIcon.vue'
+import ChevronRightIcon from './icons/ChevronRightIcon.vue'
+import FolderIcon from './icons/FolderIcon.vue'
+import FolderOpenIcon from './icons/FolderOpenIcon.vue'
 
 type Role = 'user' | 'assistant' | 'system' | 'tool'
 export type Message = {
@@ -433,9 +438,9 @@ defineExpose({
                 </div>
                 <div class="tool-result-actions">
                   <button class="tool-action-btn" title="复制结果" @click.stop="copyToolResult(m.content)">
-                    📋
+                    <CopyIcon :size="14" />
                   </button>
-                  <span class="expand-icon">{{ toolResultExpanded[i] ? '▼' : '▶' }}</span>
+                  <span class="expand-icon"><ChevronDownIcon v-if="toolResultExpanded[i]" :size="10" /><ChevronRightIcon v-else :size="10" /></span>
                 </div>
               </div>
               <div v-show="toolResultExpanded[i]" class="tool-result-body">
@@ -453,7 +458,8 @@ defineExpose({
           <div class="msg-content">
             <div v-if="m.reasoning" class="reasoning-section">
               <button class="reasoning-toggle" @click="toggleReasoning(i)">
-                <span>{{ reasoningExpanded[i] ? '▼' : '▶' }}</span>
+                <ChevronDownIcon v-if="reasoningExpanded[i]" :size="10" />
+                <ChevronRightIcon v-else :size="10" />
                 <span v-if="sending && i === messages.length - 1 && m.reasoning" class="reasoning-spinner"></span>
                 <span>思考</span>
                 <span v-if="m.reasoningDuration">{{ m.reasoningDuration }}s</span>
@@ -561,13 +567,17 @@ defineExpose({
     <!-- 文件夹选择对话框 -->
     <div v-if="showFolderDialog" class="dialog-overlay" @click.self="showFolderDialog = false">
       <div class="dialog-content folder-dialog">
-        <h3>📁 选择文件夹</h3>
+        <h3 class="folder-dialog-title">
+          <FolderIcon :size="20" />
+          选择文件夹
+        </h3>
         <div v-if="selectedFolderPath" class="current-folder">
           <span class="folder-label">当前选中的文件夹</span>
           <span class="folder-path" :title="selectedFolderPath">{{ selectedFolderPath }}</span>
         </div>
         <div v-else class="no-folder">
-          📂 暂未选择文件夹
+          <FolderOpenIcon :size="32" />
+          <span>暂未选择文件夹</span>
         </div>
         <div class="dialog-actions">
           <button v-if="selectedFolderPath" type="button" class="dialog-btn danger" @click="handleClearFolder">
@@ -1292,6 +1302,17 @@ defineExpose({
   text-align: center;
 }
 
+.folder-dialog-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.folder-dialog-title svg {
+  color: #10a37f;
+}
+
 .current-folder {
   display: flex;
   flex-direction: column;
@@ -1312,6 +1333,14 @@ defineExpose({
   color: #94a3b8;
   text-align: center;
   font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.no-folder svg {
+  color: #94a3b8;
 }
 
 .folder-dialog .folder-label {

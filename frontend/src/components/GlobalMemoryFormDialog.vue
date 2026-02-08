@@ -2,6 +2,24 @@
 import { ref, watch, computed, type Directive } from 'vue'
 import { useGlobalMemory } from '../composables/useGlobalMemory'
 import { GlobalMemoryType, type GlobalMemoryEntry } from '../types/globalMemory'
+import PaletteIcon from './icons/PaletteIcon.vue'
+import MoonIcon from './icons/MoonIcon.vue'
+import RulerIcon from './icons/RulerIcon.vue'
+import CodeIcon from './icons/CodeIcon.vue'
+import WrenchIcon from './icons/WrenchIcon.vue'
+import PackageIcon from './icons/PackageIcon.vue'
+import BuildingIcon from './icons/BuildingIcon.vue'
+import FileTextIcon from './icons/FileTextIcon.vue'
+import MessageCircleIcon from './icons/MessageCircleIcon.vue'
+import GlobeIcon from './icons/GlobeIcon.vue'
+import MaskIcon from './icons/MaskIcon.vue'
+import ZapIcon from './icons/ZapIcon.vue'
+import FolderIcon from './icons/FolderIcon.vue'
+import UsersIcon from './icons/UsersIcon.vue'
+import RotateIcon from './icons/RotateIcon.vue'
+import AlertTriangleIcon from './icons/AlertTriangleIcon.vue'
+import TargetIcon from './icons/TargetIcon.vue'
+import ChevronDownIcon from './icons/ChevronDownIcon.vue'
 
 // v-click-outside 指令
 const vClickOutside: Directive = {
@@ -21,33 +39,33 @@ const vClickOutside: Directive = {
 interface CategoryOption {
   value: string
   label: string
-  icon: string
+  icon: any
   group: string
 }
 
 const categoryOptions: CategoryOption[] = [
   // UI/UX 相关
-  { value: 'ui_preferences', label: 'UI 偏好', icon: '🎨', group: 'UI/UX' },
-  { value: 'theme', label: '主题设置', icon: '🌓', group: 'UI/UX' },
-  { value: 'layout', label: '布局偏好', icon: '📐', group: 'UI/UX' },
+  { value: 'ui_preferences', label: 'UI 偏好', icon: PaletteIcon, group: 'UI/UX' },
+  { value: 'theme', label: '主题设置', icon: MoonIcon, group: 'UI/UX' },
+  { value: 'layout', label: '布局偏好', icon: RulerIcon, group: 'UI/UX' },
   // 代码相关
-  { value: 'code_style', label: '代码风格', icon: '💻', group: '代码' },
-  { value: 'programming_language', label: '编程语言', icon: '🔧', group: '代码' },
-  { value: 'framework', label: '框架偏好', icon: '📦', group: '代码' },
-  { value: 'design_pattern', label: '设计模式', icon: '🏗️', group: '代码' },
+  { value: 'code_style', label: '代码风格', icon: CodeIcon, group: '代码' },
+  { value: 'programming_language', label: '编程语言', icon: WrenchIcon, group: '代码' },
+  { value: 'framework', label: '框架偏好', icon: PackageIcon, group: '代码' },
+  { value: 'design_pattern', label: '设计模式', icon: BuildingIcon, group: '代码' },
   // 交互相关
-  { value: 'response_format', label: '回复格式', icon: '📝', group: '交互' },
-  { value: 'communication', label: '沟通方式', icon: '💬', group: '交互' },
-  { value: 'language', label: '语言偏好', icon: '🌍', group: '交互' },
-  { value: 'tone', label: '语气风格', icon: '🎭', group: '交互' },
+  { value: 'response_format', label: '回复格式', icon: FileTextIcon, group: '交互' },
+  { value: 'communication', label: '沟通方式', icon: MessageCircleIcon, group: '交互' },
+  { value: 'language', label: '语言偏好', icon: GlobeIcon, group: '交互' },
+  { value: 'tone', label: '语气风格', icon: MaskIcon, group: '交互' },
   // 工作相关
-  { value: 'workflow', label: '工作流', icon: '⚡', group: '工作' },
-  { value: 'project_context', label: '项目上下文', icon: '📁', group: '工作' },
-  { value: 'team_convention', label: '团队规范', icon: '👥', group: '工作' },
+  { value: 'workflow', label: '工作流', icon: ZapIcon, group: '工作' },
+  { value: 'project_context', label: '项目上下文', icon: FolderIcon, group: '工作' },
+  { value: 'team_convention', label: '团队规范', icon: UsersIcon, group: '工作' },
   // 其他
-  { value: 'habits', label: '个人习惯', icon: '🔄', group: '其他' },
-  { value: 'constraints', label: '约束条件', icon: '⚠️', group: '其他' },
-  { value: 'goals', label: '目标偏好', icon: '🎯', group: '其他' },
+  { value: 'habits', label: '个人习惯', icon: RotateIcon, group: '其他' },
+  { value: 'constraints', label: '约束条件', icon: AlertTriangleIcon, group: '其他' },
+  { value: 'goals', label: '目标偏好', icon: TargetIcon, group: '其他' },
 ]
 
 interface Props {
@@ -220,7 +238,7 @@ function cancel() {
             @focus="showCategoryDropdown = true"
             @input="showCategoryDropdown = true"
           />
-          <div class="select-arrow" @click="toggleDropdown">▼</div>
+          <div class="select-arrow" @click="toggleDropdown"><ChevronDownIcon :size="10" /></div>
           <div v-if="showCategoryDropdown" class="custom-dropdown">
             <div v-if="filteredCategories.length === 0" class="dropdown-item empty">
               无匹配结果
@@ -235,7 +253,7 @@ function cancel() {
                   :class="{ active: formData.category === option.value }"
                   @click="selectCategory(option.value)"
                 >
-                  <span class="dropdown-icon">{{ option.icon }}</span>
+                  <span class="dropdown-icon"><component :is="option.icon" :size="16" /></span>
                   <span class="dropdown-label">{{ option.label }}</span>
                   <span class="dropdown-value">{{ option.value }}</span>
                 </div>

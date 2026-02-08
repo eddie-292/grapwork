@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useMCP } from '../composables/useMCP'
 import type { MCPServer, MCPTransportType, MCPToolDefinition } from '../types/mcp'
 import ConfirmDialog from './ConfirmDialog.vue'
+import PlugIcon from './icons/PlugIcon.vue'
 
 const router = useRouter()
 const {
@@ -582,7 +583,7 @@ function canFetchTools(server: MCPServer): boolean {
 
       <!-- 空状态 -->
       <div v-else-if="serverList.servers.length === 0" class="empty-state">
-        <div class="empty-icon">🔌</div>
+        <div class="empty-icon"><PlugIcon :size="48" /></div>
         <p>暂无 MCP 服务器</p>
         <button class="btn primary" @click="openAddForm">+ 添加第一个服务器</button>
       </div>

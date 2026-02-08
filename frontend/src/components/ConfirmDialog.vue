@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import DeleteIcon from './icons/DeleteIcon.vue'
+import AlertTriangleIcon from './icons/AlertTriangleIcon.vue'
+import InfoIcon from './icons/InfoIcon.vue'
 
 interface Props {
   show: boolean
@@ -22,16 +25,16 @@ const emit = defineEmits<{
   (e: 'cancel'): void
 }>()
 
-const iconName = computed(() => {
+const iconComponent = computed(() => {
   switch (props.type) {
     case 'danger':
-      return '🗑️'
+      return DeleteIcon
     case 'warning':
-      return '⚠️'
+      return AlertTriangleIcon
     case 'info':
-      return 'ℹ️'
+      return InfoIcon
     default:
-      return '⚠️'
+      return AlertTriangleIcon
   }
 })
 </script>
@@ -39,6 +42,9 @@ const iconName = computed(() => {
 <template>
   <div class="modal-overlay" v-if="show" @click.self="$emit('cancel')">
     <div class="modal-content confirm-modal">
+      <div class="confirm-icon">
+        <component :is="iconComponent" :size="48" />
+      </div>
       <h3>{{ title }}</h3>
       <p>{{ message }}</p>
       <div class="modal-footer">
@@ -82,8 +88,14 @@ const iconName = computed(() => {
 }
 
 .confirm-icon {
-  font-size: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-bottom: 16px;
+}
+
+.confirm-icon svg {
+  color: #6b7280;
 }
 
 .confirm-modal h3 {

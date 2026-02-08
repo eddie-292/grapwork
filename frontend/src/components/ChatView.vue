@@ -23,6 +23,9 @@ import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
 import { storage } from '../services/StorageService'
+import ChevronLeftIcon from './icons/ChevronLeftIcon.vue'
+import ChevronRightIcon from './icons/ChevronRightIcon.vue'
+import MenuIcon from './icons/MenuIcon.vue'
 
 const router = useRouter()
 
@@ -2587,8 +2590,8 @@ function handleFolderChanged(path: string) {
           新对话
         </button>
         <button class="toggle-sidebar-btn" @click="showSidebar = !showSidebar" title="收起/展开侧边栏">
-          <span v-if="showSidebar">◀</span>
-          <span v-else>▶</span>
+          <ChevronLeftIcon v-if="showSidebar" :size="14" />
+          <ChevronRightIcon v-else :size="14" />
         </button>
       </div>
       <div class="chat-list">
@@ -2644,7 +2647,8 @@ function handleFolderChanged(path: string) {
         <header class="header">
         <div class="header-inner">
           <button class="sidebar-toggle" @click="showSidebar = !showSidebar" v-if="!showSidebar" title="展开侧边栏">
-            ☰ <span>OpenChat Desktop</span>
+            <MenuIcon :size="16" />
+            <span>OpenChat Desktop</span>
           </button>
           <div class="brand" v-if="showSidebar" >
             <div class="brand-dot" />
@@ -3072,6 +3076,7 @@ function handleFolderChanged(path: string) {
   padding: 5px 10px;
   border-radius: 5px;
   cursor: pointer;
+  display: flex;
 }
 
 .brand {

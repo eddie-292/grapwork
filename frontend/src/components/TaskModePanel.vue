@@ -3,6 +3,16 @@ import { ref, computed, onMounted, watch } from 'vue'
 import type { Task } from '../types/task'
 import { TASK_MODE_CONSTANTS, WorkingMemoryType, type WorkingMemoryEntry } from '../types/task'
 import { useWorkingMemory } from '../composables/useWorkingMemory'
+import EditIcon from './icons/EditIcon.vue'
+import DeleteIcon from './icons/DeleteIcon.vue'
+import CheckIcon from './icons/CheckIcon.vue'
+import CircleFilledIcon from './icons/CircleFilledIcon.vue'
+import CircleIcon from './icons/CircleIcon.vue'
+import RefreshIcon from './icons/RefreshIcon.vue'
+import ArrowRightIcon from './icons/ArrowRightIcon.vue'
+import XIcon from './icons/XIcon.vue'
+import ChevronDownIcon from './icons/ChevronDownIcon.vue'
+import ChevronRightIcon from './icons/ChevronRightIcon.vue'
 
 interface TaskModeOptions {
   enableTaskSummary?: boolean
@@ -236,7 +246,7 @@ function submitRevision() {
     <div v-if="awaitingTaskConfirmation && showRevisionInput" class="plan-revision-section">
       <div class="revision-header">
         <span>请输入修改意见：</span>
-        <button class="close-revision-btn" @click="showRevisionInput = false; planRevisionFeedback = ''">✕</button>
+        <button class="close-revision-btn" @click="showRevisionInput = false; planRevisionFeedback = ''"><XIcon :size="14" /></button>
       </div>
       <textarea
         v-model="planRevisionFeedback"
@@ -277,8 +287,8 @@ function submitRevision() {
               <span class="wm-task-ref">任务 {{ entry.taskId + 1 }}</span>
               <span class="wm-timestamp">{{ formatTimestamp(entry.timestamp) }}</span>
               <div class="wm-entry-actions">
-                <button @click="startEdit(entry)" class="wm-action-btn" title="编辑">✎</button>
-                <button @click="deleteEntry(entry.id)" class="wm-action-btn delete" title="删除">🗑</button>
+                <button @click="startEdit(entry)" class="wm-action-btn" title="编辑"><EditIcon :size="12" /></button>
+                <button @click="deleteEntry(entry.id)" class="wm-action-btn delete" title="删除"><DeleteIcon :size="12" /></button>
               </div>
             </div>
             <div class="wm-entry-content">{{ entry.metadata?.summary || entry.content.slice(0, 100) }}</div>
@@ -320,20 +330,20 @@ function submitRevision() {
           <!-- 第一行：状态、序号、按钮 -->
           <div class="task-header">
             <div class="task-icon">
-              <span v-if="task.completed">✓</span>
-              <span v-else-if="idx === currentTaskIndex" class="active-icon">◉</span>
-              <span v-else>○</span>
+              <CheckIcon v-if="task.completed" :size="14" />
+              <CircleFilledIcon v-else-if="idx === currentTaskIndex" class="active-icon" :size="12" />
+              <CircleIcon v-else :size="12" />
             </div>
             <span class="task-number">{{ idx + 1 }}</span>
             <!-- 确认阶段的操作按钮 -->
             <div v-if="awaitingTaskConfirmation && editingTaskId !== task.id" class="task-actions">
-              <button class="task-action-btn" @click="startTaskEdit(task)" title="编辑">✎</button>
-              <button class="task-action-btn delete" @click="deleteTask(task.id)" title="删除">🗑</button>
+              <button class="task-action-btn" @click="startTaskEdit(task)" title="编辑"><EditIcon :size="12" /></button>
+              <button class="task-action-btn delete" @click="deleteTask(task.id)" title="删除"><DeleteIcon :size="12" /></button>
             </div>
             <!-- 失败任务的操作按钮 -->
             <div v-else-if="task.status === 'failed' && editingTaskId !== task.id" class="task-actions task-error-actions">
-              <button class="task-action-btn retry" @click="emit('retryTask', task.id)" title="重试">↻</button>
-              <button class="task-action-btn skip" @click="emit('skipTask', task.id)" title="跳过">→</button>
+              <button class="task-action-btn retry" @click="emit('retryTask', task.id)" title="重试"><RefreshIcon :size="12" /></button>
+              <button class="task-action-btn skip" @click="emit('skipTask', task.id)" title="跳过"><ArrowRightIcon :size="12" /></button>
             </div>
           </div>
           <!-- 第二行：内容 -->
@@ -347,8 +357,8 @@ function submitRevision() {
                 @keyup.escape="cancelTaskEdit"
                 ref="editInput"
               />
-              <button class="task-edit-btn save" @click="saveTaskEdit(task.id)" title="保存">✓</button>
-              <button class="task-edit-btn cancel" @click="cancelTaskEdit" title="取消">✕</button>
+              <button class="task-edit-btn save" @click="saveTaskEdit(task.id)" title="保存"><CheckIcon :size="12" /></button>
+              <button class="task-edit-btn cancel" @click="cancelTaskEdit" title="取消"><XIcon :size="12" /></button>
             </div>
             <!-- 查看模式 -->
             <span v-else class="task-description">{{ task.description }}</span>
@@ -371,7 +381,7 @@ function submitRevision() {
       <div class="dialog-content">
         <div class="dialog-header">
           <h3>任务模式设置</h3>
-          <button class="dialog-close" @click="emit('toggleSettings')">✕</button>
+          <button class="dialog-close" @click="emit('toggleSettings')"><XIcon :size="20" /></button>
         </div>
         <div class="dialog-body">
           <div class="setting-group">
