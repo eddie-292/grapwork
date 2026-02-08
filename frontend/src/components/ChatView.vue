@@ -760,7 +760,7 @@ async function executeTaskStreaming(
   onDelta: (delta: string) => void,
   onReasoningDelta: (delta: string) => void,
   onReasoningDuration: (duration: number) => void
-): Promise<void> {
+): Promise<{ toolCalls?: any[] }> {  // 返回可能包含的工具调用
   if (!activeConfig.value?.apiUrl || !activeConfig.value?.apiKey) {
     throw new Error('请先配置并启用一个 LLM 接口')
   }
@@ -817,6 +817,11 @@ async function executeTaskStreaming(
     }
   }
 
+  // 生成 MCP tools 数组（如果有激活的工具）
+  await mcpManager.loadServers()
+  const mcpTools = mcpManager.generateOpenAITools()
+  console.log('[TaskMode] Active tools:', mcpTools.length)
+
   const resp = await fetch(`${useProxy ? apiBase : apiBase + '/chat/completions'}`, {
     method: 'POST',
     headers: {
@@ -827,6 +832,7 @@ async function executeTaskStreaming(
       model: activeConfig.value.model,
       messages: messagesToSend,
       stream: true,
+      ...(mcpTools.length > 0 ? { tools: mcpTools } : {}),
       ...validParams,
       ...extraBodyParams,
     }),
@@ -844,6 +850,9 @@ async function executeTaskStreaming(
 
   // 创建流式解析器
   const qwenParser = createQwenStreamParser()
+
+  // 用于收集 tool_calls
+  const currentToolCallsMap: Map<number, any> = new Map()
 
   while (true) {
     const { done, value } = await reader.read()
@@ -879,8 +888,226 @@ async function executeTaskStreaming(
             onDelta(parsed.content)
           }
         }
+
+        // 处理 tool_calls
+        const deltaToolCalls = json?.choices?.[0]?.delta?.tool_calls
+        if (deltaToolCalls && Array.isArray(deltaToolCalls)) {
+          for (const toolCall of deltaToolCalls) {
+            const index = toolCall.index
+            if (index !== undefined) {
+              if (!currentToolCallsMap.has(index)) {
+                currentToolCallsMap.set(index, {
+                  id: toolCall.id || '',
+                  type: toolCall.type || 'function',
+                  function: {
+                    name: toolCall.function?.name || '',
+                    arguments: toolCall.function?.arguments || ''
+                  }
+                })
+              } else {
+                const existing = currentToolCallsMap.get(index)!
+                if (toolCall.id) existing.id = toolCall.id
+                if (toolCall.function?.name) existing.function.name = toolCall.function.name
+                if (toolCall.function?.arguments) {
+                  existing.function.arguments += toolCall.function.arguments
+                }
+              }
+            }
+          }
+        }
       } catch {}
     }
+  }
+
+  // 流结束后，检查是否有 tool_calls
+  const finalToolCalls = Array.from(currentToolCallsMap.values())
+  if (finalToolCalls.length > 0) {
+    console.log('[TaskMode] Tool calls detected:', finalToolCalls)
+    return { toolCalls: finalToolCalls }
+  }
+
+  return {}
+}
+
+// 工具调用后继续任务执行
+async function continueTaskAfterToolCalls(
+  taskDescription: string,
+  previousResult: string | undefined,
+  mergedContext: string | undefined,
+  workingMemoryContext: string | undefined,
+  originalMsg: Message
+): Promise<void> {
+  if (!currentChat.value || !activeConfig.value) return
+
+  const chat = currentChat.value
+
+  // 生成 MCP tools 数组（如果有激活的工具）
+  await mcpManager.loadServers()
+  const mcpTools = mcpManager.generateOpenAITools()
+
+  // 构建消息列表：系统提示 + 对话历史（包含工具结果）
+  const messagesToSend: { role: string; content: string }[] = []
+  if (activeAssistant.value?.systemPrompt && activeAssistant.value.systemPrompt.trim()) {
+    messagesToSend.push({ role: 'system', content: activeAssistant.value.systemPrompt.trim() })
+  } else {
+    messagesToSend.push({ role: 'system', content: '你是一个有用的助手' })
+  }
+
+  // 添加对话历史（排除原始消息，保留工具结果）
+  const historyWithoutOriginal = chat.messages.slice(0, -1)
+  historyWithoutOriginal.forEach(msg => {
+    const msgObj: any = { role: msg.role, content: msg.content }
+    if (msg.tool_call_id) msgObj.tool_call_id = msg.tool_call_id
+    if (msg.tool_calls) msgObj.tool_calls = msg.tool_calls
+    if (msg.role === 'assistant') {
+      msgObj.reasoning_content = msg.reasoning || ''
+    }
+    messagesToSend.push(msgObj)
+  })
+
+  // 解析 extra_body 参数
+  let extraBodyParams: Record<string, any> = {}
+  if (activeConfig.value?.extra_body && activeConfig.value.extra_body.trim()) {
+    try {
+      extraBodyParams = JSON.parse(activeConfig.value.extra_body)
+    } catch (e) {
+      console.error('Failed to parse extra_body:', e)
+    }
+  }
+
+  const useProxy = import.meta.env.DEV && !isElectronEnv
+  const apiBase = useProxy ? '/api/chat/completions' : normalizeApiUrl(activeConfig.value.apiUrl!)
+
+  const resp = await fetch(`${useProxy ? apiBase : apiBase + '/chat/completions'}`, {
+    method: 'POST',
+    headers: {
+      ...(useProxy ? {} : { 'Authorization': `Bearer ${activeConfig.value.apiKey}` }),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: activeConfig.value.model,
+      messages: messagesToSend,
+      stream: true,
+      ...(mcpTools.length > 0 ? { tools: mcpTools } : {}),
+      ...extraBodyParams,
+    }),
+    signal: controllers.value[chat.id]!.signal,
+  })
+
+  if (!resp.body) {
+    throw new Error('No response body')
+  }
+
+  const reader = resp.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  const qwenParser = createQwenStreamParser()
+  const currentToolCallsMap: Map<number, any> = new Map()
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const parts = buffer.split('\n\n')
+    buffer = parts.pop() || ''
+    for (const part of parts) {
+      const line = part.trim()
+      if (!line.startsWith('data:')) continue
+      const data = line.slice(5).trim()
+      if (data === '[DONE]') break
+      try {
+        const json = JSON.parse(data)
+        let reasoning_delta = json?.choices?.[0]?.delta?.reasoning_content ?? ''
+        if (!reasoning_delta) {
+          reasoning_delta = json?.choices?.[0]?.delta?.reasoning ?? ''
+        }
+        if (reasoning_delta) {
+          originalMsg.reasoning += reasoning_delta
+          scrollToBottom()
+        }
+        let delta = json?.choices?.[0]?.delta?.content ?? ''
+        if (delta) {
+          const parsed = parseQwenStreamDelta(qwenParser, delta)
+          if (parsed.reasoning) {
+            originalMsg.reasoning += parsed.reasoning
+            scrollToBottom()
+          }
+          if (parsed.content) {
+            originalMsg.content += parsed.content
+            scrollToBottom()
+          }
+        }
+
+        // 处理嵌套的 tool_calls
+        const deltaToolCalls = json?.choices?.[0]?.delta?.tool_calls
+        if (deltaToolCalls && Array.isArray(deltaToolCalls)) {
+          for (const toolCall of deltaToolCalls) {
+            const index = toolCall.index
+            if (index !== undefined) {
+              if (!currentToolCallsMap.has(index)) {
+                currentToolCallsMap.set(index, {
+                  id: toolCall.id || '',
+                  type: toolCall.type || 'function',
+                  function: {
+                    name: toolCall.function?.name || '',
+                    arguments: toolCall.function?.arguments || ''
+                  }
+                })
+              } else {
+                const existing = currentToolCallsMap.get(index)!
+                if (toolCall.id) existing.id = toolCall.id
+                if (toolCall.function?.name) existing.function.name = toolCall.function.name
+                if (toolCall.function?.arguments) {
+                  existing.function.arguments += toolCall.function.arguments
+                }
+              }
+            }
+          }
+        }
+      } catch {}
+    }
+  }
+
+  // 处理第二轮工具调用（递归）
+  const finalToolCalls = Array.from(currentToolCallsMap.values())
+  if (finalToolCalls.length > 0) {
+    originalMsg.tool_calls = finalToolCalls
+    console.log('[TaskMode] Nested tool calls detected:', finalToolCalls)
+
+    // 先添加执行中的工具消息
+    const toolCallIds = finalToolCalls.map((tc: any) => tc.id)
+    for (const toolCallId of toolCallIds) {
+      chat.messages.push({
+        role: 'tool' as any,
+        content: '执行中...',
+        reasoning: '',
+        tool_call_id: toolCallId,
+        toolStatus: 'running'
+      })
+    }
+    scrollToBottom()
+
+    const toolResults = await mcpManager.executeToolCalls(finalToolCalls)
+
+    // 更新工具结果消息
+    let resultIndex = chat.messages.length - toolResults.length
+    for (const resultMsg of toolResults) {
+      const targetMsg = chat.messages[resultIndex]
+      if (targetMsg && targetMsg.tool_call_id === resultMsg.tool_call_id) {
+        targetMsg.content = resultMsg.content
+        targetMsg.toolStatus = resultMsg.content.startsWith('Error:') ? 'error' : 'success'
+      }
+      resultIndex++
+    }
+
+    // 递归调用继续对话
+    await continueTaskAfterToolCalls(
+      taskDescription,
+      previousResult,
+      mergedContext,
+      workingMemoryContext,
+      originalMsg
+    )
   }
 }
 
@@ -1749,7 +1976,7 @@ async function confirmTaskExecution() {
       if (!msg) break
 
       // 流式执行任务（携带完整的对话历史和工作记忆上下文）
-      await executeTaskStreaming(
+      const result = await executeTaskStreaming(
         task.description,
         i === 0 ? undefined : previousResult,
         mergedContext,
@@ -1767,6 +1994,54 @@ async function confirmTaskExecution() {
           msg.reasoningDuration = duration
         }
       )
+
+      // 处理工具调用
+      if (result.toolCalls && result.toolCalls.length > 0) {
+        msg.tool_calls = result.toolCalls
+        console.log('[TaskMode] Processing tool_calls:', result.toolCalls)
+
+        // 执行工具调用
+        try {
+          // 先添加执行中的工具消息
+          const toolCallIds = result.toolCalls.map((tc: any) => tc.id)
+          for (const toolCallId of toolCallIds) {
+            chat.messages.push({
+              role: 'tool' as any,
+              content: '执行中...',
+              reasoning: '',
+              tool_call_id: toolCallId,
+              toolStatus: 'running'
+            })
+          }
+          scrollToBottom()
+
+          const toolResults = await mcpManager.executeToolCalls(result.toolCalls)
+
+          // 更新工具结果消息
+          let resultIndex = chat.messages.length - toolResults.length
+          for (const resultMsg of toolResults) {
+            const targetMsg = chat.messages[resultIndex]
+            if (targetMsg && targetMsg.tool_call_id === resultMsg.tool_call_id) {
+              targetMsg.content = resultMsg.content
+              // 根据内容判断是否成功
+              targetMsg.toolStatus = resultMsg.content.startsWith('Error:') ? 'error' : 'success'
+            }
+            resultIndex++
+          }
+
+          // 继续任务执行，发送包含工具结果的请求
+          await continueTaskAfterToolCalls(
+            task.description,
+            i === 0 ? undefined : previousResult,
+            mergedContext,
+            workingMemoryContext,
+            msg
+          )
+        } catch (e) {
+          console.error('[TaskMode] Tool execution failed:', e)
+          msg.content += `\n\n[工具执行失败: ${e}]`
+        }
+      }
 
       // 保存任务输出到工作记忆
       await saveTaskResultToWorkingMemory(

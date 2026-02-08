@@ -4,6 +4,7 @@ import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
 import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
+import { storage } from '@/services/StorageService'
 
 type Role = 'user' | 'assistant' | 'system' | 'tool'
 export type Message = {
@@ -14,6 +15,12 @@ export type Message = {
   visible?: boolean
   copyable?: boolean
   archived?: boolean
+  tool_call_id?: string
+  tool_calls?: any[]
+  // 工具执行状态
+  toolStatus?: 'pending' | 'running' | 'success' | 'error'
+  // 错误消息标识
+  isError?: boolean
 }
 
 // Props
@@ -41,6 +48,8 @@ const emit = defineEmits<{
   'change-assistant': [id: string]
   'change-config': [index: string]
   'open-save-global-memory': [content: string]
+  'folder-changed': [path: string]
+  'clear-assistant': []
 }>()
 
 // 全局记忆对话框状态
@@ -52,6 +61,11 @@ const saveToGlobalMemoryKeywords = ref<string[]>([])
 const showHtmlPreview = ref(false)
 const htmlPreviewContent = ref('')
 
+// 选中的文件夹路径
+const selectedFolderPath = ref<string>('')
+// 文件夹对话框状态
+const showFolderDialog = ref(false)
+
 // 提取关键词的简单函数
 function extractKeywords(content: string): string[] {
   const words = content
@@ -59,6 +73,14 @@ function extractKeywords(content: string): string[] {
     .split(/[\s\u4e00-\u9fa5,;.!?。，；！？、]+/)
     .filter(w => w.length > 1)
   return Array.from(new Set(words)).slice(0, 5)
+}
+
+// 检测消息是否为错误消息
+function isErrorMessage(message: Message): boolean {
+  if (message.isError) return true
+  // 检测内容是否包含错误标识
+  const errorPrefixes = ['对话失败', '任务执行失败', 'API 请求失败', 'API request failed', 'Maximum context length', 'context length', 'tokens']
+  return errorPrefixes.some(prefix => message.content.includes(prefix))
 }
 
 // 打开保存到全局记忆对话框
@@ -75,6 +97,67 @@ const autoScrollEnabled = ref(true)
 const reasoningExpanded = ref<Record<number, boolean>>({})
 const reasoningStartTime = ref<Record<number, number>>({})
 const archivedExpanded = ref<Record<number, boolean>>({})
+const toolResultExpanded = ref<Record<number, boolean>>({})
+
+// 获取工具名称（从 tool_calls 中查找对应的工具调用）
+function getToolName(message: Message, messages: Message[]): string {
+  if (!message.tool_call_id) return 'Tool'
+
+  // 向前查找包含 tool_calls 的 assistant 消息
+  for (let i = messages.indexOf(message) - 1; i >= 0; i--) {
+    const msg = messages[i]
+    if (msg?.tool_calls && msg.tool_calls.length > 0) {
+      const toolCall = msg.tool_calls.find((tc: any) => tc.id === message.tool_call_id)
+      if (toolCall) {
+        return toolCall.function.name
+      }
+    }
+  }
+
+  return 'Tool'
+}
+
+// 切换工具结果展开状态
+function toggleToolResult(index: number) {
+  toolResultExpanded.value[index] = !toolResultExpanded.value[index]
+}
+
+// 复制工具结果
+async function copyToolResult(content: string) {
+  await copyText(content)
+}
+
+// 格式化工具结果显示（尝试解析 JSON）
+function formatToolResult(content: string): { isJson: boolean; formatted: string; html?: string } {
+  try {
+    const parsed = JSON.parse(content)
+    const formatted = JSON.stringify(parsed, null, 2)
+    // 添加 JSON 语法高亮
+    const highlighted = formatted
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/("(?:u[\dA-Fa-f]{4}|\\[^u]|[^\\"])*"(\s*:)?)/g, (match) => {
+        let cls = 'json-string'
+        if (/:$/.test(match)) {
+          cls = 'json-key'
+        }
+        return `<span class="${cls}">${match}</span>`
+      })
+      .replace(/\b(true|false|null)\b/g, '<span class="json-boolean">$1</span>')
+      .replace(/\b(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\b/g, '<span class="json-number">$1</span>')
+    return {
+      isJson: true,
+      formatted,
+      html: highlighted
+    }
+  } catch {
+    return {
+      isJson: false,
+      formatted: content
+    }
+  }
+}
 
 // Markdown renderer
 const md: MarkdownIt = new MarkdownIt({
@@ -233,11 +316,50 @@ async function handleLinkClick(e: MouseEvent) {
   }
 }
 
+// 选择文件夹
+function handleSelectFolder() {
+  showFolderDialog.value = true
+}
+
+// 从对话框选择文件夹
+async function selectFolderFromDialog() {
+  if (window.electronAPI?.selectFolder) {
+    try {
+      const result = await window.electronAPI.selectFolder()
+      if (result.success && result.path) {
+        selectedFolderPath.value = result.path
+        await storage.saveSelectedFolder(result.path)
+        // 通知父组件文件夹已更改
+        emit('folder-changed', result.path)
+        // 清空助理选择
+        emit('clear-assistant')
+        showFolderDialog.value = false
+      }
+    } catch (err) {
+      console.error('Failed to select folder:', err)
+      alert('选择文件夹失败')
+    }
+  }
+}
+
+// 清除文件夹
+async function handleClearFolder() {
+  selectedFolderPath.value = ''
+  await storage.clearSelectedFolder()
+  emit('folder-changed', '')
+  showFolderDialog.value = false
+}
+
 // 组件挂载时设置全局函数，卸载时清理
 onMounted(async () => {
   ;(window as any).previewHtml = function (btn: HTMLElement) {
     const base64Code = btn.getAttribute('data-html-code') || ''
     openHtmlPreview(base64Code)
+  }
+  // 加载已保存的文件夹路径
+  const savedFolder = await storage.getSelectedFolder()
+  if (savedFolder) {
+    selectedFolderPath.value = savedFolder
   }
   if (textareaRef.value) {
     autoResizeTextarea()
@@ -283,10 +405,53 @@ defineExpose({
         <p>点击右上角的"设置"配置你的 LLM 接口</p>
       </div>
       <template v-for="(m, i) in messages" :key="i">
-      <div
-        v-if="m.visible !== false"
-        :class="['msg-row', m.role]"
-      >
+        <!-- 工具调用结果消息 -->
+        <div v-if="m.visible !== false && m.role === 'tool'" class="msg-row tool">
+          <div class="msg-content">
+            <div class="tool-result-card">
+              <div class="tool-result-header" @click="toggleToolResult(i)">
+                <div class="tool-result-title">
+                  <span class="tool-result-name">{{ getToolName(m, messages) }}</span>
+                  <!-- 执行中状态 -->
+                  <span v-if="m.toolStatus === 'running'" class="tool-result-status status-running">
+                    <span class="status-spinner"></span>
+                    <span class="status-text">执行中</span>
+                  </span>
+                  <!-- 成功状态 -->
+                  <span v-else-if="m.toolStatus === 'success'" class="tool-result-status status-success">
+                    <span class="status-icon status-icon-success">✓</span>
+                    <span class="status-text">已完成</span>
+                  </span>
+                  <!-- 错误状态 -->
+                  <span v-else-if="m.toolStatus === 'error'" class="tool-result-status status-error">
+                    <span class="status-icon status-icon-error">✕</span>
+                    <span class="status-text">执行失败</span>
+                  </span>
+                  <!-- 默认成功状态（向后兼容） -->
+                  <span v-else class="tool-result-status status-success">
+                    <span class="status-icon status-icon-success">✓</span>
+                    <span class="status-text">已完成</span>
+                  </span>
+                </div>
+                <div class="tool-result-actions">
+                  <button class="tool-action-btn" title="复制结果" @click.stop="copyToolResult(m.content)">
+                    📋
+                  </button>
+                  <span class="expand-icon">{{ toolResultExpanded[i] ? '▼' : '▶' }}</span>
+                </div>
+              </div>
+              <div v-show="toolResultExpanded[i]" class="tool-result-body">
+                <pre class="tool-result-code"><code v-if="formatToolResult(m.content).html" v-html="formatToolResult(m.content).html"></code><code v-else>{{ formatToolResult(m.content).formatted }}</code></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 普通消息 -->
+        <div
+          v-else-if="m.visible !== false"
+          :class="['msg-row', m.role, { 'error-message': isErrorMessage(m) }]"
+        >
         <div class="msg-content">
           <div v-if="m.reasoning" class="reasoning-section">
             <button class="reasoning-toggle" @click="toggleReasoning(i)">
@@ -385,6 +550,20 @@ defineExpose({
           <button type="button" class="btn ghost" @click="handleCancel" :disabled="!sending">
             取消
           </button>
+          <button
+            type="button"
+            class="btn folder"
+            :class="{ 'has-folder': selectedFolderPath }"
+            @click="handleSelectFolder"
+            :title="selectedFolderPath || '选择文件夹'"
+          >
+            <template v-if="selectedFolderPath">
+              ✓ {{ selectedFolderPath.split('/').pop() || selectedFolderPath.split('\\').pop() || '文件夹' }}
+            </template>
+            <template v-else>
+              工作空间
+            </template>
+          </button>
         </div>
       </div>
     </form>
@@ -404,6 +583,31 @@ defineExpose({
       :html-content="htmlPreviewContent"
       @close="showHtmlPreview = false"
     />
+
+    <!-- 文件夹选择对话框 -->
+    <div v-if="showFolderDialog" class="dialog-overlay" @click.self="showFolderDialog = false">
+      <div class="dialog-content folder-dialog">
+        <h3>📁 选择文件夹</h3>
+        <div v-if="selectedFolderPath" class="current-folder">
+          <span class="folder-label">当前选中的文件夹</span>
+          <span class="folder-path" :title="selectedFolderPath">{{ selectedFolderPath }}</span>
+        </div>
+        <div v-else class="no-folder">
+          📂 暂未选择文件夹
+        </div>
+        <div class="dialog-actions">
+          <button v-if="selectedFolderPath" type="button" class="dialog-btn danger" @click="handleClearFolder">
+            清除
+          </button>
+          <button type="button" class="dialog-btn primary" @click="selectFolderFromDialog">
+            {{ selectedFolderPath ? '更换文件夹' : '选择文件夹' }}
+          </button>
+          <button type="button" class="dialog-btn ghost" @click="showFolderDialog = false">
+            取消
+          </button>
+        </div>
+      </div>
+    </div>
   </main>
 </template>
 
@@ -460,6 +664,24 @@ defineExpose({
 .msg-row.user .msg-content {
   display: flex;
   justify-content: flex-end;
+}
+
+/* 错误消息样式 */
+.msg-row.error-message {
+  background: #fef2f2;
+}
+
+.msg-row.error-message .msg-bubble {
+  color: #dc2626;
+  background: #fee2e2;
+  padding: 12px 16px !important;
+  border-radius: 8px;
+  border: 1px solid #fecaca;
+}
+
+.msg-row.error-message .msg-bubble :deep(code) {
+  background: #fef2f2;
+  color: #b91c1c;
 }
 
 .msg-bubble {
@@ -606,9 +828,9 @@ defineExpose({
   font-size: 13px;
 }
 
-/* 链接样式 */
+/* 链接样式 - 禁用默认行为 */
 .msg-bubble :deep(a) {
-  color: #000000;
+  color: #10a37f;
   text-decoration: none;
   cursor: pointer;
 }
@@ -759,6 +981,37 @@ defineExpose({
   color: #9ca3af;
 }
 
+/* 文件夹按钮 */
+.btn.folder {
+  padding: 8px 14px;
+  font-size: 13px;
+  background: #f3f4f6;
+  color: #6b7280;
+  border-color: #e5e7eb;
+  transition: all 0.2s;
+  min-width: 80px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn.folder.has-folder {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #86efac;
+  font-weight: 500;
+}
+
+.btn.folder:hover {
+  transform: scale(1.02);
+}
+
+.btn.folder.has-folder:hover {
+  background: #bbf7d0;
+  border-color: #22c55e;
+}
+
 /* 参数配置按钮 */
 .params-btn {
   background: #f3f4f6;
@@ -860,5 +1113,305 @@ defineExpose({
   letter-spacing: 0.5px;
   margin-bottom: 6px;
   display: inline-block;
+}
+
+/* 工具结果样式 */
+.msg-row.tool {
+  padding: 12px 0;
+}
+
+.tool-result-card {
+  background: #f7f7f8;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 8px;
+  max-width: 900px;
+}
+
+.tool-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1px 16px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s;
+}
+
+.tool-result-header:hover {
+  background: #f0f0f1;
+}
+
+.tool-result-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.tool-result-name {
+  font-family: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+  font-size: 14px;
+  color: #0f172a;
+  font-weight: 500;
+}
+
+/* 工具执行状态通用样式 */
+.tool-result-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+/* 执行中状态 */
+.status-running {
+  color: #2563eb;
+}
+
+.status-running .status-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #2563eb;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 成功状态 */
+.status-success {
+  color: #16a34a;
+}
+
+.status-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.status-icon-success {
+  background: #22c55e;
+  color: white;
+}
+
+/* 错误状态 */
+.status-error {
+  color: #dc2626;
+}
+
+.status-icon-error {
+  background: #ef4444;
+  color: white;
+}
+
+.status-text {
+  font-weight: 500;
+}
+
+.tool-result-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tool-action-btn {
+  background: transparent;
+  border: none;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+  display: flex;
+  align-items: center;
+}
+
+.tool-action-btn:hover {
+  opacity: 1;
+}
+
+.expand-icon {
+  font-size: 10px;
+  color: #6b7280;
+  transition: transform 0.2s;
+}
+
+.tool-result-body {
+  border-top: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.tool-result-code {
+  margin: 0;
+  padding: 16px;
+  overflow-x: auto;
+  font-family: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #0f172a;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* JSON 语法高亮 */
+.tool-result-code code {
+  color: #0f172a;
+}
+
+.tool-result-code .json-key {
+  color: #9333ea; /* 紫色 - 键名 */
+}
+
+.tool-result-code .json-string {
+  color: #22c55e; /* 绿色 - 字符串值 */
+}
+
+.tool-result-code .json-boolean {
+  color: #eab308; /* 黄色 - 布尔值和 null */
+}
+
+.tool-result-code .json-number {
+  color: #3b82f6; /* 蓝色 - 数字 */
+}
+
+/* 文件夹对话框样式 */
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dialog-content {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.folder-dialog {
+  min-width: 400px;
+  max-width: 600px;
+}
+
+.folder-dialog h3 {
+  margin: 0 0 20px 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #0f172a;
+  text-align: center;
+}
+
+.current-folder {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.no-folder {
+  padding: 32px 16px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  color: #94a3b8;
+  text-align: center;
+  font-size: 14px;
+}
+
+.folder-dialog .folder-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.folder-dialog .folder-path {
+  font-size: 14px;
+  color: #334155;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+  word-break: break-all;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  padding-top: 8px;
+}
+
+.dialog-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.dialog-btn.primary {
+  background: #10a37f;
+  color: #ffffff;
+}
+
+.dialog-btn.primary:hover {
+  background: #0d8a6c;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(16, 163, 127, 0.2);
+}
+
+.dialog-btn.ghost {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.dialog-btn.ghost:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.dialog-btn.danger {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.dialog-btn.danger:hover {
+  background: #fee2e2;
+  color: #b91c1c;
 }
 </style>

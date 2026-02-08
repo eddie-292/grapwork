@@ -12,6 +12,7 @@ import type {
   Message,
   TaskExecutionContext
 } from '../types/task'
+import type { OpenAIToolCall } from '../types/mcp'
 import { useWorkingMemory } from './useWorkingMemory'
 import { useGlobalMemory } from './useGlobalMemory'
 
@@ -97,7 +98,8 @@ export function useTaskMode(
   activeConfig: Ref<any>,
   activeAssistant: Ref<any>,
   controller: Ref<AbortController | null>,
-  _onMessageUpdate: () => void
+  _onMessageUpdate: () => void,
+  mcpManager?: any  // MCP 管理器（可选）
 ) {
   // ============ 状态管理 ============
   const state = ref<TaskModeState>({
@@ -522,8 +524,9 @@ ${content}
     context: TaskExecutionContext,
     onDelta: (delta: string) => void,
     onReasoningDelta: (delta: string) => void,
-    onReasoningDuration: (duration: number) => void
-  ): Promise<void> {
+    onReasoningDuration: (duration: number) => void,
+    onToolCalls?: (toolCalls: OpenAIToolCall[]) => Promise<void>  // 新增：工具调用回调
+  ): Promise<{ toolCalls?: OpenAIToolCall[] }> {  // 返回可能包含的工具调用
     if (!activeConfig.value?.apiUrl || !activeConfig.value?.apiKey) {
       throw new TaskError(TaskErrorType.API_ERROR, '请先配置并启用一个 LLM 接口')
     }
@@ -555,6 +558,9 @@ ${content}
 
     stats.value.totalApiCalls++
 
+    // 生成 MCP tools 数组（如果有激活的工具）
+    const mcpTools = mcpManager?.generateOpenAITools ? mcpManager.generateOpenAITools() : []
+
     const resp = await fetch(`${apiBase}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -565,6 +571,7 @@ ${content}
         model: activeConfig.value.model,
         messages: messagesToSend,
         stream: true,
+        ...(mcpTools.length > 0 ? { tools: mcpTools } : {}),
         ...validParams,
         ...extraBodyParams,
       }),
@@ -599,6 +606,9 @@ ${content}
     let buffer = ''
     let reasoningStartTime = Date.now()
     const qwenParser = createQwenStreamParser()
+
+    // 用于收集 tool_calls
+    const currentToolCallsMap: Map<number, OpenAIToolCall> = new Map()
 
     try {
       while (true) {
@@ -643,10 +653,44 @@ ${content}
                 onDelta(parsed.content)
               }
             }
+
+            // 处理 tool_calls
+            const deltaToolCalls = json?.choices?.[0]?.delta?.tool_calls
+            if (deltaToolCalls && Array.isArray(deltaToolCalls)) {
+              for (const toolCall of deltaToolCalls) {
+                const index = toolCall.index
+                if (index !== undefined) {
+                  if (!currentToolCallsMap.has(index)) {
+                    currentToolCallsMap.set(index, {
+                      id: toolCall.id || '',
+                      type: toolCall.type || 'function',
+                      function: {
+                        name: toolCall.function?.name || '',
+                        arguments: toolCall.function?.arguments || ''
+                      }
+                    })
+                  } else {
+                    const existing = currentToolCallsMap.get(index)!
+                    if (toolCall.id) existing.id = toolCall.id
+                    if (toolCall.function?.name) existing.function.name = toolCall.function.name
+                    if (toolCall.function?.arguments) {
+                      existing.function.arguments += toolCall.function.arguments
+                    }
+                  }
+                }
+              }
+            }
           } catch {
             // 忽略解析错误
           }
         }
+      }
+
+      // 流结束后，返回 tool_calls
+      const finalToolCalls = Array.from(currentToolCallsMap.values())
+      if (finalToolCalls.length > 0) {
+        console.log('[TaskMode] Tool calls detected:', finalToolCalls)
+        return { toolCalls: finalToolCalls }
       }
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -654,6 +698,8 @@ ${content}
       }
       throw error
     }
+
+    return {}
   }
 
   /**
