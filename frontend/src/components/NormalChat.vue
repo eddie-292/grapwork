@@ -288,10 +288,12 @@ function changeConfig(e: Event) {
   emit('change-config', target.value)
 }
 
-function toggleTaskMode(e: Event) {
-  const target = e.target as HTMLInputElement
-  emit('update:is-task-mode', target.checked)
-}
+// ============ TASK MODE - DISABLED ============
+// function toggleTaskMode(e: Event) {
+//   const target = e.target as HTMLInputElement
+//   emit('update:is-task-mode', target.checked)
+// }
+// =============================================
 
 // HTML预览功能
 function openHtmlPreview(base64Code: string) {
