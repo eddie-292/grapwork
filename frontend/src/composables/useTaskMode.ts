@@ -428,11 +428,21 @@ ${content}
       })
 
       if (!resp.ok) {
+        // 尝试读取响应体中的错误详情
+        let errorMessage = `API request failed: ${resp.statusText}`
+        try {
+          const errorData = await resp.json()
+          if (errorData.error?.message) {
+            errorMessage = errorData.error.message
+          }
+        } catch {
+          // 如果无法解析 JSON，使用默认错误消息
+        }
         throw new TaskError(
           TaskErrorType.API_ERROR,
-          `API request failed: ${resp.statusText}`,
+          errorMessage,
           undefined,
-          new Error(resp.statusText)
+          new Error(errorMessage)
         )
       }
 
@@ -562,11 +572,21 @@ ${content}
     })
 
     if (!resp.ok) {
+      // 尝试读取响应体中的错误详情
+      let errorMessage = `任务执行失败 (${resp.status}): ${resp.statusText}`
+      try {
+        const errorData = await resp.json()
+        if (errorData.error?.message) {
+          errorMessage = errorData.error.message
+        }
+      } catch {
+        // 如果无法解析 JSON，使用默认错误消息
+      }
       throw new TaskError(
         TaskErrorType.EXECUTION_FAILED,
-        `任务执行失败: ${resp.statusText}`,
+        errorMessage,
         context.taskIndex,
-        new Error(resp.statusText)
+        new Error(errorMessage)
       )
     }
 

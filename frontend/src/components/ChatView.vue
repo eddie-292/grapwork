@@ -503,7 +503,17 @@ async function sendMessageToLLM(messages: { role: string; content: string }[]): 
   }
 
   if (!resp.ok) {
-    throw new Error(`API request failed: ${resp.statusText}`)
+    // 尝试读取响应体中的错误详情
+    let errorMessage = `API request failed: ${resp.statusText}`
+    try {
+      const errorData = await resp.json()
+      if (errorData.error?.message) {
+        errorMessage = errorData.error.message
+      }
+    } catch {
+      // 如果无法解析 JSON，使用默认错误消息
+    }
+    throw new Error(errorMessage)
   }
 
   const data = await resp.json()
@@ -1150,6 +1160,20 @@ async function executeNormalChat(text: string) {
       })
     }
 
+    // 检查响应状态，处理错误情况
+    if (!resp.ok) {
+      let errorMessage = `API request failed (${resp.status}): ${resp.statusText}`
+      try {
+        const errorData = await resp.json()
+        if (errorData.error?.message) {
+          errorMessage = errorData.error.message
+        }
+      } catch {
+        // 如果无法解析 JSON，使用默认错误消息
+      }
+      throw new Error(errorMessage)
+    }
+
     if (!resp.body) {
       throw new Error('No response body')
     }
@@ -1385,6 +1409,20 @@ async function continueChatAfterToolCalls(messages: any[], mcpTools: any[]) {
       }),
       signal: controllers.value[chat.id]!.signal,
     })
+
+    // 检查响应状态，处理错误情况
+    if (!resp.ok) {
+      let errorMessage = `API request failed (${resp.status}): ${resp.statusText}`
+      try {
+        const errorData = await resp.json()
+        if (errorData.error?.message) {
+          errorMessage = errorData.error.message
+        }
+      } catch {
+        // 如果无法解析 JSON，使用默认错误消息
+      }
+      throw new Error(errorMessage)
+    }
 
     if (!resp.body) {
       throw new Error('No response body')

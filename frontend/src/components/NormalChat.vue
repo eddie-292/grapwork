@@ -19,6 +19,8 @@ export type Message = {
   tool_calls?: any[]
   // 工具执行状态
   toolStatus?: 'pending' | 'running' | 'success' | 'error'
+  // 错误消息标识
+  isError?: boolean
 }
 
 // Props
@@ -72,6 +74,14 @@ function extractKeywords(content: string): string[] {
     .filter(w => w.length > 1)
   // 去重并返回前 5 个
   return Array.from(new Set(words)).slice(0, 5)
+}
+
+// 检测消息是否为错误消息
+function isErrorMessage(message: Message): boolean {
+  if (message.isError) return true
+  // 检测内容是否包含错误标识
+  const errorPrefixes = ['对话失败', '任务执行失败', 'API 请求失败', 'API request failed', 'Maximum context length', 'context length', 'tokens']
+  return errorPrefixes.some(prefix => message.content.includes(prefix))
 }
 
 // 打开保存到全局记忆对话框
@@ -436,7 +446,7 @@ defineExpose({
         <!-- 普通消息 -->
         <div
           v-else-if="m.visible !== false"
-          :class="['msg-row', m.role]"
+          :class="['msg-row', m.role, { 'error-message': isErrorMessage(m) }]"
         >
           <div class="msg-content">
             <div v-if="m.reasoning" class="reasoning-section">
@@ -626,6 +636,24 @@ defineExpose({
 .msg-row.user .msg-content {
   display: flex;
   justify-content: flex-end;
+}
+
+/* 错误消息样式 */
+.msg-row.error-message {
+  background: #fef2f2;
+}
+
+.msg-row.error-message .msg-bubble {
+  color: #dc2626;
+  background: #fee2e2;
+  padding: 12px 16px !important;
+  border-radius: 8px;
+  border: 1px solid #fecaca;
+}
+
+.msg-row.error-message .msg-bubble :deep(code) {
+  background: #fef2f2;
+  color: #b91c1c;
 }
 
 .msg-bubble {
