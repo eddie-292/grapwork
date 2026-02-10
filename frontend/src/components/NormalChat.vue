@@ -606,7 +606,7 @@ defineExpose({
 
 .messages {
   background: #ffffff;
-  height: calc(75vh);
+  height: calc(81vh);
   overflow: auto;
 }
 
