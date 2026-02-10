@@ -102,6 +102,13 @@ interface ElectronAPI {
   mcpCleanup: () => Promise<{ success: boolean }>
   // 选择文件夹
   selectFolder: () => Promise<{ success: boolean; path: string }>
+  // 读取目录内容
+  readDirectory: (dirPath: string) => Promise<{
+    success: boolean
+    items: Array<{ name: string; type: 'file' | 'directory' }>
+    path?: string
+    error?: string
+  }>
   // 文件操作工具
   fileOperation: (operation: string, args: Record<string, any>) => Promise<{
     success: boolean

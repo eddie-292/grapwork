@@ -19,6 +19,7 @@ import type { ConfigList, AssistantList } from '../types/electron'
 import { useGlobalMemory } from '../composables/useGlobalMemory'
 import { useMCP } from '../composables/useMCP'
 import NormalChat from './NormalChat.vue'
+import WorkspaceView from './WorkspaceView.vue'
 import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
@@ -231,6 +232,12 @@ const currentChatId = ref<string | null>(null)
 const input = ref('')
 const controllers = ref<Record<string, AbortController>>({})
 const showSidebar = ref(true)
+
+// 侧边栏标签切换：'chats' 或 'workspace'
+const sidebarTab = ref<'chats' | 'workspace'>('chats')
+
+// 当前选择的文件夹路径（用于工作空间）
+const currentFolder = ref<string>('')
 
 // ============ TASK MODE - DISABLED ============
 // // 任务模式 - 基于当前会话的 computed 属性
@@ -2554,10 +2561,11 @@ onMounted(async () => {
   // 加载全局记忆
   await globalMemoryManager.load()
 
-  // 加载选中的文件夹并同步到 mcpManager
+  // 加载选中的文件夹并同步到 mcpManager 和 currentFolder
   const savedFolder = await storage.getSelectedFolder()
   if (savedFolder) {
     mcpManager.setSelectedFolder(savedFolder)
+    currentFolder.value = savedFolder
   }
 
   scrollToBottom()
@@ -2566,6 +2574,7 @@ onMounted(async () => {
 // 处理文件夹变化
 function handleFolderChanged(path: string) {
   mcpManager.setSelectedFolder(path)
+  currentFolder.value = path
 }
 
 // ============ TASK MODE - DISABLED ============
@@ -2594,7 +2603,32 @@ function handleFolderChanged(path: string) {
           <ChevronRightIcon v-else :size="14" />
         </button>
       </div>
-      <div class="chat-list">
+
+      <!-- 侧边栏标签切换 -->
+      <div class="sidebar-tabs">
+        <button
+          :class="['sidebar-tab', { active: sidebarTab === 'chats' }]"
+          @click="sidebarTab = 'chats'"
+        >
+          <svg class="tab-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 6v6l4 2"/>
+          </svg>
+          会话
+        </button>
+        <button
+          :class="['sidebar-tab', { active: sidebarTab === 'workspace' }]"
+          @click="sidebarTab = 'workspace'"
+        >
+          <svg class="tab-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+          </svg>
+          工作空间
+        </button>
+      </div>
+
+      <!-- 会话列表内容 -->
+      <div v-show="sidebarTab === 'chats'" class="chat-list">
         <!-- ============ TASK MODE - DISABLED ============ -->
         <!-- 根据当前模式显示对应会话 -->
         <!-- <div class="chat-group">
@@ -2637,6 +2671,11 @@ function handleFolderChanged(path: string) {
         <div v-if="normalChats.length === 0" class="empty-state">
           暂无对话
         </div>
+      </div>
+
+      <!-- 工作空间内容 -->
+      <div v-show="sidebarTab === 'workspace'" class="workspace-wrapper">
+        <WorkspaceView :current-folder="currentFolder" />
       </div>
     </aside>
     <div class="content-wrapper">
@@ -2972,10 +3011,58 @@ function handleFolderChanged(path: string) {
   background: #d4d4d8;
 }
 
+/* 侧边栏标签栏样式 */
+.sidebar-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px 0;
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.sidebar-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-size: 14px;
+  color: #6b7280;
+  transition: all 0.2s;
+}
+
+.sidebar-tab:hover {
+  color: #374151;
+  background: #f9fafb;
+  border-radius: 6px 6px 0 0;
+}
+
+.sidebar-tab.active {
+  color: #454545;
+  border-bottom-color: #000000;
+  font-weight: 500;
+}
+
+.tab-icon {
+  flex-shrink: 0;
+}
+
+/* 工作空间包装器 */
+.workspace-wrapper {
+  height: calc(100vh - 130px);
+  overflow: hidden;
+  background: #ffffff;
+}
+
 .chat-list {
   overflow: auto;
   padding: 8px;
-  height: calc(100vh - 80px);
+  height: calc(100vh - 120px);
 }
 
 .chat-item {

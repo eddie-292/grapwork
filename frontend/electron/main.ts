@@ -793,6 +793,55 @@ ipcMain.handle('select-folder', async () => {
   }
 })
 
+// 读取目录内容
+ipcMain.handle('read-directory', async (_event, dirPath: string) => {
+  try {
+    if (!dirPath || !fs.existsSync(dirPath)) {
+      return {
+        success: false,
+        error: !dirPath ? '目录路径为空' : '目录不存在',
+        items: []
+      }
+    }
+
+    const stats = fs.statSync(dirPath)
+    if (!stats.isDirectory()) {
+      return {
+        success: false,
+        error: '路径不是目录',
+        items: []
+      }
+    }
+
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true })
+    const items = entries
+      .map(entry => ({
+        name: entry.name,
+        type: entry.isDirectory() ? 'directory' : 'file'
+      }))
+      .sort((a, b) => {
+        // 目录排在前面，然后按名称排序
+        if (a.type !== b.type) {
+          return a.type === 'directory' ? -1 : 1
+        }
+        return a.name.localeCompare(b.name, 'zh-CN')
+      })
+
+    return {
+      success: true,
+      items,
+      path: dirPath
+    }
+  } catch (error) {
+    console.error('[read-directory] Error:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '读取目录失败',
+      items: []
+    }
+  }
+})
+
 // ============================================================================
 // MCP IPC Handlers
 // ============================================================================
