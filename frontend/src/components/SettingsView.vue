@@ -213,16 +213,13 @@ async function clearChatHistory() {
 /* 右侧内容 */
 .settings-main {
   flex: 1;
-  padding: 32px 40px;
+  padding: 20px;
   overflow: auto;
   height: calc(100vh - 71px);
 }
 
 .panel-wrapper {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+  
 }
 
 /* 只隐藏子组件 header 中的标题和返回按钮，保留添加按钮 */

@@ -252,7 +252,6 @@ onMounted(async () => {
 .global-memory-view {
   display: flex;
   flex-direction: column;
-  height: 100vh;
   color: var(--color-text-primary);
 }
 
@@ -275,7 +274,6 @@ onMounted(async () => {
 
 .content {
   flex: 1;
-  overflow-y: auto;
   padding: 24px;
 }
 

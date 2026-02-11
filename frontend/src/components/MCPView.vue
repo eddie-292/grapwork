@@ -679,7 +679,6 @@ function canFetchTools(server: MCPServer): boolean {
 
 <style scoped>
 .mcp-page {
-  min-height: 100vh;
   background: var(--color-bg-secondary);
   display: flex;
   flex-direction: column;
@@ -691,7 +690,6 @@ function canFetchTools(server: MCPServer): boolean {
   justify-content: space-between;
   gap: 16px;
   padding: 16px 24px;
-  background: var(--color-bg-primary);
   border-bottom: 1px solid var(--color-border);
 }
 

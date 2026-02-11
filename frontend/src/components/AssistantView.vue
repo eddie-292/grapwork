@@ -283,7 +283,6 @@ function truncateText(text: string, maxLength: number): string {
 
 <style scoped>
 .assistant-page {
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
