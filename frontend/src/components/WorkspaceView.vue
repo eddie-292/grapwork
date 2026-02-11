@@ -519,13 +519,13 @@ defineExpose({
   display: flex;
   align-items: center;
   gap: 4px;
-  color: #1890ff;
+  color: #0f8f6d;
   cursor: pointer;
   transition: color 0.15s;
 }
 
 .breadcrumb-item.root:hover {
-  color: #096dd9;
+  color: #0f8f6d;
 }
 
 .breadcrumb-item span:not(.breadcrumb-separator) {
@@ -534,7 +534,7 @@ defineExpose({
 }
 
 .breadcrumb-item span:not(.breadcrumb-separator):hover {
-  color: #1890ff;
+  color: #0f8f6d;
 }
 
 .breadcrumb-separator {
