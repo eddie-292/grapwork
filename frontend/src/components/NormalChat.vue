@@ -1231,6 +1231,8 @@ defineExpose({
 .tool-result-body {
   border-top: 1px solid #e5e7eb;
   background: #ffffff;
+  max-height: 200px;
+  overflow: auto;
 }
 
 .tool-result-code {

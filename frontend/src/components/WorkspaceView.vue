@@ -500,13 +500,33 @@ defineExpose({
 .breadcrumb-nav {
   display: flex;
   align-items: center;
-  padding: 8px 16px;
+  padding: 8px 12px;
   background: #f9fafb;
   border-bottom: 1px solid #e5e7eb;
   font-size: 13px;
   overflow-x: auto;
   white-space: nowrap;
   gap: 4px;
+  /* 自定义滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+}
+
+.breadcrumb-nav::-webkit-scrollbar {
+  height: 4px;
+}
+
+.breadcrumb-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.breadcrumb-nav::-webkit-scrollbar-thumb {
+  background-color: #d1d5db;
+  border-radius: 2px;
+}
+
+.breadcrumb-nav::-webkit-scrollbar-thumb:hover {
+  background-color: #9ca3af;
 }
 
 .breadcrumb-item {
@@ -583,11 +603,31 @@ defineExpose({
 .file-list {
   flex: 1;
   overflow-y: auto;
-  padding: 8px 0;
+  padding: 8px 12px 8px 8px;
+  /* 自定义滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+}
+
+.file-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.file-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.file-list::-webkit-scrollbar-thumb {
+  background-color: #d1d5db;
+  border-radius: 3px;
+}
+
+.file-list::-webkit-scrollbar-thumb:hover {
+  background-color: #9ca3af;
 }
 
 .current-dir-name {
-  padding: 8px 16px;
+  padding: 8px 12px;
   font-size: 12px;
   font-weight: 600;
   color: #9ca3af;
@@ -599,9 +639,11 @@ defineExpose({
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
+  padding: 8px 12px;
   cursor: default;
   transition: background 0.15s;
+  border-radius: 6px;
+  margin: 0 4px;
 }
 
 .file-node:hover {
@@ -636,7 +678,7 @@ defineExpose({
 }
 
 .empty-directory {
-  padding: 40px 16px;
+  padding: 40px 12px;
   text-align: center;
   color: #9ca3af;
   font-size: 13px;
