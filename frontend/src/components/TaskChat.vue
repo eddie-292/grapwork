@@ -627,12 +627,12 @@ defineExpose({
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: #ffffff;
+  background: var(--color-bg-primary);
   overflow: hidden;
 }
 
 .messages {
-  background: #ffffff;
+  background: var(--color-bg-primary);
   height: calc(75vh);
   overflow: auto;
 }
@@ -641,13 +641,13 @@ defineExpose({
   max-width: 720px;
   margin: 80px auto 0;
   text-align: center;
-  color: #4b5563;
+  color: var(--color-text-secondary);
   padding: 0 20px;
 }
 
 .welcome h2 {
   margin: 0 0 12px 0;
-  color: #0f172a;
+  color: var(--color-text-primary);
   font-size: 24px;
 }
 
@@ -662,7 +662,7 @@ defineExpose({
 }
 
 .msg-row.assistant {
-  background: #f7f7f8;
+  background: var(--color-bg-secondary);
 }
 
 .msg-content {
@@ -679,20 +679,20 @@ defineExpose({
 
 /* 错误消息样式 */
 .msg-row.error-message {
-  background: #fef2f2;
+  background: var(--color-error-bg, #fef2f2);
 }
 
 .msg-row.error-message .msg-bubble {
-  color: #dc2626;
-  background: #fee2e2;
+  color: var(--color-error-text, #dc2626);
+  background: var(--color-error-bg-light, #fee2e2);
   padding: 12px 16px !important;
   border-radius: 8px;
-  border: 1px solid #fecaca;
+  border: 1px solid var(--color-error-border, #fecaca);
 }
 
 .msg-row.error-message .msg-bubble :deep(code) {
-  background: #fef2f2;
-  color: #b91c1c;
+  background: var(--color-error-bg, #fef2f2);
+  color: var(--color-error-text-dark, #b91c1c);
 }
 
 .msg-bubble {
@@ -705,10 +705,10 @@ defineExpose({
 .msg-reasoning-bubble {
   font-size: 14px;
   line-height: 1.6;
-  color: #4b5563;
+  color: var(--color-text-secondary);
   max-width: 720px;
   word-break: break-word;
-  background: #f3f4f6;
+  background: var(--color-bg-tertiary);
   padding: 12px 16px;
   border-radius: 8px;
   margin-bottom: 12px;
@@ -727,12 +727,12 @@ defineExpose({
   padding: 6px 12px;
   cursor: pointer;
   font-size: 13px;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   transition: color 0.2s;
 }
 
 .reasoning-toggle:hover {
-  color: #0f172a;
+  color: var(--color-text-primary);
 }
 
 .reasoning-toggle span:first-child {
@@ -740,8 +740,8 @@ defineExpose({
 }
 
 .msg-row.user .msg-bubble {
-  background: #22c55e;
-  color: #ffffff;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
   padding: 12px 16px;
   border-radius: 14px;
 }
@@ -763,8 +763,8 @@ defineExpose({
 }
 
 .copy-btn {
-  background: #f5f5f5;
-  border: 1px solid #e5e7eb;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
   border-radius: 4px;
   padding: 4px 8px;
   font-size: 12px;
@@ -776,7 +776,7 @@ defineExpose({
 }
 
 .copy-btn:hover {
-  background: #e5e7eb;
+  background: var(--color-bg-secondary);
 }
 
 .msg-bubble :deep(p) {
@@ -788,10 +788,10 @@ defineExpose({
 }
 
 .msg-bubble :deep(pre) {
-  background: #f5f5f5;
+  background: var(--color-bg-tertiary);
   border-radius: 10px;
   overflow: auto;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--color-border);
   position: relative;
 }
 
@@ -800,19 +800,19 @@ defineExpose({
   top: 8px;
   right: 8px;
   background: rgba(255, 255, 255, 0.9);
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--color-border);
   border-radius: 4px;
   padding: 4px 10px;
   font-size: 12px;
   cursor: pointer;
   transition: all 0.15s;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 .msg-bubble :deep(.code-copy-btn:hover) {
-  background: #ffffff;
-  color: #0f172a;
-  border-color: #d1d5db;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
 }
 
 .msg-bubble :deep(.code-preview-btn) {
@@ -841,7 +841,7 @@ defineExpose({
 
 /* 链接样式 - 禁用默认行为 */
 .msg-bubble :deep(a) {
-  color: #22c55e;
+  color: var(--color-primary);
   text-decoration: none;
   cursor: pointer;
 }
@@ -856,31 +856,31 @@ defineExpose({
 
 .msg-bubble :deep(table th),
 .msg-bubble :deep(table td) {
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--color-border);
   padding: 8px 12px;
   text-align: left;
 }
 
 .msg-bubble :deep(table th) {
-  background: #f9fafb;
+  background: var(--color-bg-tertiary);
   font-weight: 500;
 }
 
 .msg-bubble :deep(table tr:hover td) {
-  background: #f8fafc;
+  background: var(--color-bg-secondary);
 }
 
 .inputbar {
   position: relative;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--color-border);
   padding: 16px 20px 12px;
-  background: #ffffff;
+  background: var(--color-bg-primary);
 }
 
 .model-bar {
   max-width: 900px;
   margin: 0 auto 16px;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-size: 12px;
   display: flex;
   align-items: center;
@@ -911,8 +911,8 @@ defineExpose({
 }
 
 .config-select {
-  background: #f3f4f6;
-  border: 1px solid #e5e7eb;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   padding: 4px 8px;
   font-size: 13px;
@@ -922,13 +922,13 @@ defineExpose({
 }
 
 .config-select:hover {
-  background: #ffffff;
-  border-color: #e5e7eb;
+  background: var(--color-bg-primary);
+  border-color: var(--color-border);
 }
 
 .config-select:focus {
   outline: none;
-  border-color: #e5e7eb;
+  border-color: var(--color-border);
   box-shadow: 0 0 0 2px rgba(161, 161, 161, 0.2);
 }
 
@@ -939,9 +939,9 @@ defineExpose({
   gap: 12px;
   align-items: flex-end;
   padding: 10px 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--color-border);
   border-radius: 16px;
-  background: #f9fafb;
+  background: var(--color-bg-tertiary);
 }
 
 .textarea {
@@ -952,7 +952,7 @@ defineExpose({
   background: transparent;
   outline: none;
   font-size: 14px;
-  color: #0f172a;
+  color: var(--color-text-primary);
   overflow-y: auto;
   height: 51px;
   line-height: 1.4;
@@ -966,15 +966,15 @@ defineExpose({
 .btn {
   padding: 8px 14px;
   border-radius: 999px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--color-border);
   cursor: pointer;
   font-size: 13px;
 }
 
 .btn.primary {
-  background: #22c55e;
-  color: #ffffff;
-  border-color: #22c55e;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  border-color: var(--color-primary);
 }
 
 .btn.primary:disabled {
@@ -984,21 +984,21 @@ defineExpose({
 }
 
 .btn.ghost {
-  background: #f5f5f5;
-  color: #111827;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
 }
 
 .btn.ghost:disabled {
-  color: #9ca3af;
+  color: var(--color-text-tertiary);
 }
 
 /* 文件夹按钮 */
 .btn.folder {
   padding: 8px 14px;
   font-size: 13px;
-  background: #f3f4f6;
-  color: #6b7280;
-  border-color: #e5e7eb;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
   transition: all 0.2s;
   min-width: 80px;
   max-width: 200px;
@@ -1025,8 +1025,8 @@ defineExpose({
 
 /* 参数配置按钮 */
 .params-btn {
-  background: #f3f4f6;
-  border: 1px solid #e5e7eb;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   padding: 4px 10px;
   font-size: 13px;
@@ -1037,8 +1037,8 @@ defineExpose({
 }
 
 .params-btn:hover:not(:disabled) {
-  background: #ffffff;
-  border-color: #e5e7eb;
+  background: var(--color-bg-primary);
+  border-color: var(--color-border);
 }
 
 .params-btn:disabled {
@@ -1048,7 +1048,7 @@ defineExpose({
 
 .params-btn:focus {
   outline: none;
-  border-color: #e5e7eb;
+  border-color: var(--color-border);
   box-shadow: 0 0 0 2px rgba(161, 161, 161, 0.2);
 }
 
@@ -1056,7 +1056,7 @@ defineExpose({
 .archive-section {
   margin: 12px 0;
   overflow: hidden;
-  background: #fafafa;
+  background: var(--color-bg-secondary);
 }
 
 .archive-toggle {
@@ -1065,19 +1065,19 @@ defineExpose({
   align-items: center;
   gap: 8px;
   padding: 10px 16px;
-  background: #f3f4f6;
+  background: var(--color-bg-tertiary);
   border: none;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--color-border);
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   transition: background 0.2s;
 }
 
 .archive-toggle:hover {
-  background: #e5e7eb;
-  color: #374151;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
 }
 
 .archive-toggle span:first-child {
@@ -1087,7 +1087,7 @@ defineExpose({
 
 .archive-count {
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--color-text-tertiary);
   font-weight: 400;
 }
 
@@ -1099,7 +1099,7 @@ defineExpose({
 
 .msg-row.archived {
   opacity: 0.7;
-  background: #f9f9f9;
+  background: var(--color-bg-secondary);
 }
 
 .msg-row.archived .msg-bubble {
@@ -1107,7 +1107,7 @@ defineExpose({
 }
 
 .msg-row.archived .msg-reasoning-bubble {
-  background: #f0f0f0;
+  background: var(--color-bg-secondary);
   font-size: 13px;
   padding: 10px 14px;
 }
@@ -1118,7 +1118,7 @@ defineExpose({
 
 .archived-label {
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--color-text-tertiary);
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1132,8 +1132,8 @@ defineExpose({
 }
 
 .tool-result-card {
-  background: #f7f7f8;
-  border: 1px solid #e5e7eb;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   overflow: hidden;
   margin-bottom: 8px;
@@ -1151,7 +1151,7 @@ defineExpose({
 }
 
 .tool-result-header:hover {
-  background: #f0f0f1;
+  background: var(--color-bg-secondary);
 }
 
 .tool-result-title {
@@ -1164,7 +1164,7 @@ defineExpose({
 .tool-result-name {
   font-family: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
   font-size: 14px;
-  color: #0f172a;
+  color: var(--color-text-primary);
   font-weight: 500;
 }
 
@@ -1258,13 +1258,13 @@ defineExpose({
 
 .expand-icon {
   font-size: 10px;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   transition: transform 0.2s;
 }
 
 .tool-result-body {
-  border-top: 1px solid #e5e7eb;
-  background: #ffffff;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
 }
 
 .tool-result-code {
@@ -1274,14 +1274,14 @@ defineExpose({
   font-family: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 13px;
   line-height: 1.6;
-  color: #0f172a;
+  color: var(--color-text-primary);
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 /* JSON 语法高亮 */
 .tool-result-code code {
-  color: #0f172a;
+  color: var(--color-text-primary);
 }
 
 .tool-result-code .json-key {
@@ -1289,7 +1289,7 @@ defineExpose({
 }
 
 .tool-result-code .json-string {
-  color: #22c55e; /* 绿色 - 字符串值 */
+  color: var(--color-primary); /* 绿色 - 字符串值 */
 }
 
 .tool-result-code .json-boolean {
@@ -1315,7 +1315,7 @@ defineExpose({
 }
 
 .dialog-content {
-  background: #ffffff;
+  background: var(--color-bg-primary);
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
@@ -1333,7 +1333,7 @@ defineExpose({
   margin: 0 0 20px 0;
   font-size: 20px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--color-text-primary);
   text-align: center;
 }
 
@@ -1345,7 +1345,7 @@ defineExpose({
 }
 
 .folder-dialog-title svg {
-  color: #22c55e;
+  color: var(--color-primary);
 }
 
 .current-folder {
@@ -1353,19 +1353,19 @@ defineExpose({
   flex-direction: column;
   gap: 8px;
   padding: 16px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   margin-bottom: 20px;
 }
 
 .no-folder {
   padding: 32px 16px;
-  background: #f8fafc;
-  border: 1px dashed #cbd5e1;
+  background: var(--color-bg-tertiary);
+  border: 1px dashed var(--color-border);
   border-radius: 8px;
   margin-bottom: 20px;
-  color: #94a3b8;
+  color: var(--color-text-tertiary);
   text-align: center;
   font-size: 14px;
   display: flex;
@@ -1375,20 +1375,20 @@ defineExpose({
 }
 
 .no-folder svg {
-  color: #94a3b8;
+  color: var(--color-text-tertiary);
 }
 
 .folder-dialog .folder-label {
   font-size: 12px;
   font-weight: 600;
-  color: #64748b;
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .folder-dialog .folder-path {
   font-size: 14px;
-  color: #334155;
+  color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1403,45 +1403,5 @@ defineExpose({
   padding-top: 8px;
 }
 
-.dialog-btn {
-  padding: 10px 20px;
-  border-radius: 8px;
-  border: none;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-}
-
-.dialog-btn.primary {
-  background: #22c55e;
-  color: #ffffff;
-}
-
-.dialog-btn.primary:hover {
-  background: #0d8a6c;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 6px -1px rgba(16, 163, 127, 0.2);
-}
-
-.dialog-btn.ghost {
-  background: #f1f5f9;
-  color: #475569;
-}
-
-.dialog-btn.ghost:hover {
-  background: #e2e8f0;
-  color: #1e293b;
-}
-
-.dialog-btn.danger {
-  background: #fef2f2;
-  color: #dc2626;
-}
-
-.dialog-btn.danger:hover {
-  background: #fee2e2;
-  color: #b91c1c;
-}
+/* dialog-btn styles moved to global style.css */
 </style>

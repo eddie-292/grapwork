@@ -455,7 +455,7 @@ async function clearChatHistory() {
 <style scoped>
 .settings-page {
   min-height: 100vh;
-  background: #ffffff;
+  background: var(--color-bg-primary);
   display: flex;
   flex-direction: column;
 }
@@ -465,30 +465,18 @@ async function clearChatHistory() {
   align-items: center;
   gap: 16px;
   padding: 16px 24px;
-  border-bottom: 1px solid #e5e7eb;
-  background: #ffffff;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
   justify-content: space-between;
 }
 
-.back-btn {
-  background: #f5f5f5;
-  border: 1px solid #e5e7eb;
-  font-size: 14px;
-  cursor: pointer;
-  padding: 6px 12px;
-  border-radius: 999px;
-  transition: background 0.2s, border-color 0.2s;
-}
-
-.back-btn:hover {
-  background: #f0f0f0;
-}
+/* back-btn styles moved to global style.css */
 
 .settings-header h1 {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--color-text-primary);
 }
 
 .settings-content {
@@ -501,9 +489,9 @@ async function clearChatHistory() {
 .settings-sidebar {
   width: 240px;
   flex-shrink: 0;
-  border-right: 1px solid #e5e7eb;
+  border-right: 1px solid var(--color-border);
   padding: 24px 0;
-  background: #fafafa;
+  background: var(--color-bg-secondary);
 }
 
 .sidebar-nav {
@@ -520,16 +508,16 @@ async function clearChatHistory() {
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 .nav-item:hover {
-  background: #f3f4f6;
-  color: #0f172a;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
 }
 
 .nav-item.active {
-  background: #22c55e;
+  background: var(--color-primary);
   color: white;
 }
 
@@ -551,14 +539,14 @@ async function clearChatHistory() {
 }
 
 .content-panel {
-  
+
 }
 
 .title {
   margin: 0 0 24px 0;
   font-size: 20px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--color-text-primary);
 }
 
 .form {
@@ -580,7 +568,7 @@ async function clearChatHistory() {
 
 .input {
   padding: 10px 12px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   font-size: 14px;
   outline: none;
@@ -588,12 +576,12 @@ async function clearChatHistory() {
 }
 
 .input:focus {
-  border-color: #22c55e;
+  border-color: var(--color-primary);
 }
 
 .textarea {
   padding: 10px 12px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   font-size: 14px;
   outline: none;
@@ -603,11 +591,11 @@ async function clearChatHistory() {
 }
 
 .textarea:focus {
-  border-color: #22c55e;
+  border-color: var(--color-primary);
 }
 
 .form-group small {
-  color: #666;
+  color: var(--color-text-secondary);
   font-size: 12px;
 }
 
@@ -631,50 +619,7 @@ async function clearChatHistory() {
   margin-top: 8px;
 }
 
-.btn {
-  padding: 10px 20px;
-  border-radius: 8px;
-  border: none;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn.secondary {
-  background: #f5f5f5;
-  color: #111827;
-  border: 1px solid #e5e7eb;
-}
-
-.btn.secondary:hover:not(:disabled) {
-  background: #f0f0f0;
-}
-
-.btn.primary {
-  background: #22c55e;
-  color: white;
-  border: 1px solid #22c55e;
-}
-
-.btn.primary:hover:not(:disabled) {
-  background: #0f8f6d;
-}
-
-.btn.danger {
-  background: #fee2e2;
-  color: #dc2626;
-  border: 1px solid #fecaca;
-}
-
-.btn.danger:hover {
-  background: #fecaca;
-}
+/* Button styles moved to global style.css */
 
 .config-list {
   margin-bottom: 24px;
@@ -683,8 +628,8 @@ async function clearChatHistory() {
 .empty-state {
   text-align: center;
   padding: 40px 20px;
-  color: #6b7280;
-  background: #f9fafb;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-tertiary);
   border-radius: 8px;
   margin-bottom: 20px;
 }
@@ -693,16 +638,16 @@ async function clearChatHistory() {
   display: flex;
   align-items: center;
   padding: 16px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   margin-bottom: 12px;
-  background: #ffffff;
+  background: var(--color-bg-primary);
   transition: all 0.2s;
   gap: 20px;
 }
 
 .config-item:hover {
-  border-color: #22c55e;
+  border-color: var(--color-primary);
 }
 
 .config-info {
@@ -719,12 +664,12 @@ async function clearChatHistory() {
 .config-header h3 {
   margin: 0;
   font-size: 16px;
-  color: #0f172a;
+  color: var(--color-text-primary);
 }
 
 .config-details {
   font-size: 13px;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   line-height: 1.4;
 }
 
@@ -737,27 +682,10 @@ async function clearChatHistory() {
   gap: 8px;
 }
 
-.btn-icon {
- min-width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: 1px solid #e5e7eb;
-  background: #f5f5f5;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  transition: all 0.2s;
-}
-
-.btn-icon:hover {
-  background: #f0f0f0;
-  border-color: #d1d5db;
-}
+/* btn-icon styles moved to global style.css */
 
 .edit-form {
-  background: #f9fafb;
+  background: var(--color-bg-tertiary);
   padding: 20px;
   border-radius: 8px;
   margin-bottom: 20px;
@@ -765,7 +693,7 @@ async function clearChatHistory() {
 
 .edit-form h3 {
   margin: 0 0 16px 0;
-  color: #0f172a;
+  color: var(--color-text-primary);
 }
 
 .form-actions {
@@ -795,7 +723,7 @@ async function clearChatHistory() {
 
 .section-title {
   margin: 0 0 16px 0;
-  color: #0f172a;
+  color: var(--color-text-primary);
 }
 
 .theme-selector {
@@ -806,16 +734,16 @@ async function clearChatHistory() {
 
 .theme-select {
   padding: 10px 12px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   font-size: 14px;
   outline: none;
-  background: #ffffff;
+  background: var(--color-bg-primary);
   transition: border-color 0.2s;
 }
 
 .theme-select:focus {
-  border-color: #22c55e;
+  border-color: var(--color-primary);
 }
 
 .theme-preview {

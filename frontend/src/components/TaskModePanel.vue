@@ -474,8 +474,8 @@ function submitRevision() {
 .task-panel {
   width: 300px;
   height: 100%;
-  background: #f9fafb;
-  border-left: 1px solid #e5e7eb;
+  background: var(--color-bg-secondary);
+  border-left: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -493,7 +493,7 @@ function submitRevision() {
   margin: 0;
   font-size: 15px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--color-text-primary);
 }
 
 .task-status-badge {
@@ -529,7 +529,7 @@ function submitRevision() {
   align-items: center;
   justify-content: center;
   padding: 20px;
-  color: #9ca3af;
+  color: var(--color-text-tertiary);
   font-size: 14px;
 }
 
@@ -555,8 +555,8 @@ function submitRevision() {
   gap: 8px;
   padding: 12px;
   margin-bottom: 8px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   transition: all 0.2s;
   max-width: 100%;
@@ -564,13 +564,13 @@ function submitRevision() {
 }
 
 .task-item:hover {
-  border-color: #d1d5db;
+  border-color: var(--color-border-hover);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .task-item.active {
-  border-color: #22c55e;
-  background: #f0fdf4;
+  border-color: var(--color-primary);
+  background: var(--color-secondary);
 }
 
 .task-item.completed {
@@ -587,11 +587,11 @@ function submitRevision() {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 .task-item.active .task-icon {
-  color: #22c55e;
+  color: var(--color-primary);
 }
 
 .task-item.completed .task-icon {
@@ -633,16 +633,16 @@ function submitRevision() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #e5e7eb;
+  background: var(--color-border);
   border-radius: 4px;
   font-size: 11px;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 .task-item.active .task-number {
-  background: #22c55e;
-  color: #ffffff;
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
 }
 
 .task-description {
@@ -664,112 +664,19 @@ function submitRevision() {
   padding: 12px 16px;
   display: flex;
   gap: 8px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--color-border);
 }
 
-.confirm-btn {
+/* confirm-btn, cancel-btn, revise-btn, continue-btn styles moved to global style.css */
+.confirm-btn, .cancel-btn, .revise-btn, .continue-btn {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 10px;
-  background: #22c55e;
-  color: #ffffff;
-  border: none;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
 }
 
-.confirm-btn:hover {
-  background: #0d8a6c;
-}
-
-.confirm-btn span:first-child {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.cancel-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 10px;
-  background: #f3f4f6;
-  color: #374151;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.cancel-btn:hover {
-  background: #e5e7eb;
-  color: #dc2626;
-  border-color: #dc2626;
-}
-
-.cancel-btn span:first-child {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.revise-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 10px;
-  background: #fef3c7;
-  border: 1px solid #f59e0b;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 500;
-  color: #92400e;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.revise-btn:hover {
-  background: #fde68a;
-}
-
-.revise-btn span:first-child {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-/* 继续执行按钮样式 */
-.continue-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 10px;
-  background: #dbeafe;
-  border: 1px solid #3b82f6;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #1d4ed8;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.continue-btn:hover {
-  background: #bfdbfe;
-}
-
-.continue-btn span:first-child {
+.confirm-btn span:first-child, .cancel-btn span:first-child, .revise-btn span:first-child, .continue-btn span:first-child {
   font-size: 14px;
   font-weight: 600;
 }
@@ -792,19 +699,7 @@ function submitRevision() {
   color: #854d0e;
 }
 
-.close-revision-btn {
-  background: none;
-  border: none;
-  color: #854d0e;
-  cursor: pointer;
-  font-size: 14px;
-  padding: 2px;
-  line-height: 1;
-}
-
-.close-revision-btn:hover {
-  color: #713f12;
-}
+/* close-revision-btn styles moved to global style.css */
 
 .revision-textarea {
   width: 100%;
@@ -815,7 +710,7 @@ function submitRevision() {
   font-family: inherit;
   resize: vertical;
   min-height: 60px;
-  background: #ffffff;
+  background: var(--color-bg-primary);
   box-sizing: border-box;
 }
 
@@ -830,58 +725,23 @@ function submitRevision() {
   opacity: 0.7;
 }
 
-.submit-revision-btn {
-  margin-top: 8px;
-  width: 100%;
-  padding: 8px 12px;
-  background: #f59e0b;
-  border: none;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  color: white;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.submit-revision-btn:hover:not(:disabled) {
-  background: #d97706;
-}
-
-.submit-revision-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+/* submit-revision-btn styles moved to global style.css */
 
 /* 设置面板 */
 /* 底部操作区域 */
 .bottom-actions {
   padding: 12px 16px;
-  border-top: 1px solid #e5e7eb;
-  background: #ffffff;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
 }
 
+/* settings-btn styles moved to global style.css */
 .settings-btn {
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 10px 16px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #6b7280;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.settings-btn:hover {
-  background: #f3f4f6;
-  border-color: #d1d5db;
-  color: #374151;
 }
 
 .settings-btn span:first-child {
@@ -903,7 +763,7 @@ function submitRevision() {
 }
 
 .dialog-content {
-  background: #ffffff;
+  background: var(--color-bg-primary);
   border-radius: 12px;
   width: 90%;
   max-width: 480px;
@@ -919,21 +779,21 @@ function submitRevision() {
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .dialog-header h3 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--color-text-primary);
 }
 
 .dialog-close {
   background: transparent;
   border: none;
   font-size: 20px;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   cursor: pointer;
   padding: 4px 8px;
   border-radius: 4px;
@@ -941,8 +801,8 @@ function submitRevision() {
 }
 
 .dialog-close:hover {
-  background: #f3f4f6;
-  color: #0f172a;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
 }
 
 .dialog-body {
@@ -974,7 +834,7 @@ function submitRevision() {
   width: 16px;
   height: 16px;
   cursor: pointer;
-  accent-color: #22c55e;
+  accent-color: var(--color-primary);
 }
 
 .setting-value-control {
@@ -986,23 +846,23 @@ function submitRevision() {
 .setting-number {
   width: 80px;
   padding: 8px 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   font-size: 14px;
-  color: #0f172a;
+  color: var(--color-text-primary);
   outline: none;
   transition: border-color 0.2s;
 }
 
 .setting-number:focus {
-  border-color: #22c55e;
+  border-color: var(--color-primary);
 }
 
 .setting-range {
   flex: 1;
   height: 6px;
   border-radius: 3px;
-  background: #e5e7eb;
+  background: var(--color-border);
   outline: none;
   -webkit-appearance: none;
   appearance: none;
@@ -1014,7 +874,7 @@ function submitRevision() {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #22c55e;
+  background: var(--color-primary);
   cursor: pointer;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -1023,7 +883,7 @@ function submitRevision() {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #22c55e;
+  background: var(--color-primary);
   cursor: pointer;
   border: none;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -1034,13 +894,13 @@ function submitRevision() {
   text-align: center;
   font-size: 14px;
   font-weight: 600;
-  color: #22c55e;
+  color: var(--color-primary);
 }
 
 .setting-desc {
   margin: 8px 0 0 0;
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--color-text-tertiary);
   line-height: 1.5;
 }
 
@@ -1048,8 +908,8 @@ function submitRevision() {
 
 /* 任务编辑样式 */
 .task-item.editing {
-  border-color: #22c55e;
-  background: #f0fdf4;
+  border-color: var(--color-primary);
+  background: var(--color-secondary);
 }
 
 .task-actions {
@@ -1059,40 +919,14 @@ function submitRevision() {
   margin-left: auto;
 }
 
+/* task-action-btn styles moved to global style.css */
 .task-action-btn {
   width: 20px;
   height: 20px;
-  border: none;
-  background: transparent;
-  color: #9ca3af;
-  cursor: pointer;
-  font-size: 12px;
-  border-radius: 3px;
-  transition: all 0.15s;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-}
-
-.task-action-btn:hover {
-  background: #f3f4f6;
-  color: #6b7280;
-}
-
-.task-action-btn.delete:hover {
-  background: #fee2e2;
-  color: #dc2626;
-}
-
-.task-action-btn.retry:hover {
-  background: #dbeafe;
-  color: #2563eb;
-}
-
-.task-action-btn.skip:hover {
-  background: #fef3c7;
-  color: #d97706;
 }
 
 .task-error-actions {
@@ -1118,44 +952,21 @@ function submitRevision() {
   flex: 1;
   min-width: 0;
   padding: 4px 8px;
-  border: 1px solid #22c55e;
+  border: 1px solid var(--color-primary);
   border-radius: 4px;
   font-size: 12px;
-  color: #0f172a;
+  color: var(--color-text-primary);
   outline: none;
 }
 
+/* task-edit-btn styles moved to global style.css */
 .task-edit-btn {
   width: 20px;
   height: 20px;
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s;
   flex-shrink: 0;
-}
-
-.task-edit-btn.save {
-  background: #22c55e;
-  color: white;
-}
-
-.task-edit-btn.save:hover {
-  background: #0d8a6c;
-}
-
-.task-edit-btn.cancel {
-  background: #f3f4f6;
-  color: #6b7280;
-}
-
-.task-edit-btn.cancel:hover {
-  background: #e5e7eb;
-  color: #374151;
 }
 
 /* 工作记忆区域样式 */
@@ -1164,45 +975,19 @@ function submitRevision() {
   /* border-bottom: 1px solid #e5e7eb; */
 }
 
-.wm-toggle-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 10px 16px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #6b7280;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.wm-toggle-btn:hover {
-  background: #f3f4f6;
-  border-color: #d1d5db;
-}
-
-.wm-toggle-btn.active {
-  background: #ecfdf5;
-  border-color: #22c55e;
-  color: #065f46;
-}
+/* wm-toggle-btn styles moved to global style.css */
 
 .wm-badge {
   margin-left: auto;
   padding: 2px 8px;
-  background: #e5e7eb;
+  background: var(--color-border);
   border-radius: 10px;
   font-size: 11px;
   font-weight: 600;
 }
 
 .wm-toggle-btn.active .wm-badge {
-  background: #22c55e;
+  background: var(--color-primary);
   color: white;
 }
 
@@ -1217,7 +1002,7 @@ function submitRevision() {
   display: flex;
   gap: 4px;
   padding: 12px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .wm-tab {
@@ -1232,17 +1017,17 @@ function submitRevision() {
   border-radius: 6px;
   font-size: 12px;
   font-weight: 500;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .wm-tab:hover {
-  background: #f3f4f6;
+  background: var(--color-bg-tertiary);
 }
 
 .wm-tab.active {
-  background: #22c55e;
+  background: var(--color-primary);
   color: white;
 }
 
@@ -1269,20 +1054,20 @@ function submitRevision() {
 
 .wm-entry {
   margin-bottom: 12px;
-  background: white;
-  border: 1px solid #e5e7eb;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 12px;
   transition: all 0.2s;
 }
 
 .wm-entry:hover {
-  border-color: #d1d5db;
+  border-color: var(--color-border-hover);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .wm-entry.editing {
-  border-color: #22c55e;
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 2px rgba(16, 163, 127, 0.1);
 }
 
@@ -1305,7 +1090,7 @@ function submitRevision() {
 .wm-timestamp {
   margin-left: auto;
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--color-text-tertiary);
 }
 
 .wm-entry-actions {
@@ -1313,29 +1098,13 @@ function submitRevision() {
   gap: 2px;
 }
 
+/* wm-action-btn styles moved to global style.css */
 .wm-action-btn {
   width: 20px;
   height: 20px;
-  border: none;
-  background: transparent;
-  color: #9ca3af;
-  cursor: pointer;
-  font-size: 12px;
-  border-radius: 3px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s;
-}
-
-.wm-action-btn:hover {
-  background: #f3f4f6;
-  color: #6b7280;
-}
-
-.wm-action-btn.delete:hover {
-  background: #fee2e2;
-  color: #dc2626;
 }
 
 .wm-entry-content {
@@ -1349,7 +1118,7 @@ function submitRevision() {
 .wm-edit-textarea {
   width: 100%;
   padding: 8px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   font-size: 12px;
   font-family: inherit;
@@ -1359,7 +1128,7 @@ function submitRevision() {
 
 .wm-edit-textarea:focus {
   outline: none;
-  border-color: #22c55e;
+  border-color: var(--color-primary);
 }
 
 .wm-edit-actions {
@@ -1369,40 +1138,14 @@ function submitRevision() {
   justify-content: flex-end;
 }
 
-.wm-edit-btn {
-  padding: 6px 12px;
-  border: none;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.wm-edit-btn.save {
-  background: #22c55e;
-  color: white;
-}
-
-.wm-edit-btn.save:hover {
-  background: #0d8a6c;
-}
-
-.wm-edit-btn.cancel {
-  background: #f3f4f6;
-  color: #6b7280;
-}
-
-.wm-edit-btn.cancel:hover {
-  background: #e5e7eb;
-}
+/* wm-edit-btn styles moved to global style.css */
 
 .wm-empty {
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 40px 20px;
-  color: #9ca3af;
+  color: var(--color-text-tertiary);
   font-size: 13px;
 }
 </style>

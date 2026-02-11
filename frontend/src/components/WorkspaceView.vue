@@ -447,8 +447,8 @@ defineExpose({
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-bottom: 1px solid #e5e7eb;
-  background: #ffffff;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
 }
 
 .workspace-title {
@@ -458,29 +458,14 @@ defineExpose({
   color: #333333;
 }
 
+/* refresh-btn styles moved to global style.css */
 .refresh-btn {
   width: 28px;
   height: 28px;
   padding: 0;
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #999999;
-  transition: all 0.2s;
-}
-
-.refresh-btn:hover:not(:disabled) {
-  background: #f3f4f6;
-  color: #666666;
-}
-
-.refresh-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .refresh-btn svg.spinning {
@@ -501,15 +486,15 @@ defineExpose({
   display: flex;
   align-items: center;
   padding: 8px 12px;
-  background: #f9fafb;
-  border-bottom: 1px solid #e5e7eb;
+  background: var(--color-bg-tertiary);
+  border-bottom: 1px solid var(--color-border);
   font-size: 13px;
   overflow-x: auto;
   white-space: nowrap;
   gap: 4px;
   /* 自定义滚动条 */
   scrollbar-width: thin;
-  scrollbar-color: #d1d5db transparent;
+  scrollbar-color: var(--color-border-hover) transparent;
 }
 
 .breadcrumb-nav::-webkit-scrollbar {
@@ -521,18 +506,18 @@ defineExpose({
 }
 
 .breadcrumb-nav::-webkit-scrollbar-thumb {
-  background-color: #d1d5db;
+  background-color: var(--color-border-hover);
   border-radius: 2px;
 }
 
 .breadcrumb-nav::-webkit-scrollbar-thumb:hover {
-  background-color: #9ca3af;
+  background-color: var(--color-text-tertiary);
 }
 
 .breadcrumb-item {
   display: flex;
   align-items: center;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 .breadcrumb-item.root {
@@ -559,7 +544,7 @@ defineExpose({
 
 .breadcrumb-separator {
   margin: 0 4px;
-  color: #d1d5db;
+  color: var(--color-border-hover);
   cursor: default;
 }
 
@@ -572,7 +557,7 @@ defineExpose({
   justify-content: center;
   padding: 40px 20px;
   gap: 12px;
-  color: #9ca3af;
+  color: var(--color-text-tertiary);
   font-size: 14px;
   text-align: center;
 }
@@ -581,23 +566,10 @@ defineExpose({
   color: #dc2626;
 }
 
-.retry-btn {
-  padding: 6px 16px;
-  background: #dc2626;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
-  transition: background 0.2s;
-}
-
-.retry-btn:hover {
-  background: #b91c1c;
-}
+/* retry-btn styles moved to global style.css */
 
 .empty-folder-state svg {
-  color: #d1d5db;
+  color: var(--color-border-hover);
 }
 
 .file-list {
@@ -606,7 +578,7 @@ defineExpose({
   padding: 8px 12px 8px 8px;
   /* 自定义滚动条 */
   scrollbar-width: thin;
-  scrollbar-color: #d1d5db transparent;
+  scrollbar-color: var(--color-border-hover) transparent;
 }
 
 .file-list::-webkit-scrollbar {
@@ -618,19 +590,19 @@ defineExpose({
 }
 
 .file-list::-webkit-scrollbar-thumb {
-  background-color: #d1d5db;
+  background-color: var(--color-border-hover);
   border-radius: 3px;
 }
 
 .file-list::-webkit-scrollbar-thumb:hover {
-  background-color: #9ca3af;
+  background-color: var(--color-text-tertiary);
 }
 
 .current-dir-name {
   padding: 8px 12px;
   font-size: 12px;
   font-weight: 600;
-  color: #9ca3af;
+  color: var(--color-text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -647,7 +619,7 @@ defineExpose({
 }
 
 .file-node:hover {
-  background: #f3f4f6;
+  background: var(--color-bg-tertiary);
 }
 
 .file-node.is-folder {
@@ -655,7 +627,7 @@ defineExpose({
 }
 
 .file-node.is-folder:hover {
-  background: #22c55e;
+  background: var(--color-primary);
 }
 
 .node-icon {
@@ -671,7 +643,7 @@ defineExpose({
 
 .node-name {
   font-size: 14px;
-  color: #000000;
+  color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -680,7 +652,7 @@ defineExpose({
 .empty-directory {
   padding: 40px 12px;
   text-align: center;
-  color: #9ca3af;
+  color: var(--color-text-tertiary);
   font-size: 13px;
 }
 </style>

@@ -288,7 +288,7 @@ function truncateText(text: string, maxLength: number): string {
 <style scoped>
 .assistant-page {
   min-height: 100vh;
-  background: #f5f7fa;
+  background: var(--color-bg-secondary);
   display: flex;
   flex-direction: column;
 }
@@ -299,47 +299,18 @@ function truncateText(text: string, maxLength: number): string {
   justify-content: space-between;
   gap: 16px;
   padding: 16px 24px;
-  background: #ffffff;
-  border-bottom: 1px solid #e8ecf1;
+  background: var(--color-bg-primary);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .assistant-header h1 {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--color-text-primary);
 }
 
-.back-btn {
-  background: #f5f5f5;
-  border: 1px solid #e5e7eb;
-  font-size: 14px;
-  cursor: pointer;
-  padding: 6px 12px;
-  border-radius: 999px;
-  transition: background 0.2s, border-color 0.2s;
-}
-
-.back-btn:hover {
-  background: #f5f7fa;
-  border-color: #d1d5db;
-}
-
-.add-btn {
-  background: #22c55e;
-  color: white;
-  border: none;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  padding: 10px 20px;
-  border-radius: 8px;
-  transition: all 0.2s;
-}
-
-.add-btn:hover {
-  background: #0f8f6d;
-}
+/* back-btn and add-btn styles moved to global style.css */
 
 .assistant-content {
   padding: 32px;
@@ -360,7 +331,7 @@ function truncateText(text: string, maxLength: number): string {
   width: 80px;
   height: 80px;
   opacity: 0.3;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 .empty-icon svg {
@@ -370,7 +341,7 @@ function truncateText(text: string, maxLength: number): string {
 
 .empty-state p {
   margin: 0;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-size: 16px;
 }
 
@@ -381,8 +352,8 @@ function truncateText(text: string, maxLength: number): string {
 }
 
 .assistant-card {
-  background: #ffffff;
-  border: 1px solid #e8ecf1;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
   border-radius: 16px;
   padding: 24px;
   display: flex;
@@ -393,7 +364,7 @@ function truncateText(text: string, maxLength: number): string {
 }
 
 .assistant-card:hover {
-  border-color: #22c55e;
+  border-color: var(--color-primary);
   box-shadow: 0 8px 24px rgba(16, 163, 127, 0.12);
 }
 
@@ -405,8 +376,8 @@ function truncateText(text: string, maxLength: number): string {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid #e8ecf1;
-  color: #22c55e;
+  border: 2px solid var(--color-border);
+  color: var(--color-primary);
 }
 
 .card-avatar svg {
@@ -422,13 +393,13 @@ function truncateText(text: string, maxLength: number): string {
   margin: 0 0 8px 0;
   font-size: 18px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--color-text-primary);
 }
 
 .card-description {
   margin: 0;
   font-size: 14px;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   line-height: 1.6;
 }
 
@@ -437,48 +408,7 @@ function truncateText(text: string, maxLength: number): string {
   gap: 8px;
 }
 
-.use-btn {
-  flex: 1;
-  background: #22c55e;
-  color: white;
-  border: none;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  padding: 10px 16px;
-  border-radius: 8px;
-  transition: all 0.2s;
-}
-
-.use-btn:hover {
-  background: #0f8f6d;
-}
-
-.edit-btn, .delete-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  border: 1px solid #e8ecf1;
-  background: #ffffff;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-  color: #6b7280;
-}
-
-.edit-btn:hover {
-  border-color: #22c55e;
-  color: #22c55e;
-  background: #f0fdf4;
-}
-
-.delete-btn:hover {
-  border-color: #ef4444;
-  color: #ef4444;
-  background: #fef2f2;
-}
+/* use-btn, edit-btn, delete-btn styles moved to global style.css */
 
 /* 模态框样式 */
 .modal-overlay {
@@ -496,7 +426,7 @@ function truncateText(text: string, maxLength: number): string {
 }
 
 .modal-content {
-  background: #ffffff;
+  background: var(--color-bg-primary);
   border-radius: 16px;
   width: 100%;
   max-width: 520px;
@@ -517,27 +447,10 @@ function truncateText(text: string, maxLength: number): string {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--color-text-primary);
 }
 
-.close-btn {
-  background: transparent;
-  border: none;
-  font-size: 28px;
-  line-height: 1;
-  cursor: pointer;
-  color: #9ca3af;
-  padding: 4px;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  transition: all 0.2s;
-}
-
-.close-btn:hover {
-  background: #f5f7fa;
-  color: #6b7280;
-}
+/* close-btn styles moved to global style.css */
 
 .modal-body {
   padding: 0 24px 24px;
@@ -555,22 +468,22 @@ function truncateText(text: string, maxLength: number): string {
 .form-group label {
   font-weight: 500;
   font-size: 14px;
-  color: #1a1a2e;
+  color: var(--color-text-primary);
 }
 
 .input {
   padding: 12px 14px;
-  border: 1px solid #e8ecf1;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   font-size: 14px;
   outline: none;
   transition: border-color 0.2s;
-  background: #ffffff;
+  background: var(--color-bg-primary);
   font-family: inherit;
 }
 
 .input:focus {
-  border-color: #22c55e;
+  border-color: var(--color-primary);
 }
 
 .input.textarea {
@@ -580,7 +493,7 @@ function truncateText(text: string, maxLength: number): string {
 }
 
 .form-group small {
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
 
@@ -591,18 +504,8 @@ function truncateText(text: string, maxLength: number): string {
 }
 
 .avatar-btn {
-  padding: 8px;
-  border: 2px solid #e8ecf1;
-  border-radius: 8px;
-  background: #ffffff;
-  cursor: pointer;
-  transition: all 0.2s;
   width: 46px;
   height: 46px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #4a5568;
 }
 
 .avatar-btn svg {
@@ -610,14 +513,9 @@ function truncateText(text: string, maxLength: number): string {
   height: 24px;
 }
 
-.avatar-btn:hover {
-  border-color: #22c55e;
-  background: #f0fdf4;
-}
-
 .avatar-btn.selected {
-  border-color: #22c55e;
-  background: #22c55e;
+  border-color: var(--color-primary);
+  background: var(--color-primary);
   color: white;
 }
 
@@ -625,42 +523,9 @@ function truncateText(text: string, maxLength: number): string {
   display: flex;
   gap: 12px;
   padding: 20px 24px;
-  border-top: 1px solid #e8ecf1;
+  border-top: 1px solid var(--color-border);
   justify-content: flex-end;
 }
 
-.btn {
-  padding: 10px 20px;
-  border-radius: 8px;
-  border: none;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn.secondary {
-  background: #f5f7fa;
-  color: #4a5568;
-  border: 1px solid #e8ecf1;
-}
-
-.btn.secondary:hover:not(:disabled) {
-  background: #e8ecf1;
-}
-
-.btn.primary {
-  background: #22c55e;
-  color: white;
-  border: 1px solid #22c55e;
-}
-
-.btn.primary:hover:not(:disabled) {
-  background: #0f8f6d;
-}
+/* Button styles moved to global style.css */
 </style>

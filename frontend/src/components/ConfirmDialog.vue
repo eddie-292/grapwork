@@ -75,7 +75,7 @@ const iconComponent = computed(() => {
 }
 
 .modal-content {
-  background: #ffffff;
+  background: var(--color-bg-primary);
   border-radius: 16px;
   width: 100%;
   max-width: 400px;
@@ -95,19 +95,19 @@ const iconComponent = computed(() => {
 }
 
 .confirm-icon svg {
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 .confirm-modal h3 {
   margin: 0 0 12px 0;
   font-size: 20px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--color-text-primary);
 }
 
 .confirm-modal p {
   margin: 0 0 24px 0;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   line-height: 1.6;
 }
 
@@ -117,40 +117,9 @@ const iconComponent = computed(() => {
   justify-content: center;
 }
 
+/* Button styles moved to global style.css */
 .btn {
-  padding: 10px 20px;
-  border-radius: 8px;
-  border: none;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
   min-width: 100px;
-}
-
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn.secondary {
-  background: #f5f7fa;
-  color: #4a5568;
-  border: 1px solid #e8ecf1;
-}
-
-.btn.secondary:hover:not(:disabled) {
-  background: #e8ecf1;
-}
-
-.btn.danger {
-  background: #ef4444;
-  color: white;
-  border: 1px solid #ef4444;
-}
-
-.btn.danger:hover:not(:disabled) {
-  background: #dc2626;
 }
 
 .btn.warning {
@@ -164,12 +133,12 @@ const iconComponent = computed(() => {
 }
 
 .btn.info {
-  background: #22c55e;
+  background: var(--color-primary);
   color: white;
-  border: 1px solid #22c55e;
+  border: 1px solid var(--color-primary);
 }
 
 .btn.info:hover:not(:disabled) {
-  background: #0f8f6d;
+  background: var(--color-primary-hover);
 }
 </style>

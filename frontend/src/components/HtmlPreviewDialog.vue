@@ -102,7 +102,7 @@ function handleClose() {
 }
 
 .html-preview-dialog {
-  background: #ffffff;
+  background: var(--color-bg-primary);
   border-radius: 12px;
   width: 90%;
   max-width: 900px;
@@ -117,14 +117,14 @@ function handleClose() {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .html-preview-header h3 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--color-text-primary);
 }
 
 .close-btn {
@@ -132,7 +132,7 @@ function handleClose() {
   border: none;
   font-size: 28px;
   line-height: 1;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   cursor: pointer;
   padding: 0;
   width: 32px;
@@ -145,14 +145,14 @@ function handleClose() {
 }
 
 .close-btn:hover {
-  background: #f3f4f6;
-  color: #0f172a;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
 }
 
 .html-preview-content {
   flex: 1;
   overflow: hidden;
-  background: #f9fafb;
+  background: var(--color-bg-tertiary);
 }
 
 .html-preview-iframe {

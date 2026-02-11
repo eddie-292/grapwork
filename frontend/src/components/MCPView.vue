@@ -680,7 +680,7 @@ function canFetchTools(server: MCPServer): boolean {
 <style scoped>
 .mcp-page {
   min-height: 100vh;
-  background: #f5f7fa;
+  background: var(--color-bg-secondary);
   display: flex;
   flex-direction: column;
 }
@@ -691,47 +691,18 @@ function canFetchTools(server: MCPServer): boolean {
   justify-content: space-between;
   gap: 16px;
   padding: 16px 24px;
-  background: #ffffff;
-  border-bottom: 1px solid #e8ecf1;
+  background: var(--color-bg-primary);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .mcp-header h1 {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--color-text-primary);
 }
 
-.back-btn {
-  background: #f5f5f5;
-  border: 1px solid #e5e7eb;
-  font-size: 14px;
-  cursor: pointer;
-  padding: 6px 12px;
-  border-radius: 999px;
-  transition: background 0.2s, border-color 0.2s;
-}
-
-.back-btn:hover {
-  background: #f5f7fa;
-  border-color: #d1d5db;
-}
-
-.add-btn {
-  background: #22c55e;
-  color: white;
-  border: none;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  padding: 10px 20px;
-  border-radius: 8px;
-  transition: all 0.2s;
-}
-
-.add-btn:hover {
-  background: #0f8f6d;
-}
+/* back-btn and add-btn styles moved to global style.css */
 
 .mcp-content {
   padding: 32px;
@@ -756,7 +727,7 @@ function canFetchTools(server: MCPServer): boolean {
 
 .empty-state p {
   margin: 0;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-size: 16px;
 }
 
@@ -767,25 +738,25 @@ function canFetchTools(server: MCPServer): boolean {
 }
 
 .server-card {
-  background: #ffffff;
-  border: 1px solid #e8ecf1;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
   border-radius: 16px;
   padding: 24px;
   transition: all 0.2s;
 }
 
 .server-card:hover {
-  border-color: #22c55e;
+  border-color: var(--color-primary);
   box-shadow: 0 4px 12px rgba(16, 163, 127, 0.1);
 }
 
 .server-card.disabled {
   opacity: 0.6;
-  background: #f9fafb;
+  background: var(--color-bg-tertiary);
 }
 
 .server-card.active {
-  border-color: #22c55e;
+  border-color: var(--color-primary);
   border-width: 2px;
 }
 
@@ -807,14 +778,14 @@ function canFetchTools(server: MCPServer): boolean {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--color-text-primary);
 }
 
 .transport-badge {
   font-size: 12px;
   padding: 4px 10px;
-  background: #f3f4f6;
-  color: #6b7280;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
   border-radius: 999px;
   font-weight: 500;
 }
@@ -837,8 +808,8 @@ function canFetchTools(server: MCPServer): boolean {
 }
 
 .status-badge.inactive {
-  background: #f3f4f6;
-  color: #6b7280;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
 }
 
 .status-badge.disabled {
@@ -849,7 +820,7 @@ function canFetchTools(server: MCPServer): boolean {
 .card-description {
   margin: 0 0 16px 0;
   font-size: 14px;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   line-height: 1.6;
 }
 
@@ -859,7 +830,7 @@ function canFetchTools(server: MCPServer): boolean {
   gap: 8px;
   margin-bottom: 16px;
   padding: 12px;
-  background: #f9fafb;
+  background: var(--color-bg-tertiary);
   border-radius: 8px;
 }
 
@@ -871,19 +842,19 @@ function canFetchTools(server: MCPServer): boolean {
 }
 
 .detail-label {
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-weight: 500;
   min-width: 80px;
 }
 
 .detail-item code {
-  background: #ffffff;
+  background: var(--color-bg-primary);
   padding: 4px 8px;
   border-radius: 4px;
   font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
   font-size: 12px;
-  color: #1a1a2e;
-  border: 1px solid #e8ecf1;
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
 }
 
 .card-actions {
@@ -892,55 +863,7 @@ function canFetchTools(server: MCPServer): boolean {
   flex-wrap: wrap;
 }
 
-.action-btn {
-  padding: 8px 16px;
-  border-radius: 8px;
-  border: 1px solid #e8ecf1;
-  background: #ffffff;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.action-btn:hover {
-  border-color: #22c55e;
-  color: #22c55e;
-  background: #f0fdf4;
-}
-
-.toggle-btn.active {
-  background: #22c55e;
-  color: white;
-  border-color: #22c55e;
-}
-
-.toggle-btn.active:hover {
-  background: #0f8f6d;
-  color: white;
-}
-
-.delete-btn:hover {
-  border-color: #ef4444;
-  color: #ef4444;
-  background: #fef2f2;
-}
-
-.refresh-btn:hover:not(:disabled) {
-  border-color: #2563eb;
-  color: #2563eb;
-  background: #eff6ff;
-}
-
-.refresh-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.refresh-btn.loading {
-  background: #eff6ff;
-  border-color: #3b82f6;
-}
+/* action-btn, toggle-btn, delete-btn, refresh-btn styles moved to global style.css */
 
 /* 模态框样式 */
 .modal-overlay {
@@ -958,7 +881,7 @@ function canFetchTools(server: MCPServer): boolean {
 }
 
 .modal-content {
-  background: #ffffff;
+  background: var(--color-bg-primary);
   border-radius: 16px;
   width: 100%;
   max-width: 560px;
@@ -979,27 +902,10 @@ function canFetchTools(server: MCPServer): boolean {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--color-text-primary);
 }
 
-.close-btn {
-  background: transparent;
-  border: none;
-  font-size: 28px;
-  line-height: 1;
-  cursor: pointer;
-  color: #9ca3af;
-  padding: 4px;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  transition: all 0.2s;
-}
-
-.close-btn:hover {
-  background: #f5f7fa;
-  color: #6b7280;
-}
+/* close-btn styles moved to global style.css */
 
 .modal-body {
   padding: 0 24px 24px;
@@ -1025,7 +931,7 @@ function canFetchTools(server: MCPServer): boolean {
 .form-group label {
   font-weight: 500;
   font-size: 14px;
-  color: #1a1a2e;
+  color: var(--color-text-primary);
 }
 
 .form-group.checkbox-group label {
@@ -1037,17 +943,17 @@ function canFetchTools(server: MCPServer): boolean {
 
 .input {
   padding: 12px 14px;
-  border: 1px solid #e8ecf1;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   font-size: 14px;
   outline: none;
   transition: border-color 0.2s;
-  background: #ffffff;
+  background: var(--color-bg-primary);
   font-family: inherit;
 }
 
 .input:focus {
-  border-color: #22c55e;
+  border-color: var(--color-primary);
 }
 
 .input.textarea {
@@ -1057,7 +963,7 @@ function canFetchTools(server: MCPServer): boolean {
 }
 
 .form-group small {
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
 
@@ -1065,50 +971,17 @@ function canFetchTools(server: MCPServer): boolean {
   display: flex;
   gap: 12px;
   padding: 20px 24px;
-  border-top: 1px solid #e8ecf1;
+  border-top: 1px solid var(--color-border);
   justify-content: flex-end;
 }
 
-.btn {
-  padding: 10px 20px;
-  border-radius: 8px;
-  border: none;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn.secondary {
-  background: #f5f7fa;
-  color: #4a5568;
-  border: 1px solid #e8ecf1;
-}
-
-.btn.secondary:hover:not(:disabled) {
-  background: #e8ecf1;
-}
-
-.btn.primary {
-  background: #22c55e;
-  color: white;
-  border: 1px solid #22c55e;
-}
-
-.btn.primary:hover:not(:disabled) {
-  background: #0f8f6d;
-}
+/* Button styles moved to global style.css */
 
 /* 工具配置相关样式 */
 .form-section {
   margin-top: 20px;
   padding-top: 20px;
-  border-top: 1px solid #e8ecf1;
+  border-top: 1px solid var(--color-border);
 }
 
 .form-section-header {
@@ -1122,7 +995,7 @@ function canFetchTools(server: MCPServer): boolean {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--color-text-primary);
 }
 
 .form-section-actions {
@@ -1137,15 +1010,15 @@ function canFetchTools(server: MCPServer): boolean {
 
 .empty-tools-hint {
   padding: 12px;
-  background: #f9fafb;
+  background: var(--color-bg-tertiary);
   border-radius: 8px;
   text-align: center;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 .tool-config-card {
   padding: 16px;
-  background: #f9fafb;
+  background: var(--color-bg-tertiary);
   border-radius: 8px;
   margin-bottom: 12px;
 }
@@ -1156,13 +1029,13 @@ function canFetchTools(server: MCPServer): boolean {
   justify-content: space-between;
   margin-bottom: 12px;
   font-weight: 500;
-  color: #1a1a2e;
+  color: var(--color-text-primary);
 }
 
 .btn-icon {
   background: transparent;
   border: none;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   cursor: pointer;
   padding: 4px 8px;
   border-radius: 4px;

@@ -324,14 +324,14 @@ function cancel() {
 }
 
 .dialog {
-  background: #ffffff;
+  background: var(--color-bg-primary);
   border-radius: 12px;
   padding: 24px;
   width: 90%;
   max-width: 500px;
   max-height: 90vh;
   overflow-y: auto;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--color-border);
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
@@ -339,7 +339,7 @@ function cancel() {
   margin: 0 0 20px 0;
   font-size: 20px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--color-text-primary);
 }
 
 .form-group {
@@ -351,23 +351,23 @@ function cancel() {
   margin-bottom: 6px;
   font-size: 14px;
   font-weight: 500;
-  color: #111827;
+  color: var(--color-text-primary);
 }
 
 .form-control {
   width: 100%;
   padding: 10px 12px;
-  background: #ffffff;
-  border: 1px solid #ddd;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  color: #111827;
+  color: var(--color-text-primary);
   font-size: 14px;
   outline: none;
   transition: border-color 0.2s;
 }
 
 .form-control:focus {
-  border-color: #22c55e;
+  border-color: var(--color-primary);
 }
 
 .textarea {
@@ -380,7 +380,7 @@ function cancel() {
   display: block;
   margin-top: 4px;
   font-size: 12px;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 .checkbox-group {
@@ -392,13 +392,13 @@ function cancel() {
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  color: #111827;
+  color: var(--color-text-primary);
   font-size: 14px;
 }
 
 .checkbox-label input[type="checkbox"] {
   cursor: pointer;
-  accent-color: #22c55e;
+  accent-color: var(--color-primary);
 }
 
 .dialog-actions {
@@ -408,35 +408,7 @@ function cancel() {
   margin-top: 20px;
 }
 
-.btn-primary, .btn-secondary {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-primary {
-  background: #22c55e;
-  color: white;
-  border: 1px solid #22c55e;
-}
-
-.btn-primary:hover {
-  background: #0f8f6d;
-}
-
-.btn-secondary {
-  background: #f5f5f5;
-  color: #111827;
-  border: 1px solid #e5e7eb;
-}
-
-.btn-secondary:hover {
-  background: #f0f0f0;
-}
+/* Button styles moved to global style.css */
 
 /* 自定义下拉列表样式 */
 .custom-select {
@@ -454,7 +426,7 @@ function cancel() {
   top: 50%;
   transform: translateY(-50%);
   font-size: 10px;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   pointer-events: none;
   transition: transform 0.2s;
 }
@@ -464,8 +436,8 @@ function cancel() {
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   max-height: 280px;
@@ -478,21 +450,21 @@ function cancel() {
 }
 
 .custom-dropdown::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: var(--color-bg-tertiary);
   border-radius: 3px;
 }
 
 .custom-dropdown::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: var(--color-text-tertiary);
   border-radius: 3px;
 }
 
 .custom-dropdown::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  background: var(--color-text-secondary);
 }
 
 .dropdown-group {
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .dropdown-group:last-child {
@@ -503,10 +475,10 @@ function cancel() {
   padding: 8px 12px;
   font-size: 11px;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  background: #f9fafb;
+  background: var(--color-bg-tertiary);
   position: sticky;
   top: 0;
 }
@@ -518,7 +490,7 @@ function cancel() {
   padding: 10px 12px;
   cursor: pointer;
   transition: all 0.15s ease;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--color-bg-tertiary);
 }
 
 .dropdown-item:last-child {
@@ -526,12 +498,12 @@ function cancel() {
 }
 
 .dropdown-item:hover {
-  background: #f0fdf4;
+  background: var(--color-secondary);
 }
 
 .dropdown-item.active {
-  background: #dcfce7;
-  border-left: 3px solid #22c55e;
+  background: var(--color-secondary);
+  border-left: 3px solid var(--color-primary);
 }
 
 .dropdown-icon {
@@ -542,20 +514,20 @@ function cancel() {
 .dropdown-label {
   flex: 1;
   font-size: 14px;
-  color: #111827;
+  color: var(--color-text-primary);
   font-weight: 500;
 }
 
 .dropdown-value {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--color-text-tertiary);
   font-family: 'Monaco', 'Menlo', monospace;
 }
 
 .dropdown-item.empty {
   padding: 16px 12px;
   text-align: center;
-  color: #9ca3af;
+  color: var(--color-text-tertiary);
   font-size: 14px;
 }
 </style>

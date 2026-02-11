@@ -1,9 +1,37 @@
 :root {
+  /* Theme Colors - Light Mode */
+  --color-primary: #22c55e;
+  --color-primary-hover: #12a548;
+  --color-secondary: #f5f5f5;
+  --color-secondary-hover: #ebebeb;
+  --color-ghost: transparent;
+  --color-ghost-hover: rgba(0, 0, 0, 0.05);
+  --color-ghost-active: rgba(0, 0, 0, 0.1);
+  --color-danger: #ef4444;
+  --color-danger-hover: #dc2626;
+  --color-danger-bg: #fef2f2;
+
+  /* Text Colors */
+  --color-text-primary: #111827;
+  --color-text-secondary: #6b7280;
+  --color-text-tertiary: #9ca3af;
+  --color-text-on-primary: #ffffff;
+
+  /* Border Colors */
+  --color-border: #e5e7eb;
+  --color-border-hover: #d1d5db;
+
+  /* Background Colors */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f7f7f8;
+  --color-bg-tertiary: #f9fafb;
+
+  /* Base Styles */
   font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   line-height: 1.6;
   font-weight: 400;
-  color: #0f172a;
-  background-color: #f7f7f8;
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-secondary);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -51,4 +79,1448 @@ a:hover {
   50% {
     opacity: 0.3;
   }
+}
+
+/* ============================================
+   GLOBAL BUTTON STYLES
+   ============================================ */
+
+/* Base Button */
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* Focus Visible */
+.btn:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Disabled State */
+.btn:disabled,
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Primary Button */
+.btn.primary,
+.btn-primary,
+.login-btn {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+}
+.btn.primary:hover,
+.btn-primary:hover,
+.login-btn:hover {
+  background: var(--color-primary-hover);
+}
+.btn.primary:active,
+.btn-primary:active,
+.login-btn:active {
+  transform: scale(0.98);
+}
+
+/* Secondary Button (Cancel/No) */
+.btn.secondary,
+.btn-secondary,
+.btn.no {
+  background: var(--color-secondary);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+}
+.btn.secondary:hover,
+.btn-secondary:hover,
+.btn.no:hover {
+  background: var(--color-secondary-hover);
+  border-color: var(--color-border-hover);
+}
+
+/* Ghost Button */
+.btn.ghost,
+.btn-ghost {
+  background: var(--color-ghost);
+  color: var(--color-text-primary);
+  border: 1px solid transparent;
+}
+.btn.ghost:hover,
+.btn-ghost:hover {
+  background: var(--color-ghost-hover);
+}
+.btn.ghost:active,
+.btn-ghost:active {
+  background: var(--color-ghost-active);
+}
+
+/* Danger Button */
+.btn.danger,
+.btn-danger,
+.btn.del,
+.dialog-btn.danger {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+.btn.danger:hover,
+.btn-danger:hover,
+.btn.del:hover,
+.dialog-btn.danger:hover {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+
+/* Yes Button (Confirm) */
+.btn.yes {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+}
+.btn.yes:hover {
+  background: var(--color-primary-hover);
+}
+
+/* Small Button */
+.btn.small {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+/* Icon Button */
+.btn-icon {
+  padding: 8px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--color-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-icon:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* Dialog Button */
+.dialog-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  font-size: 14px;
+}
+
+/* Action Buttons */
+.action-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+.action-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.action-btn.delete:hover,
+.action-btn.delete-btn:hover {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+
+/* Back Button */
+.back-btn {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+}
+.back-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* Add Button */
+.add-btn {
+  padding: 8px 16px;
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+}
+.add-btn:hover {
+  background: var(--color-primary-hover);
+}
+
+/* Edit/Delete Action Buttons */
+.edit-btn,
+.delete-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
+  color: var(--color-text-secondary);
+}
+.edit-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.delete-btn:hover {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+
+/* Close Button */
+.close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  line-height: 1;
+}
+.close-btn:hover {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+/* Confirm/Cancel/Continue Buttons */
+.confirm-btn {
+  padding: 10px 20px;
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.confirm-btn:hover {
+  background: var(--color-primary-hover);
+}
+
+.cancel-btn {
+  padding: 10px 20px;
+  background: var(--color-secondary);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.cancel-btn:hover {
+  background: var(--color-secondary-hover);
+}
+
+.revise-btn,
+.continue-btn {
+  padding: 10px 20px;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.revise-btn:hover,
+.continue-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* Toggle Buttons */
+.toggle-btn,
+.enable-btn,
+.mode-switcher-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
+  color: var(--color-text-secondary);
+}
+.toggle-btn:hover,
+.enable-btn:hover,
+.mode-switcher-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.toggle-btn.active,
+.enable-btn.active,
+.mode-switcher-btn.active {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  border-color: var(--color-primary);
+}
+
+/* Copy Button */
+.copy-btn,
+.code-copy-btn,
+.tool-action-btn {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.copy-btn:hover,
+.code-copy-btn:hover,
+.tool-action-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-bg-primary);
+}
+
+/* Code Preview Button */
+.code-preview-btn {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-left: 4px;
+}
+.code-preview-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-bg-primary);
+}
+
+/* Working Memory Toggle */
+.wm-toggle-btn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.wm-toggle-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.wm-toggle-btn.active {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  border-color: var(--color-primary);
+}
+
+/* Working Memory Action Buttons */
+.wm-action-btn,
+.task-action-btn {
+  padding: 4px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.wm-action-btn:hover,
+.task-action-btn:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-primary);
+}
+.wm-action-btn.delete:hover,
+.task-action-btn.delete:hover {
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+.task-action-btn.retry:hover {
+  color: var(--color-primary);
+}
+.task-action-btn.skip:hover {
+  color: var(--color-text-primary);
+}
+
+/* Working Memory Edit Buttons */
+.wm-edit-btn,
+.task-edit-btn {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid var(--color-border);
+}
+.wm-edit-btn.save,
+.task-edit-btn.save {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  border-color: var(--color-primary);
+}
+.wm-edit-btn.cancel,
+.task-edit-btn.cancel {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+.wm-edit-btn.save:hover,
+.task-edit-btn.save:hover {
+  background: var(--color-primary-hover);
+}
+.wm-edit-btn.cancel:hover,
+.task-edit-btn.cancel:hover {
+  background: var(--color-secondary-hover);
+}
+
+/* Settings/Refresh/Retry Buttons */
+.settings-btn,
+.refresh-btn,
+.retry-btn,
+.clear-btn,
+.assistant-btn,
+.mcp-btn,
+.toggle-sidebar-btn,
+.new-chat-btn,
+.params-btn,
+.folder-btn {
+  padding: 8px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.settings-btn:hover,
+.refresh-btn:hover,
+.retry-btn:hover,
+.assistant-btn:hover,
+.mcp-btn:hover,
+.toggle-sidebar-btn:hover,
+.new-chat-btn:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-primary);
+  border-color: var(--color-border);
+}
+.clear-btn:hover {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+.logout-btn:hover {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+
+/* Delete Chat Button */
+.delete-chat-btn {
+  padding: 4px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  transition: all 0.2s;
+  opacity: 0;
+}
+.delete-chat-btn:hover {
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+
+/* Avatar Button */
+.avatar-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--color-bg-tertiary);
+  border: 2px solid var(--color-border);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.avatar-btn:hover {
+  border-color: var(--color-primary);
+}
+
+/* Close Revision Button */
+.close-revision-btn {
+  padding: 4px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.close-revision-btn:hover {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+/* Submit Revision Button */
+.submit-revision-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 13px;
+}
+.submit-revision-btn:hover {
+  background: var(--color-primary-hover);
+}
+
+/* Refresh Button (MCP) */
+.refresh-btn.mcp {
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.refresh-btn.mcp:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* ============================================
+   DARK MODE THEME
+   ============================================ */
+
+/* System-level dark mode support */
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Theme Colors - Dark Mode (Google-inspired) */
+    --color-primary: #81c995;
+    --color-primary-hover: #6ab883;
+    --color-secondary: #3c4043;
+    --color-secondary-hover: #505458;
+    --color-ghost: transparent;
+    --color-ghost-hover: rgba(255, 255, 255, 0.08);
+    --color-ghost-active: rgba(255, 255, 255, 0.12);
+    --color-danger: #f28b82;
+    --color-danger-hover: #ff6b61;
+    --color-danger-bg: rgba(242, 139, 130, 0.2);
+
+    /* Text Colors */
+    --color-text-primary: #e8eaed;
+    --color-text-secondary: #9aa0a6;
+    --color-text-tertiary: #5f6368;
+    --color-text-on-primary: #202124;
+
+    /* Border Colors */
+    --color-border: #3c4043;
+    --color-border-hover: #5f6368;
+
+    /* Background Colors */
+    --color-bg-primary: #292a2d;
+    --color-bg-secondary: #202124;
+    --color-bg-tertiary: #3c4043;
+  }
+
+  /* Update base styles for dark mode */
+  body {
+    color: #e8eaed;
+    background-color: #202124;
+  }
+}
+
+/* Manual dark mode toggle (add class 'dark-mode' to html or body) */
+.dark-mode {
+  /* Theme Colors - Dark Mode (Google-inspired) */
+  --color-primary: #81c995;
+  --color-primary-hover: #6ab883;
+  --color-secondary: #3c4043;
+  --color-secondary-hover: #505458;
+  --color-ghost: transparent;
+  --color-ghost-hover: rgba(255, 255, 255, 0.08);
+  --color-ghost-active: rgba(255, 255, 255, 0.12);
+  --color-danger: #f28b82;
+  --color-danger-hover: #ff6b61;
+  --color-danger-bg: rgba(242, 139, 130, 0.2);
+
+  /* Text Colors */
+  --color-text-primary: #e8eaed;
+  --color-text-secondary: #9aa0a6;
+  --color-text-tertiary: #5f6368;
+  --color-text-on-primary: #202124;
+
+  /* Border Colors */
+  --color-border: #3c4043;
+  --color-border-hover: #5f6368;
+
+  /* Background Colors */
+  --color-bg-primary: #292a2d;
+  --color-bg-secondary: #202124;
+  --color-bg-tertiary: #3c4043;
+}
+
+.dark-mode body {
+  color: #e8eaed;
+  background-color: #202124;
+}
+
+/* ============================================
+   DARK MODE GLOBAL OVERRIDES
+   处理组件中的硬编码颜色
+   ============================================ */
+
+@media (prefers-color-scheme: dark) {
+  /* 覆盖硬编码的背景色 */
+  .global-memory-view,
+  .assistant-page,
+  .mcp-page,
+  .settings-page,
+  .workspace-view,
+  .login-page {
+    background: #202124;
+  }
+
+  .content,
+  .assistant-content,
+  .mcp-content,
+  .settings-content,
+  .main-content {
+    background: #202124;
+  }
+
+  .header,
+  .assistant-header,
+  .mcp-header,
+  .settings-header {
+    background: #292a2d;
+    border-color: #3c4043;
+  }
+
+  /* 覆盖硬编码的文字颜色 */
+  .header h1,
+  .assistant-header h1,
+  .mcp-header h1,
+  .settings-header h1,
+  .entry-title,
+  .card-title,
+  .entry-content,
+  .card-description,
+  .config-details,
+  .modal-content h3,
+  .modal-content h2,
+  .form-group label {
+    color: #e8eaed !important;
+  }
+
+  /* 覆盖卡片背景 */
+  .entry-card,
+  .assistant-card,
+  .server-card,
+  .config-item,
+  .modal-content,
+  .dialog-overlay .dialog-content,
+  .confirm-modal {
+    background: #292a2d;
+    border-color: #3c4043;
+  }
+
+  /* 覆盖输入框样式 */
+  .form-control,
+  .input,
+  .textarea,
+  .search-input,
+  .filter-select,
+  .revision-textarea,
+  .task-edit-input,
+  .wm-edit-textarea,
+  .param-range {
+    background: #202124;
+    color: #e8eaed;
+    border-color: #3c4043;
+  }
+
+  .form-control:focus,
+  .input:focus,
+  .textarea:focus {
+    border-color: #81c995;
+  }
+
+  /* 覆盖标签/徽章背景 */
+  .entry-type,
+  .entry-category,
+  .transport-badge,
+  .keyword-tag,
+  .stat-value,
+  .dropdown-group-label,
+  .wm-badge,
+  .wm-task-ref {
+    background: #3c4043;
+    color: #9aa0a6;
+  }
+
+  .entry-type.preferences,
+  .stat-value.enabled {
+    background: #3c4043;
+    color: #81c995;
+  }
+
+  /* 覆盖空状态 */
+  .empty-state,
+  .loading-state {
+    background: #292a2d;
+    color: #9aa0a6;
+  }
+
+  /* 覆盖侧边栏 */
+  .settings-sidebar {
+    background: #292a2d;
+    border-color: #3c4043;
+  }
+
+  .sidebar-tabs {
+    background: #292a2d;
+    border-color: #3c4043;
+  }
+
+  /* 覆盖标签页 */
+  .sidebar-tab,
+  .wm-tab {
+    color: #9aa0a6;
+  }
+
+  .sidebar-tab:hover,
+  .wm-tab:hover {
+    background: #3c4043;
+    color: #e8eaed;
+  }
+
+  .wm-tab.active {
+    background: #81c995;
+    color: #202124;
+  }
+
+  /* 覆盖消息区域 */
+  .msg-row.assistant {
+    background: #202124;
+  }
+
+  /* 覆盖工作记忆区域 */
+  .working-memory-section,
+  .task-list-section {
+    background: #202124;
+    border-color: #3c4043;
+  }
+
+  .wm-entry,
+  .task-item {
+    background: #292a2d;
+    border-color: #3c4043;
+  }
+
+  /* 覆盖对话框 */
+  .dialog-overlay {
+    background: rgba(0, 0, 0, 0.7);
+  }
+
+  /* 覆盖错误消息 */
+  .msg-row.error-message {
+    background: #292a2d;
+  }
+
+  .msg-row.error-message .msg-bubble {
+    background: #3c4043;
+    color: #f28b82;
+    border-color: #f28b82;
+  }
+
+  /* 覆盖表单区域 */
+  .edit-form {
+    background: #292a2d;
+  }
+
+  /* 覆盖面包屑 */
+  .breadcrumb-nav {
+    background: #292a2d;
+  }
+
+  /* 覆盖文件列表 */
+  .file-list {
+    background: #202124;
+  }
+
+  /* 覆盖统计卡片 */
+  .stats {
+    background: #292a2d;
+    border-color: #3c4043;
+  }
+
+  /* 覆盖过滤器区域 */
+  .filters {
+    background: transparent;
+  }
+}
+
+/* 手动深色模式覆盖 */
+.dark-mode .global-memory-view,
+.dark-mode .assistant-page,
+.dark-mode .mcp-page,
+.dark-mode .settings-page,
+.dark-mode .workspace-view,
+.dark-mode .login-page {
+  background: #202124;
+}
+
+.dark-mode .content,
+.dark-mode .assistant-content,
+.dark-mode .mcp-content,
+.dark-mode .settings-content,
+.dark-mode .main-content {
+  background: #202124;
+}
+
+.dark-mode .header,
+.dark-mode .assistant-header,
+.dark-mode .mcp-header,
+.dark-mode .settings-header {
+  background: #292a2d;
+  border-color: #3c4043;
+}
+
+.dark-mode .header h1,
+.dark-mode .assistant-header h1,
+.dark-mode .mcp-header h1,
+.dark-mode .settings-header h1,
+.dark-mode .entry-title,
+.dark-mode .card-title,
+.dark-mode .entry-content,
+.dark-mode .card-description,
+.dark-mode .config-details,
+.dark-mode .modal-content h3,
+.dark-mode .modal-content h2,
+.dark-mode .form-group label {
+  color: #e8eaed !important;
+}
+
+.dark-mode .entry-card,
+.dark-mode .assistant-card,
+.dark-mode .server-card,
+.dark-mode .config-item,
+.dark-mode .modal-content,
+.dark-mode .dialog-overlay .dialog-content,
+.dark-mode .confirm-modal {
+  background: #292a2d;
+  border-color: #3c4043;
+}
+
+.dark-mode .form-control,
+.dark-mode .input,
+.dark-mode .textarea,
+.dark-mode .search-input,
+.dark-mode .filter-select,
+.dark-mode .revision-textarea,
+.dark-mode .task-edit-input,
+.dark-mode .wm-edit-textarea,
+.dark-mode .param-range {
+  background: #202124;
+  color: #e8eaed;
+  border-color: #3c4043;
+}
+
+.dark-mode .form-control:focus,
+.dark-mode .input:focus,
+.dark-mode .textarea:focus {
+  border-color: #81c995;
+}
+
+.dark-mode .entry-type,
+.dark-mode .entry-category,
+.dark-mode .transport-badge,
+.dark-mode .keyword-tag,
+.dark-mode .stat-value,
+.dark-mode .dropdown-group-label,
+.dark-mode .wm-badge,
+.dark-mode .wm-task-ref {
+  background: #3c4043;
+  color: #9aa0a6;
+}
+
+.dark-mode .entry-type.preferences,
+.dark-mode .stat-value.enabled {
+  background: #3c4043;
+  color: #81c995;
+}
+
+.dark-mode .empty-state,
+.dark-mode .loading-state {
+  background: #292a2d;
+  color: #9aa0a6;
+}
+
+.dark-mode .settings-sidebar {
+  background: #292a2d;
+  border-color: #3c4043;
+}
+
+.dark-mode .sidebar-tabs {
+  background: #292a2d;
+  border-color: #3c4043;
+}
+
+.dark-mode .sidebar-tab,
+.dark-mode .wm-tab {
+  color: #9aa0a6;
+}
+
+.dark-mode .sidebar-tab:hover,
+.dark-mode .wm-tab:hover {
+  background: #3c4043;
+  color: #e8eaed;
+}
+
+.dark-mode .wm-tab.active {
+  background: #81c995;
+  color: #202124;
+}
+
+.dark-mode .msg-row.assistant {
+  background: #202124;
+}
+
+.dark-mode .working-memory-section,
+.dark-mode .task-list-section {
+  background: #202124;
+  border-color: #3c4043;
+}
+
+.dark-mode .wm-entry,
+.dark-mode .task-item {
+  background: #292a2d;
+  border-color: #3c4043;
+}
+
+.dark-mode .dialog-overlay {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.dark-mode .msg-row.error-message {
+  background: #292a2d;
+}
+
+.dark-mode .msg-row.error-message .msg-bubble {
+  background: #3c4043;
+  color: #f28b82;
+  border-color: #f28b82;
+}
+
+.dark-mode .edit-form {
+  background: #292a2d;
+}
+
+.dark-mode .breadcrumb-nav {
+  background: #292a2d;
+}
+
+.dark-mode .file-list {
+  background: #202124;
+}
+
+.dark-mode .stats {
+  background: #292a2d;
+  border-color: #3c4043;
+}
+
+.dark-mode .filters {
+  background: transparent;
+}
+
+/* 额外的深色模式覆盖 */
+@media (prefers-color-scheme: dark) {
+  /* 导航项 */
+  .nav-item {
+    color: #9aa0a6;
+  }
+
+  .nav-item:hover {
+    background: #3c4043;
+    color: #e8eaed;
+  }
+
+  .nav-item.active {
+    background: #81c995;
+    color: #202124;
+  }
+
+  /* 消息气泡 */
+  .msg-bubble,
+  .msg-reasoning-bubble {
+    color: #e8eaed;
+  }
+
+  .msg-bubble code,
+  .msg-reasoning-bubble code {
+    background: #3c4043;
+    color: #81c995;
+  }
+
+  /* 标题样式 */
+  h1, h2, h3, h4, h5, h6 {
+    color: #e8eaed;
+  }
+
+  p, span, div {
+    color: #e8eaed;
+  }
+
+  /* 特定组件文字颜色 */
+  .config-header h3,
+  .entry-meta,
+  .empty-state p,
+  .demo-hint p,
+  .error-message {
+    color: #e8eaed;
+  }
+
+  .config-details,
+  .entry-content,
+  .card-description {
+    color: #9aa0a6;
+  }
+
+  /* 预览区域 */
+  .theme-preview {
+    background: #202124;
+  }
+
+  /* 下拉菜单 */
+  .custom-dropdown {
+    background: #292a2d;
+    border-color: #3c4043;
+  }
+
+  .dropdown-item {
+    border-bottom-color: #3c4043;
+  }
+
+  .dropdown-item:hover {
+    background: #3c4043;
+  }
+
+  .dropdown-item.active {
+    background: #3c4043;
+    border-left-color: #81c995;
+  }
+
+  /* 模态框页脚 */
+  .modal-footer,
+  .dialog-footer {
+    border-top-color: #3c4043;
+  }
+
+  /* 滚动条样式 */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #202124;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #5f6368;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #9aa0a6;
+  }
+}
+
+.dark-mode .nav-item {
+  color: #9aa0a6;
+}
+
+.dark-mode .nav-item:hover {
+  background: #3c4043;
+  color: #e8eaed;
+}
+
+.dark-mode .nav-item.active {
+  background: #81c995;
+  color: #202124;
+}
+
+.dark-mode .msg-bubble,
+.dark-mode .msg-reasoning-bubble {
+  color: #e8eaed;
+}
+
+.dark-mode .msg-bubble code,
+.dark-mode .msg-reasoning-bubble code {
+  background: #3c4043;
+  color: #81c995;
+}
+
+.dark-mode h1,
+.dark-mode h2,
+.dark-mode h3,
+.dark-mode h4,
+.dark-mode h5,
+.dark-mode h6 {
+  color: #e8eaed;
+}
+
+.dark-mode p,
+.dark-mode span,
+.dark-mode div {
+  color: #e8eaed;
+}
+
+.dark-mode .config-header h3,
+.dark-mode .entry-meta,
+.dark-mode .empty-state p,
+.dark-mode .demo-hint p,
+.dark-mode .error-message {
+  color: #e8eaed;
+}
+
+.dark-mode .config-details,
+.dark-mode .entry-content,
+.dark-mode .card-description {
+  color: #9aa0a6;
+}
+
+.dark-mode .theme-preview {
+  background: #202124;
+}
+
+.dark-mode .custom-dropdown {
+  background: #292a2d;
+  border-color: #3c4043;
+}
+
+.dark-mode .dropdown-item {
+  border-bottom-color: #3c4043;
+}
+
+.dark-mode .dropdown-item:hover {
+  background: #3c4043;
+}
+
+.dark-mode .dropdown-item.active {
+  background: #3c4043;
+  border-left-color: #81c995;
+}
+
+.dark-mode .modal-footer,
+.dark-mode .dialog-footer {
+  border-top-color: #3c4043;
+}
+
+.dark-mode ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.dark-mode ::-webkit-scrollbar-track {
+  background: #202124;
+}
+
+.dark-mode ::-webkit-scrollbar-thumb {
+  background: #5f6368;
+  border-radius: 4px;
+}
+
+.dark-mode ::-webkit-scrollbar-thumb:hover {
+  background: #9aa0a6;
+}
+
+/* ============================================
+   COMPREHENSIVE DARK MODE OVERRIDES
+   更全面的深色模式样式覆盖
+   ============================================ */
+
+@media (prefers-color-scheme: dark) {
+  /* 所有页面的根元素 */
+  #app {
+    background: #202124;
+    color: #e8eaed;
+  }
+
+  /* 通用背景覆盖 */
+  .view,
+  .page,
+  [class*="-view"],
+  [class*="-page"] {
+    background: #202124 !important;
+    color: #e8eaed;
+  }
+
+  /* 通用容器覆盖 */
+  [class*="content"],
+  [class*="container"],
+  [class*="wrapper"] {
+    background: #202124 !important;
+  }
+
+  /* 所有卡片样式 */
+  [class*="card"],
+  [class*="item"],
+  [class*="box"] {
+    background: #292a2d !important;
+    border-color: #3c4043 !important;
+  }
+
+  /* 所有头部 */
+  [class*="header"] {
+    background: #292a2d !important;
+    border-color: #3c4043 !important;
+  }
+
+  /* 所有标题 */
+  h1, h2, h3, h4, h5, h6,
+  .title, .label, .name {
+    color: #e8eaed !important;
+  }
+
+  /* 所有文本 */
+  p, span, div, li, td, th, a {
+    color: #e8eaed;
+  }
+
+  /* 次要文本 */
+  small, .meta, .secondary, .hint, .description {
+    color: #9aa0a6;
+  }
+
+  /* 输入框覆盖 */
+  input,
+  textarea,
+  select,
+  .form-control,
+  .input {
+    background: #202124 !important;
+    color: #e8eaed !important;
+    border-color: #3c4043 !important;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #5f6368;
+  }
+
+  /* 模态框 */
+  .modal,
+  .dialog,
+  .overlay {
+    background: rgba(0, 0, 0, 0.8) !important;
+  }
+
+  .modal-content,
+  .dialog-content {
+    background: #292a2d !important;
+  }
+
+  /* 列表 */
+  ul, ol {
+    background: transparent;
+  }
+
+  li {
+    color: #e8eaed;
+  }
+
+  /* 表格 */
+  table {
+    background: #292a2d;
+  }
+
+  td, th {
+    border-color: #3c4043;
+    color: #e8eaed;
+  }
+
+  /* 分割线 */
+  hr,
+  [class*="separator"],
+  [class*="divider"] {
+    border-color: #3c4043;
+  }
+}
+
+/* 手动深色模式 - 同样的覆盖 */
+.dark-mode #app {
+  background: #202124;
+  color: #e8eaed;
+}
+
+.dark-mode .view,
+.dark-mode .page,
+.dark-mode [class*="-view"],
+.dark-mode [class*="-page"] {
+  background: #202124 !important;
+  color: #e8eaed;
+}
+
+.dark-mode [class*="content"],
+.dark-mode [class*="container"],
+.dark-mode [class*="wrapper"] {
+  background: #202124 !important;
+}
+
+.dark-mode [class*="card"],
+.dark-mode [class*="item"],
+.dark-mode [class*="box"] {
+  background: #292a2d !important;
+  border-color: #3c4043 !important;
+}
+
+.dark-mode [class*="header"] {
+  background: #292a2d !important;
+  border-color: #3c4043 !important;
+}
+
+.dark-mode h1,
+.dark-mode h2,
+.dark-mode h3,
+.dark-mode h4,
+.dark-mode h5,
+.dark-mode h6,
+.dark-mode .title,
+.dark-mode .label,
+.dark-mode .name {
+  color: #e8eaed !important;
+}
+
+.dark-mode p,
+.dark-mode span,
+.dark-mode div,
+.dark-mode li,
+.dark-mode td,
+.dark-mode th,
+.dark-mode a {
+  color: #e8eaed;
+}
+
+.dark-mode small,
+.dark-mode .meta,
+.dark-mode .secondary,
+.dark-mode .hint,
+.dark-mode .description {
+  color: #9aa0a6;
+}
+
+.dark-mode input,
+.dark-mode textarea,
+.dark-mode select,
+.dark-mode .form-control,
+.dark-mode .input {
+  background: #202124 !important;
+  color: #e8eaed !important;
+  border-color: #3c4043 !important;
+}
+
+.dark-mode input::placeholder,
+.dark-mode textarea::placeholder {
+  color: #5f6368;
+}
+
+.dark-mode .modal,
+.dark-mode .dialog,
+.dark-mode .overlay {
+  background: rgba(0, 0, 0, 0.8) !important;
+}
+
+.dark-mode .modal-content,
+.dark-mode .dialog-content {
+  background: #292a2d !important;
+}
+
+.dark-mode ul,
+.dark-mode ol {
+  background: transparent;
+}
+
+.dark-mode li {
+  color: #e8eaed;
+}
+
+.dark-mode table {
+  background: #292a2d;
+}
+
+.dark-mode td,
+.dark-mode th {
+  border-color: #3c4043;
+  color: #e8eaed;
+}
+
+.dark-mode hr,
+.dark-mode [class*="separator"],
+.dark-mode [class*="divider"] {
+  border-color: #3c4043;
+}
+
+/* 特别覆盖：Vue 组件常见类名 */
+@media (prefers-color-scheme: dark) {
+  .vue-component,
+  [class^="v-"],
+  [id^="v-"] {
+    background: transparent !important;
+  }
+}
+
+.dark-mode .vue-component,
+.dark-mode [class^="v-"],
+.dark-mode [id^="v-"] {
+  background: transparent !important;
 }

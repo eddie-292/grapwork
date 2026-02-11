@@ -89,12 +89,12 @@ async function handleLogin() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #ffffff;
+  background: var(--color-bg-primary);
   padding: 20px;
 }
 
 .login-card {
-  background: #ffffff;
+  background: var(--color-bg-primary);
   border-radius: 16px;
   padding: 48px 40px;
   width: 100%;
@@ -112,7 +112,7 @@ async function handleLogin() {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  color: #0f172a;
+  color: var(--color-text-primary);
   font-size: 16px;
   font-weight: 600;
   margin-bottom: 24px;
@@ -122,19 +122,19 @@ async function handleLogin() {
   width: 10px;
   height: 10px;
   border-radius: 999px;
-  background: #22c55e;
+  background: var(--color-primary);
 }
 
 .login-header h2 {
   margin: 0 0 8px 0;
-  color: #0f172a;
+  color: var(--color-text-primary);
   font-size: 28px;
   font-weight: 700;
 }
 
 .login-header p {
   margin: 0;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-size: 14px;
 }
 
@@ -153,26 +153,26 @@ async function handleLogin() {
 .form-group label {
   font-size: 14px;
   font-weight: 500;
-  color: #0f172a;
+  color: var(--color-text-primary);
 }
 
 .form-group input {
   padding: 12px 16px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   font-size: 14px;
-  color: #0f172a;
+  color: var(--color-text-primary);
   outline: none;
   transition: all 0.2s;
 }
 
 .form-group input:focus {
-  border-color: #22c55e;
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.1);
 }
 
 .form-group input::placeholder {
-  color: #9ca3af;
+  color: var(--color-text-tertiary);
 }
 
 .error-message {
@@ -183,43 +183,23 @@ async function handleLogin() {
   font-size: 14px;
 }
 
+/* login-btn styles moved to global style.css */
 .login-btn {
   padding: 14px;
-  background: #22c55e;
-  color: #ffffff;
-  border: none;
-  border-radius: 8px;
   font-size: 16px;
   font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.login-btn:hover:not(:disabled) {
-  background: #0d8a6c;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.3);
-}
-
-.login-btn:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.login-btn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
 }
 
 .demo-hint {
   text-align: center;
   padding: 12px;
-  background: #f3f4f6;
+  background: var(--color-bg-tertiary);
   border-radius: 8px;
 }
 
 .demo-hint p {
   margin: 0;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
 </style>
