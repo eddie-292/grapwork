@@ -655,7 +655,7 @@ defineExpose({
 }
 
 .file-node.is-folder:hover {
-  background: #e6f7ff;
+  background: #22c55e;
 }
 
 .node-icon {
