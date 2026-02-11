@@ -253,7 +253,6 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: var(--color-bg-secondary);
   color: var(--color-text-primary);
 }
 
@@ -263,7 +262,6 @@ onMounted(async () => {
   justify-content: space-between;
   padding: 16px 24px;
   border-bottom: 1px solid var(--color-border);
-  background: var(--color-bg-primary);
 }
 
 .header h1 {
@@ -279,7 +277,6 @@ onMounted(async () => {
   flex: 1;
   overflow-y: auto;
   padding: 24px;
-  background: var(--color-bg-secondary);
 }
 
 .loading {

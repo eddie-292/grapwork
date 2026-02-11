@@ -2710,10 +2710,10 @@ function handleFolderChanged(path: string) {
           </div> -->
           <!-- ============================================= -->
           <div class="header-actions">
-            <button class="assistant-btn" @click="router.push('/assistants')" title="社区助理">
+            <button class="assistant-btn" @click="router.push('/settings?tab=assistants')" title="社区助理">
               <span>社区助理</span>
             </button>
-            <button class="mcp-btn" @click="router.push('/mcp')" title="MCP 服务器">
+            <button class="mcp-btn" @click="router.push('/settings?tab=mcp')" title="MCP 服务器">
               <span>MCP</span>
             </button>
             <button class="settings-btn" @click="router.push('/settings')" title="设置">
@@ -3327,7 +3327,6 @@ function handleFolderChanged(path: string) {
   position: absolute;
   top: 8px;
   right: 8px;
-  background: rgba(255, 255, 255, 0.9);
   border: 1px solid var(--color-border);
   border-radius: 4px;
   padding: 4px 10px;

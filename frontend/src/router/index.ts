@@ -2,9 +2,6 @@ import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-rou
 import ChatView from '../components/ChatView.vue'
 import LoginView from '../components/LoginView.vue'
 import SettingsView from '../components/SettingsView.vue'
-import AssistantView from '../components/AssistantView.vue'
-import GlobalMemoryView from '../components/GlobalMemoryView.vue'
-import MCPView from '../components/MCPView.vue'
 import { storage } from '../services/StorageService'
 
 // 检查登录状态（兼容旧版本 localStorage）
@@ -50,23 +47,18 @@ const routes: RouteRecordRaw[] = [
     component: SettingsView,
     meta: { requiresAuth: true }
   },
+  // 重定向旧路由到统一设置页面
   {
     path: '/assistants',
-    name: 'Assistants',
-    component: AssistantView,
-    meta: { requiresAuth: true }
+    redirect: '/settings?tab=assistants'
   },
   {
     path: '/global-memory',
-    name: 'GlobalMemory',
-    component: GlobalMemoryView,
-    meta: { requiresAuth: true }
+    redirect: '/settings?tab=memory'
   },
   {
     path: '/mcp',
-    name: 'MCP',
-    component: MCPView,
-    meta: { requiresAuth: true }
+    redirect: '/settings?tab=mcp'
   }
 ]
 

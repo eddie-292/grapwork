@@ -741,8 +741,8 @@ button:disabled {
   .assistant-header,
   .mcp-header,
   .settings-header {
-    background: #292a2d;
-    border-color: #3c4043;
+    /* background: #292a2d;
+    border-color: #3c4043; */
   }
 
   /* 覆盖硬编码的文字颜色 */
@@ -799,7 +799,6 @@ button:disabled {
   .entry-category,
   .transport-badge,
   .keyword-tag,
-  .stat-value,
   .dropdown-group-label,
   .wm-badge,
   .wm-task-ref {
@@ -809,7 +808,6 @@ button:disabled {
 
   .entry-type.preferences,
   .stat-value.enabled {
-    background: #3c4043;
     color: #81c995;
   }
 
@@ -985,7 +983,6 @@ button:disabled {
 .dark-mode .entry-category,
 .dark-mode .transport-badge,
 .dark-mode .keyword-tag,
-.dark-mode .stat-value,
 .dark-mode .dropdown-group-label,
 .dark-mode .wm-badge,
 .dark-mode .wm-task-ref {
@@ -995,7 +992,6 @@ button:disabled {
 
 .dark-mode .entry-type.preferences,
 .dark-mode .stat-value.enabled {
-  background: #3c4043;
   color: #81c995;
 }
 
@@ -1322,8 +1318,8 @@ button:disabled {
 
   /* 所有头部 */
   [class*="header"] {
-    background: #292a2d !important;
-    border-color: #3c4043 !important;
+    /* background: #292a2d !important;
+    border-color: #3c4043 !important; */
   }
 
   /* 所有标题 */

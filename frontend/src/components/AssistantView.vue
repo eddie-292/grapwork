@@ -159,10 +159,6 @@ function truncateText(text: string, maxLength: number): string {
 <template>
   <div class="assistant-page">
     <header class="assistant-header">
-      <button class="back-btn" @click="goBack">
-        返回
-      </button>
-      <h1>社区助理</h1>
       <button class="add-btn" @click="showEditForm = true; editingIndex = -1; currentAssistant = { id: '', name: '', emoji: 'robot', systemPrompt: '', createdAt: 0 }">
         + 新建助理
       </button>
@@ -288,7 +284,6 @@ function truncateText(text: string, maxLength: number): string {
 <style scoped>
 .assistant-page {
   min-height: 100vh;
-  background: var(--color-bg-secondary);
   display: flex;
   flex-direction: column;
 }
@@ -299,7 +294,6 @@ function truncateText(text: string, maxLength: number): string {
   justify-content: space-between;
   gap: 16px;
   padding: 16px 24px;
-  background: var(--color-bg-primary);
   border-bottom: 1px solid var(--color-border);
 }
 
