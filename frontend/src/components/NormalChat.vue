@@ -713,7 +713,7 @@ defineExpose({
 }
 
 .msg-row.user .msg-bubble {
-  background: var(--color-primary);
+  background: var(--color-bg-secondary);
   color: var(--color-primary-text);
   padding: 12px 16px;
   border-radius: 14px;
