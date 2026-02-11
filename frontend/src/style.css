@@ -668,7 +668,7 @@ button:disabled {
     /* Background Colors */
     --color-bg-primary: #292a2d;
     --color-bg-secondary: #202124;
-    --color-bg-tertiary: #3c4043;
+    --color-bg-tertiary: #202124;
   }
 
   /* Update base styles for dark mode */
@@ -705,7 +705,7 @@ button:disabled {
   /* Background Colors */
   --color-bg-primary: #292a2d;
   --color-bg-secondary: #202124;
-  --color-bg-tertiary: #3c4043;
+  --color-bg-tertiary: #202124;
 }
 
 .dark-mode body {

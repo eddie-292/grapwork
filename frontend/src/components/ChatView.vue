@@ -2686,7 +2686,6 @@ function handleFolderChanged(path: string) {
         <header class="header">
         <div class="header-inner">
           <button class="sidebar-toggle" @click="showSidebar = !showSidebar" v-if="!showSidebar" title="展开侧边栏">
-            <MenuIcon :size="16" />
             <span>OpenChat Desktop</span>
           </button>
           <div class="brand" v-if="showSidebar" >
@@ -3108,7 +3107,6 @@ function handleFolderChanged(path: string) {
   position: sticky;
   top: 0;
   z-index: 10;
-  border-bottom: 1px solid var(--color-border);
   background: var(--color-bg-primary);
 }
 

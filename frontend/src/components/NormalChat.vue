@@ -922,7 +922,7 @@ defineExpose({
   resize: none;
   padding: 6px 8px;
   border: none;
-  background: transparent;
+  background: var(--color-bg-tertiary);
   outline: none;
   font-size: 14px;
   color: var(--color-text-primary);
