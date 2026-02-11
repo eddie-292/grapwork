@@ -302,8 +302,8 @@ function cancel() {
       </div>
 
       <div class="dialog-actions">
-        <button class="btn-secondary" @click="cancel">取消</button>
-        <button class="btn-primary" @click="save">{{ entry ? '保存' : '添加' }}</button>
+        <button class="btn secondary" @click="cancel">取消</button>
+        <button class="btn primary" @click="save">{{ entry ? '保存' : '添加' }}</button>
       </div>
     </div>
   </div>
