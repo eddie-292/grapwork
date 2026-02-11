@@ -7,8 +7,6 @@ interface FileNode {
   name: string
   type: 'folder' | 'file'
   path: string
-  children?: FileNode[]
-  expanded?: boolean
 }
 
 // Props
@@ -18,47 +16,55 @@ interface Props {
 
 const props = defineProps<Props>()
 
-// 工作空间数据
-const workspaceData = ref<FileNode | null>(null)
+// 当前路径和文件列表
+const currentPath = ref('')
+const currentPathName = ref('')
+const fileNodes = ref<FileNode[]>([])
 const loading = ref(false)
 const error = ref('')
 
-// 刷新工作空间
-async function refreshWorkspace() {
-  if (!props.currentFolder) {
-    error.value = '请先选择一个文件夹'
-    workspaceData.value = null
-    return
-  }
+// 面包屑导航路径
+const breadcrumbs = ref<Array<{ name: string; path: string }>>([])
 
+// 加载指定目录
+async function loadDirectory(dirPath: string, addToBreadcrumb = false) {
   loading.value = true
   error.value = ''
 
   try {
     if (window.electronAPI?.readDirectory) {
-      const result = await window.electronAPI.readDirectory(props.currentFolder)
+      const result = await window.electronAPI.readDirectory(dirPath)
 
       if (result.success && result.items) {
-        // 构建文件树
-        const pathParts = props.currentFolder.split(/[/\\]/)
-        const rootName = pathParts[pathParts.length - 1] || props.currentFolder
+        const pathParts = dirPath.split(/[/\\]/)
+        const dirName = pathParts[pathParts.length - 1] || dirPath
 
-        workspaceData.value = {
-          name: rootName,
-          type: 'folder',
-          path: props.currentFolder,
-          expanded: true,
-          children: result.items.map(item => ({
-            name: item.name,
-            type: item.type === 'directory' ? 'folder' : 'file',
-            path: `${props.currentFolder}/${item.name}`,
-            expanded: false,
-            children: item.type === 'directory' ? [] : undefined
-          }))
+        currentPath.value = dirPath
+        currentPathName.value = dirName
+
+        // 分离文件夹和文件，并排序
+        const nodes = result.items.map(item => ({
+          name: item.name,
+          type: item.type === 'directory' ? 'folder' as const : 'file' as const,
+          path: `${dirPath}/${item.name}`
+        }))
+
+        // 文件夹在前，文件在后，各自按字母排序
+        nodes.sort((a, b) => {
+          if (a.type === b.type) {
+            return a.name.localeCompare(b.name)
+          }
+          return a.type === 'folder' ? -1 : 1
+        })
+
+        fileNodes.value = nodes
+
+        // 添加到面包屑
+        if (addToBreadcrumb) {
+          breadcrumbs.value.push({ name: dirName, path: dirPath })
         }
       } else {
         error.value = result.error || '读取目录失败'
-        workspaceData.value = null
       }
     } else {
       error.value = 'Electron API 不可用（仅在桌面应用中可用）'
@@ -71,37 +77,270 @@ async function refreshWorkspace() {
   }
 }
 
-// 切换文件夹展开/收起
-function toggleFolder(node: FileNode) {
+// 进入文件夹
+function enterFolder(node: FileNode) {
   if (node.type === 'folder') {
-    node.expanded = !node.expanded
+    loadDirectory(node.path, true)
   }
 }
 
-// 获取文件图标
-function getFileIcon(node: FileNode): string {
+// 通过面包屑导航到指定目录
+function navigateToBreadcrumb(index: number) {
+  if (index === -1) {
+    // 返回根目录
+    loadDirectory(props.currentFolder || '', false)
+    breadcrumbs.value = []
+  } else {
+    // 导航到指定层级
+    const target = breadcrumbs.value[index]
+    if (target) {
+      // 移除后面的层级
+      breadcrumbs.value = breadcrumbs.value.slice(0, index + 1)
+      loadDirectory(target.path, false)
+    }
+  }
+}
+
+// 获取文件 SVG 图标
+function getFileIcon(node: FileNode) {
   if (node.type === 'folder') {
-    return node.expanded ? '📂' : '📁'
+    // 文件夹图标
+    return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+    </svg>`
   }
-  // 根据文件扩展名返回不同的图标
+
   const ext = node.name.split('.').pop()?.toLowerCase()
-  const iconMap: Record<string, string> = {
-    'md': '📝',
-    'txt': '📄',
-    'js': '📜',
-    'ts': '📜',
-    'json': '📋',
-    'html': '🌐',
-    'css': '🎨',
-    'png': '🖼️',
-    'jpg': '🖼️',
-    'jpeg': '🖼️',
-    'svg': '🎭',
-    'pdf': '📕',
-    'zip': '📦',
-    'default': '📄'
+
+  // 不同文件类型的 SVG 图标
+  const icons: Record<string, string> = {
+    // 代码文件
+    'js': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f7df1e" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#f7df1e" fill-opacity="0.1"/>
+      <path d="M6 8l2 8M16 8l-2 8M10 13h4" stroke="#f7df1e"/>
+    </svg>`,
+    'ts': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3178c6" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#3178c6" fill-opacity="0.1"/>
+      <path d="M8 12h8M8 8h4M12 16h4" stroke="#3178c6"/>
+    </svg>`,
+    'jsx': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#61dafb" stroke-width="2">
+      <circle cx="12" cy="12" r="2" fill="#61dafb" fill-opacity="0.2"/>
+      <path d="M12 6c6 0 9 3 9 6s-3 6-9 6-9-3-9-6 3-6 9-6z" stroke="#61dafb"/>
+      <path d="M12 18v-6M12 12l4-3M12 12l-4-3" stroke="#61dafb"/>
+    </svg>`,
+    'tsx': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#61dafb" stroke-width="2">
+      <circle cx="12" cy="12" r="2" fill="#61dafb" fill-opacity="0.2"/>
+      <path d="M12 6c6 0 9 3 9 6s-3 6-9 6-9-3-9-6 3-6 9-6z" stroke="#61dafb"/>
+      <path d="M12 18v-6M12 12l4-3M12 12l-4-3" stroke="#61dafb"/>
+    </svg>`,
+    'vue': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#42b883" stroke-width="2">
+      <path d="M12 2L2 7l10 5 10-5-10-5z" fill="#42b883" fill-opacity="0.2"/>
+      <path d="M2 7l10 10 10-10M2 17l10 5 10-5" stroke="#42b883"/>
+    </svg>`,
+    'py': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3776ab" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="4" fill="#3776ab" fill-opacity="0.1"/>
+      <path d="M8 8h8M8 12h6M8 16h4" stroke="#3776ab"/>
+      <circle cx="16" cy="16" r="2" fill="#ffd43b"/>
+    </svg>`,
+    'go': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00add8" stroke-width="2">
+      <circle cx="12" cy="12" r="8" fill="#00add8" fill-opacity="0.1"/>
+      <path d="M8 12l4 4M16 12l-4-4M12 8v8" stroke="#00add8"/>
+    </svg>`,
+    'rust': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2">
+      <circle cx="12" cy="12" r="9" fill="#000" fill-opacity="0.1"/>
+      <path d="M12 6v12M6 12h12M8 8l8 8M16 8l-8 8" stroke="#000"/>
+    </svg>`,
+    'java': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f89820" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#f89820" fill-opacity="0.1"/>
+      <path d="M8 6c0-2 2-3 4-3s4 1 4 3v2c0 2-2 3-4 3s-4-1-4-3V6z" stroke="#f89820"/>
+      <path d="M7 11v2c0 3 2 5 5 5s5-2 5-5v-2" stroke="#f89820"/>
+    </svg>`,
+
+    // 样式文件
+    'css': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#264de4" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#264de4" fill-opacity="0.1"/>
+      <path d="M8 8h8M7 12l2 4 8-2M7 18l2-4 8 2" stroke="#264de4"/>
+    </svg>`,
+    'scss': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#cd6799" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#cd6799" fill-opacity="0.1"/>
+      <path d="M12 6v12M8 10h8M8 14h6" stroke="#cd6799"/>
+    </svg>`,
+    'less': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2a4d80" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#2a4d80" fill-opacity="0.1"/>
+      <path d="M6 8h12v3H6zM6 13h9v3H6z" stroke="#2a4d80"/>
+    </svg>`,
+
+    // Web 文件
+    'html': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#e34c26" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#e34c26" fill-opacity="0.1"/>
+      <path d="M8 6l-2 12 6 2 6-2-2-12" stroke="#e34c26"/>
+      <path d="M12 8v9M10 10h4M10 14h3" stroke="#e34c26"/>
+    </svg>`,
+
+    // 配置文件
+    'json': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f7df1e" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#f7df1e" fill-opacity="0.1"/>
+      <path d="M8 7h3M13 7h3M8 12h3M13 12h3M8 17h3M13 17h3" stroke="#f7df1e"/>
+    </svg>`,
+    'yaml': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#cb171e" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#cb171e" fill-opacity="0.1"/>
+      <path d="M8 7h8M8 12h6M8 17h5" stroke="#cb171e"/>
+    </svg>`,
+    'yml': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#cb171e" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#cb171e" fill-opacity="0.1"/>
+      <path d="M8 7h8M8 12h6M8 17h5" stroke="#cb171e"/>
+    </svg>`,
+    'xml': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0060ac" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#0060ac" fill-opacity="0.1"/>
+      <path d="M7 6l3 6-3 6M17 6l-3 6 3 6" stroke="#0060ac"/>
+    </svg>`,
+    'toml': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9c4221" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#9c4221" fill-opacity="0.1"/>
+      <path d="M8 7h8M8 12h6M8 17h4" stroke="#9c4221"/>
+    </svg>`,
+
+    // Markdown 和文档
+    'md': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#083fa1" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#083fa1" fill-opacity="0.1"/>
+      <path d="M8 7h8M8 12h8M8 17h5" stroke="#083fa1"/>
+    </svg>`,
+    'txt': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#6b7280" fill-opacity="0.1"/>
+      <path d="M8 7h8M8 12h8M8 17h5" stroke="#6b7280"/>
+    </svg>`,
+    'pdf': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f40f02" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#f40f02" fill-opacity="0.1"/>
+      <path d="M8 6v12h8V6H8z" stroke="#f40f02"/>
+      <path d="M10 9h4M10 12h4M10 15h3" stroke="#f40f02"/>
+    </svg>`,
+
+    // 图片文件
+    'png': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a049f7" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#a049f7" fill-opacity="0.1"/>
+      <circle cx="8" cy="8" r="2" fill="#a049f7" fill-opacity="0.3"/>
+      <path d="M2 18l6-6 4 4 6-8 4 4v6H2z" stroke="#a049f7"/>
+    </svg>`,
+    'jpg': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a049f7" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#a049f7" fill-opacity="0.1"/>
+      <circle cx="8" cy="8" r="2" fill="#a049f7" fill-opacity="0.3"/>
+      <path d="M2 18l6-6 4 4 6-8 4 4v6H2z" stroke="#a049f7"/>
+    </svg>`,
+    'jpeg': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a049f7" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#a049f7" fill-opacity="0.1"/>
+      <circle cx="8" cy="8" r="2" fill="#a049f7" fill-opacity="0.3"/>
+      <path d="M2 18l6-6 4 4 6-8 4 4v6H2z" stroke="#a049f7"/>
+    </svg>`,
+    'gif': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a049f7" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#a049f7" fill-opacity="0.1"/>
+      <circle cx="8" cy="8" r="2" fill="#a049f7" fill-opacity="0.3"/>
+      <path d="M2 18l6-6 4 4 6-8 4 4v6H2z" stroke="#a049f7"/>
+    </svg>`,
+    'svg': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffb13b" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#ffb13b" fill-opacity="0.1"/>
+      <circle cx="12" cy="12" r="6" stroke="#ffb13b"/>
+      <path d="M12 8v4l2 2" stroke="#ffb13b"/>
+    </svg>`,
+    'ico': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a049f7" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#a049f7" fill-opacity="0.1"/>
+      <circle cx="8" cy="8" r="2" fill="#a049f7" fill-opacity="0.3"/>
+      <path d="M2 18l6-6 4 4 6-8 4 4v6H2z" stroke="#a049f7"/>
+    </svg>`,
+
+    // 压缩文件
+    'zip': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c7c7c" stroke-width="2">
+      <rect x="4" y="2" width="16" height="20" rx="2" fill="#7c7c7c" fill-opacity="0.1"/>
+      <path d="M10 2v4M14 2v4M10 6h4M10 8h4M10 10h4" stroke="#7c7c7c"/>
+    </svg>`,
+    'tar': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c7c7c" stroke-width="2">
+      <rect x="4" y="2" width="16" height="20" rx="2" fill="#7c7c7c" fill-opacity="0.1"/>
+      <path d="M10 2v4M14 2v4M10 6h4M10 8h4M10 10h4" stroke="#7c7c7c"/>
+    </svg>`,
+    'gz': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c7c7c" stroke-width="2">
+      <rect x="4" y="2" width="16" height="20" rx="2" fill="#7c7c7c" fill-opacity="0.1"/>
+      <path d="M10 2v4M14 2v4M10 6h4M10 8h4M10 10h4" stroke="#7c7c7c"/>
+    </svg>`,
+    '7z': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c7c7c" stroke-width="2">
+      <rect x="4" y="2" width="16" height="20" rx="2" fill="#7c7c7c" fill-opacity="0.1"/>
+      <path d="M10 2v4M14 2v4M10 6h4M10 8h4M10 10h4" stroke="#7c7c7c"/>
+    </svg>`,
+    'rar': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c7c7c" stroke-width="2">
+      <rect x="4" y="2" width="16" height="20" rx="2" fill="#7c7c7c" fill-opacity="0.1"/>
+      <path d="M10 2v4M14 2v4M10 6h4M10 8h4M10 10h4" stroke="#7c7c7c"/>
+    </svg>`,
+
+    // Shell 脚本
+    'sh': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#89e051" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#89e051" fill-opacity="0.1"/>
+      <path d="M6 8l-2 4 2 4M16 8l2 4-2 4" stroke="#89e051"/>
+      <path d="M14 7l-4 10" stroke="#89e051"/>
+    </svg>`,
+    'bash': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#89e051" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#89e051" fill-opacity="0.1"/>
+      <path d="M6 8l-2 4 2 4M16 8l2 4-2 4" stroke="#89e051"/>
+      <path d="M14 7l-4 10" stroke="#89e051"/>
+    </svg>`,
+    'zsh': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#89e051" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#89e051" fill-opacity="0.1"/>
+      <path d="M6 8l-2 4 2 4M16 8l2 4-2 4" stroke="#89e051"/>
+      <path d="M14 7l-4 10" stroke="#89e051"/>
+    </svg>`,
+
+    // 数据库
+    'sql': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00758f" stroke-width="2">
+      <ellipse cx="12" cy="6" rx="8" ry="3" stroke="#00758f"/>
+      <path d="M4 6v12c0 1.66 3.58 3 8 3s8-1.34 8-3V6" stroke="#00758f"/>
+      <path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3" stroke="#00758f"/>
+    </svg>`,
+    'db': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00758f" stroke-width="2">
+      <ellipse cx="12" cy="6" rx="8" ry="3" stroke="#00758f"/>
+      <path d="M4 6v12c0 1.66 3.58 3 8 3s8-1.34 8-3V6" stroke="#00758f"/>
+      <path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3" stroke="#00758f"/>
+    </svg>`,
+
+    // 字体文件
+    'ttf': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2b2b2b" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#2b2b2b" fill-opacity="0.1"/>
+      <path d="M8 18l3-12h2l3 12M10 13h4" stroke="#2b2b2b"/>
+    </svg>`,
+    'woff': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2b2b2b" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#2b2b2b" fill-opacity="0.1"/>
+      <path d="M8 18l3-12h2l3 12M10 13h4" stroke="#2b2b2b"/>
+    </svg>`,
+    'woff2': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2b2b2b" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#2b2b2b" fill-opacity="0.1"/>
+      <path d="M8 18l3-12h2l3 12M10 13h4" stroke="#2b2b2b"/>
+    </svg>`,
+    'otf': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2b2b2b" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#2b2b2b" fill-opacity="0.1"/>
+      <path d="M8 18l3-12h2l3 12M10 13h4" stroke="#2b2b2b"/>
+    </svg>`,
+    'eot': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2b2b2b" stroke-width="2">
+      <rect x="2" y="2" width="20" height="20" rx="2" fill="#2b2b2b" fill-opacity="0.1"/>
+      <path d="M8 18l3-12h2l3 12M10 13h4" stroke="#2b2b2b"/>
+    </svg>`,
+
+    // 其他
+    'default': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <path d="M14 2v6h6"/>
+      <line x1="16" y1="13" x2="8" y2="13"/>
+      <line x1="16" y1="17" x2="8" y2="17"/>
+      <line x1="10" y1="9" x2="8" y2="9"/>
+    </svg>`
   }
-  return iconMap[ext || ''] || iconMap['default']
+
+  return icons[ext || ''] || icons['default']
+}
+
+// 刷新工作空间
+async function refreshWorkspace() {
+  breadcrumbs.value = []
+  if (props.currentFolder) {
+    await loadDirectory(props.currentFolder, false)
+  } else {
+    error.value = '请先选择一个文件夹'
+    fileNodes.value = []
+  }
 }
 
 // 监听 currentFolder 变化
@@ -135,6 +374,22 @@ defineExpose({
       </button>
     </div>
 
+    <!-- 面包屑导航 -->
+    <div v-if="currentPath" class="breadcrumb-nav">
+      <span class="breadcrumb-item root" @click="navigateToBreadcrumb(-1)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+        </svg>
+        <span>根目录</span>
+      </span>
+      <template v-if="breadcrumbs.length > 0">
+        <span v-for="(crumb, index) in breadcrumbs" :key="index" class="breadcrumb-item">
+          <span class="breadcrumb-separator">/</span>
+          <span @click="navigateToBreadcrumb(index)">{{ crumb.name }}</span>
+        </span>
+      </template>
+    </div>
+
     <!-- 加载状态 -->
     <div v-if="loading" class="loading-state">
       <span>加载中...</span>
@@ -154,56 +409,26 @@ defineExpose({
       <span>请先在聊天界面选择一个文件夹</span>
     </div>
 
-    <!-- 文件树 -->
-    <div v-else-if="workspaceData" class="file-tree">
-      <!-- 根节点 -->
-      <div class="tree-node">
-        <div
-          class="tree-node-content is-folder"
-          @click="toggleFolder(workspaceData!)"
-        >
-          <span class="node-icon">{{ getFileIcon(workspaceData) }}</span>
-          <span class="node-name">{{ workspaceData.name }}</span>
-        </div>
+    <!-- 文件列表 -->
+    <div v-else class="file-list">
+      <!-- 当前目录名称 -->
+      <div class="current-dir-name">{{ currentPathName }}</div>
 
-        <!-- 子节点 -->
-        <div v-if="workspaceData.expanded && workspaceData.children" class="tree-children">
-          <div
-            v-for="child in workspaceData.children"
-            :key="child.path"
-            class="tree-node"
-            :style="{ paddingLeft: '16px' }"
-          >
-            <div
-              class="tree-node-content"
-              :class="{ 'is-folder': child.type === 'folder' }"
-              @click="child.type === 'folder' ? toggleFolder(child) : null"
-            >
-              <span class="node-icon">{{ getFileIcon(child) }}</span>
-              <span class="node-name">{{ child.name }}</span>
-            </div>
+      <!-- 文件节点 -->
+      <div
+        v-for="node in fileNodes"
+        :key="node.path"
+        class="file-node"
+        :class="{ 'is-folder': node.type === 'folder' }"
+        @click="node.type === 'folder' ? enterFolder(node) : null"
+      >
+        <span class="node-icon" v-html="getFileIcon(node)"></span>
+        <span class="node-name">{{ node.name }}</span>
+      </div>
 
-            <!-- 第二层子节点（占位，未来可扩展为递归加载） -->
-            <div v-if="child.type === 'folder' && child.expanded && child.children" class="tree-children">
-              <div
-                v-for="grandchild in child.children"
-                :key="grandchild.path"
-                class="tree-node"
-                :style="{ paddingLeft: '16px' }"
-              >
-                <div class="tree-node-content">
-                  <span class="node-icon">{{ getFileIcon(grandchild) }}</span>
-                  <span class="node-name">{{ grandchild.name }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 空目录 -->
-        <div v-if="workspaceData.expanded && (!workspaceData.children || workspaceData.children.length === 0)" class="empty-directory">
-          <span>空目录</span>
-        </div>
+      <!-- 空目录 -->
+      <div v-if="fileNodes.length === 0" class="empty-directory">
+        <span>此目录为空</span>
       </div>
     </div>
   </div>
@@ -271,6 +496,53 @@ defineExpose({
   }
 }
 
+/* 面包屑导航 */
+.breadcrumb-nav {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 13px;
+  overflow-x: auto;
+  white-space: nowrap;
+  gap: 4px;
+}
+
+.breadcrumb-item {
+  display: flex;
+  align-items: center;
+  color: #6b7280;
+}
+
+.breadcrumb-item.root {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #1890ff;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.breadcrumb-item.root:hover {
+  color: #096dd9;
+}
+
+.breadcrumb-item span:not(.breadcrumb-separator) {
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.breadcrumb-item span:not(.breadcrumb-separator):hover {
+  color: #1890ff;
+}
+
+.breadcrumb-separator {
+  margin: 0 4px;
+  color: #d1d5db;
+  cursor: default;
+}
+
 .loading-state,
 .error-state,
 .empty-folder-state {
@@ -308,37 +580,51 @@ defineExpose({
   color: #d1d5db;
 }
 
-.file-tree {
+.file-list {
   flex: 1;
   overflow-y: auto;
   padding: 8px 0;
 }
 
-.tree-node {
-  user-select: none;
+.current-dir-name {
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.tree-node-content {
+.file-node {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 8px 16px;
-  cursor: pointer;
+  cursor: default;
   transition: background 0.15s;
 }
 
-.tree-node-content:hover {
+.file-node:hover {
   background: #f3f4f6;
 }
 
-.tree-node-content.is-folder {
-  color: #1890FF;
+.file-node.is-folder {
+  cursor: pointer;
+}
+
+.file-node.is-folder:hover {
+  background: #e6f7ff;
 }
 
 .node-icon {
-  font-size: 16px;
-  line-height: 1;
   flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+
+.node-icon :deep(svg) {
+  width: 100%;
+  height: 100%;
 }
 
 .node-name {
@@ -349,12 +635,8 @@ defineExpose({
   text-overflow: ellipsis;
 }
 
-.tree-children {
-  /* 子节点通过 paddingLeft 实现缩进 */
-}
-
 .empty-directory {
-  padding: 20px 16px;
+  padding: 40px 16px;
   text-align: center;
   color: #9ca3af;
   font-size: 13px;

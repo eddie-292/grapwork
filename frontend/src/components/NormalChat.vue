@@ -606,7 +606,7 @@ defineExpose({
 
 .messages {
   background: #ffffff;
-  height: calc(81vh);
+  height: calc(77vh);
   overflow: auto;
 }
 
@@ -1094,8 +1094,10 @@ defineExpose({
 }
 
 .tool-result-card {
-  background: #f7f7f8;
-  border: 1px solid #e5e7eb;
+  background: rgba(247, 247, 248, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(229, 231, 235, 0.5);
   border-radius: 8px;
   overflow: hidden;
   margin-bottom: 8px;
