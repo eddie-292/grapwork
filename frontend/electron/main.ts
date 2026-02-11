@@ -1425,14 +1425,19 @@ ipcMain.handle('file-operation', async (_event, operation: string, args: Record<
         }
 
         try {
-          fs.writeFileSync(targetPath, String(content), 'utf-8')
+          // 处理 content：如果是对象，先序列化为 JSON；如果是字符串，直接使用
+          const contentToWrite = typeof content === 'object'
+            ? JSON.stringify(content, null, 2)
+            : String(content)
+
+          fs.writeFileSync(targetPath, contentToWrite, 'utf-8')
 
           return {
             success: true,
             content: JSON.stringify({
               message: '文件写入成功',
               file_path,
-              bytes_written: Buffer.byteLength(String(content), 'utf-8')
+              bytes_written: Buffer.byteLength(contentToWrite, 'utf-8')
             }, null, 2)
           }
         } catch (error: any) {
