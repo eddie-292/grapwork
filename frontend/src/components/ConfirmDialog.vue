@@ -164,9 +164,9 @@ const iconComponent = computed(() => {
 }
 
 .btn.info {
-  background: #10a37f;
+  background: #22c55e;
   color: white;
-  border: 1px solid #10a37f;
+  border: 1px solid #22c55e;
 }
 
 .btn.info:hover:not(:disabled) {

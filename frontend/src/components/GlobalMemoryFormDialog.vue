@@ -367,7 +367,7 @@ function cancel() {
 }
 
 .form-control:focus {
-  border-color: #10a37f;
+  border-color: #22c55e;
 }
 
 .textarea {
@@ -398,7 +398,7 @@ function cancel() {
 
 .checkbox-label input[type="checkbox"] {
   cursor: pointer;
-  accent-color: #10a37f;
+  accent-color: #22c55e;
 }
 
 .dialog-actions {
@@ -419,9 +419,9 @@ function cancel() {
 }
 
 .btn-primary {
-  background: #10a37f;
+  background: #22c55e;
   color: white;
-  border: 1px solid #10a37f;
+  border: 1px solid #22c55e;
 }
 
 .btn-primary:hover {
@@ -531,7 +531,7 @@ function cancel() {
 
 .dropdown-item.active {
   background: #dcfce7;
-  border-left: 3px solid #10a37f;
+  border-left: 3px solid #22c55e;
 }
 
 .dropdown-icon {

@@ -713,7 +713,7 @@ defineExpose({
 }
 
 .msg-row.user .msg-bubble {
-  background: #10a37f;
+  background: #22c55e;
   color: #ffffff;
   padding: 12px 16px;
   border-radius: 14px;
@@ -793,7 +793,7 @@ defineExpose({
   top: 8px;
   right: 72px;
   background: rgba(16, 163, 127, 0.9);
-  border: 1px solid #10a37f;
+  border: 1px solid #22c55e;
   border-radius: 4px;
   padding: 4px 10px;
   font-size: 12px;
@@ -944,9 +944,9 @@ defineExpose({
 }
 
 .btn.primary {
-  background: #10a37f;
+  background: #22c55e;
   color: #ffffff;
-  border-color: #10a37f;
+  border-color: #22c55e;
 }
 
 .btn.primary:disabled {
@@ -1070,7 +1070,7 @@ defineExpose({
 }
 
 .toggle-label input:checked + .toggle-switch {
-  background: #10a37f;
+  background: #22c55e;
 }
 
 .toggle-label input:checked + .toggle-switch::after {
@@ -1313,7 +1313,7 @@ defineExpose({
 }
 
 .folder-dialog-title svg {
-  color: #10a37f;
+  color: #22c55e;
 }
 
 .current-folder {
@@ -1383,7 +1383,7 @@ defineExpose({
 }
 
 .dialog-btn.primary {
-  background: #10a37f;
+  background: #22c55e;
   color: #ffffff;
 }
 

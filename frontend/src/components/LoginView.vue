@@ -122,7 +122,7 @@ async function handleLogin() {
   width: 10px;
   height: 10px;
   border-radius: 999px;
-  background: #10a37f;
+  background: #22c55e;
 }
 
 .login-header h2 {
@@ -167,7 +167,7 @@ async function handleLogin() {
 }
 
 .form-group input:focus {
-  border-color: #10a37f;
+  border-color: #22c55e;
   box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.1);
 }
 
@@ -185,7 +185,7 @@ async function handleLogin() {
 
 .login-btn {
   padding: 14px;
-  background: #10a37f;
+  background: #22c55e;
   color: #ffffff;
   border: none;
   border-radius: 8px;

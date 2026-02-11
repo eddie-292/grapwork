@@ -326,7 +326,7 @@ function truncateText(text: string, maxLength: number): string {
 }
 
 .add-btn {
-  background: #10a37f;
+  background: #22c55e;
   color: white;
   border: none;
   font-size: 14px;
@@ -393,7 +393,7 @@ function truncateText(text: string, maxLength: number): string {
 }
 
 .assistant-card:hover {
-  border-color: #10a37f;
+  border-color: #22c55e;
   box-shadow: 0 8px 24px rgba(16, 163, 127, 0.12);
 }
 
@@ -406,7 +406,7 @@ function truncateText(text: string, maxLength: number): string {
   align-items: center;
   justify-content: center;
   border: 2px solid #e8ecf1;
-  color: #10a37f;
+  color: #22c55e;
 }
 
 .card-avatar svg {
@@ -439,7 +439,7 @@ function truncateText(text: string, maxLength: number): string {
 
 .use-btn {
   flex: 1;
-  background: #10a37f;
+  background: #22c55e;
   color: white;
   border: none;
   font-size: 14px;
@@ -469,8 +469,8 @@ function truncateText(text: string, maxLength: number): string {
 }
 
 .edit-btn:hover {
-  border-color: #10a37f;
-  color: #10a37f;
+  border-color: #22c55e;
+  color: #22c55e;
   background: #f0fdf4;
 }
 
@@ -570,7 +570,7 @@ function truncateText(text: string, maxLength: number): string {
 }
 
 .input:focus {
-  border-color: #10a37f;
+  border-color: #22c55e;
 }
 
 .input.textarea {
@@ -611,13 +611,13 @@ function truncateText(text: string, maxLength: number): string {
 }
 
 .avatar-btn:hover {
-  border-color: #10a37f;
+  border-color: #22c55e;
   background: #f0fdf4;
 }
 
 .avatar-btn.selected {
-  border-color: #10a37f;
-  background: #10a37f;
+  border-color: #22c55e;
+  background: #22c55e;
   color: white;
 }
 
@@ -655,9 +655,9 @@ function truncateText(text: string, maxLength: number): string {
 }
 
 .btn.primary {
-  background: #10a37f;
+  background: #22c55e;
   color: white;
-  border: 1px solid #10a37f;
+  border: 1px solid #22c55e;
 }
 
 .btn.primary:hover:not(:disabled) {

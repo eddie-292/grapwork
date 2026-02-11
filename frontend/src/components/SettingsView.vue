@@ -529,7 +529,7 @@ async function clearChatHistory() {
 }
 
 .nav-item.active {
-  background: #10a37f;
+  background: #22c55e;
   color: white;
 }
 
@@ -588,7 +588,7 @@ async function clearChatHistory() {
 }
 
 .input:focus {
-  border-color: #10a37f;
+  border-color: #22c55e;
 }
 
 .textarea {
@@ -603,7 +603,7 @@ async function clearChatHistory() {
 }
 
 .textarea:focus {
-  border-color: #10a37f;
+  border-color: #22c55e;
 }
 
 .form-group small {
@@ -657,9 +657,9 @@ async function clearChatHistory() {
 }
 
 .btn.primary {
-  background: #10a37f;
+  background: #22c55e;
   color: white;
-  border: 1px solid #10a37f;
+  border: 1px solid #22c55e;
 }
 
 .btn.primary:hover:not(:disabled) {
@@ -702,7 +702,7 @@ async function clearChatHistory() {
 }
 
 .config-item:hover {
-  border-color: #10a37f;
+  border-color: #22c55e;
 }
 
 .config-info {
@@ -815,7 +815,7 @@ async function clearChatHistory() {
 }
 
 .theme-select:focus {
-  border-color: #10a37f;
+  border-color: #22c55e;
 }
 
 .theme-preview {

@@ -299,7 +299,7 @@ onMounted(async () => {
 }
 
 .add-btn.primary {
-  background: #10a37f;
+  background: #22c55e;
   color: white;
 }
 
@@ -346,7 +346,7 @@ onMounted(async () => {
 }
 
 .stat-value.enabled {
-  color: #10a37f;
+  color: #22c55e;
 }
 
 .stat-value.disabled {
@@ -435,8 +435,8 @@ onMounted(async () => {
 }
 
 .entry-type.preferences {
-  background: #dbeafe;
-  color: #1e40af;
+background: #22c55e;
+    color: #ffffff;
 }
 
 .entry-type.settings {
@@ -476,8 +476,8 @@ onMounted(async () => {
 
 .toggle-btn.active {
   background: #d1fae5;
-  border-color: #10a37f;
-  color: #10a37f;
+  border-color: #22c55e;
+  color: #22c55e;
 }
 
 .entry-title {

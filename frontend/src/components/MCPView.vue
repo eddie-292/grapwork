@@ -718,7 +718,7 @@ function canFetchTools(server: MCPServer): boolean {
 }
 
 .add-btn {
-  background: #10a37f;
+  background: #22c55e;
   color: white;
   border: none;
   font-size: 14px;
@@ -775,7 +775,7 @@ function canFetchTools(server: MCPServer): boolean {
 }
 
 .server-card:hover {
-  border-color: #10a37f;
+  border-color: #22c55e;
   box-shadow: 0 4px 12px rgba(16, 163, 127, 0.1);
 }
 
@@ -785,7 +785,7 @@ function canFetchTools(server: MCPServer): boolean {
 }
 
 .server-card.active {
-  border-color: #10a37f;
+  border-color: #22c55e;
   border-width: 2px;
 }
 
@@ -904,15 +904,15 @@ function canFetchTools(server: MCPServer): boolean {
 }
 
 .action-btn:hover {
-  border-color: #10a37f;
-  color: #10a37f;
+  border-color: #22c55e;
+  color: #22c55e;
   background: #f0fdf4;
 }
 
 .toggle-btn.active {
-  background: #10a37f;
+  background: #22c55e;
   color: white;
-  border-color: #10a37f;
+  border-color: #22c55e;
 }
 
 .toggle-btn.active:hover {
@@ -1047,7 +1047,7 @@ function canFetchTools(server: MCPServer): boolean {
 }
 
 .input:focus {
-  border-color: #10a37f;
+  border-color: #22c55e;
 }
 
 .input.textarea {
@@ -1095,9 +1095,9 @@ function canFetchTools(server: MCPServer): boolean {
 }
 
 .btn.primary {
-  background: #10a37f;
+  background: #22c55e;
   color: white;
-  border: 1px solid #10a37f;
+  border: 1px solid #22c55e;
 }
 
 .btn.primary:hover:not(:disabled) {

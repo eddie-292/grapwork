@@ -38,7 +38,7 @@ a:hover {
 .reasoning-spinner {
   width: 10px;
   height: 10px;
-  background-color: #10a37f;
+  background-color: #22c55e;
   border-radius: 50%;
   display: inline-block;
   animation: pulse 1.5s ease-in-out infinite;

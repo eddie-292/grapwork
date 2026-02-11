@@ -2971,7 +2971,7 @@ function handleFolderChanged(path: string) {
 .new-chat-btn {
   flex: 1;
   padding: 10px 16px;
-  background: #10a37f;
+  background: #22c55e;
   color: #ffffff;
   border: none;
   border-radius: 6px;
@@ -3177,7 +3177,7 @@ function handleFolderChanged(path: string) {
   width: 10px;
   height: 10px;
   border-radius: 999px;
-  background: #10a37f;
+  background: #22c55e;
 }
 
 /* 模式切换器样式 */
@@ -3377,7 +3377,7 @@ function handleFolderChanged(path: string) {
 }
 
 .msg-row.user .msg-bubble {
-  background: #10a37f;
+  background: #22c55e;
   color: #ffffff;
   padding: 12px 16px;
   border-radius: 14px;
@@ -3457,7 +3457,7 @@ function handleFolderChanged(path: string) {
   top: 8px;
   right: 72px;
   background: rgba(16, 163, 127, 0.9);
-  border: 1px solid #10a37f;
+  border: 1px solid #22c55e;
   border-radius: 4px;
   padding: 4px 10px;
   font-size: 12px;
@@ -3627,9 +3627,9 @@ function handleFolderChanged(path: string) {
 }
 
 .btn.primary {
-  background: #10a37f;
+  background: #22c55e;
   color: #ffffff;
-  border-color: #10a37f;
+  border-color: #22c55e;
 }
 
 .btn.primary:disabled {
@@ -3693,7 +3693,7 @@ function handleFolderChanged(path: string) {
 }
 
 .toggle-label input:checked + .toggle-switch {
-  background: #10a37f;
+  background: #22c55e;
 }
 
 .toggle-label input:checked + .toggle-switch::after {
@@ -3864,7 +3864,7 @@ function handleFolderChanged(path: string) {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #10a37f;
+  background: #22c55e;
   cursor: pointer;
   transition: background 0.2s;
 }
@@ -3873,7 +3873,7 @@ function handleFolderChanged(path: string) {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #10a37f;
+  background: #22c55e;
   cursor: pointer;
   transition: background 0.2s;
   border: none;
@@ -3895,7 +3895,7 @@ function handleFolderChanged(path: string) {
 }
 
 .param-number:focus {
-  border-color: #10a37f;
+  border-color: #22c55e;
 }
 
 .param-desc {

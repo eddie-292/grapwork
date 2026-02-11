@@ -569,7 +569,7 @@ function submitRevision() {
 }
 
 .task-item.active {
-  border-color: #10a37f;
+  border-color: #22c55e;
   background: #f0fdf4;
 }
 
@@ -591,7 +591,7 @@ function submitRevision() {
 }
 
 .task-item.active .task-icon {
-  color: #10a37f;
+  color: #22c55e;
 }
 
 .task-item.completed .task-icon {
@@ -641,7 +641,7 @@ function submitRevision() {
 }
 
 .task-item.active .task-number {
-  background: #10a37f;
+  background: #22c55e;
   color: #ffffff;
 }
 
@@ -674,7 +674,7 @@ function submitRevision() {
   justify-content: center;
   gap: 6px;
   padding: 8px 10px;
-  background: #10a37f;
+  background: #22c55e;
   color: #ffffff;
   border: none;
   border-radius: 8px;
@@ -974,7 +974,7 @@ function submitRevision() {
   width: 16px;
   height: 16px;
   cursor: pointer;
-  accent-color: #10a37f;
+  accent-color: #22c55e;
 }
 
 .setting-value-control {
@@ -995,7 +995,7 @@ function submitRevision() {
 }
 
 .setting-number:focus {
-  border-color: #10a37f;
+  border-color: #22c55e;
 }
 
 .setting-range {
@@ -1014,7 +1014,7 @@ function submitRevision() {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #10a37f;
+  background: #22c55e;
   cursor: pointer;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -1023,7 +1023,7 @@ function submitRevision() {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #10a37f;
+  background: #22c55e;
   cursor: pointer;
   border: none;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -1034,7 +1034,7 @@ function submitRevision() {
   text-align: center;
   font-size: 14px;
   font-weight: 600;
-  color: #10a37f;
+  color: #22c55e;
 }
 
 .setting-desc {
@@ -1048,7 +1048,7 @@ function submitRevision() {
 
 /* 任务编辑样式 */
 .task-item.editing {
-  border-color: #10a37f;
+  border-color: #22c55e;
   background: #f0fdf4;
 }
 
@@ -1118,7 +1118,7 @@ function submitRevision() {
   flex: 1;
   min-width: 0;
   padding: 4px 8px;
-  border: 1px solid #10a37f;
+  border: 1px solid #22c55e;
   border-radius: 4px;
   font-size: 12px;
   color: #0f172a;
@@ -1140,7 +1140,7 @@ function submitRevision() {
 }
 
 .task-edit-btn.save {
-  background: #10a37f;
+  background: #22c55e;
   color: white;
 }
 
@@ -1188,7 +1188,7 @@ function submitRevision() {
 
 .wm-toggle-btn.active {
   background: #ecfdf5;
-  border-color: #10a37f;
+  border-color: #22c55e;
   color: #065f46;
 }
 
@@ -1202,7 +1202,7 @@ function submitRevision() {
 }
 
 .wm-toggle-btn.active .wm-badge {
-  background: #10a37f;
+  background: #22c55e;
   color: white;
 }
 
@@ -1242,7 +1242,7 @@ function submitRevision() {
 }
 
 .wm-tab.active {
-  background: #10a37f;
+  background: #22c55e;
   color: white;
 }
 
@@ -1282,7 +1282,7 @@ function submitRevision() {
 }
 
 .wm-entry.editing {
-  border-color: #10a37f;
+  border-color: #22c55e;
   box-shadow: 0 0 0 2px rgba(16, 163, 127, 0.1);
 }
 
@@ -1359,7 +1359,7 @@ function submitRevision() {
 
 .wm-edit-textarea:focus {
   outline: none;
-  border-color: #10a37f;
+  border-color: #22c55e;
 }
 
 .wm-edit-actions {
@@ -1380,7 +1380,7 @@ function submitRevision() {
 }
 
 .wm-edit-btn.save {
-  background: #10a37f;
+  background: #22c55e;
   color: white;
 }
 
