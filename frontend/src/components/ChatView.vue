@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
@@ -52,6 +52,40 @@ const htmlPreviewContent = ref('')
 
 // 退出登录确认对话框状态
 const showLogoutConfirmDialog = ref(false)
+
+// 命令确认对话框状态
+const showCommandConfirmDialog = ref(false)
+const pendingCommand = ref('')
+const pendingCommandReason = ref('')
+let commandConfirmResolve: ((confirmed: boolean) => void) | null = null
+
+// 命令确认回调函数
+async function handleCommandConfirm(command: string, reason: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    pendingCommand.value = command
+    pendingCommandReason.value = reason
+    commandConfirmResolve = resolve
+    showCommandConfirmDialog.value = true
+  })
+}
+
+// 用户确认执行命令
+function onCommandConfirm() {
+  showCommandConfirmDialog.value = false
+  if (commandConfirmResolve) {
+    commandConfirmResolve(true)
+    commandConfirmResolve = null
+  }
+}
+
+// 用户取消执行命令
+function onCommandCancel() {
+  showCommandConfirmDialog.value = false
+  if (commandConfirmResolve) {
+    commandConfirmResolve(false)
+    commandConfirmResolve = null
+  }
+}
 
 // 提取关键词的简单函数
 function extractKeywords(content: string): string[] {
@@ -2568,7 +2602,15 @@ onMounted(async () => {
     currentFolder.value = savedFolder
   }
 
+  // 设置命令确认回调
+  mcpManager.setCommandConfirmCallback(handleCommandConfirm)
+
   scrollToBottom()
+})
+
+onUnmounted(() => {
+  // 清理命令确认回调
+  mcpManager.setCommandConfirmCallback(null)
 })
 
 // 处理文件夹变化
@@ -2924,6 +2966,18 @@ function handleFolderChanged(path: string) {
       type="warning"
       @confirm="confirmLogout"
       @cancel="cancelLogout"
+    />
+
+    <!-- 命令执行确认对话框 -->
+    <ConfirmDialog
+      :show="showCommandConfirmDialog"
+      title="确认执行命令"
+      :message="`即将执行风险命令：\n${pendingCommand}\n\n风险类型：${pendingCommandReason}\n\n是否继续？`"
+      confirm-text="确认执行"
+      cancel-text="取消"
+      type="danger"
+      @confirm="onCommandConfirm"
+      @cancel="onCommandCancel"
     />
   </div>
 </template>

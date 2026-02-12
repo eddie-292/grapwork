@@ -18,6 +18,9 @@ const isElectronEnv =
   typeof navigator !== 'undefined' &&
   navigator.userAgent.toLowerCase().includes('electron')
 
+// 风险命令确认回调类型
+export type CommandConfirmCallback = (command: string, reason: string) => Promise<boolean>
+
 // 使用 MCP 的 composable
 export function useMCP() {
   const serverList = ref<MCPServerList>({
@@ -29,6 +32,81 @@ export function useMCP() {
 
   // 内置文件操作工具的工作目录
   const selectedFolder = ref<string>('')
+
+  // 命令确认回调（由外部组件设置）
+  let commandConfirmCallback: CommandConfirmCallback | null = null
+
+  // 设置命令确认回调
+  function setCommandConfirmCallback(callback: CommandConfirmCallback | null) {
+    commandConfirmCallback = callback
+  }
+
+  // 检测命令是否为风险命令
+  function checkRiskyCommand(command: string): { isRisky: boolean; reason?: string } {
+    const fullCmd = command.toLowerCase()
+
+    // 检测删除命令
+    if (/\brm\b/.test(fullCmd) || /\brmdir\b/.test(fullCmd) || /\bdel\b/.test(fullCmd)) {
+      return { isRisky: true, reason: '删除文件/目录命令' }
+    }
+
+    // 检测格式化命令
+    if (/\bformat\b/.test(fullCmd) || /\bmkfs\b/.test(fullCmd)) {
+      return { isRisky: true, reason: '磁盘格式化命令' }
+    }
+
+    // 检测权限修改
+    if (/\bchmod\b/.test(fullCmd) || /\bchown\b/.test(fullCmd) || /\bchgrp\b/.test(fullCmd)) {
+      return { isRisky: true, reason: '权限修改命令' }
+    }
+
+    // 检测系统操作
+    if (/\bshutdown\b/.test(fullCmd) || /\breboot\b/.test(fullCmd) || /\binit\b/.test(fullCmd)) {
+      return { isRisky: true, reason: '系统关机/重启命令' }
+    }
+
+    // 检测网络相关
+    if (/\biptables\b/.test(fullCmd) || /\bnetsh\b/.test(fullCmd) || /\broute\b/.test(fullCmd)) {
+      return { isRisky: true, reason: '网络配置命令' }
+    }
+
+    // 检测包管理器
+    if (/\bapt\b/.test(fullCmd) || /\byum\b/.test(fullCmd) || /\bbrew\b/.test(fullCmd) || /\bnpm\b/.test(fullCmd) || /\bpip\b/.test(fullCmd)) {
+      return { isRisky: true, reason: '包管理器命令' }
+    }
+
+    // 检测进程操作
+    if (/\bkill\b/.test(fullCmd) || /\bkillall\b/.test(fullCmd) || /\bpkill\b/.test(fullCmd)) {
+      return { isRisky: true, reason: '进程终止命令' }
+    }
+
+    // 检测 sudo 或管理员权限
+    if (/\bsudo\b/.test(fullCmd) || /\brunas\b/.test(fullCmd)) {
+      return { isRisky: true, reason: '管理员权限命令' }
+    }
+
+    // 检测重定向到系统目录
+    if (/>.*\/(etc|system|windows|program)/i.test(fullCmd)) {
+      return { isRisky: true, reason: '写入系统目录' }
+    }
+
+    // 检测管道和重定向（可能造成数据泄露或损坏）
+    if (fullCmd.includes('|') || fullCmd.includes('>') || fullCmd.includes('>>')) {
+      return { isRisky: true, reason: '使用管道或重定向' }
+    }
+
+    // 检测命令链
+    if (fullCmd.includes('&&') || fullCmd.includes('||') || fullCmd.includes(';')) {
+      return { isRisky: true, reason: '命令链操作' }
+    }
+
+    // 检测 curl/wget（可能下载恶意文件）
+    if (/\bcurl\b/.test(fullCmd) || /\bwget\b/.test(fullCmd)) {
+      return { isRisky: true, reason: '网络下载命令' }
+    }
+
+    return { isRisky: false }
+  }
 
   // 加载 MCP 服务器列表
   async function loadServers() {
@@ -394,13 +472,13 @@ export function useMCP() {
         type: 'function',
         function: {
           name: 'execute_command',
-          description: `${workDirContext} 执行系统命令。支持安全的命令白名单：date, ls, la, ll, dir, pwd, echo, cat, head, tail, wc, grep, whoami, hostname, uname, cal, uptime, df, du, ps, env。禁止使用管道、重定向和命令链。`,
+          description: `${workDirContext} 执行系统命令。可以执行任意命令，但风险命令（如删除、格式化、sudo等）需要用户确认后才会执行。`,
           parameters: {
             type: 'object',
             properties: {
               command: {
                 type: 'string',
-                description: '要执行的命令（如 "ls -la", "pwd", "echo hello"）。必须是白名单中的安全命令。'
+                description: '要执行的命令（如 "ls -la", "npm install", "rm file.txt"）。风险命令会弹出确认对话框。'
               },
               timeout: {
                 type: 'number',
@@ -498,6 +576,25 @@ export function useMCP() {
             toolCallId: toolCall.id,
             content: '',
             error: `工具参数解析失败: ${e}`
+          }
+        }
+
+        // 如果是 execute_command，检查是否为风险命令并需要确认
+        if (toolCall.function.name === 'execute_command' && args.command) {
+          const riskCheck = checkRiskyCommand(args.command)
+          if (riskCheck.isRisky) {
+            console.log('[execute_command] Risky command detected:', args.command, riskCheck.reason)
+            // 如果有确认回调，调用它
+            if (commandConfirmCallback) {
+              const confirmed = await commandConfirmCallback(args.command, riskCheck.reason || '风险命令')
+              if (!confirmed) {
+                return {
+                  toolCallId: toolCall.id,
+                  content: '',
+                  error: `用户取消了命令执行: ${args.command}`
+                }
+              }
+            }
           }
         }
 
@@ -765,6 +862,9 @@ export function useMCP() {
       selectedFolder.value = folder
     },
     getSelectedFolder: () => selectedFolder.value,
-    isBuiltinFileTool
+    isBuiltinFileTool,
+    // 命令确认相关
+    setCommandConfirmCallback,
+    checkRiskyCommand
   }
 }

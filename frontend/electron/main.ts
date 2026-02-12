@@ -101,39 +101,56 @@ class SimpleCommandExecutor {
     this.config = config
   }
 
-  // 验证命令是否在白名单中
-  private validateCommand(command: string): { valid: boolean; error?: string } {
-    // 获取基础命令（忽略路径和参数）
-    let baseCommand = command.split(' ')[0]
-    baseCommand = path.basename(baseCommand) // 提取命令名称，忽略路径如 /bin/date
-
-    if (!SIMPLE_COMMAND_WHITELIST.includes(baseCommand)) {
-      return {
-        valid: false,
-        error: `Command "${baseCommand}" is not in the whitelist. ` +
-          `Allowed commands: ${SIMPLE_COMMAND_WHITELIST.join(', ')}`
-      }
-    }
-
-    // 额外安全检查：禁止危险的命令组合
+  // 检测命令是否为风险命令（用于前端确认，不再阻止执行）
+  private checkRiskyCommand(command: string): { isRisky: boolean; reason?: string } {
     const fullCmd = command.toLowerCase()
-    if (fullCmd.includes(' rm ') || fullCmd.startsWith('rm ') || fullCmd.includes('\trm\t')) {
-      return { valid: false, error: 'Command "rm" is not allowed for safety reasons' }
+
+    // 检测删除命令
+    if (/\brm\b/.test(fullCmd) || /\brmdir\b/.test(fullCmd) || /\bdel\b/.test(fullCmd)) {
+      return { isRisky: true, reason: '删除文件/目录命令' }
     }
 
-    if (fullCmd.includes('>') || fullCmd.includes('>>')) {
-      return { valid: false, error: 'Output redirection is not allowed' }
+    // 检测格式化命令
+    if (/\bformat\b/.test(fullCmd) || /\bmkfs\b/.test(fullCmd)) {
+      return { isRisky: true, reason: '磁盘格式化命令' }
     }
 
-    if (fullCmd.includes('|')) {
-      return { valid: false, error: 'Pipe is not allowed for security reasons' }
+    // 检测权限修改
+    if (/\bchmod\b/.test(fullCmd) || /\bchown\b/.test(fullCmd) || /\bchgrp\b/.test(fullCmd)) {
+      return { isRisky: true, reason: '权限修改命令' }
     }
 
-    if (fullCmd.includes('&') || fullCmd.includes(';')) {
-      return { valid: false, error: 'Command chaining is not allowed' }
+    // 检测系统操作
+    if (/\bshutdown\b/.test(fullCmd) || /\breboot\b/.test(fullCmd) || /\binit\b/.test(fullCmd)) {
+      return { isRisky: true, reason: '系统关机/重启命令' }
     }
 
-    return { valid: true }
+    // 检测网络相关
+    if (/\biptables\b/.test(fullCmd) || /\bnetsh\b/.test(fullCmd) || /\broute\b/.test(fullCmd)) {
+      return { isRisky: true, reason: '网络配置命令' }
+    }
+
+    // 检测包管理器
+    if (/\bapt\b/.test(fullCmd) || /\byum\b/.test(fullCmd) || /\bbrew\b/.test(fullCmd) || /\bnpm\b/.test(fullCmd) || /\bpip\b/.test(fullCmd)) {
+      return { isRisky: true, reason: '包管理器命令' }
+    }
+
+    // 检测进程操作
+    if (/\bkill\b/.test(fullCmd) || /\bkillall\b/.test(fullCmd) || /\bpkill\b/.test(fullCmd)) {
+      return { isRisky: true, reason: '进程终止命令' }
+    }
+
+    // 检测 sudo 或管理员权限
+    if (/\bsudo\b/.test(fullCmd) || /\brunas\b/.test(fullCmd)) {
+      return { isRisky: true, reason: '管理员权限命令' }
+    }
+
+    // 检测重定向到系统目录
+    if (/>.*\/(etc|system|windows|program)/i.test(fullCmd)) {
+      return { isRisky: true, reason: '写入系统目录' }
+    }
+
+    return { isRisky: false }
   }
 
   // 列出可用工具（简单命令模式下只有一个通用执行器）
@@ -160,10 +177,10 @@ class SimpleCommandExecutor {
     const command = this.config.command!
     const commandArgs = this.config.args || []
 
-    // 验证命令
-    const validation = this.validateCommand(command)
-    if (!validation.valid) {
-      throw new Error(validation.error)
+    // 检查风险命令（仅记录日志，不阻止执行）
+    const riskCheck = this.checkRiskyCommand(command)
+    if (riskCheck.isRisky) {
+      console.log('[SimpleCommand] Risky command detected:', { command, reason: riskCheck.reason })
     }
 
     console.log('[SimpleCommand] Executing:', { command, args: commandArgs })
@@ -1549,35 +1566,7 @@ ipcMain.handle('file-operation', async (_event, operation: string, args: Record<
           }
         }
 
-        // 验证命令是否在白名单中
-        let baseCommand = command.split(' ')[0]
-        baseCommand = path.basename(baseCommand)
-
-        if (!SIMPLE_COMMAND_WHITELIST.includes(baseCommand)) {
-          return {
-            success: false,
-            error: `命令 "${baseCommand}" 不在白名单中。允许的命令: ${SIMPLE_COMMAND_WHITELIST.join(', ')}`
-          }
-        }
-
-        // 额外安全检查：禁止危险的命令组合
-        const fullCmd = command.toLowerCase()
-        if (fullCmd.includes(' rm ') || fullCmd.startsWith('rm ') || fullCmd.includes('\trm\t')) {
-          return { success: false, error: '命令 "rm" 不允许执行' }
-        }
-
-        if (fullCmd.includes('>') || fullCmd.includes('>>')) {
-          return { success: false, error: '不允许使用输出重定向' }
-        }
-
-        if (fullCmd.includes('|')) {
-          return { success: false, error: '不允许使用管道' }
-        }
-
-        if (fullCmd.includes('&') || fullCmd.includes(';')) {
-          return { success: false, error: '不允许使用命令链' }
-        }
-
+        // 注意：命令限制已移除，风险命令的确认由前端处理
         try {
           console.log('[execute_command] Executing:', { command, cwd: basePath, timeout })
 
