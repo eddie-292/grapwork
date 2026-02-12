@@ -1521,3 +1521,51 @@ button:disabled {
 .dark-mode [id^="v-"] {
   background: transparent !important;
 }
+
+/* 深空繁星星空设计*/
+.deep-space-header {
+    background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+    color: white;
+    text-align: center;
+    border-bottom: 2px solid rgba(255,255,255,0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.deep-space-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image:
+        radial-gradient(2px 2px at 10px 20px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 25px 40px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 40px 70px, #fff, rgba(0,0,0,0)),
+        radial-gradient(1px 1px at 60px 90px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 80px 120px, #fff, rgba(0,0,0,0)),
+        radial-gradient(1px 1px at 100px 50px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 120px 80px, #fff, rgba(0,0,0,0)),
+        radial-gradient(1px 1px at 140px 110px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 160px 40px, #fff, rgba(0,0,0,0)),
+        radial-gradient(1px 1px at 180px 70px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 20px 130px, #fff, rgba(0,0,0,0)),
+        radial-gradient(1px 1px at 50px 150px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 80px 170px, #fff, rgba(0,0,0,0)),
+        radial-gradient(1px 1px at 110px 190px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 140px 60px, #fff, rgba(0,0,0,0)),
+        radial-gradient(1px 1px at 170px 90px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 30px 100px, #fff, rgba(0,0,0,0)),
+        radial-gradient(1px 1px at 70px 140px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 150px 130px, #fff, rgba(0,0,0,0)),
+        radial-gradient(1px 1px at 190px 160px, #fff, rgba(0,0,0,0));
+    background-size: 220px 220px;
+    animation: twinkle 4s infinite;
+}
+
+@keyframes twinkle {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+/* 深空繁星星空设计*/

@@ -2726,7 +2726,7 @@ function handleFolderChanged(path: string) {
       <!-- <div class="content-area" :class="{ 'with-task-panel': taskMode }"> -->
       <div class="content-area">
       <!-- ============================================= -->
-        <header class="header">
+        <header class="header deep-space-header">
         <div class="header-inner">
           <button class="sidebar-toggle" @click="showSidebar = !showSidebar" v-if="!showSidebar" title="展开侧边栏">
             <span>OpenChat Desktop</span>
