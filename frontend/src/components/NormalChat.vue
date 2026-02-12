@@ -493,7 +493,7 @@ defineExpose({
           @change="changeAssistant"
           class="assistant-select"
         >
-          <option value="">无助理</option>
+          <option value="">EddieLab-Agent</option>
           <option v-for="assistant in assistantList.assistants" :key="assistant.id" :value="assistant.id">
             {{ assistant.name }}
           </option>
