@@ -1388,7 +1388,8 @@ async function executeNormalChat(text: string) {
     if (activeAssistant.value?.systemPrompt && activeAssistant.value.systemPrompt.trim()) {
       systemPrompt = activeAssistant.value.systemPrompt.trim()
     } else {
-      systemPrompt = '你是一个有用的助手'
+      // 使用默认内置助理的 System Prompt
+      systemPrompt = storage.getDefaultAssistantPrompt()
     }
 
     // 如果有全局记忆，追加到 system prompt
