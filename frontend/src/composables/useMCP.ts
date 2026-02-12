@@ -390,6 +390,27 @@ export function useMCP() {
           }
         }
       },
+      {
+        type: 'function',
+        function: {
+          name: 'execute_command',
+          description: `${workDirContext} 执行系统命令。支持安全的命令白名单：date, ls, la, ll, dir, pwd, echo, cat, head, tail, wc, grep, whoami, hostname, uname, cal, uptime, df, du, ps, env。禁止使用管道、重定向和命令链。`,
+          parameters: {
+            type: 'object',
+            properties: {
+              command: {
+                type: 'string',
+                description: '要执行的命令（如 "ls -la", "pwd", "echo hello"）。必须是白名单中的安全命令。'
+              },
+              timeout: {
+                type: 'number',
+                description: '命令超时时间（毫秒），默认 30000'
+              }
+            },
+            required: ['command']
+          }
+        }
+      }
       // 为了安全，删除展示不启用
       // {
       //   type: 'function',
@@ -426,7 +447,8 @@ export function useMCP() {
       'read_file',
       'write_file',
       'edit_file',
-      'delete_item'
+      'delete_item',
+      'execute_command'
     ]
     return builtinTools.includes(toolName)
   }

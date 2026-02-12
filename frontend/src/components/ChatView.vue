@@ -2720,6 +2720,11 @@ function handleFolderChanged(path: string) {
               设置
             </button>
             <button class="logout-btn" @click="logout" title="退出登录">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
               退出
             </button>
           </div>
@@ -3161,6 +3166,9 @@ function handleFolderChanged(path: string) {
   padding: 6px 12px;
   border-radius: 999px;
   min-width: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .header-actions {

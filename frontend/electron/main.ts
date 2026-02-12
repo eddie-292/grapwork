@@ -1539,6 +1539,84 @@ ipcMain.handle('file-operation', async (_event, operation: string, args: Record<
         }
       }
 
+      case 'execute_command': {
+        const { command = '', timeout = 30000 } = args
+
+        if (!command) {
+          return {
+            success: false,
+            error: '缺少必需参数: command'
+          }
+        }
+
+        // 验证命令是否在白名单中
+        let baseCommand = command.split(' ')[0]
+        baseCommand = path.basename(baseCommand)
+
+        if (!SIMPLE_COMMAND_WHITELIST.includes(baseCommand)) {
+          return {
+            success: false,
+            error: `命令 "${baseCommand}" 不在白名单中。允许的命令: ${SIMPLE_COMMAND_WHITELIST.join(', ')}`
+          }
+        }
+
+        // 额外安全检查：禁止危险的命令组合
+        const fullCmd = command.toLowerCase()
+        if (fullCmd.includes(' rm ') || fullCmd.startsWith('rm ') || fullCmd.includes('\trm\t')) {
+          return { success: false, error: '命令 "rm" 不允许执行' }
+        }
+
+        if (fullCmd.includes('>') || fullCmd.includes('>>')) {
+          return { success: false, error: '不允许使用输出重定向' }
+        }
+
+        if (fullCmd.includes('|')) {
+          return { success: false, error: '不允许使用管道' }
+        }
+
+        if (fullCmd.includes('&') || fullCmd.includes(';')) {
+          return { success: false, error: '不允许使用命令链' }
+        }
+
+        try {
+          console.log('[execute_command] Executing:', { command, cwd: basePath, timeout })
+
+          const output = execSync(command, {
+            encoding: 'utf-8',
+            cwd: basePath,
+            timeout,
+            maxBuffer: 10 * 1024 * 1024, // 10MB buffer
+            env: { ...process.env }
+          })
+
+          return {
+            success: true,
+            content: JSON.stringify({
+              command,
+              cwd: basePath,
+              output: output.trim(),
+              exitCode: 0
+            }, null, 2)
+          }
+        } catch (error: any) {
+          console.error('[execute_command] Execution failed:', error)
+
+          // 处理不同类型的错误
+          let errorMessage = error.message
+          let stdout = error.stdout?.toString() || ''
+          let stderr = error.stderr?.toString() || ''
+
+          if (error.killed) {
+            errorMessage = `命令执行超时（${timeout}ms）`
+          }
+
+          return {
+            success: false,
+            error: `命令执行失败: ${errorMessage}${stderr ? `\nStderr: ${stderr}` : ''}${stdout ? `\nStdout: ${stdout}` : ''}`
+          }
+        }
+      }
+
       default:
         return {
           success: false,
