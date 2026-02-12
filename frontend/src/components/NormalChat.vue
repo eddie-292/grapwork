@@ -944,14 +944,18 @@ defineExpose({
 }
 
 .btn.primary {
-  background: var(--color-primary);
-  color: var(--color-primary-text);
-  border-color: var(--color-primary);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
+.btn.primary:hover:not(:disabled) {
+  border-color: var(--color-border-hover);
+  color: var(--color-primary);
 }
 
 .btn.primary:disabled {
-  background: #b7b7b7;
-  border-color: #b7b7b7;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
@@ -966,11 +970,11 @@ defineExpose({
 
 /* 文件夹按钮 */
 .btn.folder {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
   padding: 8px 14px;
   font-size: 13px;
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-secondary);
-  border-color: var(--color-border);
   transition: all 0.2s;
   min-width: 80px;
   max-width: 200px;
@@ -979,20 +983,14 @@ defineExpose({
   white-space: nowrap;
 }
 
-.btn.folder.has-folder {
-  background: #dcfce7;
-  color: #166534;
-  border-color: #86efac;
-  font-weight: 500;
-}
-
 .btn.folder:hover {
-  transform: scale(1.02);
+  border-color: var(--color-border-hover);
+  color: var(--color-text-primary);
 }
 
-.btn.folder.has-folder:hover {
-  background: #bbf7d0;
-  border-color: #22c55e;
+.btn.folder.has-folder {
+  color: var(--color-text-secondary);
+  font-weight: 400;
 }
 
 /* 参数配置按钮 */

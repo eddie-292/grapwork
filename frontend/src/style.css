@@ -522,7 +522,8 @@ button:disabled {
 .toggle-sidebar-btn,
 .new-chat-btn,
 .params-btn,
-.folder-btn {
+.folder-btn,
+.logout-btn {
   padding: 8px;
   border-radius: 8px;
   background: transparent;

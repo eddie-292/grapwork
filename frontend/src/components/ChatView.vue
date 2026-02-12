@@ -2966,7 +2966,7 @@ function handleFolderChanged(path: string) {
 }
 
 .sidebar-header {
-  padding: 16px;
+  padding: 10px;
   border-bottom: 1px solid var(--color-border);
   display: flex;
   gap: 8px;
