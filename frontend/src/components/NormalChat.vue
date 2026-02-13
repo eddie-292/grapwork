@@ -652,12 +652,11 @@ defineExpose({
 
 /* 错误消息样式 */
 .msg-row.error-message {
-  background: var(--color-error-bg, #fef2f2);
+  
 }
 
 .msg-row.error-message .msg-bubble {
   color: var(--color-error-text, #dc2626);
-  background: var(--color-error-bg-light, #fee2e2);
   padding: 12px 16px !important;
   border-radius: 8px;
   border: 1px solid var(--color-error-border, #fecaca);
