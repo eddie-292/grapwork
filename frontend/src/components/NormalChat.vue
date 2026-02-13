@@ -430,6 +430,11 @@ defineExpose({
                     <span class="status-icon status-icon-error">✕</span>
                     <span class="status-text">执行失败</span>
                   </span>
+                  <!-- 准备中状态 -->
+                  <span v-else-if="m.toolStatus === 'pending'" class="tool-result-status status-pending">
+                    <span class="status-spinner"></span>
+                    <span class="status-text">准备中</span>
+                  </span>
                   <!-- 默认成功状态（向后兼容） -->
                   <span v-else class="tool-result-status status-success">
                     <span class="status-icon status-icon-success">✓</span>
@@ -1150,6 +1155,20 @@ defineExpose({
   width: 14px;
   height: 14px;
   border: 2px solid #2563eb;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* 准备中状态 */
+.status-pending {
+  color: #d97706;
+}
+
+.status-pending .status-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #d97706;
   border-top-color: transparent;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;

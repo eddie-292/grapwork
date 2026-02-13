@@ -1494,6 +1494,8 @@ async function executeNormalChat(text: string) {
 
     // 用于收集 tool_calls
     const currentToolCallsMap: Map<number, any> = new Map()
+    // 跟踪已添加"准备中"消息的 tool call index
+    const preparingToolCallIndexes: Set<number> = new Set()
 
     while (true) {
       const { done, value } = await reader.read()
@@ -1565,6 +1567,18 @@ async function executeNormalChat(text: string) {
                       arguments: toolCall.function?.arguments || ''
                     }
                   })
+                  // 首次检测到 tool_call 时，立即显示"准备中..."
+                  if (!preparingToolCallIndexes.has(index)) {
+                    preparingToolCallIndexes.add(index)
+                    currentMessages.push({
+                      role: 'tool' as any,
+                      content: '准备中...',
+                      reasoning: '',
+                      tool_call_id: `preparing_${index}`,
+                      toolStatus: 'pending'
+                    })
+                    scrollToBottom()
+                  }
                 } else {
                   const existing = currentToolCallsMap.get(index)!
                   if (toolCall.id) existing.id = toolCall.id
@@ -1607,17 +1621,26 @@ async function executeNormalChat(text: string) {
 
         // 执行工具调用
         try {
-          // 先添加执行中的工具消息
-          const toolCallIds = finalToolCalls.map(tc => tc.id)
-          for (const toolCallId of toolCallIds) {
-            currentMessages.push({
-              role: 'tool' as any,
-              content: '执行中...',
-              reasoning: '',
-              tool_call_id: toolCallId,
-              toolStatus: 'running'
-            })
-          }
+          // 更新"准备中..."消息为"执行中..."，并设置实际的 tool_call_id
+          finalToolCalls.forEach((toolCall, index) => {
+            const preparingMsg = currentMessages.find(
+              m => m.role === 'tool' && m.tool_call_id === `preparing_${index}`
+            )
+            if (preparingMsg) {
+              preparingMsg.tool_call_id = toolCall.id
+              preparingMsg.content = '执行中...'
+              preparingMsg.toolStatus = 'running'
+            } else {
+              // 如果没有找到准备中的消息（可能流式解析时未检测到），则添加新消息
+              currentMessages.push({
+                role: 'tool' as any,
+                content: '执行中...',
+                reasoning: '',
+                tool_call_id: toolCall.id,
+                toolStatus: 'running'
+              })
+            }
+          })
           scrollToBottom()
 
           const toolResults = await mcpManager.executeToolCalls(finalToolCalls)
@@ -1745,6 +1768,8 @@ async function continueChatAfterToolCalls(messages: any[], mcpTools: any[]) {
     let buffer = ''
     const qwenParser = createQwenStreamParser()
     const currentToolCallsMap: Map<number, any> = new Map()
+    // 跟踪已添加"准备中"消息的 tool call index
+    const preparingToolCallIndexes: Set<number> = new Set()
 
     while (true) {
       const { done, value } = await reader.read()
@@ -1803,6 +1828,18 @@ async function continueChatAfterToolCalls(messages: any[], mcpTools: any[]) {
                       arguments: toolCall.function?.arguments || ''
                     }
                   })
+                  // 首次检测到 tool_call 时，立即显示"准备中..."
+                  if (!preparingToolCallIndexes.has(index)) {
+                    preparingToolCallIndexes.add(index)
+                    messages.push({
+                      role: 'tool' as any,
+                      content: '准备中...',
+                      reasoning: '',
+                      tool_call_id: `preparing_${index}`,
+                      toolStatus: 'pending'
+                    })
+                    scrollToBottom()
+                  }
                 } else {
                   const existing = currentToolCallsMap.get(index)!
                   if (toolCall.id) existing.id = toolCall.id
@@ -1841,17 +1878,26 @@ async function continueChatAfterToolCalls(messages: any[], mcpTools: any[]) {
       if (msg) {
         msg.tool_calls = finalToolCalls
 
-        // 先添加执行中的工具消息
-        const toolCallIds = finalToolCalls.map(tc => tc.id)
-        for (const toolCallId of toolCallIds) {
-          messages.push({
-            role: 'tool' as any,
-            content: '执行中...',
-            reasoning: '',
-            tool_call_id: toolCallId,
-            toolStatus: 'running'
-          })
-        }
+        // 更新"准备中..."消息为"执行中..."，并设置实际的 tool_call_id
+        finalToolCalls.forEach((toolCall, index) => {
+          const preparingMsg = messages.find(
+            m => m.role === 'tool' && m.tool_call_id === `preparing_${index}`
+          )
+          if (preparingMsg) {
+            preparingMsg.tool_call_id = toolCall.id
+            preparingMsg.content = '执行中...'
+            preparingMsg.toolStatus = 'running'
+          } else {
+            // 如果没有找到准备中的消息（可能流式解析时未检测到），则添加新消息
+            messages.push({
+              role: 'tool' as any,
+              content: '执行中...',
+              reasoning: '',
+              tool_call_id: toolCall.id,
+              toolStatus: 'running'
+            })
+          }
+        })
         scrollToBottom()
 
         const toolResults = await mcpManager.executeToolCalls(finalToolCalls as any)
