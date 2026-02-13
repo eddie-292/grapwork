@@ -456,11 +456,11 @@ defineExpose({
           :class="['msg-row', m.role, { 'error-message': isErrorMessage(m) }]"
         >
           <div class="msg-content">
-            <div v-if="m.reasoning" class="reasoning-section">
+            <div v-if="m.reasoning || (sending && i === messages.length - 1 && m.role === 'assistant')" class="reasoning-section">
               <button class="reasoning-toggle" @click="toggleReasoning(i)">
                 <ChevronDownIcon v-if="reasoningExpanded[i]" :size="10" />
                 <ChevronRightIcon v-else :size="10" />
-                <span v-if="sending && i === messages.length - 1 && m.reasoning" class="reasoning-spinner"></span>
+                <span v-if="sending && i === messages.length - 1 && m.role === 'assistant'" class="reasoning-spinner"></span>
                 <span>思考</span>
                 <span v-if="m.reasoningDuration">{{ m.reasoningDuration }}s</span>
               </button>

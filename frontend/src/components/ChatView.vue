@@ -1342,6 +1342,11 @@ async function executeNormalChat(text: string) {
     currentChat.value.messages.push({ role: 'assistant', content: '',  reasoning: '' })
     // 清除该消息索引的推理开始时间，确保新的推理从 0 开始计时
     delete reasoningStartTime.value[assistantIndex]
+    // 自动展开 reasoning section，让用户立即看到思考中的状态
+    reasoningExpanded.value[assistantIndex] = true
+    if (normalChatRef.value) {
+      normalChatRef.value.setReasoningExpanded(assistantIndex, true)
+    }
   }
 
   if (currentChat.value) {
@@ -1679,6 +1684,11 @@ async function continueChatAfterToolCalls(messages: any[], mcpTools: any[]) {
   const assistantIndex = messages.length - 1
   // 清除该消息索引的推理开始时间，确保新的推理从 0 开始计时
   delete reasoningStartTime.value[assistantIndex]
+  // 自动展开 reasoning section，让用户立即看到思考中的状态
+  reasoningExpanded.value[assistantIndex] = true
+  if (normalChatRef.value) {
+    normalChatRef.value.setReasoningExpanded(assistantIndex, true)
+  }
 
   try {
     const apiBase = normalizeApiUrl(activeConfig.value.apiUrl)
