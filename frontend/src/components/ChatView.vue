@@ -1570,6 +1570,7 @@ async function executeNormalChat(text: string) {
                   if (toolCall.id) existing.id = toolCall.id
                   if (toolCall.function?.name) existing.function.name = toolCall.function.name
                   if (toolCall.function?.arguments) {
+                    //工具参数拼接
                     existing.function.arguments += toolCall.function.arguments
                   }
                 }
