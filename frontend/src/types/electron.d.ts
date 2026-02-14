@@ -32,6 +32,7 @@ export interface EnvironmentCheckResult {
   status: 'success' | 'warning' | 'error'
   message: string
   details?: string
+  fixSuggestion?: string // 修复建议
 }
 
 // 全局记忆类型

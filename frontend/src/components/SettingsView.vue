@@ -228,6 +228,10 @@ const hasEnvWarnings = computed(() => envResults.value.some(r => r.status === 'w
                   <div class="check-title">{{ result.displayName }}</div>
                   <div class="check-message">{{ result.message }}</div>
                   <div v-if="result.details" class="check-details">{{ result.details }}</div>
+                  <div v-if="result.fixSuggestion" class="fix-suggestion">
+                    <div class="fix-label">💡 修复建议：</div>
+                    <pre class="fix-content">{{ result.fixSuggestion }}</pre>
+                  </div>
                 </div>
               </div>
             </div>
@@ -572,5 +576,30 @@ const hasEnvWarnings = computed(() => envResults.value.some(r => r.status === 'w
   color: var(--color-text-tertiary);
   margin-top: 4px;
   word-break: break-all;
+}
+
+/* 修复建议 */
+.fix-suggestion {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 4px;
+}
+
+.fix-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #3b82f6;
+  margin-bottom: 4px;
+}
+
+.fix-content {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  line-height: 1.5;
 }
 </style>

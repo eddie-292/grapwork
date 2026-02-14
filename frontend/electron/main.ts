@@ -1709,6 +1709,7 @@ interface EnvironmentCheckResult {
   status: 'success' | 'warning' | 'error'
   message: string
   details?: string
+  fixSuggestion?: string
 }
 
 ipcMain.handle('check-environment', async (): Promise<EnvironmentCheckResult[]> => {
@@ -1739,7 +1740,8 @@ ipcMain.handle('check-environment', async (): Promise<EnvironmentCheckResult[]> 
     displayName: 'node 命令',
     status: nodeExists ? 'success' : 'warning',
     message: nodeExists ? 'node 命令可用' : 'node 命令未找到（MCP 服务器可能需要）',
-    details: nodeExists ? '可用于运行 MCP 服务器' : '建议安装 Node.js'
+    details: nodeExists ? '可用于运行 MCP 服务器' : '建议安装 Node.js',
+    fixSuggestion: nodeExists ? undefined : '访问 https://nodejs.org/ 下载并安装 Node.js（推荐 LTS 版本）。安装后重启终端或应用程序。'
   })
 
   // 4. 检查 npx 命令
@@ -1749,7 +1751,8 @@ ipcMain.handle('check-environment', async (): Promise<EnvironmentCheckResult[]> 
     displayName: 'npx 命令',
     status: npxExists ? 'success' : 'warning',
     message: npxExists ? 'npx 命令可用' : 'npx 命令未找到（MCP 服务器可能需要）',
-    details: npxExists ? '可用于运行 npm 包形式的 MCP 服务器' : '建议安装 Node.js (包含 npx)'
+    details: npxExists ? '可用于运行 npm 包形式的 MCP 服务器' : '建议安装 Node.js (包含 npx)',
+    fixSuggestion: npxExists ? undefined : 'npx 随 Node.js 一起安装。请安装 Node.js：访问 https://nodejs.org/ 下载 LTS 版本。'
   })
 
   // 5. 检查 uvx 命令（Python MCP 工具）
@@ -1759,7 +1762,8 @@ ipcMain.handle('check-environment', async (): Promise<EnvironmentCheckResult[]> 
     displayName: 'uvx 命令',
     status: uvxExists ? 'success' : 'warning',
     message: uvxExists ? 'uvx 命令可用' : 'uvx 命令未找到（Python MCP 服务器可能需要）',
-    details: uvxExists ? '可用于运行 Python 包形式的 MCP 服务器' : '可选：安装 uv 以使用 Python MCP 服务器'
+    details: uvxExists ? '可用于运行 Python 包形式的 MCP 服务器' : '可选：安装 uv 以使用 Python MCP 服务器',
+    fixSuggestion: uvxExists ? undefined : '安装 uv 工具：\n• macOS/Linux: curl -LsSf https://astral.sh/uv/install.sh | sh\n• Windows: pip install uv\n或访问 https://docs.astral.sh/uv/ 查看更多安装方式。'
   })
 
   // 6. 检查 uv 命令（Python 包管理器）
@@ -1769,7 +1773,8 @@ ipcMain.handle('check-environment', async (): Promise<EnvironmentCheckResult[]> 
     displayName: 'uv 命令',
     status: uvExists ? 'success' : 'warning',
     message: uvExists ? 'uv 命令可用' : 'uv 命令未找到',
-    details: uvExists ? 'Python 包管理器可用' : '可选：安装 uv 以使用 Python MCP 服务器'
+    details: uvExists ? 'Python 包管理器可用' : '可选：安装 uv 以使用 Python MCP 服务器',
+    fixSuggestion: uvExists ? undefined : '安装 uv 工具：\n• macOS/Linux: curl -LsSf https://astral.sh/uv/install.sh | sh\n• Windows: pip install uv\n或访问 https://docs.astral.sh/uv/ 查看更多安装方式。'
   })
 
   // 7. 检查配置目录可写
@@ -1790,7 +1795,8 @@ ipcMain.handle('check-environment', async (): Promise<EnvironmentCheckResult[]> 
       displayName: '配置目录',
       status: 'error',
       message: '配置目录不可写',
-      details: `路径: ${app.getPath('userData')}`
+      details: `路径: ${app.getPath('userData')}`,
+      fixSuggestion: '请检查目录权限：\n1. 确保应用程序有写入用户数据目录的权限\n2. 尝试以管理员身份运行应用程序\n3. 检查磁盘是否有足够空间\n4. 如果是权限问题，可能需要修复目录权限或重新安装应用'
     })
   }
 

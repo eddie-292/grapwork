@@ -1634,6 +1634,18 @@ button:disabled {
   .error-hint p {
     color: #f87171 !important;
   }
+
+  .fix-suggestion {
+    background: rgba(59, 130, 246, 0.15) !important;
+  }
+
+  .fix-label {
+    color: #60a5fa !important;
+  }
+
+  .fix-content {
+    color: #9ca3af !important;
+  }
 }
 
 .dark-mode .env-check-container {
@@ -1694,4 +1706,16 @@ button:disabled {
 
 .dark-mode .error-hint p {
   color: #f87171 !important;
+}
+
+.dark-mode .fix-suggestion {
+  background: rgba(59, 130, 246, 0.15) !important;
+}
+
+.dark-mode .fix-label {
+  color: #60a5fa !important;
+}
+
+.dark-mode .fix-content {
+  color: #9ca3af !important;
 }
