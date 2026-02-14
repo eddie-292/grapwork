@@ -67,5 +67,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('file-operation', operation, args),
   // 环境检查
   checkEnvironment: () =>
-    ipcRenderer.invoke('check-environment')
+    ipcRenderer.invoke('check-environment'),
+  // 读取更新日志
+  getChangelog: () =>
+    ipcRenderer.invoke('get-changelog')
 })

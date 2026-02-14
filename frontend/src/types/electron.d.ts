@@ -127,6 +127,12 @@ interface ElectronAPI {
   }>
   // 环境检查
   checkEnvironment: () => Promise<EnvironmentCheckResult[]>
+  // 读取更新日志
+  getChangelog: () => Promise<{
+    success: boolean
+    content: string
+    error?: string
+  }>
 }
 
 declare global {

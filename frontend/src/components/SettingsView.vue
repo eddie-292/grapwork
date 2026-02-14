@@ -6,13 +6,14 @@ import CodeHighlightThemePanel from './settings/CodeHighlightThemePanel.vue'
 import AssistantView from './AssistantView.vue'
 import GlobalMemoryView from './GlobalMemoryView.vue'
 import MCPView from './MCPView.vue'
+import ChangelogView from './ChangelogView.vue'
 import { storage } from '../services/StorageService'
 import type { EnvironmentCheckResult } from '../types/electron'
 
 const router = useRouter()
 const route = useRoute()
 
-type SettingsTab = 'llm' | 'theme' | 'assistants' | 'memory' | 'mcp' | 'environment'
+type SettingsTab = 'llm' | 'theme' | 'assistants' | 'memory' | 'mcp' | 'environment' | 'changelog'
 
 // 从 query 参数获取当前标签，默认为 llm
 const activeTab = ref<SettingsTab>((route.query.tab as SettingsTab) || 'llm')
@@ -37,6 +38,7 @@ const navItems = computed(() => [
   { id: 'memory' as SettingsTab, label: '全局记忆', icon: '🧠' },
   { id: 'mcp' as SettingsTab, label: 'MCP 服务器', icon: '⚡' },
   { id: 'environment' as SettingsTab, label: '环境检测', icon: '🔍' },
+  { id: 'changelog' as SettingsTab, label: '更新日志', icon: '📜' },
 ])
 
 function switchTab(tab: SettingsTab) {
@@ -243,6 +245,9 @@ const hasEnvWarnings = computed(() => envResults.value.some(r => r.status === 'w
             <p>点击上方按钮开始检测运行环境</p>
           </div>
         </div>
+
+        <!-- 更新日志 -->
+        <ChangelogView v-else-if="activeTab === 'changelog'" />
       </main>
     </div>
   </div>
