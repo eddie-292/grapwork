@@ -611,7 +611,7 @@ defineExpose({
 
 .messages {
   background: var(--color-bg-primary);
-  height: calc(77vh);
+  height: calc(81vh);
   overflow: auto;
 }
 
@@ -848,8 +848,7 @@ defineExpose({
 
 .inputbar {
   position: relative;
-  border-top: 1px solid var(--color-border);
-  padding: 16px 20px 12px;
+  padding: 0px 10px;
   background: var(--color-bg-primary);
 }
 

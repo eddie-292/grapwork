@@ -3402,7 +3402,7 @@ function handleFolderChanged(path: string) {
 
 .messages {
   background: var(--color-bg-primary);
-  height: calc(75vh);
+  height: calc(81vh);
   overflow: auto;
 }
 
@@ -3622,8 +3622,7 @@ function handleFolderChanged(path: string) {
 
 .inputbar {
   position: relative;
-  border-top: 1px solid var(--color-border);
-  padding: 16px 20px 12px;
+  padding: 0px 10px;
   background: var(--color-bg-primary);
 }
 
