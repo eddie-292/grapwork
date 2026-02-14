@@ -1569,3 +1569,129 @@ button:disabled {
     50% { opacity: 0.5; }
 }
 /* 深空繁星星空设计*/
+
+/* ============================================
+   ENVIRONMENT CHECK VIEW - DARK MODE
+   ============================================ */
+
+@media (prefers-color-scheme: dark) {
+  .env-check-container {
+    background: #202124;
+  }
+
+  .env-check-card {
+    background: #292a2d;
+  }
+
+  .env-check-header h2,
+  .check-title {
+    color: #e8eaed !important;
+  }
+
+  .env-check-header p,
+  .progress-text,
+  .check-message {
+    color: #9aa0a6 !important;
+  }
+
+  .check-details {
+    color: #5f6368 !important;
+  }
+
+  .progress-bar {
+    background: #3c4043;
+  }
+
+  .check-item {
+    background: #202124;
+  }
+
+  .status-summary {
+    background: rgba(255, 255, 255, 0.05) !important;
+  }
+
+  .summary-text h3 {
+    color: #e8eaed !important;
+  }
+
+  .summary-text p {
+    color: #9aa0a6 !important;
+  }
+
+  .btn.secondary {
+    background: #3c4043;
+    color: #e8eaed;
+  }
+
+  .btn.secondary:hover {
+    background: #5f6368;
+  }
+
+  .error-hint {
+    background: rgba(239, 68, 68, 0.15) !important;
+  }
+
+  .error-hint p {
+    color: #f87171 !important;
+  }
+}
+
+.dark-mode .env-check-container {
+  background: #202124;
+}
+
+.dark-mode .env-check-card {
+  background: #292a2d;
+}
+
+.dark-mode .env-check-header h2,
+.dark-mode .check-title {
+  color: #e8eaed !important;
+}
+
+.dark-mode .env-check-header p,
+.dark-mode .progress-text,
+.dark-mode .check-message {
+  color: #9aa0a6 !important;
+}
+
+.dark-mode .check-details {
+  color: #5f6368 !important;
+}
+
+.dark-mode .progress-bar {
+  background: #3c4043;
+}
+
+.dark-mode .check-item {
+  background: #202124;
+}
+
+.dark-mode .status-summary {
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+.dark-mode .summary-text h3 {
+  color: #e8eaed !important;
+}
+
+.dark-mode .summary-text p {
+  color: #9aa0a6 !important;
+}
+
+.dark-mode .btn.secondary {
+  background: #3c4043;
+  color: #e8eaed;
+}
+
+.dark-mode .btn.secondary:hover {
+  background: #5f6368;
+}
+
+.dark-mode .error-hint {
+  background: rgba(239, 68, 68, 0.15) !important;
+}
+
+.dark-mode .error-hint p {
+  color: #f87171 !important;
+}

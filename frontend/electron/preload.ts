@@ -64,5 +64,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('read-directory', dirPath),
   // 文件操作工具
   fileOperation: (operation: string, args: Record<string, any>) =>
-    ipcRenderer.invoke('file-operation', operation, args)
+    ipcRenderer.invoke('file-operation', operation, args),
+  // 环境检查
+  checkEnvironment: () =>
+    ipcRenderer.invoke('check-environment')
 })

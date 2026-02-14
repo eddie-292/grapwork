@@ -1698,3 +1698,110 @@ app.on('activate', () => {
     createWindow()
   }
 })
+
+// ============================================================================
+// Environment Check
+// ============================================================================
+
+interface EnvironmentCheckResult {
+  name: string
+  displayName: string
+  status: 'success' | 'warning' | 'error'
+  message: string
+  details?: string
+}
+
+ipcMain.handle('check-environment', async (): Promise<EnvironmentCheckResult[]> => {
+  const results: EnvironmentCheckResult[] = []
+
+  // 1. 检查 Electron 环境
+  results.push({
+    name: 'electron',
+    displayName: 'Electron 环境',
+    status: 'success',
+    message: 'Electron 运行正常',
+    details: `版本: ${process.versions.electron}`
+  })
+
+  // 2. 检查 Node.js 环境
+  results.push({
+    name: 'nodejs',
+    displayName: 'Node.js 环境',
+    status: 'success',
+    message: 'Node.js 运行正常',
+    details: `版本: ${process.versions.node}`
+  })
+
+  // 3. 检查 node 命令
+  const nodeExists = commandExists('node')
+  results.push({
+    name: 'node-command',
+    displayName: 'node 命令',
+    status: nodeExists ? 'success' : 'warning',
+    message: nodeExists ? 'node 命令可用' : 'node 命令未找到（MCP 服务器可能需要）',
+    details: nodeExists ? '可用于运行 MCP 服务器' : '建议安装 Node.js'
+  })
+
+  // 4. 检查 npx 命令
+  const npxExists = commandExists('npx')
+  results.push({
+    name: 'npx-command',
+    displayName: 'npx 命令',
+    status: npxExists ? 'success' : 'warning',
+    message: npxExists ? 'npx 命令可用' : 'npx 命令未找到（MCP 服务器可能需要）',
+    details: npxExists ? '可用于运行 npm 包形式的 MCP 服务器' : '建议安装 Node.js (包含 npx)'
+  })
+
+  // 5. 检查 uvx 命令（Python MCP 工具）
+  const uvxExists = commandExists('uvx')
+  results.push({
+    name: 'uvx-command',
+    displayName: 'uvx 命令',
+    status: uvxExists ? 'success' : 'warning',
+    message: uvxExists ? 'uvx 命令可用' : 'uvx 命令未找到（Python MCP 服务器可能需要）',
+    details: uvxExists ? '可用于运行 Python 包形式的 MCP 服务器' : '可选：安装 uv 以使用 Python MCP 服务器'
+  })
+
+  // 6. 检查 uv 命令（Python 包管理器）
+  const uvExists = commandExists('uv')
+  results.push({
+    name: 'uv-command',
+    displayName: 'uv 命令',
+    status: uvExists ? 'success' : 'warning',
+    message: uvExists ? 'uv 命令可用' : 'uv 命令未找到',
+    details: uvExists ? 'Python 包管理器可用' : '可选：安装 uv 以使用 Python MCP 服务器'
+  })
+
+  // 7. 检查配置目录可写
+  try {
+    const testFile = path.join(app.getPath('userData'), '.write-test')
+    fs.writeFileSync(testFile, 'test')
+    fs.unlinkSync(testFile)
+    results.push({
+      name: 'config-dir',
+      displayName: '配置目录',
+      status: 'success',
+      message: '配置目录可读写',
+      details: `路径: ${app.getPath('userData')}`
+    })
+  } catch (error) {
+    results.push({
+      name: 'config-dir',
+      displayName: '配置目录',
+      status: 'error',
+      message: '配置目录不可写',
+      details: `路径: ${app.getPath('userData')}`
+    })
+  }
+
+  // 8. 检查平台信息
+  results.push({
+    name: 'platform',
+    displayName: '系统平台',
+    status: 'success',
+    message: `${process.platform} ${process.arch}`,
+    details: `操作系统: ${process.platform}, 架构: ${process.arch}`
+  })
+
+  return results
+})

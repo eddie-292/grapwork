@@ -2,6 +2,7 @@ import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-rou
 import ChatView from '../components/ChatView.vue'
 import LoginView from '../components/LoginView.vue'
 import SettingsView from '../components/SettingsView.vue'
+import EnvironmentCheckView from '../components/EnvironmentCheckView.vue'
 import { storage } from '../services/StorageService'
 
 // 检查登录状态（兼容旧版本 localStorage）
@@ -29,6 +30,12 @@ async function isAuthenticated(): Promise<boolean> {
 }
 
 const routes: RouteRecordRaw[] = [
+  {
+    path: '/environment-check',
+    name: 'EnvironmentCheck',
+    component: EnvironmentCheckView,
+    meta: { requiresAuth: false, skipEnvironmentCheck: true }
+  },
   {
     path: '/login',
     name: 'Login',
@@ -67,8 +74,41 @@ const router = createRouter({
   routes
 })
 
-// 路由守卫：检查登录状态
+// 路由守卫：检查登录状态和环境
 router.beforeEach(async (to, _from, next) => {
+  // 跳过环境检查页面本身
+  if (to.matched.some(record => record.meta.skipEnvironmentCheck)) {
+    next()
+    return
+  }
+
+  // 检查是否已经完成环境检查
+  const envCheckPassed = sessionStorage.getItem('envCheckPassed') === 'true'
+
+  if (!envCheckPassed) {
+    // 首次访问，需要进行环境检查
+    // 如果在 Electron 环境中，先检查环境
+    if (window.electronAPI?.checkEnvironment) {
+      try {
+        const results = await window.electronAPI.checkEnvironment()
+        const hasErrors = results.some(r => r.status === 'error')
+
+        if (hasErrors) {
+          // 环境检查失败，跳转到环境检查页面
+          next('/environment-check')
+          return
+        }
+      } catch (error) {
+        // 检查失败，跳转到环境检查页面
+        next('/environment-check')
+        return
+      }
+    }
+
+    // 环境检查通过或不需要检查，标记为已通过
+    sessionStorage.setItem('envCheckPassed', 'true')
+  }
+
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
   const loggedIn = await isAuthenticated()
 

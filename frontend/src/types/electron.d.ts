@@ -25,6 +25,15 @@ export interface ConfigList {
   activeIndex: number
 }
 
+// 环境检查结果
+export interface EnvironmentCheckResult {
+  name: string
+  displayName: string
+  status: 'success' | 'warning' | 'error'
+  message: string
+  details?: string
+}
+
 // 全局记忆类型
 export type GlobalMemoryType = 'preferences' | 'settings' | 'general_info' | 'custom'
 
@@ -115,6 +124,8 @@ interface ElectronAPI {
     content?: string
     error?: string
   }>
+  // 环境检查
+  checkEnvironment: () => Promise<EnvironmentCheckResult[]>
 }
 
 declare global {

@@ -7,14 +7,20 @@ import AssistantView from './AssistantView.vue'
 import GlobalMemoryView from './GlobalMemoryView.vue'
 import MCPView from './MCPView.vue'
 import { storage } from '../services/StorageService'
+import type { EnvironmentCheckResult } from '../types/electron'
 
 const router = useRouter()
 const route = useRoute()
 
-type SettingsTab = 'llm' | 'theme' | 'assistants' | 'memory' | 'mcp'
+type SettingsTab = 'llm' | 'theme' | 'assistants' | 'memory' | 'mcp' | 'environment'
 
 // 从 query 参数获取当前标签，默认为 llm
 const activeTab = ref<SettingsTab>((route.query.tab as SettingsTab) || 'llm')
+
+// 环境检查相关状态
+const envChecking = ref(false)
+const envResults = ref<EnvironmentCheckResult[]>([])
+const envChecked = ref(false)
 
 // 监听路由变化更新标签
 watch(() => route.query.tab, (newTab) => {
@@ -30,6 +36,7 @@ const navItems = computed(() => [
   { id: 'assistants' as SettingsTab, label: '社区助理', icon: '🤖' },
   { id: 'memory' as SettingsTab, label: '全局记忆', icon: '🧠' },
   { id: 'mcp' as SettingsTab, label: 'MCP 服务器', icon: '⚡' },
+  { id: 'environment' as SettingsTab, label: '环境检测', icon: '🔍' },
 ])
 
 function switchTab(tab: SettingsTab) {
@@ -48,6 +55,65 @@ async function clearChatHistory() {
     alert('对话历史已清空')
   }
 }
+
+// 环境检查相关函数
+async function runEnvironmentCheck() {
+  envChecking.value = true
+  envResults.value = []
+
+  if (!window.electronAPI?.checkEnvironment) {
+    envResults.value = [
+      {
+        name: 'electron',
+        displayName: 'Electron 环境',
+        status: 'error',
+        message: '未在 Electron 环境中运行',
+        details: '请使用 Electron 应用启动程序'
+      }
+    ]
+    envChecking.value = false
+    envChecked.value = true
+    return
+  }
+
+  try {
+    const results = await window.electronAPI.checkEnvironment()
+    envResults.value = results
+  } catch (error) {
+    envResults.value = [
+      {
+        name: 'unknown',
+        displayName: '环境检查',
+        status: 'error',
+        message: '环境检查失败',
+        details: error instanceof Error ? error.message : '未知错误'
+      }
+    ]
+  } finally {
+    envChecking.value = false
+    envChecked.value = true
+  }
+}
+
+function getStatusIcon(status: string): string {
+  switch (status) {
+    case 'success':
+      return '✓'
+    case 'warning':
+      return '!'
+    case 'error':
+      return '✕'
+    default:
+      return '?'
+  }
+}
+
+function getStatusClass(status: string): string {
+  return `status-${status}`
+}
+
+const hasEnvErrors = computed(() => envResults.value.some(r => r.status === 'error'))
+const hasEnvWarnings = computed(() => envResults.value.some(r => r.status === 'warning'))
 </script>
 
 <template>
@@ -107,6 +173,71 @@ async function clearChatHistory() {
         <!-- MCP 服务器 -->
         <div v-else-if="activeTab === 'mcp'" class="panel-wrapper">
           <MCPView />
+        </div>
+
+        <!-- 环境检测 -->
+        <div v-else-if="activeTab === 'environment'" class="env-panel">
+          <div class="env-panel-header">
+            <h2>运行环境检测</h2>
+            <p>检测 Agent 运行所需的环境依赖</p>
+          </div>
+
+          <button
+            class="check-btn"
+            :disabled="envChecking"
+            @click="runEnvironmentCheck"
+          >
+            {{ envChecking ? '检测中...' : '开始检测' }}
+          </button>
+
+          <!-- 检测结果 -->
+          <div v-if="envChecked" class="env-results">
+            <!-- 状态摘要 -->
+            <div class="status-summary" :class="{
+              'all-success': !hasEnvErrors && !hasEnvWarnings,
+              'has-warnings': hasEnvWarnings && !hasEnvErrors,
+              'has-errors': hasEnvErrors
+            }">
+              <div class="summary-icon">
+                <span v-if="hasEnvErrors">✕</span>
+                <span v-else-if="hasEnvWarnings">!</span>
+                <span v-else>✓</span>
+              </div>
+              <div class="summary-text">
+                <h3 v-if="hasEnvErrors">环境检测未通过</h3>
+                <h3 v-else-if="hasEnvWarnings">环境检测通过（有警告）</h3>
+                <h3 v-else>环境检测通过</h3>
+                <p v-if="hasEnvErrors">部分关键环境不满足，可能影响程序运行</p>
+                <p v-else-if="hasEnvWarnings">部分可选功能可能无法使用</p>
+                <p v-else>所有环境检测均已通过</p>
+              </div>
+            </div>
+
+            <!-- 检测项目列表 -->
+            <div class="check-list">
+              <div
+                v-for="result in envResults"
+                :key="result.name"
+                class="check-item"
+                :class="getStatusClass(result.status)"
+              >
+                <div class="check-icon">
+                  <span>{{ getStatusIcon(result.status) }}</span>
+                </div>
+                <div class="check-content">
+                  <div class="check-title">{{ result.displayName }}</div>
+                  <div class="check-message">{{ result.message }}</div>
+                  <div v-if="result.details" class="check-details">{{ result.details }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 未检测时的提示 -->
+          <div v-else class="env-placeholder">
+            <div class="placeholder-icon">🔍</div>
+            <p>点击上方按钮开始检测运行环境</p>
+          </div>
         </div>
       </main>
     </div>
@@ -246,5 +377,200 @@ async function clearChatHistory() {
 .panel-wrapper :deep(.global-memory-view > .content),
 .panel-wrapper :deep(.mcp-content) {
   padding: 0;
+}
+
+/* 环境检测面板样式 */
+.env-panel {
+  max-width: 600px;
+}
+
+.env-panel-header {
+  margin-bottom: 24px;
+}
+
+.env-panel-header h2 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.env-panel-header p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.check-btn {
+  padding: 12px 24px;
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 24px;
+}
+
+.check-btn:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.check-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.env-placeholder {
+  text-align: center;
+  padding: 48px 24px;
+  background: var(--color-bg-secondary);
+  border-radius: 12px;
+}
+
+.placeholder-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.env-placeholder p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.env-results {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* 状态摘要 */
+.status-summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 12px;
+}
+
+.status-summary.all-success {
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.status-summary.has-warnings {
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.status-summary.has-errors {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.summary-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.all-success .summary-icon {
+  background: var(--color-primary);
+  color: white;
+}
+
+.has-warnings .summary-icon {
+  background: #f59e0b;
+  color: white;
+}
+
+.has-errors .summary-icon {
+  background: #ef4444;
+  color: white;
+}
+
+.summary-text h3 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.summary-text p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+/* 检查列表 */
+.check-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.check-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--color-bg-secondary);
+}
+
+.check-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.check-item.status-success .check-icon {
+  background: var(--color-primary);
+  color: white;
+}
+
+.check-item.status-warning .check-icon {
+  background: #f59e0b;
+  color: white;
+}
+
+.check-item.status-error .check-icon {
+  background: #ef4444;
+  color: white;
+}
+
+.check-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.check-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  margin-bottom: 2px;
+}
+
+.check-message {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.check-details {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  margin-top: 4px;
+  word-break: break-all;
 }
 </style>
