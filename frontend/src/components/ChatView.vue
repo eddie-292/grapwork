@@ -2708,10 +2708,10 @@ function handleFolderChanged(path: string) {
           <span class="plus-icon">+</span>
           新对话
         </button>
-        <button class="toggle-sidebar-btn" @click="showSidebar = !showSidebar" title="收起/展开侧边栏">
+        <!-- <button class="toggle-sidebar-btn" @click="showSidebar = !showSidebar" title="收起/展开侧边栏">
           <ChevronLeftIcon v-if="showSidebar" :size="14" />
           <ChevronRightIcon v-else :size="14" />
-        </button>
+        </button> -->
       </div>
 
       <!-- 侧边栏标签切换 -->

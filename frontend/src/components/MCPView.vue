@@ -679,7 +679,6 @@ function canFetchTools(server: MCPServer): boolean {
 
 <style scoped>
 .mcp-page {
-  background: var(--color-bg-secondary);
   display: flex;
   flex-direction: column;
 }
