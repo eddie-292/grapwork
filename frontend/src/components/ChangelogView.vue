@@ -99,7 +99,6 @@ onMounted(() => {
 <style scoped>
 .changelog-view {
   max-width: 800px;
-  padding: 20px;
 }
 
 .changelog-header {
