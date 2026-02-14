@@ -1820,10 +1820,10 @@ ipcMain.handle('get-changelog', async () => {
 
     if (process.env.VITE_DEV_SERVER_URL) {
       // 开发模式：从项目根目录读取
-      changelogPath = path.join(path.dirname(__dirname), '..', '更新日志.md')
+      changelogPath = path.join(path.dirname(__dirname), '..', 'frontend/src/upload_log/更新日志.md')
     } else {
       // 生产模式：从应用资源目录读取（需要在打包时包含）
-      changelogPath = path.join(path.dirname(__dirname), '..', '更新日志.md')
+      changelogPath = path.join(path.dirname(__dirname), '..', 'frontend/src/upload_log/更新日志.md')
     }
 
     if (fs.existsSync(changelogPath)) {
@@ -1836,23 +1836,7 @@ ipcMain.handle('get-changelog', async () => {
       // 如果文件不存在，返回默认内容
       return {
         success: true,
-        content: `# OpenChat Desktop 更新日志
-
-## v1.0.0
-
-### 新功能
-
-- 首次发布
-- 多 LLM 支持
-- 任务模式
-- 全局记忆
-- 助手系统
-- MCP 支持
-
----
-
-*更多详细信息请访问项目主页*
-`
+        content: `暂无更新内容`
       }
     }
   } catch (error) {

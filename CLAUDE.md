@@ -57,23 +57,27 @@ npm run dev  # Runs Fastify server on port 8787
 ```
 frontend/
 ├── electron/
-│   ├── main.ts           # Electron main process (IPC, config, window mgmt)
+│   ├── main.ts           # Electron main process (IPC, config, window mgmt, MCP client, file operations)
 │   └── preload.ts        # Context bridge for renderer→main communication
 ├── src/
 │   ├── components/
 │   │   ├── ChatView.vue             # Main chat interface + task mode UI
 │   │   ├── NormalChat.vue           # Standard chat mode component
-│   │   ├── TaskChat.vue             # Task mode specialized chat component
 │   │   ├── TaskModePanel.vue        # Task list display and controls
-│   │   ├── SettingsView.vue         # API configuration management
+│   │   ├── WorkspaceView.vue        # Workspace/file browser component
+│   │   ├── SettingsView.vue         # Unified settings (tabs: LLM, assistants, memory, MCP, theme)
 │   │   ├── AssistantView.vue        # Assistant system prompt management
-│   │   ├── GlobalMemoryView.vue     # Global memory management UI
 │   │   ├── MCPView.vue              # MCP server configuration management
-│   │   ├── SaveToGlobalMemoryDialog.vue
+│   │   ├── LoginView.vue            # Authentication entry point
+│   │   ├── EnvironmentCheckView.vue # Environment dependency check UI
+│   │   ├── ChangelogView.vue        # Update changelog display
+│   │   ├── settings/
+│   │   │   ├── LLMConfigPanel.vue       # LLM API configuration form
+│   │   │   └── CodeHighlightThemePanel.vue  # Code theme selection
 │   │   ├── GlobalMemoryFormDialog.vue
+│   │   ├── SaveToGlobalMemoryDialog.vue
 │   │   ├── ConfirmDialog.vue        # Generic confirmation dialog
-│   │   ├── HtmlPreviewDialog.vue    # HTML content preview in iframe
-│   │   └── LoginView.vue            # Authentication entry point
+│   │   └── HtmlPreviewDialog.vue    # HTML content preview in iframe
 │   ├── composables/
 │   │   ├── useTaskMode.ts           # Task planning, execution, retry logic
 │   │   ├── useWorkingMemory.ts      # Per-chat task memory
@@ -125,7 +129,7 @@ Cross-session persistent knowledge storage system:
 3. **Smart Injection**: Automatic keyword-based matching for context injection
 4. **Management**: CRUD operations via `useGlobalMemory.ts` composable
 
-**Flow**: `GlobalMemoryView.vue` → `useGlobalMemory.ts` → `StorageService` → Backend
+**Flow**: `SettingsView.vue` (memory tab) → `useGlobalMemory.ts` → `StorageService` → Backend
 
 Key types:
 - `GlobalMemoryEntry`: Individual memory with keywords, metadata
@@ -141,7 +145,12 @@ Extensible tool/function calling system that integrates with OpenAI-compatible A
 3. **Tool Integration**: Automatically converts MCP tools to OpenAI Function Calling format
 4. **Execution**: Handles tool calls, results, and error handling in chat flow
 
-**Flow**: `MCPView.vue` → `useMCP.ts` → `StorageService` → Tool execution in `ChatView.vue`
+**Main Process MCP Classes** (in `electron/main.ts`):
+- `MCPClient`: Manages stdio communication with MCP server processes (JSON-RPC 2.0)
+- `SimpleCommandExecutor`: Executes one-off shell commands (whitelisted)
+- `MCPClientManager`: Manages multiple MCP client instances
+
+**Flow**: `MCPView.vue` → `useMCP.ts` → `StorageService` → IPC → `MCPClient` in main process
 
 Key types in `types/mcp.ts`:
 - `MCPServer`: Server configuration (command, args, env for STDIO; url for SSE)
@@ -187,19 +196,54 @@ await storage.set('custom-key', customValue);
 
 ### IPC Communication
 
-Renderer → Main process handlers (legacy, being migrated to StorageService):
-- `get-config`: Load API configurations
-- `save-config`: Persist API configurations
-- `chat-request`: Initiate streaming chat completion
-- `getGlobalMemory`: Load global memory entries (migrated to StorageService)
-- `saveGlobalMemory`: Persist global memory entries (migrated to StorageService)
+Renderer → Main process handlers:
 
-**Note**: Most storage now uses the unified `StorageService` instead of direct IPC. See Storage Service Architecture above.
+**Config/Storage** (legacy, mostly migrated to StorageService):
+- `get-config` / `save-config`: API configurations
+- `get-global-memory` / `save-global-memory`: Global memory entries
+
+**Chat/API**:
+- `chat-request`: Initiate streaming chat completion
+
+**MCP** (in main.ts):
+- `mcp-list-tools`: List tools from MCP server
+- `mcp-call-tool`: Execute MCP tool
+- `mcp-cleanup`: Cleanup MCP clients
+
+**File Operations** (see Built-in File Operations above):
+- `file-operation`: Unified handler for all file operations
+- `select-folder` / `read-directory`: Folder selection and browsing
+
+**System**:
+- `open-external`: Open URL in default browser
+- `check-environment`: Check system dependencies
+- `get-changelog`: Read 更新日志.md
+
+**Note**: Most storage now uses the unified `StorageService` instead of direct IPC.
 
 Config storage location (platform-specific, when using Electron backend):
 - macOS: `~/Library/Application Support/openchat-desktop/config.json`
 - Windows: `%APPDATA%/openchat-desktop/config.json`
 - Linux: `~/.config/openchat-desktop/config.json`
+
+### Built-in File Operations (Main Process)
+
+The Electron main process provides native file operations via `file-operation` IPC handler (used by WorkspaceView):
+
+- `list_directory`: List directory contents
+- `create_directory`: Create new directory
+- `move_file`: Move file/directory
+- `copy_file`: Copy file/directory (recursive for dirs)
+- `rename_item`: Rename file/directory
+- `delete_item`: Delete file/directory
+- `glob`: Search files by pattern
+- `grep`: Search file contents by regex
+- `read_file`: Read file with line range support
+- `write_file`: Write/create file
+- `edit_file`: String replacement in file
+- `execute_command`: Execute shell command in workspace
+
+All operations include path traversal protection (paths must stay within base directory).
 
 ### Streaming Response Handling
 
@@ -292,7 +336,7 @@ Provider must support OpenAI `/chat/completions` format. For custom parameters, 
 ### Adding Global Memory Types
 
 1. Add new enum value to `GlobalMemoryType` in `types/globalMemory.ts`
-2. Update UI in `GlobalMemoryView.vue` to handle new type
+2. Update UI in `SettingsView.vue` (memory tab) to handle new type
 3. Add matching logic in `useGlobalMemory.ts` if needed
 
 ### Adding MCP Tools/Integrations
@@ -322,6 +366,15 @@ To add new IPC handlers:
 ### Routing
 
 Uses hash-based routing with auth guard checking `storage.getIsLoggedIn()`. Routes defined in `src/router/index.ts`.
+
+**Route structure**:
+- `/environment-check`: Environment check page (no auth required, skips itself)
+- `/login`: Authentication page
+- `/`: Main chat view
+- `/settings`: Unified settings page with tab query param (`?tab=assistants|memory|mcp`)
+- Legacy routes (`/assistants`, `/global-memory`, `/mcp`) redirect to `/settings?tab=...`
+
+**Environment Check Flow**: On first launch, checks for required commands (node, npx, uvx, uv) and config directory permissions. Results cached in `sessionStorage.envCheckPassed`.
 
 **Authentication**: Simple token-based auth stored via `StorageService`. The `isLoggedIn` flag gates access to main routes (LoginView.vue sets it on successful auth).
 
