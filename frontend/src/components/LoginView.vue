@@ -71,7 +71,7 @@ async function handleLogin() {
 
         <div v-if="error" class="error-message">{{ error }}</div>
 
-        <button type="submit" class="login-btn" :disabled="loading">
+        <button type="submit" class="btn login-btn" :disabled="loading">
           {{ loading ? '登录中...' : '登录' }}
         </button>
 
