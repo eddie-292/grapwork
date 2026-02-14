@@ -109,6 +109,8 @@ const iconComponent = computed(() => {
   margin: 0 0 24px 0;
   color: var(--color-text-secondary);
   line-height: 1.6;
+  height: 100px;
+  overflow: auto;
 }
 
 .modal-footer {
