@@ -573,8 +573,9 @@ defineExpose({
 }
 
 .file-list {
-  flex: 1;
+  height: calc(100vh - 270px);
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 8px 12px 8px 8px;
   /* 自定义滚动条 */
   scrollbar-width: thin;

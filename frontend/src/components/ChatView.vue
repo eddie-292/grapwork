@@ -27,6 +27,8 @@ import { storage } from '../services/StorageService'
 import ChevronLeftIcon from './icons/ChevronLeftIcon.vue'
 import ChevronRightIcon from './icons/ChevronRightIcon.vue'
 import MenuIcon from './icons/MenuIcon.vue'
+import SettingsIcon from './icons/SettingsIcon.vue'
+import LogoutIcon from './icons/LogoutIcon.vue'
 
 const router = useRouter()
 
@@ -266,6 +268,9 @@ const currentChatId = ref<string | null>(null)
 const input = ref('')
 const controllers = ref<Record<string, AbortController>>({})
 const showSidebar = ref(true)
+
+// 用户名（用于侧边栏底部显示）
+const username = ref('')
 
 // 侧边栏标签切换：'chats' 或 'workspace'
 const sidebarTab = ref<'chats' | 'workspace'>('chats')
@@ -2650,6 +2655,11 @@ onMounted(async () => {
   await loadAssistants()
   await loadHighlightTheme()
   await mcpManager.loadServers()
+  // 加载用户名
+  const savedUsername = await storage.getUsername()
+  if (savedUsername) {
+    username.value = savedUsername
+  }
   // 加载全局记忆
   await globalMemoryManager.load()
 
@@ -2777,6 +2787,24 @@ function handleFolderChanged(path: string) {
       <div v-show="sidebarTab === 'workspace'" class="workspace-wrapper">
         <WorkspaceView :current-folder="currentFolder" />
       </div>
+
+      <!-- 侧边栏底部固定区域 -->
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar">{{ username.charAt(0).toUpperCase() }}</div>
+          <div class="user-details">
+            <div class="user-name">{{ username }}</div>
+          </div>
+        </div>
+        <div class="footer-actions">
+          <button class="footer-btn" @click="router.push('/settings')" title="设置">
+            <SettingsIcon :size="18" />
+          </button>
+          <button class="footer-btn" @click="logout" title="退出登录">
+            <LogoutIcon :size="18" />
+          </button>
+        </div>
+      </div>
     </aside>
     <div class="content-wrapper">
       <!-- ============ TASK MODE - DISABLED ============ -->
@@ -2809,14 +2837,6 @@ function handleFolderChanged(path: string) {
             </button>
           </div> -->
           <!-- ============================================= -->
-          <div class="header-actions">
-            <button class="settings-btn" @click="router.push('/settings')" title="设置">
-              设置
-            </button>
-            <button class="logout-btn" @click="logout" title="退出登录">
-              退出
-            </button>
-          </div>
         </div>
       </header>
       <!-- 普通会话模式 -->
@@ -3132,17 +3152,111 @@ function handleFolderChanged(path: string) {
   flex-shrink: 0;
 }
 
+/* 侧边栏底部固定区域 */
+.sidebar-footer {
+  margin-top: auto;
+  padding: 12px;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.user-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.footer-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  transition: all 0.2s;
+}
+
+.footer-btn:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
 /* 工作空间包装器 */
 .workspace-wrapper {
-  height: calc(100vh - 130px);
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
   background: var(--color-bg-primary);
 }
 
 .chat-list {
-  overflow: auto;
+  height: calc(100vh - 170px);
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 8px;
-  height: calc(100vh - 120px);
+  /* 自定义滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-hover) transparent;
+}
+
+.chat-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-list::-webkit-scrollbar-thumb {
+  background-color: var(--color-border-hover);
+  border-radius: 3px;
+}
+
+.chat-list::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-text-tertiary);
 }
 
 .chat-item {
