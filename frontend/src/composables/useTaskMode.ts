@@ -15,6 +15,7 @@ import type {
 import type { OpenAIToolCall } from '../types/mcp'
 import { useWorkingMemory } from './useWorkingMemory'
 import { useGlobalMemory } from './useGlobalMemory'
+import { useSkills } from './useSkills'
 
 /**
  * 任务规划提示词
@@ -272,18 +273,25 @@ export function useTaskMode(
   ): { role: string; content: string }[] {
     const messagesToSend: { role: string; content: string }[] = []
 
-    // 添加 system prompt
+    // 构建 system prompt
+    let systemPrompt = ''
     if (activeAssistant.value?.systemPrompt && activeAssistant.value.systemPrompt.trim()) {
-      messagesToSend.push({
-        role: 'system',
-        content: activeAssistant.value.systemPrompt.trim()
-      })
+      systemPrompt = activeAssistant.value.systemPrompt.trim()
     } else {
-      messagesToSend.push({
-        role: 'system',
-        content: '你是一个有用的助手'
-      })
+      systemPrompt = '你是一个有用的助手'
     }
+
+    // 添加 Skills 上下文
+    const skillsManager = useSkills()
+    const skillsContext = skillsManager.generateSkillContext()
+    if (skillsContext) {
+      systemPrompt += '\n\n' + skillsContext
+    }
+
+    messagesToSend.push({
+      role: 'system',
+      content: systemPrompt
+    })
 
     // 添加对话历史
     conversationHistory.forEach(msg => {

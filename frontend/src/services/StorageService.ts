@@ -20,6 +20,7 @@ import type { GlobalMemory, GlobalMemoryEntry } from '@/types/globalMemory';
 import type { Assistant } from '@/types/electron';
 import type { ChatMessage } from '@/types/chat';
 import type { MCPServerList } from '@/types/mcp';
+import type { SkillRegistry } from '@/types/skill';
 
 /**
  * 默认内置助理的System Prompt
@@ -529,6 +530,39 @@ export class StorageService {
     const serverList = await this.getMCPServerList();
     if (!serverList) return [];
     return serverList.servers.filter(s => serverList.activeServerIds.includes(s.id) && s.enabled);
+  }
+
+  // ==================== Skills 技能系统 ====================
+
+  /**
+   * 获取技能注册表
+   */
+  async getSkillRegistry(): Promise<SkillRegistry> {
+    const result = await this.get<SkillRegistry>(StorageKey.SKILL_REGISTRY);
+    return result.data ?? {
+      skills: [],
+      activeSkillIds: [],
+      version: 1,
+      lastUpdated: Date.now()
+    };
+  }
+
+  /**
+   * 保存技能注册表
+   */
+  async saveSkillRegistry(registry: SkillRegistry): Promise<boolean> {
+    const result = await this.set(StorageKey.SKILL_REGISTRY, registry);
+    return result.success;
+  }
+
+  /**
+   * 获取激活的技能列表
+   */
+  async getActiveSkills(): Promise<SkillRegistry['skills']> {
+    const registry = await this.getSkillRegistry();
+    return registry.skills.filter(
+      s => registry.activeSkillIds.includes(s.id) && s.enabled && !s.hasError
+    );
   }
 
   // ==================== 选中的文件夹 ====================

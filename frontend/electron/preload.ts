@@ -70,5 +70,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('check-environment'),
   // 读取更新日志
   getChangelog: () =>
-    ipcRenderer.invoke('get-changelog')
+    ipcRenderer.invoke('get-changelog'),
+  // Skills 技能系统
+  skillsScan: () =>
+    ipcRenderer.invoke('skills-scan'),
+  skillsLoad: (skillId: string) =>
+    ipcRenderer.invoke('skills-load', skillId),
+  skillsCreate: (name: string, description: string) =>
+    ipcRenderer.invoke('skills-create', name, description),
+  skillsUpdate: (skillId: string, body: string) =>
+    ipcRenderer.invoke('skills-update', skillId, body),
+  skillsDelete: (skillId: string) =>
+    ipcRenderer.invoke('skills-delete', skillId)
 })

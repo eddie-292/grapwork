@@ -7,13 +7,14 @@ import AssistantView from './AssistantView.vue'
 import GlobalMemoryView from './GlobalMemoryView.vue'
 import MCPView from './MCPView.vue'
 import ChangelogView from './ChangelogView.vue'
+import SkillsPanel from './settings/SkillsPanel.vue'
 import { storage } from '../services/StorageService'
 import type { EnvironmentCheckResult } from '../types/electron'
 
 const router = useRouter()
 const route = useRoute()
 
-type SettingsTab = 'llm' | 'theme' | 'assistants' | 'memory' | 'mcp' | 'environment' | 'changelog'
+type SettingsTab = 'llm' | 'theme' | 'assistants' | 'memory' | 'mcp' | 'skills' | 'environment' | 'changelog'
 
 // 从 query 参数获取当前标签，默认为 llm
 const activeTab = ref<SettingsTab>((route.query.tab as SettingsTab) || 'llm')
@@ -37,6 +38,7 @@ const navItems = computed(() => [
   { id: 'assistants' as SettingsTab, label: '社区助理', icon: '🤖' },
   { id: 'memory' as SettingsTab, label: '全局记忆', icon: '🧠' },
   { id: 'mcp' as SettingsTab, label: 'MCP 服务器', icon: '⚡' },
+  { id: 'skills' as SettingsTab, label: '技能管理', icon: '📚' },
   { id: 'environment' as SettingsTab, label: '环境检测', icon: '🔍' },
   { id: 'changelog' as SettingsTab, label: '更新日志', icon: '📜' },
 ])
@@ -176,6 +178,9 @@ const hasEnvWarnings = computed(() => envResults.value.some(r => r.status === 'w
         <div v-else-if="activeTab === 'mcp'" class="panel-wrapper">
           <MCPView />
         </div>
+
+        <!-- 技能管理 -->
+        <SkillsPanel v-else-if="activeTab === 'skills'" />
 
         <!-- 环境检测 -->
         <div v-else-if="activeTab === 'environment'" class="env-panel">

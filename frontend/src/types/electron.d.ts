@@ -87,6 +87,9 @@ export interface MCPToolsListResult {
   error?: string
 }
 
+// Skills 技能系统类型
+import type { SkillMetadata, Skill, SkillScanResult, SkillLoadResult } from './skill'
+
 interface ElectronAPI {
   getConfig: () => Promise<ConfigList>
   saveConfig: (config: ConfigList) => Promise<boolean>
@@ -133,6 +136,12 @@ interface ElectronAPI {
     content: string
     error?: string
   }>
+  // Skills 技能系统
+  skillsScan: () => Promise<SkillScanResult>
+  skillsLoad: (skillId: string) => Promise<SkillLoadResult>
+  skillsCreate: (name: string, description: string) => Promise<SkillLoadResult>
+  skillsUpdate: (skillId: string, body: string) => Promise<{ success: boolean; error?: string }>
+  skillsDelete: (skillId: string) => Promise<{ success: boolean; error?: string }>
 }
 
 declare global {

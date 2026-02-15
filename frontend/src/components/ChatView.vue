@@ -18,6 +18,7 @@ import type { ConfigList, AssistantList } from '../types/electron'
 // =============================================
 import { useGlobalMemory } from '../composables/useGlobalMemory'
 import { useMCP } from '../composables/useMCP'
+import { useSkills } from '../composables/useSkills'
 import NormalChat from './NormalChat.vue'
 import WorkspaceView from './WorkspaceView.vue'
 import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
@@ -42,6 +43,9 @@ const globalMemoryManager = useGlobalMemory()
 
 // MCP 管理器
 const mcpManager = useMCP()
+
+// Skills 管理器
+const skillsManager = useSkills()
 
 // 快速保存到全局记忆对话框状态
 const showSaveToGlobalMemoryDialog = ref(false)
@@ -1405,6 +1409,13 @@ async function executeNormalChat(text: string) {
     // 如果有全局记忆，追加到 system prompt
     if (globalMemoryContext) {
       systemPrompt += '\n\n' + globalMemoryContext + '\n\n请在回复时考虑这些偏好。'
+    }
+
+    // 加载 Skills 注册表并生成上下文
+    await skillsManager.loadRegistry()
+    const skillsContext = skillsManager.generateSkillContext()
+    if (skillsContext) {
+      systemPrompt += '\n\n' + skillsContext
     }
 
     // 添加合并后的 system prompt 到消息开头

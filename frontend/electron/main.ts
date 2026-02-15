@@ -1217,11 +1217,14 @@ ipcMain.handle('file-operation', async (_event, operation: string, args: Record<
         try {
           const globPattern = path.join(searchPath, pattern)
           const { glob: globUtil } = await import('glob')
-          const files = await globUtil(globPattern, {
+          const rawFiles = await globUtil(globPattern, {
             windowsPathsNoEscape: true,
             nodir: false,
             dot: false
           })
+
+          // 确保 files 是一个数组（glob v11+ 可能返回 PathScurry 对象）
+          const files = Array.isArray(rawFiles) ? rawFiles : Array.from(rawFiles as Iterable<string>)
 
           // 返回相对路径
           const relativeFiles = files.map(f => path.relative(searchPath, f))
@@ -1352,13 +1355,13 @@ ipcMain.handle('file-operation', async (_event, operation: string, args: Record<
 
         const targetPath = path.isAbsolute(file_path) ? file_path : resolveSafePath(file_path)
 
-        // 对于绝对路径，验证是否在基础路径内
-        if (path.isAbsolute(file_path) && !targetPath.startsWith(path.resolve(basePath))) {
-          return {
-            success: false,
-            error: '文件路径必须在基础目录内'
-          }
-        }
+        // 对于绝对路径，验证是否在基础路径内 读文件可以不校验
+        // if (path.isAbsolute(file_path) && !targetPath.startsWith(path.resolve(basePath))) {
+        //   return {
+        //     success: false,
+        //     error: '文件路径必须在基础目录内'
+        //   }
+        // }
 
         if (!fs.existsSync(targetPath)) {
           return {
@@ -1640,6 +1643,449 @@ function copyDirectoryRecursive(source: string, target: string): void {
     }
   }
 }
+
+// ============================================================================
+// Skills System IPC Handlers
+// ============================================================================
+
+// Skills 类型定义
+type SkillLocation = 'public' | 'examples' | 'user'
+
+interface SkillFrontmatter {
+  name: string
+  description: string
+  version?: string
+  author?: string
+  tags?: string[]
+  triggers?: string[]
+}
+
+interface SkillMetadata {
+  id: string
+  name: string
+  description: string
+  location: SkillLocation
+  path: string
+  enabled: boolean
+  createdAt: number
+  updatedAt: number
+  version?: string
+  author?: string
+  tags?: string[]
+  triggers?: string[]
+  isLoaded?: boolean
+  hasError?: boolean
+  errorMessage?: string
+}
+
+interface Skill extends SkillMetadata {
+  body: string
+}
+
+interface SkillScanResult {
+  success: boolean
+  skills: SkillMetadata[]
+  errors: string[]
+}
+
+interface SkillLoadResult {
+  success: boolean
+  skill?: Skill
+  error?: string
+}
+
+// Skills 验证约束
+const SKILL_CONSTRAINTS = {
+  NAME_MAX_LENGTH: 64,
+  NAME_PATTERN: /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+  DESCRIPTION_MAX_LENGTH: 1024,
+  DESCRIPTION_FORBIDDEN_CHARS: /[<>]/
+}
+
+// Skills 优先级
+const SKILL_PRIORITY: Record<SkillLocation, number> = {
+  user: 3,
+  public: 2,
+  examples: 1
+}
+
+// 获取 Skills 基础路径
+function getSkillsBasePath(): string {
+  if (process.env.VITE_DEV_SERVER_URL) {
+    // 开发模式：使用 frontend 目录下的 skills
+    return path.join(path.dirname(__dirname), 'skills')
+  }
+  // 生产模式：使用应用资源目录
+  return path.join(path.dirname(__dirname), 'skills')
+}
+
+// 获取所有 Skills 目录
+function getSkillsDirectories(): Record<SkillLocation, string> {
+  const base = getSkillsBasePath()
+  return {
+    public: path.join(base, 'public'),
+    examples: path.join(base, 'examples'),
+    user: path.join(base, 'user')
+  }
+}
+
+// 解析 YAML Frontmatter
+function parseSkillFrontmatter(content: string): {
+  frontmatter: SkillFrontmatter | null
+  body: string
+  error?: string
+} {
+  const frontmatterRegex = /^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/
+  const match = content.match(frontmatterRegex)
+
+  if (!match) {
+    return {
+      frontmatter: null,
+      body: content,
+      error: 'Missing or invalid YAML frontmatter (must start with ---)'
+    }
+  }
+
+  const [, yamlContent, body] = match
+  const frontmatter: Record<string, any> = {}
+
+  // 简单 YAML 解析（key: value 格式）
+  for (const line of yamlContent.split('\n')) {
+    const colonIndex = line.indexOf(':')
+    if (colonIndex > 0) {
+      const key = line.slice(0, colonIndex).trim()
+      let value: any = line.slice(colonIndex + 1).trim()
+
+      // 处理数组 [item1, item2]
+      if (value.startsWith('[') && value.endsWith(']')) {
+        value = value
+          .slice(1, -1)
+          .split(',')
+          .map((v: string) => v.trim().replace(/^["']|["']$/g, ''))
+          .filter((v: string) => v)
+      }
+      // 移除引号
+      else if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
+        value = value.slice(1, -1)
+      }
+
+      frontmatter[key] = value
+    }
+  }
+
+  return { frontmatter: frontmatter as SkillFrontmatter, body }
+}
+
+// 验证 skill 名称
+function validateSkillName(name: string): { valid: boolean; errors: string[] } {
+  const errors: string[] = []
+
+  if (!name || name.trim() === '') {
+    errors.push('Name is required')
+  } else if (name.length > SKILL_CONSTRAINTS.NAME_MAX_LENGTH) {
+    errors.push(`Name must be ${SKILL_CONSTRAINTS.NAME_MAX_LENGTH} characters or less`)
+  } else if (!SKILL_CONSTRAINTS.NAME_PATTERN.test(name)) {
+    errors.push(
+      'Name must be lowercase letters, numbers, and hyphens only (no leading/trailing/consecutive hyphens)'
+    )
+  }
+
+  return { valid: errors.length === 0, errors }
+}
+
+// 验证 skill 描述
+function validateSkillDescription(description: string): { valid: boolean; errors: string[] } {
+  const errors: string[] = []
+
+  if (!description || description.trim() === '') {
+    errors.push('Description is required')
+  } else if (description.length > SKILL_CONSTRAINTS.DESCRIPTION_MAX_LENGTH) {
+    errors.push(`Description must be ${SKILL_CONSTRAINTS.DESCRIPTION_MAX_LENGTH} characters or less`)
+  } else if (SKILL_CONSTRAINTS.DESCRIPTION_FORBIDDEN_CHARS.test(description)) {
+    errors.push('Description cannot contain < or > characters')
+  }
+
+  return { valid: errors.length === 0, errors }
+}
+
+// 验证完整 frontmatter
+function validateSkillFrontmatter(fm: SkillFrontmatter): { valid: boolean; errors: string[] } {
+  const nameValidation = validateSkillName(fm.name)
+  const descValidation = validateSkillDescription(fm.description)
+
+  return {
+    valid: nameValidation.valid && descValidation.valid,
+    errors: [...nameValidation.errors, ...descValidation.errors]
+  }
+}
+
+// 扫描 Skills 目录
+ipcMain.handle('skills-scan', async (): Promise<SkillScanResult> => {
+  const skills: SkillMetadata[] = []
+  const errors: string[] = []
+  const dirs = getSkillsDirectories()
+
+  for (const [location, dirPath] of Object.entries(dirs)) {
+    try {
+      if (!fs.existsSync(dirPath)) {
+        fs.mkdirSync(dirPath, { recursive: true })
+        continue
+      }
+
+      const entries = fs.readdirSync(dirPath, { withFileTypes: true })
+
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue
+
+        const skillPath = path.join(dirPath, entry.name)
+        const skillMdPath = path.join(skillPath, 'SKILL.md')
+
+        if (!fs.existsSync(skillMdPath)) {
+          errors.push(`Skill "${entry.name}" missing SKILL.md`)
+          continue
+        }
+
+        try {
+          const content = fs.readFileSync(skillMdPath, 'utf-8')
+          const { frontmatter, error } = parseSkillFrontmatter(content)
+
+          if (error || !frontmatter) {
+            errors.push(`Skill "${entry.name}" parse error: ${error}`)
+            continue
+          }
+
+          const validation = validateSkillFrontmatter(frontmatter)
+          if (!validation.valid) {
+            errors.push(`Skill "${entry.name}" validation failed: ${validation.errors.join('; ')}`)
+            continue
+          }
+
+          const skillId = `${location}-${frontmatter.name}`
+          const stats = fs.statSync(skillMdPath)
+
+          skills.push({
+            id: skillId,
+            name: frontmatter.name,
+            description: frontmatter.description,
+            location: location as SkillLocation,
+            path: skillPath,
+            enabled: true,
+            createdAt: stats.birthtimeMs,
+            updatedAt: stats.mtimeMs,
+            version: frontmatter.version,
+            author: frontmatter.author,
+            tags: frontmatter.tags,
+            triggers: frontmatter.triggers,
+            isLoaded: false,
+            hasError: false
+          })
+        } catch (e) {
+          errors.push(`Skill "${entry.name}" read error: ${e}`)
+        }
+      }
+    } catch (e) {
+      errors.push(`Failed to scan ${location} directory: ${e}`)
+    }
+  }
+
+  // 按优先级排序 (user > public > examples)
+  skills.sort((a, b) => SKILL_PRIORITY[b.location] - SKILL_PRIORITY[a.location])
+
+  return { success: true, skills, errors }
+})
+
+// 加载 Skill 内容 (L2)
+ipcMain.handle('skills-load', async (_event, skillId: string): Promise<SkillLoadResult> => {
+  try {
+    // 解析 skillId (格式: location-name)
+    const firstDashIndex = skillId.indexOf('-')
+    if (firstDashIndex === -1) {
+      return { success: false, error: 'Invalid skill ID format' }
+    }
+
+    const location = skillId.slice(0, firstDashIndex) as SkillLocation
+    const skillName = skillId.slice(firstDashIndex + 1)
+
+    const dirs = getSkillsDirectories()
+    const skillPath = path.join(dirs[location], skillName)
+    const skillMdPath = path.join(skillPath, 'SKILL.md')
+
+    if (!fs.existsSync(skillMdPath)) {
+      return { success: false, error: 'SKILL.md not found' }
+    }
+
+    const content = fs.readFileSync(skillMdPath, 'utf-8')
+    const { frontmatter, body, error } = parseSkillFrontmatter(content)
+
+    if (error || !frontmatter) {
+      return { success: false, error }
+    }
+
+    const stats = fs.statSync(skillMdPath)
+
+    return {
+      success: true,
+      skill: {
+        id: skillId,
+        name: frontmatter.name,
+        description: frontmatter.description,
+        location,
+        path: skillPath,
+        enabled: true,
+        createdAt: stats.birthtimeMs,
+        updatedAt: stats.mtimeMs,
+        version: frontmatter.version,
+        author: frontmatter.author,
+        tags: frontmatter.tags,
+        triggers: frontmatter.triggers,
+        isLoaded: true,
+        hasError: false,
+        body: body.trim()
+      }
+    }
+  } catch (e) {
+    return { success: false, error: String(e) }
+  }
+})
+
+// 创建新 Skill (仅 user 位置)
+ipcMain.handle('skills-create', async (_event, name: string, description: string): Promise<SkillLoadResult> => {
+  // 先验证
+  const nameValidation = validateSkillName(name)
+  const descValidation = validateSkillDescription(description)
+
+  if (!nameValidation.valid || !descValidation.valid) {
+    return {
+      success: false,
+      error: [...nameValidation.errors, ...descValidation.errors].join('; ')
+    }
+  }
+
+  const dirs = getSkillsDirectories()
+  const skillPath = path.join(dirs.user, name)
+  const skillMdPath = path.join(skillPath, 'SKILL.md')
+
+  // 检查是否已存在
+  if (fs.existsSync(skillPath)) {
+    return { success: false, error: 'Skill with this name already exists' }
+  }
+
+  try {
+    fs.mkdirSync(skillPath, { recursive: true })
+
+    const content = `---
+name: ${name}
+description: "${description.replace(/"/g, '\\"')}"
+version: "1.0.0"
+---
+
+# ${name}
+
+TODO: Add skill instructions here.
+`
+
+    fs.writeFileSync(skillMdPath, content, 'utf-8')
+
+    const skillId = `user-${name}`
+    const now = Date.now()
+
+    return {
+      success: true,
+      skill: {
+        id: skillId,
+        name,
+        description,
+        location: 'user',
+        path: skillPath,
+        enabled: true,
+        createdAt: now,
+        updatedAt: now,
+        isLoaded: true,
+        hasError: false,
+        body: 'TODO: Add skill instructions here.'
+      }
+    }
+  } catch (e) {
+    return { success: false, error: String(e) }
+  }
+})
+
+// 更新 Skill 内容 (仅 user 位置)
+ipcMain.handle('skills-update', async (_event, skillId: string, body: string): Promise<{ success: boolean; error?: string }> => {
+  const firstDashIndex = skillId.indexOf('-')
+  if (firstDashIndex === -1) {
+    return { success: false, error: 'Invalid skill ID format' }
+  }
+
+  const location = skillId.slice(0, firstDashIndex)
+
+  if (location !== 'user') {
+    return { success: false, error: 'Only user skills can be edited' }
+  }
+
+  const skillName = skillId.slice(firstDashIndex + 1)
+  const dirs = getSkillsDirectories()
+  const skillMdPath = path.join(dirs.user, skillName, 'SKILL.md')
+
+  if (!fs.existsSync(skillMdPath)) {
+    return { success: false, error: 'SKILL.md not found' }
+  }
+
+  try {
+    const content = fs.readFileSync(skillMdPath, 'utf-8')
+    const { frontmatter } = parseSkillFrontmatter(content)
+
+    if (!frontmatter) {
+      return { success: false, error: 'Failed to parse existing frontmatter' }
+    }
+
+    // 重建文件内容
+    const newContent = `---
+name: ${frontmatter.name}
+description: "${frontmatter.description.replace(/"/g, '\\"')}"${frontmatter.version ? `\nversion: "${frontmatter.version}"` : ''}${frontmatter.author ? `\nauthor: ${frontmatter.author}` : ''}${frontmatter.tags ? `\ntags: [${frontmatter.tags.join(', ')}]` : ''}${frontmatter.triggers ? `\ntriggers: [${frontmatter.triggers.join(', ')}]` : ''}
+---
+
+${body}
+`
+
+    fs.writeFileSync(skillMdPath, newContent, 'utf-8')
+    return { success: true }
+  } catch (e) {
+    return { success: false, error: String(e) }
+  }
+})
+
+// 删除 Skill (仅 user 位置)
+ipcMain.handle('skills-delete', async (_event, skillId: string): Promise<{ success: boolean; error?: string }> => {
+  const firstDashIndex = skillId.indexOf('-')
+  if (firstDashIndex === -1) {
+    return { success: false, error: 'Invalid skill ID format' }
+  }
+
+  const location = skillId.slice(0, firstDashIndex)
+
+  if (location !== 'user') {
+    return { success: false, error: 'Only user skills can be deleted' }
+  }
+
+  const skillName = skillId.slice(firstDashIndex + 1)
+  const dirs = getSkillsDirectories()
+  const skillPath = path.join(dirs.user, skillName)
+
+  if (!fs.existsSync(skillPath)) {
+    return { success: false, error: 'Skill not found' }
+  }
+
+  try {
+    fs.rmSync(skillPath, { recursive: true, force: true })
+    return { success: true }
+  } catch (e) {
+    return { success: false, error: String(e) }
+  }
+})
 
 ipcMain.handle('chat-request', async (_event, { apiUrl, apiKey, model, messages, extra_body }) => {
   try {

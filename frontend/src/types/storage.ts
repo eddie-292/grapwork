@@ -31,6 +31,9 @@ export enum StorageKey {
 
   // 选中的文件夹路径
   SELECTED_FOLDER = 'selected-folder',
+
+  // Skills 技能系统
+  SKILL_REGISTRY = 'skill-registry',
 }
 
 // 存储后端类型
