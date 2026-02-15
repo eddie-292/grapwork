@@ -1727,10 +1727,12 @@ function getSkillsBasePath(): string {
 // 获取所有 Skills 目录
 function getSkillsDirectories(): Record<SkillLocation, string> {
   const base = getSkillsBasePath()
+  const homePath = app.getPath('home')
   return {
     public: path.join(base, 'public'),
     examples: path.join(base, 'examples'),
-    user: path.join(base, 'user')
+    user: path.join(base, 'user'),
+    installed: path.join(homePath, '.agents', 'skills')
   }
 }
 

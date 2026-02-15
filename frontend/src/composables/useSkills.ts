@@ -289,6 +289,10 @@ function createSkillsManager() {
     registry.value.skills.filter(s => s.location === 'public')
   )
 
+  const installedSkills = computed(() =>
+    registry.value.skills.filter(s => s.location === 'installed')
+  )
+
   const exampleSkills = computed(() =>
     registry.value.skills.filter(s => s.location === 'examples')
   )
@@ -303,7 +307,7 @@ function createSkillsManager() {
 
     const skillList = active
       .map((skill, index) => {
-        const locationLabel = skill.location === 'user' ? '用户' : skill.location === 'public' ? '系统' : '示例'
+        const locationLabel = skill.location === 'user' ? '用户' : skill.location === 'installed' ? '安装' : skill.location === 'public' ? '系统' : '示例'
         const skillMdPath = `${skill.path}/SKILL.md`
         return `${index + 1}. **${skill.name}** (${locationLabel})
    描述: ${skill.description}
@@ -370,6 +374,7 @@ ${skillList}
     activeSkills,
     userSkills,
     publicSkills,
+    installedSkills,
     exampleSkills,
 
     // Methods

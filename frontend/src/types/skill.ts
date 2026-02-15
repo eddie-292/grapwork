@@ -9,14 +9,16 @@
 export enum SkillLocation {
   PUBLIC = 'public',     // System built-in, read-only
   EXAMPLES = 'examples', // Examples, read-only
-  USER = 'user'          // User installed, read-write, highest priority
+  USER = 'user',         // User created in app, read-write
+  INSTALLED = 'installed' // Installed via npx skills add, stored in ~/.agents/skills
 }
 
 /**
  * Skill priority order (higher number = higher priority)
  */
 export const SKILL_PRIORITY: Record<SkillLocation, number> = {
-  [SkillLocation.USER]: 3,
+  [SkillLocation.USER]: 4,
+  [SkillLocation.INSTALLED]: 3,
   [SkillLocation.PUBLIC]: 2,
   [SkillLocation.EXAMPLES]: 1
 }

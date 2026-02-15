@@ -14,7 +14,7 @@ const showCreateForm = ref(false)
 const showEditModal = ref(false)
 
 // Computed
-const { registry, loading, error, userSkills, publicSkills, exampleSkills } = skillsManager
+const { registry, loading, error, userSkills, publicSkills, installedSkills, exampleSkills } = skillsManager
 
 // Methods
 async function handleCreateSkill() {
@@ -74,6 +74,8 @@ function getLocationLabel(location: string): string {
   switch (location) {
     case 'user':
       return '用户'
+    case 'installed':
+      return '安装'
     case 'public':
       return '系统'
     case 'examples':
@@ -87,6 +89,8 @@ function getLocationClass(location: string): string {
   switch (location) {
     case 'user':
       return 'badge-user'
+    case 'installed':
+      return 'badge-installed'
     case 'public':
       return 'badge-system'
     case 'examples':
@@ -158,7 +162,7 @@ onMounted(() => {
     <div class="skills-sections" v-if="!loading">
       <!-- User Skills -->
       <div v-if="userSkills.length > 0" class="skill-section">
-        <h4>我的技能 ({{ userSkills.length }})</h4>
+        <h4>用户技能 ({{ userSkills.length }})</h4>
         <div class="skill-list">
           <div
             v-for="skill in userSkills"
@@ -183,6 +187,37 @@ onMounted(() => {
               </button>
               <button @click="handleEditSkill(skill)" class="edit-btn">编辑</button>
               <button @click="handleDeleteSkill(skill.id)" class="delete-btn">删除</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Installed Skills -->
+      <div v-if="installedSkills.length > 0" class="skill-section">
+        <h4>安装的技能 ({{ installedSkills.length }})</h4>
+        <div class="skill-list">
+          <div
+            v-for="skill in installedSkills"
+            :key="skill.id"
+            class="skill-card"
+            :class="{ active: registry.activeSkillIds.includes(skill.id) }"
+          >
+            <div class="skill-header">
+              <span class="skill-name">{{ skill.name }}</span>
+              <span class="skill-badge" :class="getLocationClass(skill.location)">
+                {{ getLocationLabel(skill.location) }}
+              </span>
+            </div>
+            <p class="skill-description">{{ skill.description }}</p>
+            <div class="skill-actions">
+              <button
+                @click="handleToggleActive(skill.id)"
+                class="toggle-btn"
+                :class="{ active: registry.activeSkillIds.includes(skill.id) }"
+              >
+                {{ registry.activeSkillIds.includes(skill.id) ? '已启用' : '已禁用' }}
+              </button>
+              <button @click="handleEditSkill(skill)" class="action-btn">查看</button>
             </div>
           </div>
         </div>
@@ -435,6 +470,11 @@ onMounted(() => {
 .badge-example {
   background-color: #fef3c7;
   color: #b45309;
+}
+
+.badge-installed {
+  background-color: #e0e7ff;
+  color: #4338ca;
 }
 
 .skill-description {
