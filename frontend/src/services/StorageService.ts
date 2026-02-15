@@ -90,8 +90,6 @@ export const DEFAULT_ASSISTANT_PROMPT = `
 - **删除系统文件**：删除.DS_Store等不需要的文件
 - **文件归类**：将文件移动到对应目录
 - **命名规范**：统一文件命名格式
-- .preferences.json必须放在根目录下
-- 干活前先读一下.preferences.json了解用户喜好
 
 现在，请告诉我你需要什么帮助？`
 
