@@ -334,12 +334,25 @@ function getFileIcon(node: FileNode) {
 
 // 刷新工作空间
 async function refreshWorkspace() {
-  breadcrumbs.value = []
-  if (props.currentFolder) {
-    await loadDirectory(props.currentFolder, false)
+  // 刷新当前路径，而不是回到根目录
+  const pathToRefresh = currentPath.value || props.currentFolder
+  if (pathToRefresh) {
+    await loadDirectory(pathToRefresh, false)
   } else {
     error.value = '请先选择一个文件夹'
     fileNodes.value = []
+  }
+}
+
+// 在系统文件管理器中打开当前目录
+async function openCurrentDirectory() {
+  const pathToOpen = currentPath.value || props.currentFolder
+  if (pathToOpen && window.electronAPI?.openPath) {
+    try {
+      await window.electronAPI.openPath(pathToOpen)
+    } catch (err) {
+      console.error('Failed to open directory:', err)
+    }
   }
 }
 
@@ -363,15 +376,23 @@ defineExpose({
     <!-- 标题栏 -->
     <div class="workspace-header">
       <h3 class="workspace-title">我的工作空间</h3>
-      <button class="refresh-btn" @click="refreshWorkspace" title="刷新" :disabled="loading || !currentFolder">
-        <svg v-if="!loading" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M23 4v6h-6M1 20v-6h6"/>
-          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-        </svg>
-        <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spinning">
-          <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="32" stroke-linecap="round"/>
-        </svg>
-      </button>
+      <dvi class="workspace-btns">
+        <button class="refresh-btn" @click="refreshWorkspace" title="刷新" :disabled="loading || !currentFolder">
+          <svg v-if="!loading" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M23 4v6h-6M1 20v-6h6"/>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
+          <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spinning">
+            <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="32" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <button class="refresh-btn" @click="openCurrentDirectory" title="在文件管理器中打开" :disabled="!currentFolder">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            <path d="M12 11v6M9 14h6"/>
+          </svg>
+        </button>
+      </dvi>
     </div>
 
     <!-- 面包屑导航 -->
@@ -458,8 +479,13 @@ defineExpose({
   color: #333333;
 }
 
+.workspace-btns {
+  display: flex;
+}
+
 /* refresh-btn styles moved to global style.css */
-.refresh-btn {
+.refresh-btn,
+.open-folder-btn {
   width: 28px;
   height: 28px;
   padding: 0;

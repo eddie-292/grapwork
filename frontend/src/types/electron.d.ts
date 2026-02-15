@@ -103,6 +103,8 @@ interface ElectronAPI {
   getGlobalMemory: () => Promise<GlobalMemory>
   saveGlobalMemory: (memory: GlobalMemory) => Promise<boolean>
   openExternal: (url: string) => Promise<void>
+  // 在系统文件管理器中打开路径
+  openPath: (path: string) => Promise<void>
   // MCP 工具调用
   mcpCallTool: (
     serverConfig: MCPServerConfig,

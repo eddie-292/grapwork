@@ -793,6 +793,11 @@ ipcMain.handle('open-external', async (_event, url: string) => {
   await shell.openExternal(url)
 })
 
+// 在系统文件管理器中打开路径
+ipcMain.handle('open-path', async (_event, path: string) => {
+  await shell.openPath(path)
+})
+
 // 选择文件夹对话框
 ipcMain.handle('select-folder', async () => {
   const result = await dialog.showOpenDialog({

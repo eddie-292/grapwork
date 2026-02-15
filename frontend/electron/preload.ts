@@ -47,6 +47,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getGlobalMemory: () => ipcRenderer.invoke('get-global-memory'),
   saveGlobalMemory: (memory: GlobalMemory) => ipcRenderer.invoke('save-global-memory', memory),
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
+  // 在系统文件管理器中打开路径
+  openPath: (path: string) => ipcRenderer.invoke('open-path', path),
   // MCP 工具调用
   mcpCallTool: (serverConfig: MCPServerConfig, toolName: string, args: Record<string, any>) =>
     ipcRenderer.invoke('mcp-call-tool', serverConfig, toolName, args),
