@@ -876,12 +876,24 @@ ipcMain.handle('mcp-call-tool', async (_event, serverConfig: MCPServerConfig, to
     const client = await mcpManager.getClient(serverConfig)
     const result = await client.callTool(toolName, args)
 
-    // 检查结果中是否包含错误标志（SimpleCommandExecutor 可能返回）
+    // 检查结果中是否包含错误标志，提取实际错误信息
     if (result.isError) {
+      let errorContent = 'Command execution failed'
+      if (result.content) {
+        if (Array.isArray(result.content)) {
+          errorContent = result.content.map((item: any) => {
+            if (item.type === 'text') return item.text
+            return JSON.stringify(item)
+          }).join('\n')
+        } else {
+          errorContent = JSON.stringify(result.content)
+        }
+      }
+      console.error('[MCP IPC] Tool returned error:', { tool: toolName, error: errorContent })
       return {
         success: false,
         content: '',
-        error: 'Command execution failed',
+        error: errorContent,
         isError: true
       }
     }

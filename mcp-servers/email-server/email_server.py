@@ -8,6 +8,7 @@ import asyncio
 import json
 import os
 import sys
+import re
 from email import policy
 from email.header import decode_header
 from email.parser import Parser
@@ -167,7 +168,7 @@ async def list_tools() -> list[Tool]:
                 "type": "object",
                 "properties": {
                     "folder": {"type": "string", "description": "邮件所在的文件夹，默认 INBOX"},
-                    "uid": {"type": "string", "description": "邮件的 UID（从 list_emails 获取）"},
+                    "uid": {"type": ["string", "number"], "description": "邮件的 UID（从 list_emails 获取）"},
                     "mark_read": {"type": "boolean", "description": "读取后是否标记为已读，默认 true"}
                 },
                 "required": ["uid"]
@@ -180,7 +181,7 @@ async def list_tools() -> list[Tool]:
                 "type": "object",
                 "properties": {
                     "folder": {"type": "string", "description": "邮件所在的文件夹，默认 INBOX"},
-                    "uid": {"type": "string", "description": "邮件的 UID"}
+                    "uid": {"type": ["string", "number"], "description": "邮件的 UID"}
                 },
                 "required": ["uid"]
             }
@@ -193,7 +194,7 @@ async def list_tools() -> list[Tool]:
                 "properties": {
                     "source_folder": {"type": "string", "description": "源文件夹，默认 INBOX"},
                     "target_folder": {"type": "string", "description": "目标文件夹"},
-                    "uid": {"type": "string", "description": "邮件的 UID"}
+                    "uid": {"type": ["string", "number"], "description": "邮件的 UID"}
                 },
                 "required": ["uid", "target_folder"]
             }
@@ -444,7 +445,12 @@ async def handle_list_emails(args: dict) -> list[TextContent]:
                 continue
 
             status, uid_data = imap.fetch(email_id, "UID")
-            uid = uid_data[0].decode().split()[-1] if status == "OK" else email_id.decode()
+            if status == "OK":
+                uid_str = uid_data[0].decode() if isinstance(uid_data[0], bytes) else str(uid_data[0])
+                match = re.search(r'UID\s+(\d+)', uid_str)
+                uid = match.group(1) if match else email_id.decode()
+            else:
+                uid = email_id.decode()
 
             emails.append({
                 "uid": uid,
@@ -482,7 +488,7 @@ async def handle_list_emails(args: dict) -> list[TextContent]:
 async def handle_read_email(args: dict) -> list[TextContent]:
     """读取邮件内容"""
     folder = args.get("folder", "INBOX")
-    uid = args.get("uid", "")
+    uid = str(args.get("uid", ""))
     mark_read = args.get("mark_read", True)
 
     if not uid:
@@ -561,7 +567,7 @@ async def handle_read_email(args: dict) -> list[TextContent]:
 async def handle_delete_email(args: dict) -> list[TextContent]:
     """删除邮件"""
     folder = args.get("folder", "INBOX")
-    uid = args.get("uid", "")
+    uid = str(args.get("uid", ""))
 
     if not uid:
         return [TextContent(type="text", text="错误：缺少邮件 UID")]
@@ -600,7 +606,7 @@ async def handle_move_email(args: dict) -> list[TextContent]:
     """移动邮件到其他文件夹"""
     source_folder = args.get("source_folder", "INBOX")
     target_folder = args.get("target_folder", "")
-    uid = args.get("uid", "")
+    uid = str(args.get("uid", ""))
 
     if not uid or not target_folder:
         return [TextContent(type="text", text="错误：缺少 UID 或目标文件夹")]
@@ -671,7 +677,12 @@ async def handle_search_emails(args: dict) -> list[TextContent]:
             msg = Parser(policy=policy.default).parsestr(raw_email.decode("utf-8", errors="replace"))
 
             status, uid_data = imap.fetch(email_id, "UID")
-            uid = uid_data[0].decode().split()[-1] if status == "OK" else email_id.decode()
+            if status == "OK":
+                uid_str = uid_data[0].decode() if isinstance(uid_data[0], bytes) else str(uid_data[0])
+                match = re.search(r'UID\s+(\d+)', uid_str)
+                uid = match.group(1) if match else email_id.decode()
+            else:
+                uid = email_id.decode()
             flags = msg_data[0][0].decode() if isinstance(msg_data[0][0], bytes) else str(msg_data[0][0])
 
             emails.append({
