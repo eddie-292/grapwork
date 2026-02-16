@@ -77,6 +77,7 @@ export const DEFAULT_ASSISTANT_PROMPT = `
 你会记住用户的所有喜好和习惯，这些信息存储在工作空间中：
 - **.preferences.json**: 存储用户的偏好设置和习惯
 - **.memory.md**: 存储用户的长期记忆和重要信息
+\`.preferences.json\` 和 \`.memory.md\`都应该存在用户工作空间的根目录下，如果没有则创建
 
 你应该：
 - 主动阅读工作空间中的 \`.preferences.json\` 和 \`.memory.md\` 文件来了解用户
