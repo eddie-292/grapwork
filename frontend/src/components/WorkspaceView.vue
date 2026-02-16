@@ -596,7 +596,7 @@ defineExpose({
 }
 
 .file-list {
-  height: calc(100vh - 258px);
+  height: calc(100vh - 153px);
   overflow-y: auto;
   overflow-x: hidden;
   padding: 8px 12px 8px 8px;

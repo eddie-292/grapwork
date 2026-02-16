@@ -21,6 +21,7 @@ import { useMCP } from '../composables/useMCP'
 import { useSkills } from '../composables/useSkills'
 import NormalChat from './NormalChat.vue'
 import WorkspaceView from './WorkspaceView.vue'
+import ChatTabBar from './ChatTabBar.vue'
 import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
@@ -275,9 +276,6 @@ const showSidebar = ref(true)
 
 // 用户名（用于侧边栏底部显示）
 const username = ref('')
-
-// 侧边栏标签切换：'chats' 或 'workspace'
-const sidebarTab = ref<'chats' | 'workspace'>('chats')
 
 // 当前选择的文件夹路径（用于工作空间）
 const currentFolder = ref<string>('')
@@ -2714,88 +2712,8 @@ function handleFolderChanged(path: string) {
 <template>
   <div class="container">
     <aside class="sidebar" :class="{ collapsed: !showSidebar }">
-      <div class="sidebar-header">
-        <button class="new-chat-btn" @click="createNewChat()">
-          <span class="plus-icon">+</span>
-          新对话
-        </button>
-        <!-- <button class="toggle-sidebar-btn" @click="showSidebar = !showSidebar" title="收起/展开侧边栏">
-          <ChevronLeftIcon v-if="showSidebar" :size="14" />
-          <ChevronRightIcon v-else :size="14" />
-        </button> -->
-      </div>
-
-      <!-- 侧边栏标签切换 -->
-      <div class="sidebar-tabs">
-        <button
-          :class="['sidebar-tab', { active: sidebarTab === 'chats' }]"
-          @click="sidebarTab = 'chats'"
-        >
-          <svg class="tab-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M12 6v6l4 2"/>
-          </svg>
-          会话
-        </button>
-        <button
-          :class="['sidebar-tab', { active: sidebarTab === 'workspace' }]"
-          @click="sidebarTab = 'workspace'"
-        >
-          <svg class="tab-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-          </svg>
-          工作空间
-        </button>
-      </div>
-
-      <!-- 会话列表内容 -->
-      <div v-show="sidebarTab === 'chats'" class="chat-list">
-        <!-- ============ TASK MODE - DISABLED ============ -->
-        <!-- 根据当前模式显示对应会话 -->
-        <!-- <div class="chat-group">
-          <div class="chat-group-title">{{ taskMode ? '任务模式' : '普通会话' }}</div>
-          <div
-            v-for="chat in (taskMode ? taskModeChats : normalChats)"
-            :key="chat.id"
-            :class="['chat-item', { active: chat.id === currentChatId }]"
-            @click="switchChat(chat.id)"
-          >
-            <div class="chat-title">{{ chat.title }}</div>
-            <button class="delete-chat-btn" @click="deleteChat(chat.id, $event)" title="删除对话">
-              ✕
-            </button>
-          </div>
-        </div>
-
-        <div v-if="(taskMode ? taskModeChats : normalChats).length === 0" class="empty-state">
-          暂无对话
-        </div> -->
-        <!-- ============================================= -->
-
-        <!-- 普通会话列表 -->
-        <div class="chat-group">
-          <div class="chat-group-title">普通会话</div>
-          <div
-            v-for="chat in normalChats"
-            :key="chat.id"
-            :class="['chat-item', { active: chat.id === currentChatId }]"
-            @click="switchChat(chat.id)"
-          >
-            <div class="chat-title">{{ chat.title }}</div>
-            <button class="delete-chat-btn" @click="deleteChat(chat.id, $event)" title="删除对话">
-              ✕
-            </button>
-          </div>
-        </div>
-
-        <!-- 空状态提示 -->
-        <div v-if="normalChats.length === 0" class="empty-state">
-          暂无对话
-        </div>
-      </div>
-
       <!-- 工作空间内容 -->
-      <div v-show="sidebarTab === 'workspace'" class="workspace-wrapper">
+      <div class="workspace-wrapper">
         <WorkspaceView :current-folder="currentFolder" />
       </div>
 
@@ -2821,35 +2739,15 @@ function handleFolderChanged(path: string) {
       <!-- ============ TASK MODE - DISABLED ============ -->
       <!-- <div class="content-area" :class="{ 'with-task-panel': taskMode }"> -->
       <div class="content-area">
+        <!-- 标签栏 -->
+        <ChatTabBar
+          :chat-list="normalChats"
+          :current-chat-id="currentChatId"
+          @switch-chat="switchChat"
+          @delete-chat="deleteChat"
+          @create-chat="createNewChat"
+        />
       <!-- ============================================= -->
-        <header class="header">
-        <div class="header-inner">
-          <button class="sidebar-toggle" @click="showSidebar = !showSidebar" v-if="!showSidebar" title="展开侧边栏">
-            <span>OpenChat Desktop</span>
-          </button>
-          <div class="brand" v-if="showSidebar" >
-            <div class="brand-dot" />
-            <span>OpenChat Desktop</span>
-          </div>
-          <!-- ============ TASK MODE - DISABLED ============ -->
-          <!-- 任务模式/普通模式切换器 -->
-          <!-- <div class="mode-switcher" v-if="currentChatId">
-            <button
-              :class="['mode-switcher-btn', { active: !taskMode }]"
-              @click="switchMode(false)"
-            >
-              普通
-            </button>
-            <button
-              :class="['mode-switcher-btn', { active: taskMode }]"
-              @click="switchMode(true)"
-            >
-              任务
-            </button>
-          </div> -->
-          <!-- ============================================= -->
-        </div>
-      </header>
       <!-- 普通会话模式 -->
       <NormalChat
         :messages="messages"
