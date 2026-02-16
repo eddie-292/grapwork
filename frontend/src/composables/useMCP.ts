@@ -18,6 +18,214 @@ const isElectronEnv =
   typeof navigator !== 'undefined' &&
   navigator.userAgent.toLowerCase().includes('electron')
 
+/**
+ * 尝试修复 LLM 生成的损坏 JSON 字符串
+ * 主要处理：未转义的引号、换行符等
+ */
+function tryFixJsonString(jsonStr: string): string {
+  // 如果已经是有效的 JSON，直接返回
+  try {
+    JSON.parse(jsonStr)
+    return jsonStr
+  } catch {
+    // 继续修复
+  }
+
+  // 策略1: 尝试提取并修复 content 字段的值
+  // 匹配 "content": "..." 模式，其中 ... 可能包含未转义的字符
+  const contentMatch = jsonStr.match(/"content"\s*:\s*"/)
+  if (contentMatch && contentMatch.index !== undefined) {
+    const startIndex = contentMatch.index + contentMatch[0].length
+    let depth = 0
+    let inString = true
+    let escapeNext = false
+    let endIndex = startIndex
+
+    // 从 content 值开始，找到正确的结束位置
+    for (let i = startIndex; i < jsonStr.length; i++) {
+      const char = jsonStr[i]
+
+      if (escapeNext) {
+        escapeNext = false
+        continue
+      }
+
+      if (char === '\\' && inString) {
+        escapeNext = true
+        continue
+      }
+
+      if (char === '"') {
+        // 检查这是否是对象的结束引号
+        // 查看后面的非空白字符
+        let j = i + 1
+        while (j < jsonStr.length && /\s/.test(jsonStr[j])) j++
+
+        if (j >= jsonStr.length || jsonStr[j] === '}' || jsonStr[j] === ',') {
+          // 这可能是结束引号
+          endIndex = i
+          break
+        }
+        // 否则这是内容中的引号，需要转义
+      }
+    }
+
+    // 如果找到了结束位置，尝试修复
+    if (endIndex > startIndex) {
+      let contentValue = jsonStr.slice(startIndex, endIndex)
+      // 转义内容中的特殊字符
+      contentValue = contentValue
+        .replace(/\\/g, '\\\\')  // 先转义反斜杠
+        .replace(/"/g, '\\"')     // 转义双引号
+        .replace(/\n/g, '\\n')    // 转义换行符
+        .replace(/\r/g, '\\r')    // 转义回车符
+        .replace(/\t/g, '\\t')    // 转义制表符
+
+      const fixed = jsonStr.slice(0, startIndex) + contentValue + jsonStr.slice(endIndex)
+      return fixed
+    }
+  }
+
+  // 策略2: 尝试更宽松的修复 - 找到最后一个有效的结构
+  // 查找最后一个 } 并尝试截断
+  let lastBrace = jsonStr.lastIndexOf('}')
+  if (lastBrace > 0) {
+    // 尝试从最后一个 } 截断并添加缺失的内容
+    let truncated = jsonStr.slice(0, lastBrace + 1)
+
+    // 计算需要添加多少个 }
+    let openBraces = 0
+    let inStr = false
+    let escape = false
+
+    for (let i = 0; i < truncated.length; i++) {
+      const c = truncated[i]
+      if (escape) {
+        escape = false
+        continue
+      }
+      if (c === '\\') {
+        escape = true
+        continue
+      }
+      if (c === '"') {
+        inStr = !inStr
+        continue
+      }
+      if (!inStr) {
+        if (c === '{') openBraces++
+        else if (c === '}') openBraces--
+      }
+    }
+
+    // 如果还有未闭合的引号，尝试闭合
+    if (inStr) {
+      truncated += '"'
+    }
+
+    // 添加缺失的 }
+    while (openBraces > 0) {
+      truncated += '}'
+      openBraces--
+    }
+
+    return truncated
+  }
+
+  return jsonStr
+}
+
+/**
+ * 安全解析工具调用参数
+ * 先尝试直接解析，失败后尝试修复再解析
+ */
+function safeParseToolArguments(argsStr: string): { success: boolean; args: Record<string, any>; error?: string } {
+  // 第一次尝试：直接解析
+  try {
+    return { success: true, args: JSON.parse(argsStr) }
+  } catch (firstError) {
+    console.warn('[MCP] First JSON parse attempt failed, trying to fix...', firstError)
+  }
+
+  // 第二次尝试：修复后解析
+  try {
+    const fixedStr = tryFixJsonString(argsStr)
+    const args = JSON.parse(fixedStr)
+    console.log('[MCP] JSON fixed successfully')
+    return { success: true, args }
+  } catch (secondError) {
+    console.error('[MCP] JSON fix attempt also failed:', secondError)
+  }
+
+  // 第三次尝试：使用正则提取关键字段
+  try {
+    const extractedArgs: Record<string, any> = {}
+
+    // 提取 file_path
+    const filePathMatch = argsStr.match(/"file_path"\s*:\s*"([^"]*)"/)
+    if (filePathMatch) {
+      extractedArgs.file_path = filePathMatch[1]
+    }
+
+    // 提取 content (可能很长，使用更宽松的匹配)
+    const contentStartMatch = argsStr.match(/"content"\s*:\s*"/)
+    if (contentStartMatch && contentStartMatch.index !== undefined) {
+      const startIndex = contentStartMatch.index + contentStartMatch[0].length
+      // 找到 content 的结束 - 查找 "file_path" 或字符串结尾或 },
+      let content = ''
+      let i = startIndex
+      let lastValidEnd = startIndex
+
+      while (i < argsStr.length) {
+        if (argsStr[i] === '\\' && i + 1 < argsStr.length) {
+          content += argsStr[i] + argsStr[i + 1]
+          i += 2
+          continue
+        }
+        if (argsStr[i] === '"') {
+          // 检查是否是字段结束
+          let j = i + 1
+          while (j < argsStr.length && /\s/.test(argsStr[j])) j++
+          if (j >= argsStr.length || argsStr[j] === '}' || argsStr[j] === ',') {
+            lastValidEnd = i
+            break
+          }
+        }
+        content += argsStr[i]
+        lastValidEnd = i
+        i++
+      }
+
+      // 提取内容，处理转义
+      extractedArgs.content = argsStr.slice(startIndex, lastValidEnd)
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '\r')
+        .replace(/\\t/g, '\t')
+        .replace(/\\"/g, '"')
+        .replace(/\\\\/g, '\\')
+    }
+
+    // 提取 command
+    const commandMatch = argsStr.match(/"command"\s*:\s*"([^"]*)"/)
+    if (commandMatch) {
+      extractedArgs.command = commandMatch[1]
+    }
+
+    if (Object.keys(extractedArgs).length > 0) {
+      console.log('[MCP] Extracted args using regex fallback:', extractedArgs)
+      return { success: true, args: extractedArgs }
+    }
+  } catch (regexError) {
+    console.error('[MCP] Regex extraction failed:', regexError)
+  }
+
+  return {
+    success: false,
+    args: {},
+    error: `Failed to parse tool call arguments as JSON: ${argsStr.slice(0, 200)}...`
+  }
+}
+
 // 风险命令确认回调类型
 export type CommandConfirmCallback = (command: string, reason: string) => Promise<boolean>
 
@@ -567,17 +775,16 @@ export function useMCP() {
     try {
       // 首先检查是否是内置文件操作工具
       if (isBuiltinFileTool(toolCall.function.name)) {
-        // 解析参数
-        let args: Record<string, any> = {}
-        try {
-          args = JSON.parse(toolCall.function.arguments)
-        } catch (e) {
+        // 解析参数（使用安全解析函数）
+        const parseResult = safeParseToolArguments(toolCall.function.arguments)
+        if (!parseResult.success) {
           return {
             toolCallId: toolCall.id,
             content: '',
-            error: `工具参数解析失败: ${e}`
+            error: parseResult.error || '工具参数解析失败'
           }
         }
+        const args = parseResult.args
 
         // 如果是 execute_command，检查是否为风险命令并需要确认
         if (toolCall.function.name === 'execute_command' && args.command) {
@@ -659,17 +866,16 @@ export function useMCP() {
         }
       }
 
-      // 解析参数
-      let args: Record<string, any> = {}
-      try {
-        args = JSON.parse(toolCall.function.arguments)
-      } catch (e) {
+      // 解析参数（使用安全解析函数）
+      const parseResult = safeParseToolArguments(toolCall.function.arguments)
+      if (!parseResult.success) {
         return {
           toolCallId: toolCall.id,
           content: '',
-          error: `工具参数解析失败: ${e}`
+          error: parseResult.error || '工具参数解析失败'
         }
       }
+      const args = parseResult.args
 
       // 通过 Electron 主进程执行工具调用
       console.log('[MCP] Executing tool:', {
