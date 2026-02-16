@@ -28,7 +28,7 @@ const emit = defineEmits<{
 const iconComponent = computed(() => {
   switch (props.type) {
     case 'danger':
-      return DeleteIcon
+      return AlertTriangleIcon
     case 'warning':
       return AlertTriangleIcon
     case 'info':
