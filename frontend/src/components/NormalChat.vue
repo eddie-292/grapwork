@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
@@ -77,6 +77,8 @@ const htmlPreviewContent = ref('')
 const selectedFolderPath = ref<string>('')
 // 文件夹对话框状态
 const showFolderDialog = ref(false)
+// 设置弹出框状态
+const showSettingsPopover = ref(false)
 
 // 提取关键词的简单函数
 function extractKeywords(content: string): string[] {
@@ -301,6 +303,33 @@ function changeConfig(e: Event) {
   emit('change-config', target.value)
 }
 
+// 处理助手和模型选择变化（关闭弹出框）
+function handleAssistantChange(e: Event) {
+  changeAssistant(e)
+  showSettingsPopover.value = false
+}
+
+function handleConfigChange(e: Event) {
+  changeConfig(e)
+  showSettingsPopover.value = false
+}
+
+// 计算当前助手名称
+const currentAssistantName = computed(() => {
+  const assistantId = props.currentChat?.assistantId
+  if (!assistantId) return 'EddieLab-Agent'
+  const assistant = props.assistantList.assistants.find((a: any) => a.id === assistantId)
+  return assistant?.name || 'EddieLab-Agent'
+})
+
+// 计算当前模型名称
+const currentConfigName = computed(() => {
+  const configId = props.currentChat?.configId
+  if (configId === undefined || configId === null || configId === '') return '默认'
+  const config = props.configList.configs[configId]
+  return config?.name || config?.model || '默认'
+})
+
 // ============ TASK MODE - DISABLED ============
 // function toggleTaskMode(e: Event) {
 //   const target = e.target as HTMLInputElement
@@ -317,6 +346,14 @@ function openHtmlPreview(base64Code: string) {
   showHtmlPreview.value = true
 }
 
+// 点击外部关闭设置弹出框
+function handleClickOutside(e: MouseEvent) {
+  const target = e.target as HTMLElement
+  if (!target.closest('.settings-wrapper')) {
+    showSettingsPopover.value = false
+  }
+}
+
 // 组件挂载时设置全局函数，卸载时清理
 onMounted(async () => {
   ;(window as any).previewHtml = function (btn: HTMLElement) {
@@ -328,10 +365,14 @@ onMounted(async () => {
   if (savedFolder) {
     selectedFolderPath.value = savedFolder
   }
+  // 添加点击外部关闭弹出框的事件监听
+  document.addEventListener('click', handleClickOutside)
 })
 
 onUnmounted(() => {
   delete (window as any).previewHtml
+  // 移除事件监听
+  document.removeEventListener('click', handleClickOutside)
 })
 
 // 链接点击处理
@@ -517,33 +558,57 @@ defineExpose({
           <span class="token-value">{{ formatTokenCount(usage.totalTokens) }}</span>
           <span class="token-detail">({{ formatTokenCount(usage.promptTokens) }} → {{ formatTokenCount(usage.completionTokens) }})</span>
         </div>
-        <select
-          :disabled="(currentChat?.messages?.length ?? 0) > 0"
-          :value="currentChat?.assistantId || ''"
-          @change="changeAssistant"
-          class="assistant-select"
-        >
-          <option value="">EddieLab-Agent</option>
-          <option v-for="assistant in assistantList.assistants" :key="assistant.id" :value="assistant.id">
-            {{ assistant.name }}
-          </option>
-        </select>
-        <select :value="currentChat?.configId ?? ''" @change="changeConfig" class="config-select">
-          <option value="">选择模型</option>
-          <option v-for="(config, index) in configList.configs" :key="index" :value="index">
-            {{ config.name || config.model }}
-          </option>
-        </select>
-        <!-- 参数配置按钮 -->
-        <button
-          type="button"
-          class="params-btn"
-          @click="openParamsDialog"
-          title="对话参数配置"
-          :disabled="!currentChat"
-        >
-          参数
-        </button>
+        <!-- 设置按钮和参数按钮组 -->
+        <div class="controls-group">
+          <!-- 设置按钮（包含助手和模型选择） -->
+          <div class="settings-wrapper">
+            <button
+              type="button"
+              class="settings-btn"
+              @click.stop="showSettingsPopover = !showSettingsPopover"
+              :title="`${currentAssistantName} / ${currentConfigName}`"
+            >
+              <span class="settings-label">{{ currentAssistantName }} / {{ currentConfigName }}</span>
+              <span class="settings-arrow" :class="{ open: showSettingsPopover }">▲</span>
+            </button>
+            <!-- 设置弹出框 -->
+            <div v-if="showSettingsPopover" class="settings-popover" @click.stop>
+              <div class="popover-li">
+                <label>助手</label>
+                <select
+                  :disabled="(currentChat?.messages?.length ?? 0) > 0"
+                  :value="currentChat?.assistantId || ''"
+                  @change="handleAssistantChange"
+                  class="popover-select"
+                >
+                  <option value="">EddieLab-Agent</option>
+                  <option v-for="assistant in assistantList.assistants" :key="assistant.id" :value="assistant.id">
+                    {{ assistant.name }}
+                  </option>
+                </select>
+              </div>
+              <div class="popover-li">
+                <label>模型</label>
+                <select :value="currentChat?.configId ?? ''" @change="handleConfigChange" class="popover-select">
+                  <option value="">选择模型</option>
+                  <option v-for="(config, index) in configList.configs" :key="index" :value="index">
+                    {{ config.name || config.model }}
+                  </option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <!-- 参数配置按钮 -->
+          <button
+            type="button"
+            class="params-btn"
+            @click="openParamsDialog"
+            title="对话参数配置"
+            :disabled="!currentChat"
+          >
+            参数
+          </button>
+        </div>
       </div>
 
       <div class="composer">
@@ -883,7 +948,102 @@ defineExpose({
   font-size: 12px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
+}
+
+.controls-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* 设置按钮样式 */
+.settings-wrapper {
+  position: relative;
+}
+
+.settings-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--color-text-primary);
+  max-width: 200px;
+}
+
+.settings-btn:hover {
+  background: var(--color-bg-primary);
+  border-color: var(--color-border-hover);
+}
+
+.settings-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-arrow {
+  font-size: 10px;
+  color: var(--color-text-secondary);
+  transition: transform 0.2s;
+}
+
+.settings-arrow.open {
+  transform: rotate(180deg);
+}
+
+/* 设置弹出框样式 */
+.settings-popover {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  right: 0;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px;
+  min-width: 200px;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+}
+
+.popover-li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.popover-li + .popover-li {
+  margin-top: 12px;
+}
+
+.popover-li label {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.popover-select {
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--color-text-primary);
+}
+
+.popover-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
 }
 
 .token-stats {
@@ -1057,7 +1217,6 @@ defineExpose({
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
-  margin-left: auto;
 }
 
 .params-btn:hover:not(:disabled) {
