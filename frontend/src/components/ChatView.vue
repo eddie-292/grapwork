@@ -147,6 +147,13 @@ const DEFAULT_CHAT_PARAMS: ChatParams = {
   frequency_penalty: 0,
 }
 
+// Token 使用统计类型
+type TokenUsage = {
+  promptTokens: number      // 输入 token 数
+  completionTokens: number  // 输出 token 数
+  totalTokens: number       // 总 token 数
+}
+
 type Chat = {
   id: string
   title: string
@@ -156,6 +163,7 @@ type Chat = {
   configId?: number
   sending?: boolean  // 当前会话的发送状态
   params?: ChatParams  // 对话级别的参数配置
+  usage?: TokenUsage   // 累计的 token 使用统计
   // ============ TASK MODE - DISABLED ============
   // isTaskMode?: boolean
   // taskList?: {
@@ -1463,6 +1471,7 @@ async function executeNormalChat(text: string) {
           model: activeConfig.value.model,
           messages: messagesToSend,
           stream: true,
+          stream_options: { include_usage: true },  // 启用 token 使用统计
           ...(mcpTools.length > 0 ? { tools: mcpTools } : {}),
           ...validParams,
           ...extraBodyParams,
@@ -1604,6 +1613,26 @@ async function executeNormalChat(text: string) {
                 }
               }
             }
+          }
+
+          // 解析 token 使用统计（流式响应的最后一个 chunk 包含 usage）
+          const usage = json?.usage
+          if (usage && currentChat.value) {
+            const promptTokens = usage.prompt_tokens ?? 0
+            const completionTokens = usage.completion_tokens ?? 0
+            const totalTokens = usage.total_tokens ?? 0
+
+            // 累加到会话的 usage 统计
+            if (!currentChat.value.usage) {
+              currentChat.value.usage = {
+                promptTokens: 0,
+                completionTokens: 0,
+                totalTokens: 0
+              }
+            }
+            currentChat.value.usage.promptTokens += promptTokens
+            currentChat.value.usage.completionTokens += completionTokens
+            currentChat.value.usage.totalTokens += totalTokens
           }
         } catch {
         }
@@ -2758,6 +2787,7 @@ function handleFolderChanged(path: string) {
         :current-chat="currentChat"
         :assistant-list="assistantList"
         :config-list="configList"
+        :usage="currentChat?.usage"
         @send="send"
         @cancel="cancel"
         @update:input="input = $event"

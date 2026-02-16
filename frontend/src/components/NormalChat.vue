@@ -28,6 +28,13 @@ export type Message = {
   isError?: boolean
 }
 
+// Token 使用统计类型
+export type TokenUsage = {
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+}
+
 // Props
 interface Props {
   messages: Message[]
@@ -38,6 +45,7 @@ interface Props {
   currentChat: any
   assistantList: any
   configList: any
+  usage?: TokenUsage  // 添加 token 使用统计
 }
 
 const props = defineProps<Props>()
@@ -377,6 +385,17 @@ async function handleClearFolder() {
   showFolderDialog.value = false
 }
 
+// 格式化 token 数量显示
+function formatTokenCount(count: number): string {
+  if (count >= 1000000) {
+    return (count / 1000000).toFixed(1) + 'M'
+  }
+  if (count >= 1000) {
+    return (count / 1000).toFixed(1) + 'K'
+  }
+  return count.toString()
+}
+
 // Expose functions for parent component
 defineExpose({
   scrollToBottom: () => {
@@ -492,6 +511,12 @@ defineExpose({
     </div>
     <form class="inputbar" @submit.prevent="handleSend">
       <div class="model-bar">
+        <!-- Token 使用统计显示 -->
+        <div v-if="usage && usage.totalTokens > 0" class="token-stats" :title="`输入: ${usage.promptTokens} | 输出: ${usage.completionTokens}`">
+          <span class="token-label">Tokens:</span>
+          <span class="token-value">{{ formatTokenCount(usage.totalTokens) }}</span>
+          <span class="token-detail">({{ formatTokenCount(usage.promptTokens) }} → {{ formatTokenCount(usage.completionTokens) }})</span>
+        </div>
         <select
           :disabled="(currentChat?.messages?.length ?? 0) > 0"
           :value="currentChat?.assistantId || ''"
@@ -859,6 +884,33 @@ defineExpose({
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.token-stats {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 12px;
+  margin-right: auto;
+}
+
+.token-label {
+  color: var(--color-text-tertiary);
+}
+
+.token-value {
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.token-detail {
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+  margin-left: 2px;
 }
 
 .assistant-select {
