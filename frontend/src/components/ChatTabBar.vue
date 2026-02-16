@@ -271,9 +271,6 @@ function switchToResult(chatId: string) {
   font-size: 12px;
   color: var(--color-text-tertiary, #888);
   padding: 2px 6px;
-  background: var(--color-bg-primary, #ffffff);
-  border-radius: 10px;
-  border: 1px solid var(--color-border, #e5e5e5);
   min-width: 20px;
   text-align: center;
 }
