@@ -1,0 +1,16 @@
+[project]
+name = "time-mcp-server"
+version = "1.0.0"
+description = "MCP server for time operations - timezone conversion, time calculation, formatting"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=1.0.0",
+]
+
+[project.scripts]
+time_server = "time_server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
