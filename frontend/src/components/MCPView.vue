@@ -294,6 +294,112 @@ async function handleRefreshTools(server: MCPServer) {
 function canFetchTools(server: MCPServer): boolean {
   return !server.simpleCommand && server.enabled
 }
+
+// 导出 MCP 配置
+function exportMCPConfig() {
+  if (serverList.value.servers.length === 0) {
+    alert('没有可导出的 MCP 服务器配置')
+    return
+  }
+
+  // 创建导出数据（只导出服务器列表，不包含激活状态）
+  const exportData = {
+    servers: serverList.value.servers.map(server => ({
+      name: server.name,
+      description: server.description,
+      transportType: server.transportType,
+      enabled: server.enabled,
+      simpleCommand: server.simpleCommand,
+      command: server.command,
+      args: server.args,
+      env: server.env,
+      url: server.url,
+      tools: server.tools
+    })),
+    exportedAt: Date.now(),
+    version: '1.0'
+  }
+
+  // 创建并下载文件
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `mcp-config-${new Date().toISOString().slice(0, 10)}.json`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+// 导入 MCP 配置
+async function importMCPConfig() {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = '.json'
+
+  input.onchange = async (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0]
+    if (!file) return
+
+    try {
+      const text = await file.text()
+      const data = JSON.parse(text)
+
+      // 验证格式
+      if (!data.servers || !Array.isArray(data.servers)) {
+        alert('无效的 MCP 配置文件格式')
+        return
+      }
+
+      // 统计导入信息
+      const importCount = data.servers.length
+      const existingNames = new Set(serverList.value.servers.map(s => s.name))
+      const newServers = data.servers.filter((s: any) => !existingNames.has(s.name))
+      const duplicateCount = importCount - newServers.length
+
+      // 确认导入
+      let message = `即将导入 ${importCount} 个 MCP 服务器配置`
+      if (duplicateCount > 0) {
+        message += `\n\n其中 ${duplicateCount} 个与现有配置同名（将被跳过）`
+      }
+      message += `\n\n是否继续？`
+
+      if (!confirm(message)) {
+        return
+      }
+
+      // 添加新服务器
+      let addedCount = 0
+      for (const serverData of newServers) {
+        try {
+          await addServer({
+            name: serverData.name,
+            description: serverData.description,
+            transportType: serverData.transportType,
+            enabled: serverData.enabled ?? true,
+            simpleCommand: serverData.simpleCommand,
+            command: serverData.command,
+            args: serverData.args,
+            env: serverData.env,
+            url: serverData.url,
+            tools: serverData.tools
+          })
+          addedCount++
+        } catch (err) {
+          console.error('Failed to import server:', serverData.name, err)
+        }
+      }
+
+      alert(`成功导入 ${addedCount} 个 MCP 服务器配置`)
+    } catch (err) {
+      console.error('Import failed:', err)
+      alert('导入失败：文件解析错误')
+    }
+  }
+
+  input.click()
+}
 </script>
 
 <template>
@@ -301,7 +407,11 @@ function canFetchTools(server: MCPServer): boolean {
     <header class="mcp-header">
       <button class="back-btn" @click="goBack">返回</button>
       <h1>MCP 服务器</h1>
-      <button class="add-btn" @click="openAddForm">+ 添加服务器</button>
+      <div class="header-actions">
+        <button class="btn secondary small" @click="importMCPConfig" :disabled="loading">导入</button>
+        <button class="btn secondary small" @click="exportMCPConfig" :disabled="loading || serverList.servers.length === 0">导出</button>
+        <button class="add-btn" @click="openAddForm">+ 添加服务器</button>
+      </div>
     </header>
 
     <!-- 添加服务器表单 -->
@@ -697,6 +807,12 @@ function canFetchTools(server: MCPServer): boolean {
   font-size: 20px;
   font-weight: 600;
   color: var(--color-text-primary);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* back-btn and add-btn styles moved to global style.css */
