@@ -10,6 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Assistant System**: Custom AI assistant/system prompt management
 - **MCP Support**: Model Context Protocol integration for extensible tool/function calling with STDIO/SSE transports
 - **Unified Storage**: Pluggable storage backend system (LocalStorage, FileSystem, HTTP) with type-safe APIs
+- **Skills System**: Domain knowledge packages that can be injected into AI context (SKILL.md files with frontmatter)
 
 ## Development Commands
 
@@ -36,6 +37,14 @@ For the optional web server (`/server`):
 ```bash
 npm run dev  # Runs Fastify server on port 8787
 ```
+
+**Server Configuration:**
+- Requires `OPENAI_API_KEY` environment variable
+- Default port: 8787 (override with `PORT` env var)
+- Endpoints:
+  - `GET /api/health` - Health check
+  - `POST /api/chat/completions` - Full OpenAI-compatible endpoint (supports task mode with extra params)
+  - `POST /api/chat` - Simple chat endpoint (streaming only)
 
 ## Architecture
 
@@ -65,7 +74,7 @@ frontend/
 │   │   ├── NormalChat.vue           # Standard chat mode component
 │   │   ├── TaskModePanel.vue        # Task list display and controls
 │   │   ├── WorkspaceView.vue        # Workspace/file browser component
-│   │   ├── SettingsView.vue         # Unified settings (tabs: LLM, assistants, memory, MCP, theme)
+│   │   ├── SettingsView.vue         # Unified settings (tabs: LLM, assistants, memory, MCP, skills, theme)
 │   │   ├── AssistantView.vue        # Assistant system prompt management
 │   │   ├── MCPView.vue              # MCP server configuration management
 │   │   ├── LoginView.vue            # Authentication entry point
@@ -73,7 +82,8 @@ frontend/
 │   │   ├── ChangelogView.vue        # Update changelog display
 │   │   ├── settings/
 │   │   │   ├── LLMConfigPanel.vue       # LLM API configuration form
-│   │   │   └── CodeHighlightThemePanel.vue  # Code theme selection
+│   │   │   ├── CodeHighlightThemePanel.vue  # Code theme selection
+│   │   │   └── SkillsPanel.vue          # Skills management UI
 │   │   ├── GlobalMemoryFormDialog.vue
 │   │   ├── SaveToGlobalMemoryDialog.vue
 │   │   ├── ConfirmDialog.vue        # Generic confirmation dialog
@@ -82,7 +92,8 @@ frontend/
 │   │   ├── useTaskMode.ts           # Task planning, execution, retry logic
 │   │   ├── useWorkingMemory.ts      # Per-chat task memory
 │   │   ├── useGlobalMemory.ts       # Global knowledge storage
-│   │   └── useMCP.ts                # MCP server management
+│   │   ├── useMCP.ts                # MCP server management
+│   │   └── useSkills.ts             # Skills management
 │   ├── services/
 │   │   ├── StorageService.ts        # Unified storage layer (singleton)
 │   │   └── storage/
@@ -94,6 +105,7 @@ frontend/
 │   │   ├── globalMemory.ts          # Global memory type definitions
 │   │   ├── storage.ts               # Storage service type definitions
 │   │   ├── mcp.ts                   # MCP (Model Context Protocol) types
+│   │   ├── skill.ts                 # Skills system types
 │   │   ├── chat.ts                  # Chat message types
 │   │   └── electron.d.ts            # Electron IPC API types
 │   └── router/
@@ -136,6 +148,40 @@ Key types:
 - `GlobalMemory`: Container with entries array and version tracking
 - `GlobalMemoryType`: Enum of memory categories
 
+### Skills System Architecture
+
+Domain knowledge packages that can be injected into AI context:
+
+1. **Skill Locations** (priority order, higher = higher priority):
+   - `USER`: User-created skills in app data directory (read-write)
+   - `INSTALLED`: Installed via `npx skills add`, stored in `~/.agents/skills` (read-only in app)
+   - `PUBLIC`: System built-in skills (read-only)
+   - `EXAMPLES`: Example skills (read-only)
+
+2. **Skill Structure**:
+   - `SKILL.md` file with YAML frontmatter (name, description, version, author, tags, triggers)
+   - Optional scripts, references, and assets
+
+3. **Context Levels**:
+   - L1: Name + description only (lightweight listing)
+   - L2: Full SKILL.md body content (loaded on demand)
+   - L3: All assets including scripts and references
+
+**Flow**: `SettingsView.vue` (skills tab) → `useSkills.ts` → IPC → main process file operations
+
+Key types in `types/skill.ts`:
+- `SkillFrontmatter`: Parsed SKILL.md frontmatter
+- `SkillMetadata`: Skill metadata with runtime state (id, path, enabled, hasError)
+- `Skill`: Complete skill with body content
+- `SkillRegistry`: Stored skills and active skill IDs
+
+**IPC Handlers** (main.ts):
+- `skills-scan`: Scan all skill directories
+- `skills-load`: Load skill body by ID
+- `skills-create`: Create new user skill
+- `skills-update`: Update skill body (user location only)
+- `skills-delete`: Delete skill (user location only)
+
 ### MCP (Model Context Protocol) Architecture
 
 Extensible tool/function calling system that integrates with OpenAI-compatible APIs:
@@ -163,6 +209,12 @@ Usage pattern:
 - MCP tools are automatically injected into API requests as `tools` array
 - LLM responses with `tool_calls` are executed via configured MCP servers
 - Tool results are appended as `role: 'tool'` messages for context
+
+**MCP Server Examples** (`mcp-servers/` directory):
+- `email-server/`: Python-based email MCP server (SMTP/IMAP)
+  - Run with: `uvx --from ./mcp-servers/email-server email_server`
+  - Configure via environment variables (see `.env.example`)
+  - See `mcp-servers/email-server/README.md` for setup details
 
 ### Storage Service Architecture
 
@@ -371,7 +423,7 @@ Uses hash-based routing with auth guard checking `storage.getIsLoggedIn()`. Rout
 - `/environment-check`: Environment check page (no auth required, skips itself)
 - `/login`: Authentication page
 - `/`: Main chat view
-- `/settings`: Unified settings page with tab query param (`?tab=assistants|memory|mcp`)
+- `/settings`: Unified settings page with tab query param (`?tab=assistants|memory|mcp|skills`)
 - Legacy routes (`/assistants`, `/global-memory`, `/mcp`) redirect to `/settings?tab=...`
 
 **Environment Check Flow**: On first launch, checks for required commands (node, npx, uvx, uv) and config directory permissions. Results cached in `sessionStorage.envCheckPassed`.
@@ -390,6 +442,14 @@ Dual build process:
 - ASAR packaging enabled (`asar: true` in electron-builder.json)
 - Dev server proxies `/api` to `localhost:8787` for optional web server mode
 
+## Code Quality
+
+**TypeScript**: Strict mode enabled with additional checks (`noUnusedLocals`, `noUnusedParameters`, `noFallthroughCasesInSwitch`, `noUncheckedSideEffectImports`).
+
+**No linting/formatting tools**: No ESLint or Prettier configured. Follow existing code patterns.
+
+**No automated tests**: Manual testing via `npm run electron:dev` is required.
+
 ## Testing the Application
 
 1. Start dev: `npm run electron:dev` (opens Electron with DevTools)
@@ -399,3 +459,9 @@ Dual build process:
 5. Test Global Memory: Add entry via dialog → Verify auto-injection in new chats
 6. Test Assistants: Create assistant → Select → Verify system prompt applied
 7. Test MCP: Configure MCP server → Enable for chat → Verify tool calling works
+8. Test Skills: Create skill → Enable → Verify skill context appears in system prompt
+
+## IDE Setup
+
+**Recommended VSCode Extension:**
+- `Vue.volar` (for Vue 3 + TypeScript support)
