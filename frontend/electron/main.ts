@@ -256,13 +256,34 @@ class MCPClient {
         const args = this.config.args || []
         const env = { ...process.env, ...this.config.env }
 
+        // 解析内置 MCP 服务器的相对路径为绝对路径
+        // __dirname 是 main.cjs 所在目录（开发时为 frontend/dist-electron，打包后为 app 目录）
+        // 项目根目录 = __dirname 的上两级（开发时）或 app 目录（打包时）
+        const projectRoot = app.isPackaged
+          ? app.getAppPath()
+          : path.resolve(__dirname, '..', '..')
+
+        const resolvedArgs = args.map(arg => {
+          // 处理 mcp-servers/ 开头的相对路径（内置服务器）
+          if (typeof arg === 'string' && arg.startsWith('mcp-servers/')) {
+            // 开发模式：projectRoot 是项目根目录，需要加上 frontend/ 前缀
+            // 打包模式：需要根据打包结构调整
+            const resolved = app.isPackaged
+              ? path.resolve(projectRoot, arg)
+              : path.resolve(projectRoot, 'frontend', arg)
+            console.log(`[MCP] Resolved path: ${arg} -> ${resolved} (projectRoot: ${projectRoot}, isPackaged: ${app.isPackaged})`)
+            return resolved
+          }
+          return arg
+        })
+
         console.log('[MCP] Starting process:', {
           command: this.config.command,
-          args,
+          args: resolvedArgs,
           env: Object.keys(env)
         })
 
-        this.process = spawn(this.config.command, args, {
+        this.process = spawn(this.config.command, resolvedArgs, {
           env,
           stdio: ['pipe', 'pipe', 'pipe']
         })

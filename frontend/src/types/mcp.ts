@@ -11,6 +11,7 @@ export interface MCPServer {
   transportType: MCPTransportType  // 传输类型
   enabled: boolean              // 是否启用
   simpleCommand?: boolean       // 是否为简单命令（非 MCP 服务器）
+  builtin?: boolean             // 是否为内置服务器（不可删除和修改）
   createdAt: number             // 创建时间
   updatedAt: number             // 更新时间
 

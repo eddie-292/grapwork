@@ -241,6 +241,10 @@ async function handleUpdateServer() {
 }
 
 function confirmDelete(server: MCPServer) {
+  if (server.builtin) {
+    alert('内置服务器不能被删除')
+    return
+  }
   serverToDelete.value = server
   showDeleteConfirm.value = true
 }
@@ -297,14 +301,16 @@ function canFetchTools(server: MCPServer): boolean {
 
 // 导出 MCP 配置
 function exportMCPConfig() {
-  if (serverList.value.servers.length === 0) {
+  // 过滤掉内置服务器
+  const userServers = serverList.value.servers.filter(s => !s.builtin)
+  if (userServers.length === 0) {
     alert('没有可导出的 MCP 服务器配置')
     return
   }
 
-  // 创建导出数据（只导出服务器列表，不包含激活状态）
+  // 创建导出数据（只导出用户服务器，不包含内置服务器）
   const exportData = {
-    servers: serverList.value.servers.map(server => ({
+    servers: userServers.map(server => ({
       name: server.name,
       description: server.description,
       transportType: server.transportType,
@@ -409,7 +415,7 @@ async function importMCPConfig() {
       <h1>MCP 服务器</h1>
       <div class="header-actions">
         <button class="btn secondary small" @click="importMCPConfig" :disabled="loading">导入</button>
-        <button class="btn secondary small" @click="exportMCPConfig" :disabled="loading || serverList.servers.length === 0">导出</button>
+        <button class="btn secondary small" @click="exportMCPConfig" :disabled="loading || serverList.servers.filter(s => !s.builtin).length === 0">导出</button>
         <button class="add-btn" @click="openAddForm">+ 添加服务器</button>
       </div>
     </header>
@@ -550,7 +556,8 @@ async function importMCPConfig() {
 
           <div class="form-group">
             <label>服务器名称 *</label>
-            <input v-model="newServerForm.name" type="text" class="input" />
+            <input v-model="newServerForm.name" type="text" class="input" :disabled="editingServer?.builtin" />
+            <small v-if="editingServer?.builtin">内置服务器名称不可修改</small>
           </div>
 
           <div class="form-group">
@@ -704,11 +711,12 @@ async function importMCPConfig() {
           v-for="server in serverList.servers"
           :key="server.id"
           class="server-card"
-          :class="{ disabled: !server.enabled, active: activeServers.some(s => s.id === server.id) }"
+          :class="{ disabled: !server.enabled, active: activeServers.some(s => s.id === server.id), builtin: server.builtin }"
         >
           <div class="card-header">
             <div class="card-title">
               <h3>{{ server.name }}</h3>
+              <span v-if="server.builtin" class="builtin-badge">内置</span>
               <span class="transport-badge">{{ getTransportLabel(server.transportType) }}</span>
             </div>
             <div class="card-status">
@@ -761,10 +769,15 @@ async function importMCPConfig() {
               class="action-btn enable-btn"
               @click="toggleServerEnabled(server.id)"
               :title="server.enabled ? '禁用' : '启用'"
+              :disabled="server.builtin"
             >
               {{ server.enabled ? '禁用' : '启用' }}
             </button>
-            <button class="action-btn edit-btn" @click="openEditForm(server)" title="编辑">
+            <button
+              class="action-btn edit-btn"
+              @click="openEditForm(server)"
+              title="编辑"
+            >
               编辑
             </button>
             <button
@@ -777,7 +790,12 @@ async function importMCPConfig() {
             >
               {{ refreshingServerId === server.id ? '刷新中...' : '刷新工具' }}
             </button>
-            <button class="action-btn delete-btn" @click="confirmDelete(server)" title="删除">
+            <button
+              v-if="!server.builtin"
+              class="action-btn delete-btn"
+              @click="confirmDelete(server)"
+              title="删除"
+            >
               删除
             </button>
           </div>
@@ -873,6 +891,10 @@ async function importMCPConfig() {
   border-width: 2px;
 }
 
+.server-card.builtin {
+  border-left: 3px solid var(--color-primary);
+}
+
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -899,6 +921,15 @@ async function importMCPConfig() {
   padding: 4px 10px;
   background: var(--color-bg-tertiary);
   color: var(--color-text-secondary);
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+.builtin-badge {
+  font-size: 12px;
+  padding: 4px 10px;
+  background: #dbeafe;
+  color: #1d4ed8;
   border-radius: 999px;
   font-weight: 500;
 }

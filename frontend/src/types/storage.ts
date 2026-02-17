@@ -28,6 +28,8 @@ export enum StorageKey {
 
   // MCP (Model Context Protocol) 服务器配置
   MCP_SERVER_LIST = 'mcp-server-list',
+  BUILTIN_MCP_TOOLS = 'builtin-mcp-tools',  // 内置服务器的工具列表
+  BUILTIN_MCP_CONFIG = 'builtin-mcp-config',  // 内置服务器的配置覆盖
 
   // 选中的文件夹路径
   SELECTED_FOLDER = 'selected-folder',

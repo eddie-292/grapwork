@@ -4,6 +4,7 @@
  */
 import { ref, computed, toRaw } from 'vue'
 import { storage } from '@/services/StorageService'
+import { StorageKey } from '@/types/storage'
 import type {
   MCPServer,
   MCPServerList,
@@ -17,6 +18,34 @@ import type {
 const isElectronEnv =
   typeof navigator !== 'undefined' &&
   navigator.userAgent.toLowerCase().includes('electron')
+
+// 内置 MCP 服务器配置
+// 注意：路径相对于 app.getAppPath()（开发时为项目根目录，打包后为 app 目录）
+// 使用 python 直接运行，需要预先安装依赖：pip install -r requirements.txt
+const BUILTIN_MCP_SERVERS: Omit<MCPServer, 'createdAt' | 'updatedAt'>[] = [
+  {
+    id: 'builtin-email-server',
+    name: 'Email Server',
+    description: '邮件收发 MCP 服务器，支持发送、接收、搜索邮件等功能。需要配置 .env 文件设置邮件服务。',
+    transportType: 'stdio' as const,
+    enabled: true,
+    builtin: true,
+    command: 'python',
+    args: ['mcp-servers/email-server/email_server.py'],
+    tools: []
+  },
+  {
+    id: 'builtin-time-server',
+    name: 'Time Server',
+    description: '时间工具 MCP 服务器，提供时区转换、时间计算、格式化等功能。',
+    transportType: 'stdio' as const,
+    enabled: true,
+    builtin: true,
+    command: 'python',
+    args: ['mcp-servers/time-server/time_server.py'],
+    tools: []
+  }
+]
 
 /**
  * 尝试修复 LLM 生成的损坏 JSON 字符串
@@ -322,7 +351,43 @@ export function useMCP() {
     error.value = null
     try {
       const data = await storage.getMCPServerList()
-      serverList.value = data || { servers: [], activeServerIds: [] }
+      const userServers = data?.servers || []
+      const userActiveIds = data?.activeServerIds || []
+
+      // 加载内置服务器的工具列表（之前刷新保存的）
+      const builtinToolsResult = await storage.get<Record<string, MCPToolDefinition[]>>(StorageKey.BUILTIN_MCP_TOOLS)
+      const builtinTools = builtinToolsResult?.data || {}
+
+      // 加载内置服务器的配置覆盖（用户自定义的命令、参数等）
+      const builtinConfigResult = await storage.get<Record<string, Partial<MCPServer>>>(StorageKey.BUILTIN_MCP_CONFIG)
+      const builtinConfig = builtinConfigResult?.data || {}
+
+      // 合并内置服务器和用户服务器
+      const now = Date.now()
+      const builtinServers: MCPServer[] = BUILTIN_MCP_SERVERS.map(s => ({
+        ...s,
+        createdAt: now,
+        updatedAt: now,
+        // 应用用户自定义的配置覆盖
+        ...(builtinConfig[s.id] || {}),
+        // 确保关键属性不被覆盖
+        id: s.id,
+        name: s.name,
+        builtin: true,
+        // 恢复之前保存的工具列表
+        tools: builtinTools[s.id] || builtinConfig[s.id]?.tools || []
+      }))
+
+      // 过滤掉用户服务器中可能存在的旧版本内置服务器（通过名称匹配）
+      const filteredUserServers = userServers.filter(
+        s => !s.builtin && !BUILTIN_MCP_SERVERS.some(bs => bs.name === s.name)
+      )
+
+      // 合并服务器列表（内置服务器在前）
+      serverList.value = {
+        servers: [...builtinServers, ...filteredUserServers],
+        activeServerIds: [...userActiveIds]
+      }
     } catch (e: any) {
       error.value = e?.message || '加载 MCP 服务器失败'
       console.error('Failed to load MCP servers:', e)
@@ -331,12 +396,18 @@ export function useMCP() {
     }
   }
 
-  // 保存 MCP 服务器列表
+  // 保存 MCP 服务器列表（只保存用户服务器，不保存内置服务器）
   async function saveServers() {
     loading.value = true
     error.value = null
     try {
-      const success = await storage.saveMCPServerList(serverList.value)
+      // 过滤出非内置服务器
+      const userServers = serverList.value.servers.filter(s => !s.builtin)
+      const dataToSave: MCPServerList = {
+        servers: userServers,
+        activeServerIds: serverList.value.activeServerIds
+      }
+      const success = await storage.saveMCPServerList(dataToSave)
       if (!success) {
         throw new Error('保存失败')
       }
@@ -362,27 +433,56 @@ export function useMCP() {
     return newServer
   }
 
-  // 更新服务器
+  // 更新服务器（允许更新内置服务器的配置，但不允许改变 builtin 属性）
   async function updateServer(id: string, updates: Partial<Omit<MCPServer, 'id' | 'createdAt'>>) {
-    const index = serverList.value.servers.findIndex(s => s.id === id)
-    if (index === -1) {
+    const server = serverList.value.servers.find(s => s.id === id)
+    if (!server) {
       throw new Error('服务器不存在')
     }
+    const index = serverList.value.servers.findIndex(s => s.id === id)
     const { id: _, createdAt: __, ...safeUpdates } = updates as any
+
+    // 对于内置服务器，不允许修改 builtin 和 name 属性
+    if (server.builtin) {
+      delete safeUpdates.builtin
+      delete safeUpdates.name
+    }
+
     serverList.value.servers[index] = {
       ...serverList.value.servers[index],
       ...safeUpdates,
       updatedAt: Date.now()
     }
-    await saveServers()
+
+    // 内置服务器保存到单独的存储
+    if (server.builtin) {
+      // 保存内置服务器的配置到单独的存储键
+      const builtinConfigResult = await storage.get<Record<string, Partial<MCPServer>>>(StorageKey.BUILTIN_MCP_CONFIG)
+      const builtinConfig = builtinConfigResult?.data || {}
+      builtinConfig[id] = {
+        command: safeUpdates.command,
+        args: safeUpdates.args,
+        env: safeUpdates.env,
+        url: safeUpdates.url,
+        description: safeUpdates.description,
+        tools: safeUpdates.tools
+      }
+      await storage.set(StorageKey.BUILTIN_MCP_CONFIG, builtinConfig)
+    } else {
+      await saveServers()
+    }
   }
 
-  // 删除服务器
+  // 删除服务器（不允许删除内置服务器）
   async function deleteServer(id: string) {
-    const index = serverList.value.servers.findIndex(s => s.id === id)
-    if (index === -1) {
+    const server = serverList.value.servers.find(s => s.id === id)
+    if (!server) {
       throw new Error('服务器不存在')
     }
+    if (server.builtin) {
+      throw new Error('内置服务器不能被删除')
+    }
+    const index = serverList.value.servers.findIndex(s => s.id === id)
     serverList.value.servers.splice(index, 1)
     // 从激活列表中移除
     serverList.value.activeServerIds = serverList.value.activeServerIds.filter(sid => sid !== id)
@@ -1022,8 +1122,25 @@ export function useMCP() {
 
     try {
       const tools = await fetchServerTools(server)
-      // 更新服务器的工具列表
-      await updateServer(serverId, { tools })
+      // 直接更新服务器列表中的工具（不调用 updateServer，因为内置服务器不允许通过 updateServer 修改）
+      const index = serverList.value.servers.findIndex(s => s.id === serverId)
+      const targetServer = index !== -1 ? serverList.value.servers[index] : null
+      if (targetServer) {
+        targetServer.tools = tools
+        targetServer.updatedAt = Date.now()
+      }
+
+      // 保存工具列表到存储
+      if (server.builtin) {
+        // 内置服务器：保存到单独的存储键
+        const builtinToolsResult = await storage.get<Record<string, MCPToolDefinition[]>>(StorageKey.BUILTIN_MCP_TOOLS)
+        const builtinTools = builtinToolsResult?.data || {}
+        builtinTools[serverId] = tools
+        await storage.set(StorageKey.BUILTIN_MCP_TOOLS, builtinTools)
+      } else {
+        // 用户服务器：保存到主存储
+        await saveServers()
+      }
       return tools
     } catch (e: any) {
       error.value = e?.message || '刷新工具列表失败'
