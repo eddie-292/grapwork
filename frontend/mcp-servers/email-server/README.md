@@ -17,7 +17,7 @@
 ### 1. 安装依赖
 
 ```bash
-cd mcp-servers/email-server
+cd frontend/mcp-servers/email-server
 pip install -r requirements.txt
 ```
 
@@ -112,7 +112,7 @@ IMAP_PASSWORD=你的授权码
   "name": "Email Server",
   "transportType": "stdio",
   "command": "uvx",
-  "args": ["--from", "/path/to/openchat/mcp-servers/email-server", "email_server"],
+  "args": ["--from", "/path/to/openchat/frontend/mcp-servers/email-server", "email_server"],
   "env": {
     "SMTP_HOST": "smtp.gmail.com",
     "SMTP_PORT": "587",
@@ -136,7 +136,7 @@ IMAP_PASSWORD=你的授权码
   "name": "Email Server",
   "transportType": "stdio",
   "command": "python",
-  "args": ["/path/to/openchat/mcp-servers/email-server/email_server.py"],
+  "args": ["/path/to/openchat/frontend/mcp-servers/email-server/email_server.py"],
   "env": {
     "SMTP_HOST": "smtp.gmail.com",
     "SMTP_PORT": "587",

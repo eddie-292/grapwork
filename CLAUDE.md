@@ -210,11 +210,11 @@ Usage pattern:
 - LLM responses with `tool_calls` are executed via configured MCP servers
 - Tool results are appended as `role: 'tool'` messages for context
 
-**MCP Server Examples** (`mcp-servers/` directory):
+**MCP Server Examples** (`frontend/mcp-servers/` directory):
 - `email-server/`: Python-based email MCP server (SMTP/IMAP)
-  - Run with: `uvx --from ./mcp-servers/email-server email_server`
+  - Run with: `uvx --from ./frontend/mcp-servers/email-server email_server`
   - Configure via environment variables (see `.env.example`)
-  - See `mcp-servers/email-server/README.md` for setup details
+  - See `frontend/mcp-servers/email-server/README.md` for setup details
 
 ### Storage Service Architecture
 

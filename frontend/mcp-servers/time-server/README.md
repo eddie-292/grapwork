@@ -20,13 +20,13 @@
 ### 方法一：使用 uvx（推荐）
 
 ```bash
-uvx --from /path/to/openchat/mcp-servers/time-server time_server
+uvx --from /path/to/openchat/frontend/mcp-servers/time-server time_server
 ```
 
 ### 方法二：安装依赖后运行
 
 ```bash
-cd mcp-servers/time-server
+cd frontend/mcp-servers/time-server
 pip install -r requirements.txt
 python time_server.py
 ```
@@ -40,7 +40,7 @@ python time_server.py
   "name": "Time Server",
   "transportType": "stdio",
   "command": "uvx",
-  "args": ["--from", "/path/to/openchat/mcp-servers/time-server", "time_server"],
+  "args": ["--from", "/path/to/openchat/frontend/mcp-servers/time-server", "time_server"],
   "enabled": true
 }
 ```
@@ -52,7 +52,7 @@ python time_server.py
   "name": "Time Server",
   "transportType": "stdio",
   "command": "python",
-  "args": ["/path/to/openchat/mcp-servers/time-server/time_server.py"],
+  "args": ["/path/to/openchat/frontend/mcp-servers/time-server/time_server.py"],
   "enabled": true
 }
 ```
