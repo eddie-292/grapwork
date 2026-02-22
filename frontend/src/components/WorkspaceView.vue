@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { storage } from '../services/StorageService'
 
 // 文件/文件夹节点类型
@@ -23,8 +23,35 @@ const fileNodes = ref<FileNode[]>([])
 const loading = ref(false)
 const error = ref('')
 
-// 面包屑导航路径
+// 面包屑导航路径（相对于根目录的层级路径）
 const breadcrumbs = ref<Array<{ name: string; path: string }>>([])
+
+// 文件预览状态
+const showFilePreview = ref(false)
+const previewFileName = ref('')
+const previewFilePath = ref('')
+const previewContent = ref('')
+const previewLoading = ref(false)
+const previewError = ref('')
+
+// 计算是否在根目录
+const isAtRoot = computed(() => {
+  return currentPath.value === props.currentFolder || !currentPath.value
+})
+
+// 重置工作空间状态（当选择新文件夹时调用）
+function resetWorkspace() {
+  currentPath.value = ''
+  currentPathName.value = ''
+  fileNodes.value = []
+  breadcrumbs.value = []
+  error.value = ''
+  // 关闭预览
+  showFilePreview.value = false
+  previewContent.value = ''
+  previewFileName.value = ''
+  previewFilePath.value = ''
+}
 
 // 加载指定目录
 async function loadDirectory(dirPath: string, addToBreadcrumb = false) {
@@ -81,6 +108,73 @@ async function loadDirectory(dirPath: string, addToBreadcrumb = false) {
 function enterFolder(node: FileNode) {
   if (node.type === 'folder') {
     loadDirectory(node.path, true)
+  } else {
+    // 点击文件时预览
+    previewFile(node)
+  }
+}
+
+// 预览文件
+async function previewFile(node: FileNode) {
+  previewFileName.value = node.name
+  previewFilePath.value = node.path
+  previewContent.value = ''
+  previewError.value = ''
+  previewLoading.value = true
+  showFilePreview.value = true
+
+  try {
+    if (window.electronAPI?.fileOperation) {
+      const result = await window.electronAPI.fileOperation('read_file', {
+        path: node.path,
+        start_line: 0,
+        end_line: 500 // 限制读取行数
+      })
+
+      if (result.success && result.content !== undefined) {
+        previewContent.value = result.content
+      } else {
+        previewError.value = result.error || '读取文件失败'
+      }
+    } else {
+      previewError.value = '文件操作 API 不可用'
+    }
+  } catch (err) {
+    previewError.value = err instanceof Error ? err.message : '读取文件失败'
+    console.error('Failed to read file:', err)
+  } finally {
+    previewLoading.value = false
+  }
+}
+
+// 关闭预览
+function closePreview() {
+  showFilePreview.value = false
+  previewContent.value = ''
+  previewFileName.value = ''
+  previewFilePath.value = ''
+  previewError.value = ''
+}
+
+// 返回上级目录
+function goUpDirectory() {
+  if (!currentPath.value || isAtRoot.value) return
+
+  // 从当前路径计算上级目录
+  const pathParts = currentPath.value.split(/[/\\]/)
+  pathParts.pop() // 移除最后一部分
+
+  const parentPath = pathParts.join('/')
+
+  // 检查是否回到了根目录
+  if (parentPath === props.currentFolder || !parentPath) {
+    // 回到根目录
+    loadDirectory(props.currentFolder || '', false)
+    breadcrumbs.value = []
+  } else {
+    // 移除面包屑最后一项并加载上级目录
+    breadcrumbs.value.pop()
+    loadDirectory(parentPath, false)
   }
 }
 
@@ -339,7 +433,7 @@ async function refreshWorkspace() {
   if (pathToRefresh) {
     await loadDirectory(pathToRefresh, false)
   } else {
-    error.value = '请先选择一个文件夹'
+    error.value = '选择一个文件夹作为工作空间'
     fileNodes.value = []
   }
 }
@@ -356,13 +450,21 @@ async function openCurrentDirectory() {
   }
 }
 
-// 监听 currentFolder 变化
-watch(() => props.currentFolder, () => {
-  refreshWorkspace()
+// 监听 currentFolder 变化（选择新文件夹时重置状态）
+watch(() => props.currentFolder, (newFolder, oldFolder) => {
+  // 当文件夹路径变化时，重置工作空间并加载新目录
+  if (newFolder !== oldFolder) {
+    resetWorkspace()
+    if (newFolder) {
+      loadDirectory(newFolder, false)
+    }
+  }
 })
 
 onMounted(() => {
-  refreshWorkspace()
+  if (props.currentFolder) {
+    loadDirectory(props.currentFolder, false)
+  }
 })
 
 // 暴露刷新方法供父组件调用
@@ -376,7 +478,19 @@ defineExpose({
     <!-- 标题栏 -->
     <div class="workspace-header">
       <h3 class="workspace-title">我的工作空间</h3>
-      <dvi class="workspace-btns">
+      <div class="workspace-btns">
+        <!-- 返回上级目录 -->
+        <button
+          class="refresh-btn"
+          @click="goUpDirectory"
+          title="返回上级目录"
+          :disabled="loading || !currentFolder || isAtRoot"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+        </button>
+        <!-- 刷新 -->
         <button class="refresh-btn" @click="refreshWorkspace" title="刷新" :disabled="loading || !currentFolder">
           <svg v-if="!loading" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M23 4v6h-6M1 20v-6h6"/>
@@ -386,13 +500,14 @@ defineExpose({
             <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="32" stroke-linecap="round"/>
           </svg>
         </button>
+        <!-- 在文件管理器中打开 -->
         <button class="refresh-btn" @click="openCurrentDirectory" title="在文件管理器中打开" :disabled="!currentFolder">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
             <path d="M12 11v6M9 14h6"/>
           </svg>
         </button>
-      </dvi>
+      </div>
     </div>
 
     <!-- 面包屑导航 -->
@@ -437,8 +552,8 @@ defineExpose({
         v-for="node in fileNodes"
         :key="node.path"
         class="file-node"
-        :class="{ 'is-folder': node.type === 'folder' }"
-        @click="node.type === 'folder' ? enterFolder(node) : null"
+        :class="{ 'is-folder': node.type === 'folder', 'is-file': node.type === 'file' }"
+        @click="enterFolder(node)"
       >
         <span class="node-icon" v-html="getFileIcon(node)"></span>
         <span class="node-name">{{ node.name }}</span>
@@ -449,6 +564,46 @@ defineExpose({
         <span>此目录为空</span>
       </div>
     </div>
+
+    <!-- 文件预览对话框 -->
+    <Transition name="fade">
+      <div v-if="showFilePreview" class="preview-overlay" @click.self="closePreview">
+        <div class="preview-dialog">
+          <div class="preview-header">
+            <div class="preview-title">
+              <span class="preview-filename">{{ previewFileName }}</span>
+              <span class="preview-path" :title="previewFilePath">{{ previewFilePath }}</span>
+            </div>
+            <button class="preview-close-btn" @click="closePreview" title="关闭">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+          <div class="preview-content">
+            <!-- 加载中 -->
+            <div v-if="previewLoading" class="preview-loading">
+              <svg class="spinning" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="32" stroke-linecap="round"/>
+              </svg>
+              <span>加载中...</span>
+            </div>
+            <!-- 错误 -->
+            <div v-else-if="previewError" class="preview-error">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              <span>{{ previewError }}</span>
+            </div>
+            <!-- 内容 -->
+            <pre v-else class="preview-code">{{ previewContent }}</pre>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -673,10 +828,156 @@ defineExpose({
   text-overflow: ellipsis;
 }
 
+.file-node.is-file {
+  cursor: pointer;
+}
+
+.file-node.is-file:hover {
+  background: var(--color-bg-tertiary);
+}
+
 .empty-directory {
   padding: 40px 12px;
   text-align: center;
   color: var(--color-text-tertiary);
   font-size: 13px;
+}
+
+/* 文件预览对话框 */
+.preview-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.preview-dialog {
+  background: var(--color-bg-primary);
+  border-radius: 12px;
+  width: 80%;
+  max-width: 900px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+}
+
+.preview-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.preview-filename {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.preview-path {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preview-close-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.preview-close-btn:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+.preview-content {
+  flex: 1;
+  overflow: auto;
+  padding: 16px 20px;
+  min-height: 200px;
+}
+
+.preview-loading,
+.preview-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px;
+  color: var(--color-text-tertiary);
+}
+
+.preview-error {
+  color: #dc2626;
+}
+
+.preview-code {
+  margin: 0;
+  padding: 16px;
+  background: var(--color-bg-tertiary);
+  border-radius: 8px;
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-x: auto;
+  color: var(--color-text-primary);
+}
+
+/* 过渡动画 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-active .preview-dialog,
+.fade-leave-active .preview-dialog {
+  transition: transform 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.fade-enter-from .preview-dialog,
+.fade-leave-to .preview-dialog {
+  transform: scale(0.95);
+}
+
+/* spinning 动画 */
+.preview-loading svg.spinning {
+  animation: spin 1s linear infinite;
 }
 </style>
