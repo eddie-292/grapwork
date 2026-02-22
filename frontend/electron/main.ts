@@ -701,9 +701,15 @@ const defaultConfigList: ConfigList = {
 let mainWindow: BrowserWindow | null = null
 
 function createWindow() {
+  // 图标路径：开发模式使用 build/icons，生产模式使用打包后的资源
+  const iconPath = process.env.VITE_DEV_SERVER_URL
+    ? path.join(__dirname, '..', 'build', 'icons', 'icon.png')
+    : path.join(path.dirname(__dirname), 'build', 'icons', 'icon.png')
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    icon: iconPath,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,

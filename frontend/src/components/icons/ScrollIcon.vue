@@ -1,0 +1,10 @@
+<script setup lang="ts">
+import IconBase from './IconBase.vue'
+</script>
+
+<template>
+  <IconBase viewBox="0 0 24 24">
+    <path d="M8 21h12a2 2 0 0 0 2-2v-2H10v2a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v3h4"></path>
+    <path d="M19 17V5a2 2 0 0 0-2-2H4"></path>
+  </IconBase>
+</template>

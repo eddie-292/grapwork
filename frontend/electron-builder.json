@@ -1,7 +1,7 @@
 {
   "appId": "com.prismchat.desktop",
   "productName": "PrismChat",
-  "icon": "物料/logo.png",
+  "icon": "build/icons/icon.png",
   "directories": {
     "output": "release",
     "buildResources": "build"

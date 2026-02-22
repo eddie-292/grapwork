@@ -5,6 +5,7 @@ import { useMCP } from '../composables/useMCP'
 import type { MCPServer, MCPTransportType, MCPToolDefinition } from '../types/mcp'
 import ConfirmDialog from './ConfirmDialog.vue'
 import PlugIcon from './icons/PlugIcon.vue'
+import XIcon from './icons/XIcon.vue'
 
 const router = useRouter()
 const {
@@ -508,7 +509,7 @@ async function importMCPConfig() {
             <div v-for="(tool, index) in newServerForm.tools" :key="index" class="tool-config-card">
               <div class="tool-config-header">
                 <span>工具 #{{ index + 1 }}</span>
-                <button type="button" class="btn-icon" @click="removeToolDefinition(index)" title="删除工具">✕</button>
+                <button type="button" class="btn-icon" @click="removeToolDefinition(index)" title="删除工具"><XIcon :size="14" /></button>
               </div>
 
               <div class="form-group">
@@ -645,7 +646,7 @@ async function importMCPConfig() {
             <div v-for="(tool, index) in newServerForm.tools" :key="index" class="tool-config-card">
               <div class="tool-config-header">
                 <span>工具 #{{ index + 1 }}</span>
-                <button type="button" class="btn-icon" @click="removeToolDefinition(index)" title="删除工具">✕</button>
+                <button type="button" class="btn-icon" @click="removeToolDefinition(index)" title="删除工具"><XIcon :size="14" /></button>
               </div>
 
               <div class="form-group">

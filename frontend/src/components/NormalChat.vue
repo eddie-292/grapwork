@@ -10,6 +10,8 @@ import ChevronDownIcon from './icons/ChevronDownIcon.vue'
 import ChevronRightIcon from './icons/ChevronRightIcon.vue'
 import FolderIcon from './icons/FolderIcon.vue'
 import FolderOpenIcon from './icons/FolderOpenIcon.vue'
+import CheckIcon from './icons/CheckIcon.vue'
+import XIcon from './icons/XIcon.vue'
 
 type Role = 'user' | 'assistant' | 'system' | 'tool'
 export type Message = {
@@ -482,12 +484,12 @@ defineExpose({
                   </span>
                   <!-- 成功状态 -->
                   <span v-else-if="m.toolStatus === 'success'" class="tool-result-status status-success">
-                    <span class="status-icon status-icon-success">✓</span>
+                    <span class="status-icon status-icon-success"><CheckIcon :size="12" /></span>
                     <span class="status-text">已完成</span>
                   </span>
                   <!-- 错误状态 -->
                   <span v-else-if="m.toolStatus === 'error'" class="tool-result-status status-error">
-                    <span class="status-icon status-icon-error">✕</span>
+                    <span class="status-icon status-icon-error"><XIcon :size="12" /></span>
                     <span class="status-text">执行失败</span>
                   </span>
                   <!-- 准备中状态 -->
@@ -497,7 +499,7 @@ defineExpose({
                   </span>
                   <!-- 默认成功状态（向后兼容） -->
                   <span v-else class="tool-result-status status-success">
-                    <span class="status-icon status-icon-success">✓</span>
+                    <span class="status-icon status-icon-success"><CheckIcon :size="12" /></span>
                     <span class="status-text">已完成</span>
                   </span>
                 </div>
@@ -633,7 +635,7 @@ defineExpose({
             :title="selectedFolderPath || '选择文件夹'"
           >
             <template v-if="selectedFolderPath">
-              ✓ {{ selectedFolderPath.split('/').pop() || selectedFolderPath.split('\\').pop() || '文件夹' }}
+              <CheckIcon :size="14" /> {{ selectedFolderPath.split('/').pop() || selectedFolderPath.split('\\').pop() || '文件夹' }}
             </template>
             <template v-else>
               工作空间

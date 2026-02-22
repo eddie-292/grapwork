@@ -5,6 +5,7 @@
   "type": "module",
   "main": "dist-electron/main.cjs",
   "scripts": {
+    "generate-icons": "node scripts/generate-icons.js",
     "dev": "vite",
     "dev:renderer": "vite --port 5174",
     "build": "vue-tsc -b && vite build",
@@ -30,6 +31,7 @@
     "electron": "^28.0.0",
     "electron-builder": "^24.9.1",
     "esbuild": "^0.25.1",
+    "sharp": "^0.34.5",
     "typescript": "~5.9.3",
     "vite": "^7.2.4",
     "vue-tsc": "^3.1.4",
@@ -38,7 +40,7 @@
   "build": {
     "appId": "com.prismchat.desktop",
     "productName": "PrismChat",
-    "icon": "物料/logo.png",
+    "icon": "build/icons/icon.png",
     "directories": {
       "output": "release"
     },

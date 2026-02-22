@@ -2,6 +2,9 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import type { EnvironmentCheckResult } from '../types/electron'
+import CheckIcon from './icons/CheckIcon.vue'
+import XIcon from './icons/XIcon.vue'
+import LightbulbIcon from './icons/LightbulbIcon.vue'
 
 const router = useRouter()
 const checking = ref(true)
@@ -70,19 +73,6 @@ function handleRetry() {
   runEnvironmentCheck()
 }
 
-function getStatusIcon(status: string): string {
-  switch (status) {
-    case 'success':
-      return '✓'
-    case 'warning':
-      return '!'
-    case 'error':
-      return '✕'
-    default:
-      return '?'
-  }
-}
-
 function getStatusClass(status: string): string {
   return `status-${status}`
 }
@@ -121,9 +111,9 @@ onMounted(() => {
           'has-errors': hasErrors
         }">
           <div class="summary-icon">
-            <span v-if="hasErrors">✕</span>
+            <XIcon v-if="hasErrors" :size="24" />
             <span v-else-if="hasWarnings">!</span>
-            <span v-else>✓</span>
+            <CheckIcon v-else :size="24" />
           </div>
           <div class="summary-text">
             <h3 v-if="hasErrors">环境检查未通过</h3>
@@ -144,14 +134,17 @@ onMounted(() => {
             :class="getStatusClass(result.status)"
           >
             <div class="check-icon">
-              <span>{{ getStatusIcon(result.status) }}</span>
+              <CheckIcon v-if="result.status === 'success'" :size="14" />
+              <span v-else-if="result.status === 'warning'">!</span>
+              <XIcon v-else-if="result.status === 'error'" :size="14" />
+              <span v-else>?</span>
             </div>
             <div class="check-content">
               <div class="check-title">{{ result.displayName }}</div>
               <div class="check-message">{{ result.message }}</div>
               <div v-if="result.details" class="check-details">{{ result.details }}</div>
               <div v-if="result.fixSuggestion" class="fix-suggestion">
-                <div class="fix-label">💡 修复建议：</div>
+                <div class="fix-label"><LightbulbIcon :size="14" /> 修复建议：</div>
                 <pre class="fix-content">{{ result.fixSuggestion }}</pre>
               </div>
             </div>
@@ -401,6 +394,9 @@ onMounted(() => {
 }
 
 .fix-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 12px;
   font-weight: 600;
   color: #3b82f6;

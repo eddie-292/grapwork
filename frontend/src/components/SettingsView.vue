@@ -10,6 +10,18 @@ import ChangelogView from './ChangelogView.vue'
 import SkillsPanel from './settings/SkillsPanel.vue'
 import { storage } from '../services/StorageService'
 import type { EnvironmentCheckResult } from '../types/electron'
+import PlugIcon from './icons/PlugIcon.vue'
+import PaletteIcon from './icons/PaletteIcon.vue'
+import RobotIcon from './icons/RobotIcon.vue'
+import BrainIcon from './icons/BrainIcon.vue'
+import ZapIcon from './icons/ZapIcon.vue'
+import BookOpenIcon from './icons/BookOpenIcon.vue'
+import SearchIcon from './icons/SearchIcon.vue'
+import ScrollIcon from './icons/ScrollIcon.vue'
+import TrashIcon from './icons/TrashIcon.vue'
+import CheckIcon from './icons/CheckIcon.vue'
+import XIcon from './icons/XIcon.vue'
+import LightbulbIcon from './icons/LightbulbIcon.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -33,14 +45,14 @@ watch(() => route.query.tab, (newTab) => {
 
 // 导航项配置
 const navItems = computed(() => [
-  { id: 'llm' as SettingsTab, label: 'LLM 接口配置', icon: '🔌' },
-  { id: 'theme' as SettingsTab, label: '代码高亮主题', icon: '🎨' },
-  { id: 'assistants' as SettingsTab, label: '社区助理', icon: '🤖' },
-  { id: 'memory' as SettingsTab, label: '全局记忆', icon: '🧠' },
-  { id: 'mcp' as SettingsTab, label: 'MCP 服务器', icon: '⚡' },
-  { id: 'skills' as SettingsTab, label: '技能管理', icon: '📚' },
-  { id: 'environment' as SettingsTab, label: '环境检测', icon: '🔍' },
-  { id: 'changelog' as SettingsTab, label: '更新日志', icon: '📜' },
+  { id: 'llm' as SettingsTab, label: 'LLM 接口配置', icon: 'plug' },
+  { id: 'theme' as SettingsTab, label: '代码高亮主题', icon: 'palette' },
+  { id: 'assistants' as SettingsTab, label: '社区助理', icon: 'robot' },
+  { id: 'memory' as SettingsTab, label: '全局记忆', icon: 'brain' },
+  { id: 'mcp' as SettingsTab, label: 'MCP 服务器', icon: 'zap' },
+  { id: 'skills' as SettingsTab, label: '技能管理', icon: 'book-open' },
+  { id: 'environment' as SettingsTab, label: '环境检测', icon: 'search' },
+  { id: 'changelog' as SettingsTab, label: '更新日志', icon: 'scroll' },
 ])
 
 function switchTab(tab: SettingsTab) {
@@ -99,19 +111,6 @@ async function runEnvironmentCheck() {
   }
 }
 
-function getStatusIcon(status: string): string {
-  switch (status) {
-    case 'success':
-      return '✓'
-    case 'warning':
-      return '!'
-    case 'error':
-      return '✕'
-    default:
-      return '?'
-  }
-}
-
 function getStatusClass(status: string): string {
   return `status-${status}`
 }
@@ -140,7 +139,16 @@ const hasEnvWarnings = computed(() => envResults.value.some(r => r.status === 'w
             :class="{ active: activeTab === item.id }"
             @click="switchTab(item.id)"
           >
-            <span class="nav-icon">{{ item.icon }}</span>
+            <span class="nav-icon">
+              <PlugIcon v-if="item.icon === 'plug'" :size="18" />
+              <PaletteIcon v-else-if="item.icon === 'palette'" :size="18" />
+              <RobotIcon v-else-if="item.icon === 'robot'" :size="18" />
+              <BrainIcon v-else-if="item.icon === 'brain'" :size="18" />
+              <ZapIcon v-else-if="item.icon === 'zap'" :size="18" />
+              <BookOpenIcon v-else-if="item.icon === 'book-open'" :size="18" />
+              <SearchIcon v-else-if="item.icon === 'search'" :size="18" />
+              <ScrollIcon v-else-if="item.icon === 'scroll'" :size="18" />
+            </span>
             <span class="nav-label">{{ item.label }}</span>
           </button>
 
@@ -150,7 +158,7 @@ const hasEnvWarnings = computed(() => envResults.value.some(r => r.status === 'w
             class="nav-item danger"
             @click="clearChatHistory"
           >
-            <span class="nav-icon">🗑️</span>
+            <span class="nav-icon"><TrashIcon :size="18" /></span>
             <span class="nav-label">清空对话</span>
           </button>
         </nav>
@@ -206,9 +214,9 @@ const hasEnvWarnings = computed(() => envResults.value.some(r => r.status === 'w
               'has-errors': hasEnvErrors
             }">
               <div class="summary-icon">
-                <span v-if="hasEnvErrors">✕</span>
+                <XIcon v-if="hasEnvErrors" :size="24" />
                 <span v-else-if="hasEnvWarnings">!</span>
-                <span v-else>✓</span>
+                <CheckIcon v-else :size="24" />
               </div>
               <div class="summary-text">
                 <h3 v-if="hasEnvErrors">环境检测未通过</h3>
@@ -229,14 +237,17 @@ const hasEnvWarnings = computed(() => envResults.value.some(r => r.status === 'w
                 :class="getStatusClass(result.status)"
               >
                 <div class="check-icon">
-                  <span>{{ getStatusIcon(result.status) }}</span>
+                  <CheckIcon v-if="result.status === 'success'" :size="14" />
+                  <span v-else-if="result.status === 'warning'">!</span>
+                  <XIcon v-else-if="result.status === 'error'" :size="14" />
+                  <span v-else>?</span>
                 </div>
                 <div class="check-content">
                   <div class="check-title">{{ result.displayName }}</div>
                   <div class="check-message">{{ result.message }}</div>
                   <div v-if="result.details" class="check-details">{{ result.details }}</div>
                   <div v-if="result.fixSuggestion" class="fix-suggestion">
-                    <div class="fix-label">💡 修复建议：</div>
+                    <div class="fix-label"><LightbulbIcon :size="14" /> 修复建议：</div>
                     <pre class="fix-content">{{ result.fixSuggestion }}</pre>
                   </div>
                 </div>
@@ -246,7 +257,7 @@ const hasEnvWarnings = computed(() => envResults.value.some(r => r.status === 'w
 
           <!-- 未检测时的提示 -->
           <div v-else class="env-placeholder">
-            <div class="placeholder-icon">🔍</div>
+            <div class="placeholder-icon"><SearchIcon :size="48" /></div>
             <p>点击上方按钮开始检测运行环境</p>
           </div>
         </div>
@@ -597,6 +608,9 @@ const hasEnvWarnings = computed(() => envResults.value.some(r => r.status === 'w
 }
 
 .fix-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 12px;
   font-weight: 600;
   color: #3b82f6;

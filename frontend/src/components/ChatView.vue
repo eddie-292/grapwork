@@ -31,6 +31,7 @@ import ChevronRightIcon from './icons/ChevronRightIcon.vue'
 import MenuIcon from './icons/MenuIcon.vue'
 import SettingsIcon from './icons/SettingsIcon.vue'
 import LogoutIcon from './icons/LogoutIcon.vue'
+import XIcon from './icons/XIcon.vue'
 
 const router = useRouter()
 
@@ -2814,7 +2815,7 @@ function handleFolderChanged(path: string) {
         <div class="dialog-content">
           <div class="dialog-header">
             <h3>对话参数配置</h3>
-            <button class="dialog-close" @click="showParamsDialog = false">✕</button>
+            <button class="dialog-close" @click="showParamsDialog = false"><XIcon :size="16" /></button>
           </div>
           <div class="dialog-body">
             <div class="param-group">
@@ -2860,7 +2861,7 @@ function handleFolderChanged(path: string) {
                     class="clear-btn"
                     @click="tempParams.max_tokens = 0"
                     title="清空限制"
-                  >✕</button>
+                  ><XIcon :size="12" /></button>
                 </div>
               </label>
               <input
@@ -2917,7 +2918,7 @@ function handleFolderChanged(path: string) {
                     class="clear-btn"
                     @click="tempParams.seed = undefined"
                     title="清空种子"
-                  >✕</button>
+                  ><XIcon :size="12" /></button>
                 </div>
               </label>
               <input

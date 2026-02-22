@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**PrismChat** - A cross-platform desktop chat application (Electron + Vue 3 + TypeScript) that supports any OpenAI-compatible LLM API. Features:
+**PrismChat** - A cross-platform desktop AI Agent assistant (Electron + Vue 3 + TypeScript) that supports any OpenAI-compatible LLM API. Features:
 - **Task Mode**: Decomposes complex user requests into executable subtasks with working memory management
 - **Global Memory**: Persistent knowledge storage for user preferences and custom context
 - **Assistant System**: Custom AI assistant/system prompt management

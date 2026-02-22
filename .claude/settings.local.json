@@ -18,7 +18,9 @@
       "Bash(xxd:*)",
       "mcp__zai-mcp-server__analyze_image",
       "mcp__zread__get_repo_structure",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(identify:*)",
+      "Bash(node:*)"
     ]
   }
 }

@@ -235,11 +235,6 @@ function truncateText(text: string, maxLength: number): string {
 
     <div class="assistant-content">
       <div v-if="assistantList.assistants.length === 0" class="empty-state">
-        <div class="empty-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M12 2a2 2 0 0 1 2 2v2h4a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-1v1a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v-1H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4V4a2 2 0 0 1 2-2zm0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" />
-          </svg>
-        </div>
         <p>暂无社区助理</p>
         <button class="btn primary" @click="showEditForm = true; editingIndex = -1; currentAssistant = { id: '', name: '', emoji: 'robot', systemPrompt: '', createdAt: 0 }">
           + 创建第一个助理
