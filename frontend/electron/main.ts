@@ -718,6 +718,8 @@ function createWindow() {
     width: windowWidth,
     height: windowHeight,
     icon: iconPath,
+    frame: false, // 无边框窗口
+    titleBarStyle: 'hidden', // 隐藏标题栏
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -829,6 +831,29 @@ ipcMain.handle('save-global-memory', (_event, memory: GlobalMemory) => {
 // 在外部浏览器中打开链接
 ipcMain.handle('open-external', async (_event, url: string) => {
   await shell.openExternal(url)
+})
+
+// 窗口控制相关
+ipcMain.handle('window-minimize', () => {
+  mainWindow?.minimize()
+})
+
+ipcMain.handle('window-maximize', () => {
+  if (mainWindow?.isMaximized()) {
+    mainWindow.unmaximize()
+    return false
+  } else {
+    mainWindow?.maximize()
+    return true
+  }
+})
+
+ipcMain.handle('window-close', () => {
+  mainWindow?.close()
+})
+
+ipcMain.handle('window-is-maximized', () => {
+  return mainWindow?.isMaximized() ?? false
 })
 
 // 在系统文件管理器中打开路径
