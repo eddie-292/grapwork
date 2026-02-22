@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="prism" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f472b6"/>
+      <stop offset="50%" stop-color="#c084fc"/>
+      <stop offset="100%" stop-color="#60a5fa"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 圆角背景 -->
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
+
+  <!-- 简化的棱镜三角形 -->
+  <polygon
+    points="256,90 410,370 102,370"
+    fill="url(#prism)"
+    opacity="0.95"
+  />
+
+  <!-- 内部小三角（层次感） -->
+  <polygon
+    points="256,160 350,320 162,320"
+    fill="rgba(255,255,255,0.25)"
+  />
+
+  <!-- 中心光点 -->
+  <circle cx="256" cy="260" r="32" fill="white"/>
+</svg>
