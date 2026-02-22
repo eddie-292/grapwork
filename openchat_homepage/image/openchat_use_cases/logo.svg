@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <!-- 主渐变色 -->
+    <linearGradient id="hexGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10a37f"/>
+      <stop offset="100%" stop-color="#1a7f64"/>
+    </linearGradient>
+    <!-- 背景渐变 -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <!-- 光晕效果 -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- 阴影 -->
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="4" stdDeviation="12" flood-color="#10a37f" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- 圆角背景 -->
+  <rect width="512" height="512" rx="108" fill="url(#bgGradient)"/>
+
+  <!-- 外层六边形（装饰层） -->
+  <polygon
+    points="256,64 408,152 408,328 256,416 104,328 104,152"
+    fill="url(#hexGradient)"
+    opacity="0.15"
+  />
+
+  <!-- 中层六边形 -->
+  <polygon
+    points="256,96 380,168 380,312 256,384 132,312 132,168"
+    fill="url(#hexGradient)"
+    opacity="0.3"
+  />
+
+  <!-- 主六边形 -->
+  <polygon
+    points="256,128 352,184 352,296 256,352 160,296 160,184"
+    fill="url(#hexGradient)"
+    filter="url(#shadow)"
+  />
+
+  <!-- 中心光点 -->
+  <circle cx="256" cy="240" r="40" fill="white" opacity="0.95" filter="url(#glow)"/>
+
+  <!-- 内部装饰线 -->
+  <polygon
+    points="256,160 320,196 320,268 256,304 192,268 192,196"
+    fill="none"
+    stroke="white"
+    stroke-width="2"
+    opacity="0.3"
+  />
+</svg>

@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__web-reader__webReader"
+    ]
+  }
+}
