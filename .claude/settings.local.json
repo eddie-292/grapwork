@@ -20,7 +20,9 @@
       "mcp__zread__get_repo_structure",
       "Bash(npm install:*)",
       "Bash(identify:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(uvx:*)",
+      "Bash(echo:*)"
     ]
   }
 }

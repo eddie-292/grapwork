@@ -29,6 +29,8 @@ const editingServer = ref<MCPServer | null>(null)
 const showDeleteConfirm = ref(false)
 const serverToDelete = ref<MCPServer | null>(null)
 const refreshingServerId = ref<string | null>(null)
+const toastError = ref<string | null>(null)
+let toastTimer: ReturnType<typeof setTimeout> | null = null
 
 // 新建服务器表单数据
 const newServerForm = ref({
@@ -275,6 +277,17 @@ function getTransportLabel(type: MCPTransportType): string {
   return transportTypeOptions.find(opt => opt.value === type)?.label || type
 }
 
+// 显示 toast 错误提示
+function showToastError(message: string) {
+  if (toastTimer) {
+    clearTimeout(toastTimer)
+  }
+  toastError.value = message
+  toastTimer = setTimeout(() => {
+    toastError.value = null
+  }, 5000)
+}
+
 // 从服务器刷新工具列表
 async function handleRefreshTools(server: MCPServer) {
   refreshingServerId.value = server.id
@@ -288,8 +301,9 @@ async function handleRefreshTools(server: MCPServer) {
         JSON.stringify(tool.function.parameters || {}, null, 2)
       )
     }
-  } catch (e) {
+  } catch (e: any) {
     console.error('Failed to refresh tools:', e)
+    showToastError(`刷新工具失败: ${e?.message || e}`)
   } finally {
     refreshingServerId.value = null
   }
@@ -420,6 +434,14 @@ async function importMCPConfig() {
         <button class="add-btn" @click="openAddForm">+ 添加服务器</button>
       </div>
     </header>
+
+    <!-- Toast 错误提示 -->
+    <Transition name="toast">
+      <div v-if="toastError" class="toast-error">
+        <span>{{ toastError }}</span>
+        <button class="toast-close" @click="toastError = null">×</button>
+      </div>
+    </Transition>
 
     <!-- 添加服务器表单 -->
     <div class="modal-overlay" v-if="showAddForm" @click.self="showAddForm = false">
@@ -1198,5 +1220,60 @@ async function importMCPConfig() {
   font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
   font-size: 12px;
   line-height: 1.5;
+}
+
+/* Toast 错误提示样式 */
+.toast-error {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  padding: 12px 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: 600px;
+  width: calc(100% - 40px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.toast-error span {
+  flex: 1;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.toast-close {
+  background: transparent;
+  border: none;
+  color: #991b1b;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 0;
+  line-height: 1;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.toast-close:hover {
+  opacity: 1;
+}
+
+.toast-enter-active,
+.toast-leave-active {
+  transition: all 0.3s ease;
+}
+
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-20px);
 }
 </style>
