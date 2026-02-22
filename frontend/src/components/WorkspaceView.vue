@@ -477,7 +477,7 @@ defineExpose({
   <div class="workspace-container">
     <!-- 标题栏 -->
     <div class="workspace-header">
-      <h3 class="workspace-title">我的工作空间</h3>
+      <h3 class="workspace-title"></h3>
       <div class="workspace-btns">
         <!-- 返回上级目录 -->
         <button

@@ -144,6 +144,11 @@ interface ElectronAPI {
   skillsCreate: (name: string, description: string) => Promise<SkillLoadResult>
   skillsUpdate: (skillId: string, body: string) => Promise<{ success: boolean; error?: string }>
   skillsDelete: (skillId: string) => Promise<{ success: boolean; error?: string }>
+  // 窗口控制
+  windowMinimize: () => Promise<void>
+  windowMaximize: () => Promise<boolean> // 返回当前是否最大化
+  windowClose: () => Promise<void>
+  windowIsMaximized: () => Promise<boolean>
 }
 
 declare global {

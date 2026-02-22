@@ -83,5 +83,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   skillsUpdate: (skillId: string, body: string) =>
     ipcRenderer.invoke('skills-update', skillId, body),
   skillsDelete: (skillId: string) =>
-    ipcRenderer.invoke('skills-delete', skillId)
+    ipcRenderer.invoke('skills-delete', skillId),
+  // 窗口控制
+  windowMinimize: () =>
+    ipcRenderer.invoke('window-minimize'),
+  windowMaximize: () =>
+    ipcRenderer.invoke('window-maximize'),
+  windowClose: () =>
+    ipcRenderer.invoke('window-close'),
+  windowIsMaximized: () =>
+    ipcRenderer.invoke('window-is-maximized')
 })

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
 interface Message {
   content: string
@@ -34,6 +34,16 @@ const emit = defineEmits<{
 const showSearch = ref(false)
 const searchQuery = ref('')
 const searchInputRef = ref<HTMLInputElement | null>(null)
+
+// 窗口最大化状态
+const isMaximized = ref(false)
+
+// 初始化时检查窗口状态
+onMounted(async () => {
+  if (window.electronAPI?.windowIsMaximized) {
+    isMaximized.value = await window.electronAPI.windowIsMaximized()
+  }
+})
 
 // 基于 chat.id 生成稳定的颜色
 function getChatColor(chatId: string): string {
@@ -106,10 +116,36 @@ function switchToResult(chatId: string) {
   emit('switch-chat', chatId)
   closeSearch()
 }
+
+// 双击标签栏切换最大化
+async function handleDoubleClick() {
+  if (window.electronAPI?.windowMaximize) {
+    isMaximized.value = await window.electronAPI.windowMaximize()
+  }
+}
+
+// 窗口控制
+async function handleMinimize() {
+  if (window.electronAPI?.windowMinimize) {
+    await window.electronAPI.windowMinimize()
+  }
+}
+
+async function handleMaximize() {
+  if (window.electronAPI?.windowMaximize) {
+    isMaximized.value = await window.electronAPI.windowMaximize()
+  }
+}
+
+async function handleClose() {
+  if (window.electronAPI?.windowClose) {
+    await window.electronAPI.windowClose()
+  }
+}
 </script>
 
 <template>
-  <div class="chat-tab-bar">
+  <div class="chat-tab-bar" @dblclick="handleDoubleClick">
     <div class="tabs-container">
       <div
         v-for="chat in (isSearching ? filteredChats : chatList)"
@@ -173,6 +209,80 @@ function switchToResult(chatId: string) {
   padding: 8px 12px;
   gap: 8px;
   min-height: 44px;
+  -webkit-app-region: drag; /* 使整个标签栏可拖拽 */
+}
+
+/* macOS 风格窗口控制按钮 */
+.window-controls {
+  display: flex;
+  gap: 8px;
+  padding-right: 12px;
+  -webkit-app-region: no-drag; /* 按钮区域不可拖拽 */
+}
+
+.window-btn {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.15s ease;
+}
+
+.window-btn.close {
+  background: #ff5f57;
+}
+
+.window-btn.minimize {
+  background: #ffbd2e;
+}
+
+.window-btn.maximize {
+  background: #28ca41;
+}
+
+.window-btn:hover {
+  filter: brightness(0.9);
+}
+
+/* hover 时显示图标 */
+.window-btn.close:hover::after {
+  content: '×';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 10px;
+  color: rgba(0, 0, 0, 0.5);
+  line-height: 1;
+}
+
+.window-btn.minimize:hover::after {
+  content: '−';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 10px;
+  color: rgba(0, 0, 0, 0.5);
+  line-height: 1;
+}
+
+.window-btn.maximize:hover::after {
+  content: '+';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 10px;
+  color: rgba(0, 0, 0, 0.5);
+  line-height: 1;
+}
+
+.window-btn.maximize.is-maximized:hover::after {
+  content: '⧉';
+  font-size: 8px;
 }
 
 .tabs-container {
@@ -182,6 +292,7 @@ function switchToResult(chatId: string) {
   overflow-x: auto;
   scrollbar-width: none;
   align-items: center;
+  -webkit-app-region: no-drag; /* 标签区域不可拖拽，保持点击功能 */
 }
 
 .tabs-container::-webkit-scrollbar {
@@ -272,6 +383,7 @@ function switchToResult(chatId: string) {
   padding: 2px 6px;
   min-width: 20px;
   text-align: center;
+  -webkit-app-region: no-drag;
 }
 
 .new-tab-btn {
@@ -288,6 +400,7 @@ function switchToResult(chatId: string) {
   font-size: 18px;
   transition: all 0.15s ease;
   flex-shrink: 0;
+  -webkit-app-region: no-drag;
 }
 
 .new-tab-btn:hover {
@@ -304,6 +417,7 @@ function switchToResult(chatId: string) {
   border-radius: 8px;
   padding: 0 4px 0 8px;
   gap: 4px;
+  -webkit-app-region: no-drag;
 }
 
 .search-input {
@@ -353,6 +467,7 @@ function switchToResult(chatId: string) {
   justify-content: center;
   transition: all 0.15s ease;
   flex-shrink: 0;
+  -webkit-app-region: no-drag;
 }
 
 .search-btn:hover,
