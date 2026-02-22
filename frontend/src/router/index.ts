@@ -82,12 +82,11 @@ router.beforeEach(async (to, _from, next) => {
     return
   }
 
-  // 检查是否已经完成环境检查（本次会话中）
-  const envCheckPassed = sessionStorage.getItem('envCheckPassed') === 'true'
+  // 检查是否已完成首次环境检查（使用 localStorage 持久化）
+  const firstEnvCheckDone = localStorage.getItem('firstEnvCheckDone') === 'true'
 
-  // 如果未完成环境检查，跳转到环境检查页面
-  // 每次应用启动（sessionStorage 被清空）都会显示环境检查页面
-  if (!envCheckPassed) {
+  // 如果未完成首次环境检查，跳转到环境检查页面
+  if (!firstEnvCheckDone) {
     next('/environment-check')
     return
   }

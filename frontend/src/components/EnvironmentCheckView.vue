@@ -5,8 +5,8 @@ import EnvironmentCheckPanel from './settings/EnvironmentCheckPanel.vue'
 const router = useRouter()
 
 function handleContinue() {
-  // 标记环境检查已通过
-  sessionStorage.setItem('envCheckPassed', 'true')
+  // 标记首次环境检查已完成（持久化到 localStorage）
+  localStorage.setItem('firstEnvCheckDone', 'true')
   router.replace('/login')
 }
 </script>
