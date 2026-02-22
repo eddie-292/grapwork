@@ -893,7 +893,7 @@ async function importMCPConfig() {
 }
 
 .server-card.builtin {
-  border-left: 3px solid var(--color-primary);
+
 }
 
 .card-header {
