@@ -40,7 +40,7 @@ async function handleLogin() {
       <div class="login-header">
         <div class="brand">
           <div class="brand-dot" />
-          <span>OpenChat Desktop</span>
+          <span>PrismChat</span>
         </div>
         <h2>欢迎回来</h2>
         <p>请登录以继续使用</p>

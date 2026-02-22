@@ -1,5 +1,5 @@
 {
-  "name": "openchat-desktop",
+  "name": "prismchat",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -36,8 +36,8 @@
     "wait-on": "^7.2.0"
   },
   "build": {
-    "appId": "com.openchat.desktop",
-    "productName": "OpenChat Desktop",
+    "appId": "com.prismchat.desktop",
+    "productName": "PrismChat",
     "icon": "物料/logo.png",
     "directories": {
       "output": "release"

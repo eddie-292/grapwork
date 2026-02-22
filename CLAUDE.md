@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**OpenChat Desktop** - A cross-platform desktop chat application (Electron + Vue 3 + TypeScript) that supports any OpenAI-compatible LLM API. Features:
+**PrismChat** - A cross-platform desktop chat application (Electron + Vue 3 + TypeScript) that supports any OpenAI-compatible LLM API. Features:
 - **Task Mode**: Decomposes complex user requests into executable subtasks with working memory management
 - **Global Memory**: Persistent knowledge storage for user preferences and custom context
 - **Assistant System**: Custom AI assistant/system prompt management
@@ -274,9 +274,9 @@ Renderer → Main process handlers:
 **Note**: Most storage now uses the unified `StorageService` instead of direct IPC.
 
 Config storage location (platform-specific, when using Electron backend):
-- macOS: `~/Library/Application Support/openchat-desktop/config.json`
-- Windows: `%APPDATA%/openchat-desktop/config.json`
-- Linux: `~/.config/openchat-desktop/config.json`
+- macOS: `~/Library/Application Support/prismchat/config.json`
+- Windows: `%APPDATA%/prismchat/config.json`
+- Linux: `~/.config/prismchat/config.json`
 
 ### Built-in File Operations (Main Process)
 

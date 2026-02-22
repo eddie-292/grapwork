@@ -1,4 +1,4 @@
-# OpenChat Desktop
+# PrismChat
 
 一个支持任何 OpenAI 标准 API 的跨平台桌面聊天应用。
 
@@ -95,7 +95,7 @@ Content-Type: application/json
 ## 项目结构
 
 ```
-openchat/
+prismchat/
 ├── frontend/           # Electron + Vue 3 前端应用
 │   ├── electron/      # Electron 主进程和预加载脚本
 │   ├── src/           # Vue 源代码
@@ -110,9 +110,9 @@ openchat/
 ## 配置文件位置
 
 配置文件自动保存在以下位置：
-- **macOS**: `~/Library/Application Support/openchat-desktop/config.json`
-- **Windows**: `%APPDATA%/openchat-desktop/config.json`
-- **Linux**: `~/.config/openchat-desktop/config.json`
+- **macOS**: `~/Library/Application Support/prismchat/config.json`
+- **Windows**: `%APPDATA%/prismchat/config.json`
+- **Linux**: `~/.config/prismchat/config.json`
 
 ## 许可证
 

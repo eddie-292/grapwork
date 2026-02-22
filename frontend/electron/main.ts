@@ -370,7 +370,7 @@ class MCPClient {
         protocolVersion: '2024-11-05',
         capabilities: {},
         clientInfo: {
-          name: 'openchat-desktop',
+          name: 'prismchat',
           version: '1.0.0'
         }
       }

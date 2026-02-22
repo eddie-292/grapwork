@@ -1,10 +1,10 @@
-# OpenChat Desktop 前端
+# PrismChat 前端
 
 一个功能丰富的跨平台桌面聊天应用前端，支持与任何 OpenAI 兼容的 LLM API 进行对话。
 
 ## 系统概述
 
-OpenChat Desktop 是基于 Electron + Vue 3 构建的桌面聊天应用，提供了简洁而强大的界面用于与各种大语言模型进行交互。用户可以通过设置界面配置自定义的 API 端点、API 密钥和模型名称。
+PrismChat 是基于 Electron + Vue 3 构建的桌面聊天应用，提供了简洁而强大的界面用于与各种大语言模型进行交互。用户可以通过设置界面配置自定义的 API 端点、API 密钥和模型名称。
 
 ### 核心功能
 

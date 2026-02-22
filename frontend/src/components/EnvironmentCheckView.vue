@@ -98,7 +98,7 @@ onMounted(() => {
       <div class="env-check-header">
         <div class="brand">
           <div class="brand-dot" />
-          <span>OpenChat Desktop</span>
+          <span>PrismChat</span>
         </div>
         <h2>环境检查</h2>
         <p>正在检查运行环境，请稍候...</p>

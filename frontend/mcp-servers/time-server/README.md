@@ -31,7 +31,7 @@ pip install -r requirements.txt
 python time_server.py
 ```
 
-## 在 OpenChat Desktop 中配置
+## 在 PrismChat 中配置
 
 进入 设置 → MCP，添加新服务器：
 
@@ -74,7 +74,7 @@ python time_server.py
 
 ## 使用示例
 
-在 OpenChat Desktop 中与 AI 对话时：
+在 PrismChat 中与 AI 对话时：
 
 ### 获取当前时间
 

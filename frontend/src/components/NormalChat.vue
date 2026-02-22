@@ -463,7 +463,7 @@ defineExpose({
   <main class="main">
     <div class="messages" ref="messagesRef" @scroll="handleMessagesScroll" @click="handleLinkClick">
       <div v-if="messages.length === 0" class="welcome">
-        <h2>欢迎使用 OpenChat Desktop</h2>
+        <h2>欢迎使用 PrismChat</h2>
         <p>支持任何 OpenAI 标准 API 的桌面聊天应用</p>
         <p>点击右上角的"设置"配置你的 LLM 接口</p>
       </div>
