@@ -13,7 +13,12 @@ const checkingProgress = ref(0)
 
 const hasErrors = computed(() => checkResults.value.some(r => r.status === 'error'))
 const hasWarnings = computed(() => checkResults.value.some(r => r.status === 'warning'))
+const hasProblems = computed(() => hasErrors.value || hasWarnings.value)
 const canContinue = computed(() => !hasErrors.value)
+
+// 分离正常项和问题项（warning + error）
+const successItems = computed(() => checkResults.value.filter(r => r.status === 'success'))
+const problemItems = computed(() => checkResults.value.filter(r => r.status !== 'success'))
 
 async function runEnvironmentCheck() {
   checking.value = true
@@ -84,7 +89,7 @@ onMounted(() => {
 
 <template>
   <div class="env-check-container">
-    <div class="env-check-card">
+    <div class="env-check-card" :class="{ 'wide': hasProblems && !checking }">
       <div class="env-check-header">
         <div class="brand">
           <div class="brand-dot" />
@@ -125,27 +130,51 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- 检查项目列表 -->
-        <div class="check-list">
-          <div
-            v-for="result in checkResults"
-            :key="result.name"
-            class="check-item"
-            :class="getStatusClass(result.status)"
-          >
-            <div class="check-icon">
-              <CheckIcon v-if="result.status === 'success'" :size="14" />
-              <span v-else-if="result.status === 'warning'">!</span>
-              <XIcon v-else-if="result.status === 'error'" :size="14" />
-              <span v-else>?</span>
+        <!-- 检查项目列表 - 双列布局 -->
+        <div class="check-lists" :class="{ 'has-problems': hasProblems }">
+          <!-- 正常项列表 -->
+          <div v-if="successItems.length > 0" class="check-list success-list">
+            <div
+              v-for="result in successItems"
+              :key="result.name"
+              class="check-item status-success"
+            >
+              <div class="check-icon">
+                <CheckIcon :size="14" />
+              </div>
+              <div class="check-content">
+                <div class="check-title">{{ result.displayName }}</div>
+                <div class="check-message">{{ result.message }}</div>
+                <div v-if="result.details" class="check-details">{{ result.details }}</div>
+              </div>
             </div>
-            <div class="check-content">
-              <div class="check-title">{{ result.displayName }}</div>
-              <div class="check-message">{{ result.message }}</div>
-              <div v-if="result.details" class="check-details">{{ result.details }}</div>
-              <div v-if="result.fixSuggestion" class="fix-suggestion">
-                <div class="fix-label"><LightbulbIcon :size="14" /> 修复建议：</div>
-                <pre class="fix-content">{{ result.fixSuggestion }}</pre>
+          </div>
+
+          <!-- 问题项列表（warning + error） -->
+          <div v-if="problemItems.length > 0" class="check-list problem-list">
+            <div class="problem-list-header" :class="{ 'has-error': hasErrors }">
+              <XIcon v-if="hasErrors" :size="16" />
+              <span v-else class="warning-icon">!</span>
+              <span>{{ hasErrors ? '需要解决的问题' : '需要注意的项目' }}</span>
+            </div>
+            <div
+              v-for="result in problemItems"
+              :key="result.name"
+              class="check-item"
+              :class="getStatusClass(result.status)"
+            >
+              <div class="check-icon">
+                <XIcon v-if="result.status === 'error'" :size="14" />
+                <span v-else>!</span>
+              </div>
+              <div class="check-content">
+                <div class="check-title">{{ result.displayName }}</div>
+                <div class="check-message">{{ result.message }}</div>
+                <div v-if="result.details" class="check-details">{{ result.details }}</div>
+                <div v-if="result.fixSuggestion" class="fix-suggestion">
+                  <div class="fix-label"><LightbulbIcon :size="14" /> 修复建议：</div>
+                  <pre class="fix-content">{{ result.fixSuggestion }}</pre>
+                </div>
               </div>
             </div>
           </div>
@@ -190,7 +219,11 @@ onMounted(() => {
   padding: 48px 40px;
   width: 100%;
   max-width: 560px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+/* 有错误时扩展卡片宽度以适应双列布局 */
+.env-check-card.wide {
+  max-width: 900px;
 }
 
 .env-check-header {
@@ -317,12 +350,60 @@ onMounted(() => {
   color: var(--color-text-secondary);
 }
 
-/* 检查列表 */
+/* 检查列表容器 */
+.check-lists {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.check-lists.has-problems {
+  flex-direction: row;
+  gap: 20px;
+}
+
 .check-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-bottom: 24px;
+  flex: 1;
+}
+
+.check-lists.has-problems .success-list {
+  flex: 1;
+}
+
+.check-lists.has-problems .problem-list {
+  flex: 1.2;
+}
+
+/* 问题列表头部 */
+.problem-list-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(245, 158, 11, 0.1);
+  border-radius: 8px;
+  color: #f59e0b;
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.problem-list-header.has-error {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.problem-list-header .warning-icon {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
 }
 
 .check-item {

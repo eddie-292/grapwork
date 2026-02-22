@@ -30,8 +30,8 @@ const BUILTIN_MCP_SERVERS: Omit<MCPServer, 'createdAt' | 'updatedAt'>[] = [
     transportType: 'stdio' as const,
     enabled: true,
     builtin: true,
-    command: 'python',
-    args: ['mcp-servers/email-server/email_server.py'],
+    command: 'uvx',
+    args: ['--from', 'mcp-servers/email-server', 'email_server'],
     tools: []
   },
   {
@@ -41,8 +41,8 @@ const BUILTIN_MCP_SERVERS: Omit<MCPServer, 'createdAt' | 'updatedAt'>[] = [
     transportType: 'stdio' as const,
     enabled: true,
     builtin: true,
-    command: 'python',
-    args: ['mcp-servers/time-server/time_server.py'],
+    command: 'uvx',
+    args: ['--from', 'mcp-servers/time-server', 'time_server'],
     tools: []
   }
 ]

@@ -82,31 +82,14 @@ router.beforeEach(async (to, _from, next) => {
     return
   }
 
-  // 检查是否已经完成环境检查
+  // 检查是否已经完成环境检查（本次会话中）
   const envCheckPassed = sessionStorage.getItem('envCheckPassed') === 'true'
 
+  // 如果未完成环境检查，跳转到环境检查页面
+  // 每次应用启动（sessionStorage 被清空）都会显示环境检查页面
   if (!envCheckPassed) {
-    // 首次访问，需要进行环境检查
-    // 如果在 Electron 环境中，先检查环境
-    if (window.electronAPI?.checkEnvironment) {
-      try {
-        const results = await window.electronAPI.checkEnvironment()
-        const hasErrors = results.some(r => r.status === 'error')
-
-        if (hasErrors) {
-          // 环境检查失败，跳转到环境检查页面
-          next('/environment-check')
-          return
-        }
-      } catch (error) {
-        // 检查失败，跳转到环境检查页面
-        next('/environment-check')
-        return
-      }
-    }
-
-    // 环境检查通过或不需要检查，标记为已通过
-    sessionStorage.setItem('envCheckPassed', 'true')
+    next('/environment-check')
+    return
   }
 
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)

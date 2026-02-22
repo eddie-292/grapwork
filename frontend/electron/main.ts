@@ -2218,25 +2218,7 @@ interface EnvironmentCheckResult {
 ipcMain.handle('check-environment', async (): Promise<EnvironmentCheckResult[]> => {
   const results: EnvironmentCheckResult[] = []
 
-  // 1. 检查 Electron 环境
-  results.push({
-    name: 'electron',
-    displayName: 'Electron 环境',
-    status: 'success',
-    message: 'Electron 运行正常',
-    details: `版本: ${process.versions.electron}`
-  })
-
-  // 2. 检查 Node.js 环境
-  results.push({
-    name: 'nodejs',
-    displayName: 'Node.js 环境',
-    status: 'success',
-    message: 'Node.js 运行正常',
-    details: `版本: ${process.versions.node}`
-  })
-
-  // 3. 检查 node 命令
+  // 1. 检查 node 命令
   const nodeExists = commandExists('node')
   results.push({
     name: 'node-command',
@@ -2247,7 +2229,7 @@ ipcMain.handle('check-environment', async (): Promise<EnvironmentCheckResult[]> 
     fixSuggestion: nodeExists ? undefined : '访问 https://nodejs.org/ 下载并安装 Node.js（推荐 LTS 版本）。安装后重启终端或应用程序。'
   })
 
-  // 4. 检查 npx 命令
+  // 2. 检查 npx 命令
   const npxExists = commandExists('npx')
   results.push({
     name: 'npx-command',
@@ -2258,7 +2240,7 @@ ipcMain.handle('check-environment', async (): Promise<EnvironmentCheckResult[]> 
     fixSuggestion: npxExists ? undefined : 'npx 随 Node.js 一起安装。请安装 Node.js：访问 https://nodejs.org/ 下载 LTS 版本。'
   })
 
-  // 5. 检查 uvx 命令（Python MCP 工具）
+  // 3. 检查 uvx 命令（Python MCP 工具）
   const uvxExists = commandExists('uvx')
   results.push({
     name: 'uvx-command',
@@ -2269,7 +2251,7 @@ ipcMain.handle('check-environment', async (): Promise<EnvironmentCheckResult[]> 
     fixSuggestion: uvxExists ? undefined : '安装 uv 工具：\n• macOS/Linux: curl -LsSf https://astral.sh/uv/install.sh | sh\n• Windows: pip install uv\n或访问 https://docs.astral.sh/uv/ 查看更多安装方式。'
   })
 
-  // 6. 检查 uv 命令（Python 包管理器）
+  // 4. 检查 uv 命令（Python 包管理器）
   const uvExists = commandExists('uv')
   results.push({
     name: 'uv-command',
@@ -2280,7 +2262,7 @@ ipcMain.handle('check-environment', async (): Promise<EnvironmentCheckResult[]> 
     fixSuggestion: uvExists ? undefined : '安装 uv 工具：\n• macOS/Linux: curl -LsSf https://astral.sh/uv/install.sh | sh\n• Windows: pip install uv\n或访问 https://docs.astral.sh/uv/ 查看更多安装方式。'
   })
 
-  // 7. 检查配置目录可写
+  // 5. 检查配置目录可写
   try {
     const testFile = path.join(app.getPath('userData'), '.write-test')
     fs.writeFileSync(testFile, 'test')
@@ -2303,7 +2285,7 @@ ipcMain.handle('check-environment', async (): Promise<EnvironmentCheckResult[]> 
     })
   }
 
-  // 8. 检查平台信息
+  // 6. 检查平台信息
   results.push({
     name: 'platform',
     displayName: '系统平台',
