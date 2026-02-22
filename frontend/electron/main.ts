@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, dialog, Menu } from 'electron'
+import { app, BrowserWindow, ipcMain, shell, dialog, Menu, screen } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import { spawn, ChildProcess, execSync } from 'child_process'
@@ -706,9 +706,17 @@ function createWindow() {
     ? path.join(__dirname, '..', 'build', 'icons', 'icon.png')
     : path.join(path.dirname(__dirname), 'build', 'icons', 'icon.png')
 
+  // 获取主屏幕工作区尺寸，设置窗口为屏幕的 85%
+  const primaryDisplay = screen.getPrimaryDisplay()
+  const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize
+
+  // 窗口大小为屏幕工作区的 85%，但设置最小值以保证可用性
+  const windowWidth = Math.max(1000, Math.floor(screenWidth * 0.85))
+  const windowHeight = Math.max(700, Math.floor(screenHeight * 0.85))
+
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: windowWidth,
+    height: windowHeight,
     icon: iconPath,
     webPreferences: {
       nodeIntegration: false,
