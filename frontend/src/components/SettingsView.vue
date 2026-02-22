@@ -8,8 +8,8 @@ import GlobalMemoryView from './GlobalMemoryView.vue'
 import MCPView from './MCPView.vue'
 import ChangelogView from './ChangelogView.vue'
 import SkillsPanel from './settings/SkillsPanel.vue'
+import EnvironmentCheckPanel from './settings/EnvironmentCheckPanel.vue'
 import { storage } from '../services/StorageService'
-import type { EnvironmentCheckResult } from '../types/electron'
 import PlugIcon from './icons/PlugIcon.vue'
 import PaletteIcon from './icons/PaletteIcon.vue'
 import RobotIcon from './icons/RobotIcon.vue'
@@ -19,9 +19,6 @@ import BookOpenIcon from './icons/BookOpenIcon.vue'
 import SearchIcon from './icons/SearchIcon.vue'
 import ScrollIcon from './icons/ScrollIcon.vue'
 import TrashIcon from './icons/TrashIcon.vue'
-import CheckIcon from './icons/CheckIcon.vue'
-import XIcon from './icons/XIcon.vue'
-import LightbulbIcon from './icons/LightbulbIcon.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -30,11 +27,6 @@ type SettingsTab = 'llm' | 'theme' | 'assistants' | 'memory' | 'mcp' | 'skills' 
 
 // 从 query 参数获取当前标签，默认为 llm
 const activeTab = ref<SettingsTab>((route.query.tab as SettingsTab) || 'llm')
-
-// 环境检查相关状态
-const envChecking = ref(false)
-const envResults = ref<EnvironmentCheckResult[]>([])
-const envChecked = ref(false)
 
 // 监听路由变化更新标签
 watch(() => route.query.tab, (newTab) => {
@@ -71,52 +63,6 @@ async function clearChatHistory() {
     alert('对话历史已清空')
   }
 }
-
-// 环境检查相关函数
-async function runEnvironmentCheck() {
-  envChecking.value = true
-  envResults.value = []
-
-  if (!window.electronAPI?.checkEnvironment) {
-    envResults.value = [
-      {
-        name: 'electron',
-        displayName: 'Electron 环境',
-        status: 'error',
-        message: '未在 Electron 环境中运行',
-        details: '请使用 Electron 应用启动程序'
-      }
-    ]
-    envChecking.value = false
-    envChecked.value = true
-    return
-  }
-
-  try {
-    const results = await window.electronAPI.checkEnvironment()
-    envResults.value = results
-  } catch (error) {
-    envResults.value = [
-      {
-        name: 'unknown',
-        displayName: '环境检查',
-        status: 'error',
-        message: '环境检查失败',
-        details: error instanceof Error ? error.message : '未知错误'
-      }
-    ]
-  } finally {
-    envChecking.value = false
-    envChecked.value = true
-  }
-}
-
-function getStatusClass(status: string): string {
-  return `status-${status}`
-}
-
-const hasEnvErrors = computed(() => envResults.value.some(r => r.status === 'error'))
-const hasEnvWarnings = computed(() => envResults.value.some(r => r.status === 'warning'))
 </script>
 
 <template>
@@ -196,70 +142,7 @@ const hasEnvWarnings = computed(() => envResults.value.some(r => r.status === 'w
             <h2>运行环境检测</h2>
             <p>检测 Agent 运行所需的环境依赖</p>
           </div>
-
-          <button
-            class="check-btn"
-            :disabled="envChecking"
-            @click="runEnvironmentCheck"
-          >
-            {{ envChecking ? '检测中...' : '开始检测' }}
-          </button>
-
-          <!-- 检测结果 -->
-          <div v-if="envChecked" class="env-results">
-            <!-- 状态摘要 -->
-            <div class="status-summary" :class="{
-              'all-success': !hasEnvErrors && !hasEnvWarnings,
-              'has-warnings': hasEnvWarnings && !hasEnvErrors,
-              'has-errors': hasEnvErrors
-            }">
-              <div class="summary-icon">
-                <XIcon v-if="hasEnvErrors" :size="24" />
-                <span v-else-if="hasEnvWarnings">!</span>
-                <CheckIcon v-else :size="24" />
-              </div>
-              <div class="summary-text">
-                <h3 v-if="hasEnvErrors">环境检测未通过</h3>
-                <h3 v-else-if="hasEnvWarnings">环境检测通过（有警告）</h3>
-                <h3 v-else>环境检测通过</h3>
-                <p v-if="hasEnvErrors">部分关键环境不满足，可能影响程序运行</p>
-                <p v-else-if="hasEnvWarnings">部分可选功能可能无法使用</p>
-                <p v-else>所有环境检测均已通过</p>
-              </div>
-            </div>
-
-            <!-- 检测项目列表 -->
-            <div class="check-list">
-              <div
-                v-for="result in envResults"
-                :key="result.name"
-                class="check-item"
-                :class="getStatusClass(result.status)"
-              >
-                <div class="check-icon">
-                  <CheckIcon v-if="result.status === 'success'" :size="14" />
-                  <span v-else-if="result.status === 'warning'">!</span>
-                  <XIcon v-else-if="result.status === 'error'" :size="14" />
-                  <span v-else>?</span>
-                </div>
-                <div class="check-content">
-                  <div class="check-title">{{ result.displayName }}</div>
-                  <div class="check-message">{{ result.message }}</div>
-                  <div v-if="result.details" class="check-details">{{ result.details }}</div>
-                  <div v-if="result.fixSuggestion" class="fix-suggestion">
-                    <div class="fix-label"><LightbulbIcon :size="14" /> 修复建议：</div>
-                    <pre class="fix-content">{{ result.fixSuggestion }}</pre>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 未检测时的提示 -->
-          <div v-else class="env-placeholder">
-            <div class="placeholder-icon"><SearchIcon :size="48" /></div>
-            <p>点击上方按钮开始检测运行环境</p>
-          </div>
+          <EnvironmentCheckPanel :auto-run="false" />
         </div>
 
         <!-- 更新日志 -->
@@ -406,7 +289,7 @@ const hasEnvWarnings = computed(() => envResults.value.some(r => r.status === 'w
 
 /* 环境检测面板样式 */
 .env-panel {
-  max-width: 600px;
+  max-width: 900px;
 }
 
 .env-panel-header {
@@ -424,206 +307,5 @@ const hasEnvWarnings = computed(() => envResults.value.some(r => r.status === 'w
   margin: 0;
   font-size: 14px;
   color: var(--color-text-secondary);
-}
-
-.check-btn {
-  padding: 12px 24px;
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  margin-bottom: 24px;
-}
-
-.check-btn:hover:not(:disabled) {
-  background: var(--color-primary-hover);
-}
-
-.check-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.env-placeholder {
-  text-align: center;
-  padding: 48px 24px;
-  background: var(--color-bg-secondary);
-  border-radius: 12px;
-}
-
-.placeholder-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-}
-
-.env-placeholder p {
-  margin: 0;
-  color: var(--color-text-secondary);
-  font-size: 14px;
-}
-
-.env-results {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-/* 状态摘要 */
-.status-summary {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px;
-  border-radius: 12px;
-}
-
-.status-summary.all-success {
-  background: rgba(34, 197, 94, 0.1);
-}
-
-.status-summary.has-warnings {
-  background: rgba(245, 158, 11, 0.1);
-}
-
-.status-summary.has-errors {
-  background: rgba(239, 68, 68, 0.1);
-}
-
-.summary-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  font-weight: bold;
-}
-
-.all-success .summary-icon {
-  background: var(--color-primary);
-  color: white;
-}
-
-.has-warnings .summary-icon {
-  background: #f59e0b;
-  color: white;
-}
-
-.has-errors .summary-icon {
-  background: #ef4444;
-  color: white;
-}
-
-.summary-text h3 {
-  margin: 0 0 4px 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.summary-text p {
-  margin: 0;
-  font-size: 14px;
-  color: var(--color-text-secondary);
-}
-
-/* 检查列表 */
-.check-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.check-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 12px;
-  border-radius: 8px;
-  background: var(--color-bg-secondary);
-}
-
-.check-icon {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: bold;
-  flex-shrink: 0;
-}
-
-.check-item.status-success .check-icon {
-  background: var(--color-primary);
-  color: white;
-}
-
-.check-item.status-warning .check-icon {
-  background: #f59e0b;
-  color: white;
-}
-
-.check-item.status-error .check-icon {
-  background: #ef4444;
-  color: white;
-}
-
-.check-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.check-title {
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--color-text-primary);
-  margin-bottom: 2px;
-}
-
-.check-message {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-}
-
-.check-details {
-  font-size: 12px;
-  color: var(--color-text-tertiary);
-  margin-top: 4px;
-  word-break: break-all;
-}
-
-/* 修复建议 */
-.fix-suggestion {
-  margin-top: 8px;
-  padding: 10px 12px;
-  background: rgba(59, 130, 246, 0.1);
-  border-radius: 4px;
-}
-
-.fix-label {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #3b82f6;
-  margin-bottom: 4px;
-}
-
-.fix-content {
-  margin: 0;
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family: inherit;
-  line-height: 1.5;
 }
 </style>
