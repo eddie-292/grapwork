@@ -211,7 +211,6 @@ function switchToResult(chatId: string) {
 .chat-tab.active {
   background: var(--color-bg-tertiary, #f0f0f0);
   border-color: var(--color-primary, #22c55e);
-  box-shadow: 0 0 0 1px var(--color-primary, #22c55e);
 }
 
 .chat-tab.search-highlight {

@@ -465,9 +465,85 @@ defineExpose({
   <main class="main">
     <div class="messages" ref="messagesRef" @scroll="handleMessagesScroll" @click="handleLinkClick">
       <div v-if="messages.length === 0" class="welcome">
-        <h2>欢迎使用 PrismChat</h2>
-        <p>支持任何 OpenAI 标准 API 的桌面聊天应用</p>
-        <p>点击右上角的"设置"配置你的 LLM 接口</p>
+        <div class="welcome-hero">
+          <h2 class="welcome-title">PrismChat</h2>
+          <p class="welcome-subtitle">跨平台桌面 AI Agent 助手</p>
+        </div>
+
+        <div class="welcome-features">
+          <div class="feature-card">
+            <div class="feature-icon task-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+                <rect x="9" y="3" width="6" height="4" rx="1"/>
+                <path d="M9 12l2 2 4-4"/>
+              </svg>
+            </div>
+            <h3>任务分解</h3>
+            <p>复杂任务自动拆解为可执行步骤</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon tool-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>
+              </svg>
+            </div>
+            <h3>工具调用</h3>
+            <p>MCP 协议支持丰富的工具扩展</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon memory-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2a10 10 0 1010 10H12V2z"/>
+                <path d="M12 2a10 10 0 00-8.66 15"/>
+                <circle cx="12" cy="12" r="6"/>
+              </svg>
+            </div>
+            <h3>持久记忆</h3>
+            <p>全局记忆存储用户偏好与知识</p>
+          </div>
+        </div>
+
+        <div class="welcome-prompts">
+          <p class="prompts-label">试试这些</p>
+          <div class="prompts-grid">
+            <button class="prompt-card" @click="emit('update:input', '帮我分析这个项目的代码结构')">
+              <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+              </svg>
+              <span class="prompt-text">分析项目代码结构</span>
+            </button>
+            <button class="prompt-card" @click="emit('update:input', '帮我写一个 Python 脚本来处理 Excel 文件')">
+              <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+              </svg>
+              <span class="prompt-text">编写数据处理脚本</span>
+            </button>
+            <button class="prompt-card" @click="emit('update:input', '解释这段代码的工作原理')">
+              <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M9 9a3 3 0 1 1 4 2.83V13"/>
+                <circle cx="12" cy="17" r="1" fill="currentColor"/>
+              </svg>
+              <span class="prompt-text">解释代码原理</span>
+            </button>
+            <button class="prompt-card" @click="emit('update:input', '帮我优化这个函数的性能')">
+              <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+              </svg>
+              <span class="prompt-text">优化代码性能</span>
+            </button>
+          </div>
+        </div>
+
+        <p class="welcome-hint" v-if="!activeConfig">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="hint-icon">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 16v-4"/>
+            <path d="M12 8h.01"/>
+          </svg>
+          点击右上角的<span class="hint-highlight">设置</span>配置你的 LLM 接口
+        </p>
       </div>
       <template v-for="(m, i) in messages" :key="i">
         <!-- 工具调用结果消息 -->
@@ -708,22 +784,221 @@ defineExpose({
 }
 
 .welcome {
-  max-width: 720px;
-  margin: 80px auto 0;
+  max-width: 800px;
+  margin: 40px auto 0;
   text-align: center;
-  color: var(--color-text-secondary);
   padding: 0 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
 }
 
-.welcome h2 {
-  margin: 0 0 12px 0;
+/* Hero Section */
+.welcome-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.welcome-logo {
+  width: 72px;
+  height: 72px;
+  animation: float 3s ease-in-out infinite;
+}
+
+.welcome-logo svg {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 4px 12px rgba(16, 163, 127, 0.3));
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.welcome-title {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--color-primary) 0%, #1a7f64 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.welcome-subtitle {
+  margin: 0;
+  font-size: 16px;
+  color: var(--color-text-secondary);
+  font-weight: 400;
+}
+
+/* Feature Cards */
+.welcome-features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  width: 100%;
+  max-width: 680px;
+}
+
+.feature-card {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 20px 16px;
+  transition: all 0.2s ease;
+  cursor: default;
+}
+
+.feature-card:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(16, 163, 127, 0.12);
+}
+
+.feature-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12px;
+}
+
+.feature-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.task-icon {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+}
+
+.tool-icon {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: white;
+}
+
+.memory-icon {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+}
+
+.feature-card h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--color-text-primary);
-  font-size: 24px;
 }
 
-.welcome p {
-  margin: 8px 0;
+.feature-card p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+  line-height: 1.4;
+}
+
+/* Prompt Suggestions */
+.welcome-prompts {
+  width: 100%;
+  max-width: 680px;
+}
+
+.prompts-label {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.prompts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.prompt-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.prompt-card:hover {
+  background: var(--color-bg-secondary);
+  border-color: var(--color-primary);
+  transform: translateY(-1px);
+}
+
+.prompt-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: var(--color-text-tertiary);
+}
+
+.prompt-text {
   font-size: 14px;
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+/* Hint */
+.welcome-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, rgba(16, 163, 127, 0.1) 0%, rgba(26, 127, 100, 0.08) 100%);
+  border: 1px solid rgba(16, 163, 127, 0.2);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.hint-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.hint-highlight {
+  color: var(--color-primary);
+  font-weight: 600;
+  margin: 0 2px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .welcome {
+    margin-top: 24px;
+    gap: 24px;
+  }
+
+  .welcome-features {
+    grid-template-columns: 1fr;
+    max-width: 320px;
+  }
+
+  .prompts-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .msg-row {
