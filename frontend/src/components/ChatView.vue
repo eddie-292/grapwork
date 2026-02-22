@@ -2811,8 +2811,9 @@ function handleFolderChanged(path: string) {
 
     <!-- 参数配置对话框 -->
     <Teleport to="body">
-      <div v-if="showParamsDialog" class="dialog-overlay" @click.self="showParamsDialog = false">
-        <div class="dialog-content">
+      <Transition name="modal">
+        <div v-if="showParamsDialog" class="dialog-overlay" @click.self="showParamsDialog = false">
+          <div class="dialog-content">
           <div class="dialog-header">
             <h3>对话参数配置</h3>
             <button class="dialog-close" @click="showParamsDialog = false"><XIcon :size="16" /></button>
@@ -2945,6 +2946,7 @@ function handleFolderChanged(path: string) {
           </div>
         </div>
       </div>
+      </Transition>
     </Teleport>
 
     <!-- 快速保存到全局记忆对话框 -->

@@ -560,7 +560,7 @@ defineExpose({
             <path d="M12 16v-4"/>
             <path d="M12 8h.01"/>
           </svg>
-          点击右上角的<span class="hint-highlight">设置</span>配置你的 LLM 接口
+          点击<span class="hint-highlight">设置</span>配置你的 LLM 接口
         </p>
       </div>
       <template v-for="(m, i) in messages" :key="i">
@@ -756,33 +756,35 @@ defineExpose({
     />
 
     <!-- 文件夹选择对话框 -->
-    <div v-if="showFolderDialog" class="dialog-overlay" @click.self="showFolderDialog = false">
-      <div class="dialog-content folder-dialog">
-        <h3 class="folder-dialog-title">
-          <FolderIcon :size="20" />
-          选择文件夹
-        </h3>
-        <div v-if="selectedFolderPath" class="current-folder">
-          <span class="folder-label">当前选中的文件夹</span>
-          <span class="folder-path" :title="selectedFolderPath">{{ selectedFolderPath }}</span>
-        </div>
-        <div v-else class="no-folder">
-          <FolderOpenIcon :size="32" />
-          <span>暂未选择文件夹</span>
-        </div>
-        <div class="dialog-actions">
-          <button v-if="selectedFolderPath" type="button" class="dialog-btn danger" @click="handleClearFolder">
-            清除
-          </button>
-          <button type="button" class="dialog-btn primary" @click="selectFolderFromDialog">
-            {{ selectedFolderPath ? '更换文件夹' : '选择文件夹' }}
-          </button>
-          <button type="button" class="dialog-btn ghost" @click="showFolderDialog = false">
-            取消
-          </button>
+    <Transition name="modal">
+      <div v-if="showFolderDialog" class="dialog-overlay" @click.self="showFolderDialog = false">
+        <div class="dialog-content folder-dialog">
+          <h3 class="folder-dialog-title">
+            <FolderIcon :size="20" />
+            选择文件夹
+          </h3>
+          <div v-if="selectedFolderPath" class="current-folder">
+            <span class="folder-label">当前选中的文件夹</span>
+            <span class="folder-path" :title="selectedFolderPath">{{ selectedFolderPath }}</span>
+          </div>
+          <div v-else class="no-folder">
+            <FolderOpenIcon :size="32" />
+            <span>暂未选择文件夹</span>
+          </div>
+          <div class="dialog-actions">
+            <button v-if="selectedFolderPath" type="button" class="dialog-btn danger" @click="handleClearFolder">
+              清除
+            </button>
+            <button type="button" class="dialog-btn primary" @click="selectFolderFromDialog">
+              {{ selectedFolderPath ? '更换文件夹' : '选择文件夹' }}
+            </button>
+            <button type="button" class="dialog-btn ghost" @click="showFolderDialog = false">
+              取消
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </Transition>
   </main>
 </template>
 

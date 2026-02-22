@@ -70,21 +70,23 @@ function handleClose() {
 </script>
 
 <template>
-  <div v-if="show" class="html-preview-overlay" @click.self="handleClose">
-    <div class="html-preview-dialog">
-      <div class="html-preview-header">
-        <h3>HTML 预览</h3>
-        <button class="close-btn" @click="handleClose">&times;</button>
-      </div>
-      <div class="html-preview-content">
-        <iframe
-          ref="iframeRef"
-          class="html-preview-iframe"
-          sandbox="allow-scripts allow-same-origin"
-        />
+  <Transition name="modal">
+    <div v-if="show" class="html-preview-overlay" @click.self="handleClose">
+      <div class="html-preview-dialog">
+        <div class="html-preview-header">
+          <h3>HTML 预览</h3>
+          <button class="close-btn" @click="handleClose">&times;</button>
+        </div>
+        <div class="html-preview-content">
+          <iframe
+            ref="iframeRef"
+            class="html-preview-iframe"
+            sandbox="allow-scripts allow-same-origin"
+          />
+        </div>
       </div>
     </div>
-  </div>
+  </Transition>
 </template>
 
 <style scoped>

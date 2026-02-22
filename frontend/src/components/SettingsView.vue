@@ -112,41 +112,45 @@ async function clearChatHistory() {
 
       <!-- 右侧内容 -->
       <main class="settings-main">
-        <!-- LLM 接口配置 -->
-        <LLMConfigPanel v-if="activeTab === 'llm'" />
+        <Transition name="fade" mode="out-in">
+          <div :key="activeTab" class="tab-content">
+            <!-- LLM 接口配置 -->
+            <LLMConfigPanel v-if="activeTab === 'llm'" />
 
-        <!-- 代码高亮主题 -->
-        <CodeHighlightThemePanel v-else-if="activeTab === 'theme'" />
+            <!-- 代码高亮主题 -->
+            <CodeHighlightThemePanel v-else-if="activeTab === 'theme'" />
 
-        <!-- 社区助理 -->
-        <div v-else-if="activeTab === 'assistants'" class="panel-wrapper">
-          <AssistantView />
-        </div>
+            <!-- 社区助理 -->
+            <div v-else-if="activeTab === 'assistants'" class="panel-wrapper">
+              <AssistantView />
+            </div>
 
-        <!-- 全局记忆 -->
-        <div v-else-if="activeTab === 'memory'" class="panel-wrapper">
-          <GlobalMemoryView />
-        </div>
+            <!-- 全局记忆 -->
+            <div v-else-if="activeTab === 'memory'" class="panel-wrapper">
+              <GlobalMemoryView />
+            </div>
 
-        <!-- MCP 服务器 -->
-        <div v-else-if="activeTab === 'mcp'" class="panel-wrapper">
-          <MCPView />
-        </div>
+            <!-- MCP 服务器 -->
+            <div v-else-if="activeTab === 'mcp'" class="panel-wrapper">
+              <MCPView />
+            </div>
 
-        <!-- 技能管理 -->
-        <SkillsPanel v-else-if="activeTab === 'skills'" />
+            <!-- 技能管理 -->
+            <SkillsPanel v-else-if="activeTab === 'skills'" />
 
-        <!-- 环境检测 -->
-        <div v-else-if="activeTab === 'environment'" class="env-panel">
-          <div class="env-panel-header">
-            <h2>运行环境检测</h2>
-            <p>检测 Agent 运行所需的环境依赖</p>
+            <!-- 环境检测 -->
+            <div v-else-if="activeTab === 'environment'" class="env-panel">
+              <div class="env-panel-header">
+                <h2>运行环境检测</h2>
+                <p>检测 Agent 运行所需的环境依赖</p>
+              </div>
+              <EnvironmentCheckPanel :auto-run="false" />
+            </div>
+
+            <!-- 更新日志 -->
+            <ChangelogView v-else-if="activeTab === 'changelog'" />
           </div>
-          <EnvironmentCheckPanel :auto-run="false" />
-        </div>
-
-        <!-- 更新日志 -->
-        <ChangelogView v-else-if="activeTab === 'changelog'" />
+        </Transition>
       </main>
     </div>
   </div>
@@ -255,6 +259,10 @@ async function clearChatHistory() {
   padding: 20px;
   overflow: auto;
   height: calc(100vh - 71px);
+}
+
+.tab-content {
+  position: relative;
 }
 
 .panel-wrapper {

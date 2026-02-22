@@ -40,23 +40,25 @@ const iconComponent = computed(() => {
 </script>
 
 <template>
-  <div class="modal-overlay" v-if="show" @click.self="$emit('cancel')">
-    <div class="modal-content confirm-modal">
-      <div class="confirm-icon">
-        <component :is="iconComponent" :size="48" />
-      </div>
-      <h3>{{ title }}</h3>
-      <p>{{ message }}</p>
-      <div class="modal-footer">
-        <button class="btn secondary" @click="$emit('cancel')">
-          {{ cancelText }}
-        </button>
-        <button :class="['btn', type]" @click="$emit('confirm')">
-          {{ confirmText }}
-        </button>
+  <Transition name="modal">
+    <div class="modal-overlay" v-if="show" @click.self="$emit('cancel')">
+      <div class="modal-content confirm-modal">
+        <div class="confirm-icon">
+          <component :is="iconComponent" :size="48" />
+        </div>
+        <h3>{{ title }}</h3>
+        <p>{{ message }}</p>
+        <div class="modal-footer">
+          <button class="btn secondary" @click="$emit('cancel')">
+            {{ cancelText }}
+          </button>
+          <button :class="['btn', type]" @click="$emit('confirm')">
+            {{ confirmText }}
+          </button>
+        </div>
       </div>
     </div>
-  </div>
+  </Transition>
 </template>
 
 <style scoped>

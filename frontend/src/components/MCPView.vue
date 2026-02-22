@@ -444,8 +444,9 @@ async function importMCPConfig() {
     </Transition>
 
     <!-- 添加服务器表单 -->
-    <div class="modal-overlay" v-if="showAddForm" @click.self="showAddForm = false">
-      <div class="modal-content">
+    <Transition name="modal">
+      <div class="modal-overlay" v-if="showAddForm" @click.self="showAddForm = false">
+        <div class="modal-content">
         <div class="modal-header">
           <h3>添加 MCP 服务器</h3>
           <button class="close-btn" @click="showAddForm = false">×</button>
@@ -566,10 +567,12 @@ async function importMCPConfig() {
         </div>
       </div>
     </div>
+    </Transition>
 
     <!-- 编辑服务器表单 -->
-    <div class="modal-overlay" v-if="showEditForm" @click.self="showEditForm = false">
-      <div class="modal-content">
+    <Transition name="modal">
+      <div class="modal-overlay" v-if="showEditForm" @click.self="showEditForm = false">
+        <div class="modal-content">
         <div class="modal-header">
           <h3>编辑 MCP 服务器</h3>
           <button class="close-btn" @click="showEditForm = false">×</button>
@@ -703,6 +706,7 @@ async function importMCPConfig() {
         </div>
       </div>
     </div>
+    </Transition>
 
     <!-- 删除确认对话框 -->
     <ConfirmDialog

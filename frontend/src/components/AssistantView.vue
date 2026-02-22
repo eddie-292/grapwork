@@ -165,62 +165,64 @@ function truncateText(text: string, maxLength: number): string {
     </header>
 
     <!-- 编辑表单模态框 -->
-    <div class="modal-overlay" v-if="showEditForm" @click.self="showEditForm = false">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>{{ editingIndex >= 0 ? '编辑助理' : '创建助理' }}</h3>
-          <button class="close-btn" @click="showEditForm = false; editingIndex = -1">×</button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label>助理名称</label>
-            <input
-              v-model="currentAssistant.name"
-              type="text"
-              placeholder="例如：代码助手、写作助手..."
-              class="input"
-            />
+    <Transition name="modal">
+      <div class="modal-overlay" v-if="showEditForm" @click.self="showEditForm = false">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>{{ editingIndex >= 0 ? '编辑助理' : '创建助理' }}</h3>
+            <button class="close-btn" @click="showEditForm = false; editingIndex = -1">×</button>
           </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label>助理名称</label>
+              <input
+                v-model="currentAssistant.name"
+                type="text"
+                placeholder="例如：代码助手、写作助手..."
+                class="input"
+              />
+            </div>
 
-          <div class="form-group">
-            <label>头像</label>
-            <div class="avatar-selector">
-              <button
-                v-for="icon in avatarIcons"
-                :key="icon.id"
-                class="avatar-btn"
-                :class="{ selected: currentAssistant.emoji === icon.id }"
-                @click="currentAssistant.emoji = icon.id"
-                :title="icon.name"
-              >
-                <svg :viewBox="icon.viewBox || '0 0 24 24'" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path :d="icon.path" />
-                </svg>
-              </button>
+            <div class="form-group">
+              <label>头像</label>
+              <div class="avatar-selector">
+                <button
+                  v-for="icon in avatarIcons"
+                  :key="icon.id"
+                  class="avatar-btn"
+                  :class="{ selected: currentAssistant.emoji === icon.id }"
+                  @click="currentAssistant.emoji = icon.id"
+                  :title="icon.name"
+                >
+                  <svg :viewBox="icon.viewBox || '0 0 24 24'" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path :d="icon.path" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>System 提示词</label>
+              <textarea
+                v-model="currentAssistant.systemPrompt"
+                placeholder="设置 AI 助手的角色和行为..."
+                class="input textarea"
+                rows="6"
+              />
+              <small>描述助理的专长、性格和回答风格</small>
             </div>
           </div>
-
-          <div class="form-group">
-            <label>System 提示词</label>
-            <textarea
-              v-model="currentAssistant.systemPrompt"
-              placeholder="设置 AI 助手的角色和行为..."
-              class="input textarea"
-              rows="6"
-            />
-            <small>描述助理的专长、性格和回答风格</small>
+          <div class="modal-footer">
+            <button type="button" class="btn secondary" @click="showEditForm = false; editingIndex = -1">
+              取消
+            </button>
+            <button type="button" class="btn primary" @click="saveCurrentAssistant">
+              {{ editingIndex >= 0 ? '保存' : '创建' }}
+            </button>
           </div>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn secondary" @click="showEditForm = false; editingIndex = -1">
-            取消
-          </button>
-          <button type="button" class="btn primary" @click="saveCurrentAssistant">
-            {{ editingIndex >= 0 ? '保存' : '创建' }}
-          </button>
-        </div>
       </div>
-    </div>
+    </Transition>
 
     <!-- 删除确认对话框 -->
     <ConfirmDialog

@@ -292,42 +292,44 @@ onMounted(() => {
     </div>
 
     <!-- Edit Modal -->
-    <div v-if="showEditModal" class="modal-overlay" @click.self="showEditModal = false">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>{{ canEdit(editingSkill!) ? '编辑' : '查看' }}技能: {{ editingSkill?.name }}</h3>
-          <button @click="showEditModal = false" class="close-btn">x</button>
-        </div>
-        <div class="modal-body">
-          <div class="skill-meta">
-            <p><strong>描述：</strong> {{ editingSkill?.description }}</p>
-            <p v-if="editingSkill?.version"><strong>版本：</strong> {{ editingSkill.version }}</p>
-            <p v-if="editingSkill?.author"><strong>作者：</strong> {{ editingSkill.author }}</p>
+    <Transition name="modal">
+      <div v-if="showEditModal" class="modal-overlay" @click.self="showEditModal = false">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>{{ canEdit(editingSkill!) ? '编辑' : '查看' }}技能: {{ editingSkill?.name }}</h3>
+            <button @click="showEditModal = false" class="close-btn">x</button>
           </div>
-          <div class="form-group">
-            <label>技能指令（Markdown）</label>
-            <textarea
-              v-model="editBody"
-              class="edit-textarea"
-              rows="15"
-              placeholder="技能指令内容..."
-              :readonly="!canEdit(editingSkill!)"
-            ></textarea>
+          <div class="modal-body">
+            <div class="skill-meta">
+              <p><strong>描述：</strong> {{ editingSkill?.description }}</p>
+              <p v-if="editingSkill?.version"><strong>版本：</strong> {{ editingSkill.version }}</p>
+              <p v-if="editingSkill?.author"><strong>作者：</strong> {{ editingSkill.author }}</p>
+            </div>
+            <div class="form-group">
+              <label>技能指令（Markdown）</label>
+              <textarea
+                v-model="editBody"
+                class="edit-textarea"
+                rows="15"
+                placeholder="技能指令内容..."
+                :readonly="!canEdit(editingSkill!)"
+              ></textarea>
+            </div>
           </div>
-        </div>
-        <div class="modal-footer">
-          <button @click="showEditModal = false" class="cancel-btn">关闭</button>
-          <button
-            v-if="canEdit(editingSkill!)"
-            @click="handleSaveEdit"
-            class="confirm-btn"
-            :disabled="loading"
-          >
-            保存
-          </button>
+          <div class="modal-footer">
+            <button @click="showEditModal = false" class="cancel-btn">关闭</button>
+            <button
+              v-if="canEdit(editingSkill!)"
+              @click="handleSaveEdit"
+              class="confirm-btn"
+              :disabled="loading"
+            >
+              保存
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </Transition>
   </div>
 </template>
 

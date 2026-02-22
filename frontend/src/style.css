@@ -1719,3 +1719,87 @@ button:disabled {
 .dark-mode .fix-content {
   color: #9ca3af !important;
 }
+
+/* ============================================
+   TRANSITION ANIMATIONS
+   ============================================ */
+
+/* Modal/Dialog Transitions */
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 200ms ease-out;
+}
+
+.modal-enter-active .modal-content,
+.modal-leave-active .modal-content,
+.modal-enter-active .dialog,
+.modal-leave-active .dialog,
+.modal-enter-active .confirm-modal,
+.modal-leave-active .confirm-modal,
+.modal-enter-active .dialog-content,
+.modal-leave-active .dialog-content {
+  transition: all 200ms ease-out;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+.modal-enter-from .modal-content,
+.modal-enter-from .dialog,
+.modal-enter-from .confirm-modal,
+.modal-enter-from .dialog-content {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+.modal-leave-to .modal-content,
+.modal-leave-to .dialog,
+.modal-leave-to .confirm-modal,
+.modal-leave-to .dialog-content {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+/* Fade Transition */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 150ms ease-out;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* Fade-Up Transition (for messages) */
+.fade-up-enter-active,
+.fade-up-leave-active {
+  transition: all 150ms ease-out;
+}
+
+.fade-up-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.fade-up-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.fade-up-move {
+  transition: transform 150ms ease-out;
+}
+
+/* Page Transitions */
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 200ms ease-out;
+}
+
+.page-enter-from,
+.page-leave-to {
+  opacity: 0;
+}

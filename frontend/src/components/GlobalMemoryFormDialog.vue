@@ -214,8 +214,9 @@ function cancel() {
 </script>
 
 <template>
-  <div v-if="show" class="dialog-overlay" @click.self="cancel">
-    <div class="dialog">
+  <Transition name="modal">
+    <div v-if="show" class="dialog-overlay" @click.self="cancel">
+      <div class="dialog">
       <h2>{{ entry ? '编辑记忆' : '保存为全局记忆' }}</h2>
 
       <div class="form-group">
@@ -307,6 +308,7 @@ function cancel() {
       </div>
     </div>
   </div>
+  </Transition>
 </template>
 
 <style scoped>
