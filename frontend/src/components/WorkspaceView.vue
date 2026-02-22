@@ -375,7 +375,7 @@ defineExpose({
   <div class="workspace-container">
     <!-- 标题栏 -->
     <div class="workspace-header">
-      <h3 class="workspace-title">我的工作空间</h3>
+      <h3 class="workspace-title"></h3>
       <dvi class="workspace-btns">
         <button class="refresh-btn" @click="refreshWorkspace" title="刷新" :disabled="loading || !currentFolder">
           <svg v-if="!loading" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
