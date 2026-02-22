@@ -519,14 +519,6 @@ defineExpose({
               </svg>
               <span class="prompt-text">编写数据处理脚本</span>
             </button>
-            <button class="prompt-card" @click="emit('update:input', '解释这段代码的工作原理')">
-              <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M9 9a3 3 0 1 1 4 2.83V13"/>
-                <circle cx="12" cy="17" r="1" fill="currentColor"/>
-              </svg>
-              <span class="prompt-text">解释代码原理</span>
-            </button>
             <button class="prompt-card" @click="emit('update:input', '帮我优化这个函数的性能')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
