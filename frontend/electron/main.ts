@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, shell, dialog, Menu } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import { spawn, ChildProcess, execSync } from 'child_process'
@@ -721,6 +721,9 @@ function createWindow() {
     const distPath = path.join(path.dirname(__dirname), 'dist', 'index.html')
     mainWindow.loadFile(distPath)
   }
+
+  // 隐藏默认菜单栏 (File, Edit, View 等)
+  Menu.setApplicationMenu(null)
 
   mainWindow.on('closed', () => {
     mainWindow = null
