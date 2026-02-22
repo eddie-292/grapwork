@@ -27,11 +27,6 @@ const message = ref('')
 
 const deleteMessage = ref('')
 
-// Emits
-const emit = defineEmits<{
-  save: []
-}>()
-
 onMounted(async () => {
   const config = await storage.getConfigList()
   if (config) {
@@ -62,7 +57,7 @@ function confirmDelete(index: number) {
   showDeleteConfirm.value = true
 }
 
-function handleDeleteConfirm() {
+async function handleDeleteConfirm() {
   if (configToDeleteIndex.value >= 0) {
     const index = configToDeleteIndex.value
     configList.value.configs.splice(index, 1)
@@ -73,7 +68,7 @@ function handleDeleteConfirm() {
     }
     showDeleteConfirm.value = false
     configToDeleteIndex.value = -1
-    emit('save')
+    await saveAllConfigs()
   }
 }
 
@@ -82,7 +77,7 @@ function handleDeleteCancel() {
   configToDeleteIndex.value = -1
 }
 
-function saveCurrentConfig() {
+async function saveCurrentConfig() {
   if (editingIndex.value >= 0) {
     configList.value.configs[editingIndex.value] = {
       name: currentConfig.value.name || '',
@@ -113,7 +108,7 @@ function saveCurrentConfig() {
   }
   editingIndex.value = -1
   showEditForm.value = false
-  emit('save')
+  await saveAllConfigs()
 }
 
 async function saveAllConfigs() {
