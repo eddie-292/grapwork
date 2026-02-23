@@ -762,11 +762,20 @@ defineExpose({
 
           <!-- 右侧：操作按钮组 -->
           <div class="action-buttons">
-            <!-- 思考模式开关 -->
-            <label class="thinking-toggle" :title="enableThinking ? '已启用思考模式' : '点击启用思考模式'">
-              <input type="checkbox" :checked="enableThinking" @change="handleThinkingToggle" />
-              <span class="thinking-slider"></span>
-            </label>
+            <!-- 思考模式按钮 -->
+            <button
+              type="button"
+              class="thinking-btn"
+              :class="{ active: enableThinking }"
+              @click="handleThinkingToggle"
+              :title="enableThinking ? '已启用思考模式' : '点击启用思考模式'"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 18h6" />
+                <path d="M10 22h4" />
+                <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14" />
+              </svg>
+            </button>
 
             <!-- 参数设置 -->
             <button
@@ -1602,52 +1611,43 @@ defineExpose({
   cursor: not-allowed;
 }
 
-/* 思考模式开关样式 - 紧凑版 */
-.thinking-toggle {
+/* 思考模式按钮样式 */
+.thinking-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text-tertiary);
   cursor: pointer;
-  user-select: none;
-  padding: 4px;
-  border-radius: 6px;
-  transition: all 0.2s;
+  transition: all 0.25s ease;
 }
 
-.thinking-toggle:hover {
+.thinking-btn:hover {
   background: var(--color-bg-tertiary);
+  border-color: var(--color-border-hover);
+  color: var(--color-text-secondary);
 }
 
-.thinking-toggle input {
-  display: none;
+.thinking-btn.active {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(245, 158, 11, 0.1) 100%);
+  border-color: #fbbf24;
+  color: #fbbf24;
+  box-shadow: 0 0 12px rgba(251, 191, 36, 0.3);
 }
 
-.thinking-slider {
-  position: relative;
-  width: 28px;
-  height: 16px;
-  background: var(--color-border);
-  border-radius: 16px;
-  transition: 0.2s;
+.thinking-btn.active:hover {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.25) 0%, rgba(245, 158, 11, 0.15) 100%);
+  color: #f59e0b;
+  box-shadow: 0 0 16px rgba(251, 191, 36, 0.4);
 }
 
-.thinking-slider::before {
-  content: "";
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  left: 2px;
-  bottom: 2px;
-  background: white;
-  border-radius: 50%;
-  transition: 0.2s;
-}
-
-.thinking-toggle input:checked + .thinking-slider {
-  background: var(--color-primary);
-}
-
-.thinking-toggle input:checked + .thinking-slider::before {
-  transform: translateX(12px);
+.thinking-btn svg {
+  width: 18px;
+  height: 18px;
 }
 
 :deep(hr) {
