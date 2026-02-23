@@ -288,15 +288,6 @@ defineExpose({
           <small>例如: gpt-4o, gpt-4o-mini, claude-3-5-sonnet 等</small>
         </div>
 
-        <div class="form-group form-group-row">
-          <label>启用思考模式 (enable_thinking)</label>
-          <label class="switch">
-            <input type="checkbox" v-model="currentConfig.enable_thinking" />
-            <span class="slider"></span>
-          </label>
-          <small>启用后支持模型的深度思考能力（非 OpenAI 标准参数，会自动合并到额外请求参数中）</small>
-        </div>
-
         <div class="form-group">
           <label>额外请求参数 (JSON 格式)</label>
           <textarea

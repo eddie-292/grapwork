@@ -552,9 +552,11 @@ async function sendMessageToLLM(messages: { role: string; content: string }[]): 
     }
   }
 
-  // 处理 enable_thinking 参数（非标准参数，合并到 extraBodyParams）
+  // 处理 enable_thinking 参数
   // 无论 true/false 都发送，确保与配置同步
-  extraBodyParams = { ...extraBodyParams, enable_thinking: activeConfig.value?.enable_thinking ?? false }
+  const enableThinking = activeConfig.value?.enable_thinking ?? false
+  // 同步到 extraBodyParams 中
+  extraBodyParams = { ...extraBodyParams, enable_thinking: enableThinking }
 
   let resp: Response
 
@@ -572,7 +574,8 @@ async function sendMessageToLLM(messages: { role: string; content: string }[]): 
         model: activeConfig.value.model,
         messages: messages,
         stream: false,
-        extra_body: extraBodyParams,
+        enable_thinking: enableThinking,  // 外层 enable_thinking，与 messages 同级
+        extra_body: extraBodyParams,      // extra_body 中也有 enable_thinking
       }),
     })
 
@@ -1447,9 +1450,11 @@ async function executeNormalChat(text: string) {
       }
     }
 
-    // 处理 enable_thinking 参数（非标准参数，合并到 extraBodyParams）
+    // 处理 enable_thinking 参数
     // 无论 true/false 都发送，确保与配置同步
-    extraBodyParams = { ...extraBodyParams, enable_thinking: activeConfig.value?.enable_thinking ?? false }
+    const enableThinking = activeConfig.value?.enable_thinking ?? false
+    // 同步到 extraBodyParams 中
+    extraBodyParams = { ...extraBodyParams, enable_thinking: enableThinking }
 
     // 浏览器开发环境始终走代理，Electron 环境直接请求
     const useProxy = import.meta.env.DEV && !isElectronEnv
@@ -1483,7 +1488,8 @@ async function executeNormalChat(text: string) {
           stream_options: { include_usage: true },  // 启用 token 使用统计
           ...(mcpTools.length > 0 ? { tools: mcpTools } : {}),
           ...validParams,
-          extra_body: extraBodyParams,
+          enable_thinking: enableThinking,  // 外层 enable_thinking，与 messages 同级
+          extra_body: extraBodyParams,      // extra_body 中也有 enable_thinking
         }),
         signal: controllers.value[currentChat.value!.id]!.signal,
       })
@@ -2589,6 +2595,34 @@ function changeChatConfig(configIndex: string) {
   }
 }
 
+// 更新思考模式设置
+async function handleUpdateEnableThinking(value: boolean) {
+  const chat = currentChat.value
+  if (chat && chat.configId !== undefined && chat.configId !== null) {
+    const config = configList.value.configs[chat.configId]
+    if (!config) return
+
+    // 更新配置中的 enable_thinking
+    config.enable_thinking = value
+
+    // 同步更新 extra_body 中的 enable_thinking
+    try {
+      let extraBody: Record<string, any> = {}
+      const currentExtraBody = config.extra_body
+      if (currentExtraBody && currentExtraBody.trim()) {
+        extraBody = JSON.parse(currentExtraBody)
+      }
+      extraBody.enable_thinking = value
+      config.extra_body = JSON.stringify(extraBody, null, 2)
+    } catch {
+      config.extra_body = JSON.stringify({ enable_thinking: value }, null, 2)
+    }
+
+    // 保存配置
+    await storage.saveConfigList(configList.value)
+  }
+}
+
 // 打开参数配置对话框
 function openParamsDialog() {
   const chat = currentChat.value
@@ -2797,6 +2831,7 @@ function handleFolderChanged(path: string) {
         :assistant-list="assistantList"
         :config-list="configList"
         :usage="currentChat?.usage"
+        :enable-thinking="activeConfig?.enable_thinking ?? false"
         @send="send"
         @cancel="cancel"
         @update:input="input = $event"
@@ -2806,6 +2841,7 @@ function handleFolderChanged(path: string) {
         @change-config="changeChatConfig"
         @clear-assistant="changeAssistant('')"
         @folder-changed="handleFolderChanged"
+        @update:enable-thinking="handleUpdateEnableThinking"
         ref="normalChatRef"
       />
 

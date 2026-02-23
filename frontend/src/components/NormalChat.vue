@@ -48,6 +48,7 @@ interface Props {
   assistantList: any
   configList: any
   usage?: TokenUsage  // 添加 token 使用统计
+  enableThinking?: boolean  // 启用思考模式
 }
 
 const props = defineProps<Props>()
@@ -64,7 +65,14 @@ const emit = defineEmits<{
   'update:is-task-mode': [value: boolean]
   'clear-assistant': []
   'folder-changed': [path: string]
+  'update:enable-thinking': [value: boolean]  // 更新思考模式
 }>()
+
+// 思考模式
+const enableThinking = computed(() => props.enableThinking ?? false)
+function handleThinkingToggle() {
+  emit('update:enable-thinking', !enableThinking.value)
+}
 
 // 全局记忆对话框状态
 const showSaveToGlobalMemoryDialog = ref(false)
@@ -712,6 +720,12 @@ defineExpose({
           <button type="button" class="btn ghost" @click="handleCancel" :disabled="!sending">
             取消
           </button>
+          <!-- 思考模式开关 -->
+          <label class="thinking-toggle" :title="enableThinking ? '已启用思考模式' : '点击启用思考模式'">
+            <input type="checkbox" :checked="enableThinking" @change="handleThinkingToggle" />
+            <span class="thinking-slider"></span>
+            <span class="thinking-label">思考</span>
+          </label>
           <button
             type="button"
             class="btn folder"
@@ -1435,6 +1449,66 @@ defineExpose({
 .actions {
   display: flex;
   gap: 8px;
+  align-items: center;
+}
+
+/* 思考模式开关样式 */
+.thinking-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  padding: 4px 8px;
+  border-radius: 16px;
+  transition: all 0.2s;
+}
+
+.thinking-toggle:hover {
+  background: var(--color-bg-tertiary);
+}
+
+.thinking-toggle input {
+  display: none;
+}
+
+.thinking-slider {
+  position: relative;
+  width: 32px;
+  height: 18px;
+  background: var(--color-border);
+  border-radius: 18px;
+  transition: 0.2s;
+}
+
+.thinking-slider::before {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  left: 2px;
+  bottom: 2px;
+  background: white;
+  border-radius: 50%;
+  transition: 0.2s;
+}
+
+.thinking-toggle input:checked + .thinking-slider {
+  background: var(--color-primary);
+}
+
+.thinking-toggle input:checked + .thinking-slider::before {
+  transform: translateX(14px);
+}
+
+.thinking-label {
+  font-weight: 500;
+}
+
+.thinking-toggle input:checked ~ .thinking-label {
+  color: var(--color-primary);
 }
 
 .btn {
