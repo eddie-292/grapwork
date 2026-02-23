@@ -553,15 +553,6 @@ defineExpose({
             </button>
           </div>
         </div>
-
-        <p class="welcome-hint" v-if="!activeConfig">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="hint-icon">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M12 16v-4"/>
-            <path d="M12 8h.01"/>
-          </svg>
-          点击<span class="hint-highlight">设置</span>配置你的 LLM 接口
-        </p>
       </div>
       <template v-for="(m, i) in messages" :key="i">
         <!-- 工具调用结果消息 -->
