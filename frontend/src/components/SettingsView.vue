@@ -168,7 +168,7 @@ async function clearChatHistory() {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 16px 24px;
+  padding: 30px 10px 10px 10px;
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg-primary);
   justify-content: space-between;
@@ -258,7 +258,7 @@ async function clearChatHistory() {
   flex: 1;
   padding: 20px;
   overflow: auto;
-  height: calc(100vh - 71px);
+  height: calc(100vh - 80px);
 }
 
 .tab-content {

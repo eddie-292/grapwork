@@ -335,7 +335,7 @@ onMounted(() => {
 
 <style scoped>
 .skills-panel {
-  padding: 16px;
+  
 }
 
 .panel-header {
