@@ -2358,3 +2358,61 @@ ipcMain.handle('get-changelog', async () => {
     }
   }
 })
+
+// 文件预览处理器（不依赖工作目录）
+ipcMain.handle('preview-file', async (_event, filePath: string, limit: number = 500) => {
+  try {
+    if (!filePath) {
+      return {
+        success: false,
+        error: '缺少文件路径'
+      }
+    }
+
+    if (!fs.existsSync(filePath)) {
+      return {
+        success: false,
+        error: `文件不存在: ${filePath}`
+      }
+    }
+
+    const stat = fs.statSync(filePath)
+    if (stat.isDirectory()) {
+      return {
+        success: false,
+        error: `路径是目录而不是文件`
+      }
+    }
+
+    // 检查文件大小（限制为 5MB 以内）
+    const maxSize = 5 * 1024 * 1024
+    if (stat.size > maxSize) {
+      return {
+        success: false,
+        error: `文件过大（超过 5MB），无法预览`
+      }
+    }
+
+    const content = fs.readFileSync(filePath, 'utf-8')
+    const lines = content.split('\n')
+    const limitedLines = lines.slice(0, limit)
+
+    // 添加行号
+    const numberedLines = limitedLines.map((line, idx) => {
+      const lineNum = idx + 1
+      return `${String(lineNum).padStart(4, ' ')}\t${line}`
+    })
+
+    return {
+      success: true,
+      content: numberedLines.join('\n'),
+      totalLines: lines.length,
+      linesShown: limitedLines.length
+    }
+  } catch (error: any) {
+    return {
+      success: false,
+      error: `读取文件失败: ${error?.message || error}`
+    }
+  }
+})

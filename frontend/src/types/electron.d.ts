@@ -125,6 +125,14 @@ interface ElectronAPI {
     path?: string
     error?: string
   }>
+  // 文件预览（不依赖工作目录）
+  previewFile: (filePath: string, limit?: number) => Promise<{
+    success: boolean
+    content?: string
+    totalLines?: number
+    linesShown?: number
+    error?: string
+  }>
   // 文件操作工具
   fileOperation: (operation: string, args: Record<string, any>) => Promise<{
     success: boolean

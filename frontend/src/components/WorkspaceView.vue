@@ -124,12 +124,8 @@ async function previewFile(node: FileNode) {
   showFilePreview.value = true
 
   try {
-    if (window.electronAPI?.fileOperation) {
-      const result = await window.electronAPI.fileOperation('read_file', {
-        path: node.path,
-        start_line: 0,
-        end_line: 500 // 限制读取行数
-      })
+    if (window.electronAPI?.previewFile) {
+      const result = await window.electronAPI.previewFile(node.path, 500)
 
       if (result.success && result.content !== undefined) {
         previewContent.value = result.content
@@ -137,7 +133,7 @@ async function previewFile(node: FileNode) {
         previewError.value = result.error || '读取文件失败'
       }
     } else {
-      previewError.value = '文件操作 API 不可用'
+      previewError.value = '文件预览 API 不可用'
     }
   } catch (err) {
     previewError.value = err instanceof Error ? err.message : '读取文件失败'

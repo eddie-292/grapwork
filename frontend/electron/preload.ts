@@ -64,6 +64,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 读取目录内容
   readDirectory: (dirPath: string) =>
     ipcRenderer.invoke('read-directory', dirPath),
+  // 文件预览（不依赖工作目录）
+  previewFile: (filePath: string, limit?: number) =>
+    ipcRenderer.invoke('preview-file', filePath, limit),
   // 文件操作工具
   fileOperation: (operation: string, args: Record<string, any>) =>
     ipcRenderer.invoke('file-operation', operation, args),
