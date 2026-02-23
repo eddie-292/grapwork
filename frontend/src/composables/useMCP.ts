@@ -908,10 +908,10 @@ export function useMCP() {
         // 添加工作目录路径
         args.basePath = selectedFolder.value
 
-        console.log('[Builtin File Tool] Executing:', JSON.stringify({
-          tool: toolCall.function.name,
-          arguments: args
-        }))
+        // console.log('[Builtin File Tool] Executing:', JSON.stringify({
+        //   tool: toolCall.function.name,
+        //   arguments: args
+        // }))
 
         // 调用 Electron 主进程的文件操作
         if (!isElectronEnv) {
