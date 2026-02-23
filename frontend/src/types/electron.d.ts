@@ -133,6 +133,12 @@ interface ElectronAPI {
     linesShown?: number
     error?: string
   }>
+  // 读取文件为 Buffer（用于图片、PDF 等二进制文件预览）
+  readFileAsBuffer: (filePath: string) => Promise<{
+    success: boolean
+    buffer?: ArrayBuffer
+    error?: string
+  }>
   // 文件操作工具
   fileOperation: (operation: string, args: Record<string, any>) => Promise<{
     success: boolean

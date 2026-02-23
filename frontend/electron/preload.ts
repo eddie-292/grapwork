@@ -67,6 +67,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 文件预览（不依赖工作目录）
   previewFile: (filePath: string, limit?: number) =>
     ipcRenderer.invoke('preview-file', filePath, limit),
+  // 读取文件为 Buffer（用于图片、PDF 等二进制文件预览）
+  readFileAsBuffer: (filePath: string) =>
+    ipcRenderer.invoke('read-file-as-buffer', filePath),
   // 文件操作工具
   fileOperation: (operation: string, args: Record<string, any>) =>
     ipcRenderer.invoke('file-operation', operation, args),

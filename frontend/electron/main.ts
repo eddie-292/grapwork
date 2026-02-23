@@ -2416,3 +2416,50 @@ ipcMain.handle('preview-file', async (_event, filePath: string, limit: number = 
     }
   }
 })
+
+// 读取文件为 Buffer（用于图片、PDF 等二进制文件预览）
+ipcMain.handle('read-file-as-buffer', async (_event, filePath: string) => {
+  try {
+    if (!filePath) {
+      return {
+        success: false,
+        error: '缺少文件路径'
+      }
+    }
+
+    if (!fs.existsSync(filePath)) {
+      return {
+        success: false,
+        error: `文件不存在: ${filePath}`
+      }
+    }
+
+    const stat = fs.statSync(filePath)
+    if (stat.isDirectory()) {
+      return {
+        success: false,
+        error: `路径是目录而不是文件`
+      }
+    }
+
+    // 检查文件大小（限制为 50MB 以内，图片/PDF 可能较大）
+    const maxSize = 50 * 1024 * 1024
+    if (stat.size > maxSize) {
+      return {
+        success: false,
+        error: `文件过大（超过 50MB），无法预览`
+      }
+    }
+
+    const buffer = fs.readFileSync(filePath)
+    return {
+      success: true,
+      buffer: buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
+    }
+  } catch (error: any) {
+    return {
+      success: false,
+      error: `读取文件失败: ${error?.message || error}`
+    }
+  }
+})

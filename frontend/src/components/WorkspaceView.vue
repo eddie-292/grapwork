@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
-import { storage } from '../services/StorageService'
+import { ref, onMounted, watch, computed, nextTick } from 'vue'
 
 // 文件/文件夹节点类型
 interface FileNode {
@@ -8,6 +7,20 @@ interface FileNode {
   type: 'folder' | 'file'
   path: string
 }
+
+// 文件预览类型
+const PreviewType = {
+  TEXT: 'text',       // 代码/文本
+  IMAGE: 'image',     // 图片
+  PDF: 'pdf',         // PDF
+  HTML: 'html',       // HTML
+  AUDIO: 'audio',     // 音频
+  VIDEO: 'video',     // 视频
+  OFFICE: 'office',   // Office 文件（不支持直接预览）
+  BINARY: 'binary'    // 二进制文件（不支持预览）
+} as const
+
+type PreviewTypeValue = typeof PreviewType[keyof typeof PreviewType]
 
 // Props
 interface Props {
@@ -33,11 +46,62 @@ const previewFilePath = ref('')
 const previewContent = ref('')
 const previewLoading = ref(false)
 const previewError = ref('')
+const previewType = ref<PreviewTypeValue>(PreviewType.TEXT)
+const previewBlobUrl = ref('') // 用于图片、PDF、音视频等 blob URL
+const htmlPreviewIframe = ref<HTMLIFrameElement | null>(null) // HTML 预览 iframe 引用
 
 // 计算是否在根目录
 const isAtRoot = computed(() => {
   return currentPath.value === props.currentFolder || !currentPath.value
 })
+
+// 根据文件扩展名获取预览类型
+function getPreviewType(fileName: string): PreviewTypeValue {
+  const ext = fileName.split('.').pop()?.toLowerCase() || ''
+
+  // 图片类型
+  const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico', 'svg']
+  if (imageExts.includes(ext)) {
+    return PreviewType.IMAGE
+  }
+
+  // PDF
+  if (ext === 'pdf') {
+    return PreviewType.PDF
+  }
+
+  // HTML
+  if (ext === 'html' || ext === 'htm') {
+    return PreviewType.HTML
+  }
+
+  // 音频
+  const audioExts = ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'wma']
+  if (audioExts.includes(ext)) {
+    return PreviewType.AUDIO
+  }
+
+  // 视频
+  const videoExts = ['mp4', 'webm', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'm4v']
+  if (videoExts.includes(ext)) {
+    return PreviewType.VIDEO
+  }
+
+  // Office 文件
+  const officeExts = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx']
+  if (officeExts.includes(ext)) {
+    return PreviewType.OFFICE
+  }
+
+  // 二进制文件（不支持预览）
+  const binaryExts = ['exe', 'dll', 'so', 'dylib', 'bin', 'dat', 'db', 'sqlite', 'zip', 'tar', 'gz', '7z', 'rar']
+  if (binaryExts.includes(ext)) {
+    return PreviewType.BINARY
+  }
+
+  // 默认为文本类型
+  return PreviewType.TEXT
+}
 
 // 重置工作空间状态（当选择新文件夹时调用）
 function resetWorkspace() {
@@ -120,20 +184,68 @@ async function previewFile(node: FileNode) {
   previewFilePath.value = node.path
   previewContent.value = ''
   previewError.value = ''
+  previewBlobUrl.value = ''
   previewLoading.value = true
   showFilePreview.value = true
 
-  try {
-    if (window.electronAPI?.previewFile) {
-      const result = await window.electronAPI.previewFile(node.path, 500)
+  // 检测文件类型
+  const fileType = getPreviewType(node.name)
+  previewType.value = fileType
 
-      if (result.success && result.content !== undefined) {
-        previewContent.value = result.content
+  try {
+    // 图片、PDF、音视频：使用 blob URL
+    if (fileType === PreviewType.IMAGE ||
+        fileType === PreviewType.PDF ||
+        fileType === PreviewType.AUDIO ||
+        fileType === PreviewType.VIDEO) {
+      // 通过 IPC 读取文件为 Buffer，然后创建 blob URL
+      if (window.electronAPI?.readFileAsBuffer) {
+        const result = await window.electronAPI.readFileAsBuffer(node.path)
+        if (result.success && result.buffer) {
+          const mimeType = getMimeType(node.name)
+          const blob = new Blob([new Uint8Array(result.buffer)], { type: mimeType })
+          previewBlobUrl.value = URL.createObjectURL(blob)
+        } else {
+          previewError.value = result.error || '读取文件失败'
+        }
       } else {
-        previewError.value = result.error || '读取文件失败'
+        // 回退到使用 file:// 协议（Electron 环境）
+        previewBlobUrl.value = `file://${node.path}`
       }
-    } else {
-      previewError.value = '文件预览 API 不可用'
+    }
+    // HTML 文件：读取内容
+    else if (fileType === PreviewType.HTML) {
+      if (window.electronAPI?.previewFile) {
+        const result = await window.electronAPI.previewFile(node.path, 10000)
+        if (result.success && result.content !== undefined) {
+          previewContent.value = result.content
+        } else {
+          previewError.value = result.error || '读取文件失败'
+        }
+      } else {
+        previewError.value = '文件预览 API 不可用'
+      }
+    }
+    // Office 文件和二进制文件：不读取内容
+    else if (fileType === PreviewType.OFFICE) {
+      // Office 文件不读取内容，显示提示
+    }
+    else if (fileType === PreviewType.BINARY) {
+      // 二进制文件不读取内容，显示提示
+    }
+    // 文本文件：读取内容
+    else {
+      if (window.electronAPI?.previewFile) {
+        const result = await window.electronAPI.previewFile(node.path, 500)
+
+        if (result.success && result.content !== undefined) {
+          previewContent.value = result.content
+        } else {
+          previewError.value = result.error || '读取文件失败'
+        }
+      } else {
+        previewError.value = '文件预览 API 不可用'
+      }
     }
   } catch (err) {
     previewError.value = err instanceof Error ? err.message : '读取文件失败'
@@ -143,6 +255,42 @@ async function previewFile(node: FileNode) {
   }
 }
 
+// 获取 MIME 类型
+function getMimeType(fileName: string): string {
+  const ext = fileName.split('.').pop()?.toLowerCase() || ''
+  const mimeTypes: Record<string, string> = {
+    // 图片
+    'png': 'image/png',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'gif': 'image/gif',
+    'webp': 'image/webp',
+    'bmp': 'image/bmp',
+    'ico': 'image/x-icon',
+    'svg': 'image/svg+xml',
+    // PDF
+    'pdf': 'application/pdf',
+    // 音频
+    'mp3': 'audio/mpeg',
+    'wav': 'audio/wav',
+    'ogg': 'audio/ogg',
+    'flac': 'audio/flac',
+    'aac': 'audio/aac',
+    'm4a': 'audio/mp4',
+    'wma': 'audio/x-ms-wma',
+    // 视频
+    'mp4': 'video/mp4',
+    'webm': 'video/webm',
+    'mkv': 'video/x-matroska',
+    'avi': 'video/x-msvideo',
+    'mov': 'video/quicktime',
+    'wmv': 'video/x-ms-wmv',
+    'flv': 'video/x-flv',
+    'm4v': 'video/x-m4v'
+  }
+  return mimeTypes[ext] || 'application/octet-stream'
+}
+
 // 关闭预览
 function closePreview() {
   showFilePreview.value = false
@@ -150,6 +298,22 @@ function closePreview() {
   previewFileName.value = ''
   previewFilePath.value = ''
   previewError.value = ''
+  // 释放 blob URL
+  if (previewBlobUrl.value && previewBlobUrl.value.startsWith('blob:')) {
+    URL.revokeObjectURL(previewBlobUrl.value)
+  }
+  previewBlobUrl.value = ''
+}
+
+// 在系统中打开文件
+async function openInSystem() {
+  if (previewFilePath.value && window.electronAPI?.openPath) {
+    try {
+      await window.electronAPI.openPath(previewFilePath.value)
+    } catch (err) {
+      console.error('Failed to open file in system:', err)
+    }
+  }
 }
 
 // 返回上级目录
@@ -457,6 +621,64 @@ watch(() => props.currentFolder, (newFolder, oldFolder) => {
   }
 })
 
+// 监听 HTML 预览内容变化，更新 iframe
+watch([previewContent, previewType, showFilePreview], async ([content, type, show]) => {
+  if (show && type === PreviewType.HTML && content) {
+    await nextTick()
+    updateHtmlPreviewIframe()
+  }
+})
+
+// 更新 HTML 预览 iframe 内容
+function updateHtmlPreviewIframe() {
+  if (!htmlPreviewIframe.value || !previewContent.value) return
+
+  const doc = htmlPreviewIframe.value.contentDocument
+  if (!doc) return
+
+  doc.open()
+  doc.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <style>
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+          padding: 20px;
+          line-height: 1.6;
+          color: #333;
+        }
+        pre {
+          background: #f5f5f5;
+          padding: 12px;
+          border-radius: 4px;
+          overflow-x: auto;
+        }
+        code {
+          background: #f5f5f5;
+          padding: 2px 6px;
+          border-radius: 3px;
+        }
+        img {
+          max-width: 100%;
+        }
+      </style>
+    </head>
+    <body>
+      ${previewContent.value}
+    </body>
+    </html>
+  `)
+  doc.close()
+}
+
 onMounted(() => {
   if (props.currentFolder) {
     loadDirectory(props.currentFolder, false)
@@ -564,18 +786,28 @@ defineExpose({
     <!-- 文件预览对话框 -->
     <Transition name="fade">
       <div v-if="showFilePreview" class="preview-overlay" @click.self="closePreview">
-        <div class="preview-dialog">
+        <div class="preview-dialog" :class="{ 'preview-dialog-image': previewType === PreviewType.IMAGE }">
           <div class="preview-header">
             <div class="preview-title">
               <span class="preview-filename">{{ previewFileName }}</span>
               <span class="preview-path" :title="previewFilePath">{{ previewFilePath }}</span>
             </div>
-            <button class="preview-close-btn" @click="closePreview" title="关闭">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="18" y1="6" x2="6" y2="18"/>
-                <line x1="6" y1="6" x2="18" y2="18"/>
-              </svg>
-            </button>
+            <div class="preview-header-actions">
+              <!-- 在系统打开按钮 -->
+              <button class="preview-action-btn" @click="openInSystem" title="在系统中打开">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                  <polyline points="15 3 21 3 21 9"/>
+                  <line x1="10" y1="14" x2="21" y2="3"/>
+                </svg>
+              </button>
+              <button class="preview-close-btn" @click="closePreview" title="关闭">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
           </div>
           <div class="preview-content">
             <!-- 加载中 -->
@@ -594,7 +826,74 @@ defineExpose({
               </svg>
               <span>{{ previewError }}</span>
             </div>
-            <!-- 内容 -->
+            <!-- 图片预览 -->
+            <div v-else-if="previewType === PreviewType.IMAGE" class="preview-image-container">
+              <img :src="previewBlobUrl" :alt="previewFileName" class="preview-image" />
+            </div>
+            <!-- PDF 预览 -->
+            <div v-else-if="previewType === PreviewType.PDF" class="preview-pdf-container">
+              <iframe :src="previewBlobUrl" class="preview-pdf-iframe" />
+            </div>
+            <!-- HTML 预览 -->
+            <div v-else-if="previewType === PreviewType.HTML" class="preview-html-container">
+              <iframe
+                ref="htmlPreviewIframe"
+                class="preview-html-iframe"
+                sandbox="allow-scripts allow-same-origin"
+              />
+            </div>
+            <!-- 音频预览 -->
+            <div v-else-if="previewType === PreviewType.AUDIO" class="preview-audio-container">
+              <div class="preview-media-icon">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M9 18V5l12-2v13"/>
+                  <circle cx="6" cy="18" r="3"/>
+                  <circle cx="18" cy="16" r="3"/>
+                </svg>
+              </div>
+              <audio :src="previewBlobUrl" controls class="preview-audio-player" />
+            </div>
+            <!-- 视频预览 -->
+            <div v-else-if="previewType === PreviewType.VIDEO" class="preview-video-container">
+              <video :src="previewBlobUrl" controls class="preview-video-player" />
+            </div>
+            <!-- Office 文件提示 -->
+            <div v-else-if="previewType === PreviewType.OFFICE" class="preview-unsupported">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <path d="M14 2v6h6"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+              </svg>
+              <span class="preview-unsupported-title">Office 文件预览</span>
+              <span class="preview-unsupported-desc">此文件类型暂不支持内嵌预览</span>
+              <button class="preview-open-system-btn" @click="openInSystem">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                  <polyline points="15 3 21 3 21 9"/>
+                  <line x1="10" y1="14" x2="21" y2="3"/>
+                </svg>
+                在系统中打开
+              </button>
+            </div>
+            <!-- 二进制文件提示 -->
+            <div v-else-if="previewType === PreviewType.BINARY" class="preview-unsupported">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <path d="M14 2v6h6"/>
+              </svg>
+              <span class="preview-unsupported-title">二进制文件</span>
+              <span class="preview-unsupported-desc">此文件类型无法预览</span>
+              <button class="preview-open-system-btn" @click="openInSystem">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                  <polyline points="15 3 21 3 21 9"/>
+                  <line x1="10" y1="14" x2="21" y2="3"/>
+                </svg>
+                在系统中打开
+              </button>
+            </div>
+            <!-- 文本/代码内容 -->
             <pre v-else class="preview-code">{{ previewContent }}</pre>
           </div>
         </div>
@@ -975,5 +1274,195 @@ defineExpose({
 /* spinning 动画 */
 .preview-loading svg.spinning {
   animation: spin 1s linear infinite;
+}
+
+/* 预览对话框头部操作按钮 */
+.preview-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.preview-action-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.preview-action-btn:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+/* 图片预览对话框调整 */
+.preview-dialog-image {
+  max-width: 95vw;
+  max-height: 95vh;
+  background: rgba(0, 0, 0, 0.9);
+}
+
+.preview-dialog-image .preview-header {
+  background: rgba(0, 0, 0, 0.8);
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.preview-dialog-image .preview-filename,
+.preview-dialog-image .preview-path {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.preview-dialog-image .preview-action-btn,
+.preview-dialog-image .preview-close-btn {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.preview-dialog-image .preview-action-btn:hover,
+.preview-dialog-image .preview-close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.preview-dialog-image .preview-content {
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+}
+
+/* 图片预览 */
+.preview-image-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 300px;
+  max-height: calc(95vh - 70px);
+}
+
+.preview-image {
+  max-width: 100%;
+  max-height: calc(95vh - 70px);
+  object-fit: contain;
+}
+
+/* PDF 预览 */
+.preview-pdf-container {
+  width: 100%;
+  height: 100%;
+  min-height: 500px;
+}
+
+.preview-pdf-iframe {
+  width: 100%;
+  height: 60vh;
+  border: none;
+  border-radius: 4px;
+}
+
+/* HTML 预览 */
+.preview-html-container {
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+}
+
+.preview-html-iframe {
+  width: 100%;
+  height: 60vh;
+  border: none;
+  border-radius: 4px;
+  background: #fff;
+}
+
+/* 音频预览 */
+.preview-audio-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 40px;
+  min-height: 200px;
+}
+
+.preview-media-icon {
+  color: var(--color-text-tertiary);
+}
+
+.preview-audio-player {
+  width: 100%;
+  max-width: 400px;
+}
+
+/* 视频预览 */
+.preview-video-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 300px;
+}
+
+.preview-video-player {
+  max-width: 100%;
+  max-height: 60vh;
+  border-radius: 8px;
+}
+
+/* 不支持的文件类型提示 */
+.preview-unsupported {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 60px 40px;
+  text-align: center;
+}
+
+.preview-unsupported svg {
+  color: var(--color-text-tertiary);
+}
+
+.preview-unsupported-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.preview-unsupported-desc {
+  font-size: 14px;
+  color: var(--color-text-tertiary);
+}
+
+.preview-open-system-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 10px 20px;
+  background: var(--color-primary);
+  color: var(--color-text-primary);
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.preview-open-system-btn:hover {
+  background: var(--color-primary-hover);
 }
 </style>
