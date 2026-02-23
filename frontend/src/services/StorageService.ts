@@ -131,7 +131,7 @@ export const DEFAULT_ASSISTANT_PROMPT = `
 | 列表项（>=3 项） | 无序/有序列表 | - 项目 1 |
 | 对比/参数 | 表格 | | 列 1 | 列 2 | |
 | 重要提示 | 引用块 | > 注意... |
-| 文件路径 | 行内代码 | \`D:\path\to\file\` |
+| 文件路径 | 行内代码 | \`\path\to\file\` |
 | 命令 | 代码块（bash） | \`\`\`bash command \`\`\` |
 
 ### 响应结构
