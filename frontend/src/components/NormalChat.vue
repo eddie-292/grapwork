@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
@@ -121,7 +121,26 @@ function openSaveToGlobalMemoryDialog(content: string) {
 // Refs
 const messagesRef = ref<HTMLDivElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
+const inputbarRef = ref<HTMLFormElement | null>(null)
 const autoScrollEnabled = ref(true)
+
+// 动态计算 messages 区域高度
+function updateMessagesHeight() {
+  nextTick(() => {
+    const messagesEl = messagesRef.value
+    const inputbarEl = inputbarRef.value
+    const chatTabBarEl = document.getElementById('chat-tab-bar_')
+
+    if (messagesEl && inputbarEl && chatTabBarEl) {
+      const inputbarHeight = inputbarEl.offsetHeight
+      const chatTabBarHeight = chatTabBarEl.offsetHeight
+      messagesEl.style.height = `calc(100vh - ${inputbarHeight}px - ${chatTabBarHeight}px)`
+    }
+  })
+}
+
+// ResizeObserver 监听 inputbar 高度变化
+let resizeObserver: ResizeObserver | null = null
 const reasoningExpanded = ref<Record<number, boolean>>({})
 const reasoningStartTime = ref<Record<number, number>>({})
 const toolResultExpanded = ref<Record<number, boolean>>({})
@@ -379,12 +398,34 @@ onMounted(async () => {
   }
   // 添加点击外部关闭弹出框的事件监听
   document.addEventListener('click', handleClickOutside)
+
+  // 初始化高度计算
+  updateMessagesHeight()
+
+  // 监听 inputbar 高度变化
+  const inputbarEl = inputbarRef.value
+  if (inputbarEl) {
+    resizeObserver = new ResizeObserver(() => {
+      updateMessagesHeight()
+    })
+    resizeObserver.observe(inputbarEl)
+  }
+
+  // 监听窗口大小变化
+  window.addEventListener('resize', updateMessagesHeight)
 })
 
 onUnmounted(() => {
   delete (window as any).previewHtml
   // 移除事件监听
   document.removeEventListener('click', handleClickOutside)
+  window.removeEventListener('resize', updateMessagesHeight)
+
+  // 清理 ResizeObserver
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  }
 })
 
 // 链接点击处理
@@ -647,7 +688,7 @@ defineExpose({
         </div>
       </template>
     </div>
-    <form id="inputbar_form" class="inputbar" @submit.prevent="handleSend">
+    <form id="inputbar_form" ref="inputbarRef" class="inputbar" @submit.prevent="handleSend">
       <div class="model-bar">
         <!-- Token 使用统计显示 -->
         <div v-if="usage && usage.totalTokens > 0" class="token-stats" :title="`输入: ${usage.promptTokens} | 输出: ${usage.completionTokens}`">
@@ -823,7 +864,6 @@ defineExpose({
 
 .messages {
   background: var(--color-bg-primary);
-  height: calc(76vh);
   overflow: auto;
 }
 
