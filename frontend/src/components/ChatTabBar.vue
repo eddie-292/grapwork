@@ -145,7 +145,7 @@ async function handleClose() {
 </script>
 
 <template>
-  <div class="chat-tab-bar" @dblclick="handleDoubleClick">
+  <div id="chat-tab-bar_" class="chat-tab-bar" @dblclick="handleDoubleClick">
     <div class="tabs-container">
       <div
         v-for="chat in (isSearching ? filteredChats : chatList)"

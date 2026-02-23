@@ -12,6 +12,8 @@ import FolderIcon from './icons/FolderIcon.vue'
 import FolderOpenIcon from './icons/FolderOpenIcon.vue'
 import CheckIcon from './icons/CheckIcon.vue'
 import XIcon from './icons/XIcon.vue'
+import ArrowUpIcon from './icons/ArrowUpIcon.vue'
+import SettingsIcon from './icons/SettingsIcon.vue'
 
 type Role = 'user' | 'assistant' | 'system' | 'tool'
 export type Message = {
@@ -471,7 +473,7 @@ defineExpose({
 
 <template>
   <main class="main">
-    <div class="messages" ref="messagesRef" @scroll="handleMessagesScroll" @click="handleLinkClick">
+    <div id="messages_dev" class="messages" ref="messagesRef" @scroll="handleMessagesScroll" @click="handleLinkClick">
       <div v-if="messages.length === 0" class="welcome">
         <div class="welcome-hero">
           <h2 class="welcome-title">PrismChat</h2>
@@ -645,7 +647,7 @@ defineExpose({
         </div>
       </template>
     </div>
-    <form class="inputbar" @submit.prevent="handleSend">
+    <form id="inputbar_form" class="inputbar" @submit.prevent="handleSend">
       <div class="model-bar">
         <!-- Token 使用统计显示 -->
         <div v-if="usage && usage.totalTokens > 0" class="token-stats" :title="`输入: ${usage.promptTokens} | 输出: ${usage.completionTokens}`">
@@ -664,86 +666,98 @@ defineExpose({
           @input="handleUpdateInput"
           ref="textareaRef"
         />
-        <!-- 按钮区域 -->
-        <div class="actions">
-          <!-- 第一行：配置相关 -->
-          <div class="actions-row actions-config">
-            <!-- 设置按钮（包含助手和模型选择） -->
-            <div class="settings-wrapper">
-              <button
-                type="button"
-                class="settings-btn"
-                @click.stop="showSettingsPopover = !showSettingsPopover"
-                :title="`${currentAssistantName} / ${currentConfigName}`"
-              >
-                <span class="settings-label">{{ currentAssistantName }} / {{ currentConfigName }}</span>
-                <span class="settings-arrow" :class="{ open: showSettingsPopover }">▲</span>
-              </button>
-              <!-- 设置弹出框 -->
-              <div v-if="showSettingsPopover" class="settings-popover" @click.stop>
-                <div class="popover-li">
-                  <label>助手</label>
-                  <select
-                    :disabled="(currentChat?.messages?.length ?? 0) > 0"
-                    :value="currentChat?.assistantId || ''"
-                    @change="handleAssistantChange"
-                    class="popover-select"
-                  >
-                    <option value="">EddieLab-Agent</option>
-                    <option v-for="assistant in assistantList.assistants" :key="assistant.id" :value="assistant.id">
-                      {{ assistant.name }}
-                    </option>
-                  </select>
-                </div>
-                <div class="popover-li">
-                  <label>模型</label>
-                  <select :value="currentChat?.configId ?? ''" @change="handleConfigChange" class="popover-select">
-                    <option value="">选择模型</option>
-                    <option v-for="(config, index) in configList.configs" :key="index" :value="index">
-                      {{ config.name || config.model }}
-                    </option>
-                  </select>
-                </div>
+        <!-- 操作栏 - 单行布局 -->
+        <div class="action-bar">
+          <!-- 左侧：工作空间选择 -->
+          <button
+            type="button"
+            class="action-btn workspace-btn"
+            :class="{ active: selectedFolderPath }"
+            @click="handleSelectFolder"
+            :title="selectedFolderPath || '选择工作空间'"
+          >
+            <FolderIcon :size="16" />
+            <span class="btn-text">{{ selectedFolderPath ? (selectedFolderPath.split('/').pop() || selectedFolderPath.split('\\').pop()) : '工作空间' }}</span>
+          </button>
+
+          <!-- 中间：模型选择器 -->
+          <div class="settings-wrapper">
+            <button
+              type="button"
+              class="model-selector"
+              @click.stop="showSettingsPopover = !showSettingsPopover"
+              :title="`${currentAssistantName} / ${currentConfigName}`"
+            >
+              <span class="model-name">{{ currentConfigName }}</span>
+              <ChevronDownIcon :size="12" />
+            </button>
+            <!-- 模型选择弹出框 -->
+            <div v-if="showSettingsPopover" class="settings-popover" @click.stop>
+              <div class="popover-li">
+                <label>助手</label>
+                <select
+                  :disabled="(currentChat?.messages?.length ?? 0) > 0"
+                  :value="currentChat?.assistantId || ''"
+                  @change="handleAssistantChange"
+                  class="popover-select"
+                >
+                  <option value="">EddieLab-Agent</option>
+                  <option v-for="assistant in assistantList.assistants" :key="assistant.id" :value="assistant.id">
+                    {{ assistant.name }}
+                  </option>
+                </select>
+              </div>
+              <div class="popover-li">
+                <label>模型</label>
+                <select :value="currentChat?.configId ?? ''" @change="handleConfigChange" class="popover-select">
+                  <option value="">选择模型</option>
+                  <option v-for="(config, index) in configList.configs" :key="index" :value="index">
+                    {{ config.name || config.model }}
+                  </option>
+                </select>
               </div>
             </div>
-            <!-- 参数配置按钮 -->
-            <button
-              type="button"
-              class="params-btn"
-              @click="openParamsDialog"
-              title="对话参数配置"
-              :disabled="!currentChat"
-            >
-              参数
-            </button>
-            <!-- 工作空间按钮 -->
-            <button
-              type="button"
-              class="btn folder"
-              :class="{ 'has-folder': selectedFolderPath }"
-              @click="handleSelectFolder"
-              :title="selectedFolderPath || '选择文件夹'"
-            >
-              <template v-if="selectedFolderPath">
-                <CheckIcon :size="14" /> {{ selectedFolderPath.split('/').pop() || selectedFolderPath.split('\\').pop() || '文件夹' }}
-              </template>
-              <template v-else>
-                工作空间
-              </template>
-            </button>
           </div>
-          <!-- 第二行：操作相关 -->
-          <div class="actions-row actions-ops">
-            <button type="submit" class="btn primary" :disabled="sending">发送</button>
-            <button type="button" class="btn ghost" @click="handleCancel" :disabled="!sending">
-              取消
-            </button>
+
+          <!-- 右侧：操作按钮组 -->
+          <div class="action-buttons">
             <!-- 思考模式开关 -->
             <label class="thinking-toggle" :title="enableThinking ? '已启用思考模式' : '点击启用思考模式'">
               <input type="checkbox" :checked="enableThinking" @change="handleThinkingToggle" />
               <span class="thinking-slider"></span>
-              <span class="thinking-label">思考</span>
             </label>
+
+            <!-- 参数设置 -->
+            <button
+              type="button"
+              class="icon-btn"
+              @click="openParamsDialog"
+              title="对话参数配置"
+              :disabled="!currentChat"
+            >
+              <SettingsIcon :size="16" />
+            </button>
+
+            <!-- 取消按钮（发送中显示） -->
+            <button
+              v-if="sending"
+              type="button"
+              class="icon-btn cancel-btn"
+              @click="handleCancel"
+              title="取消"
+            >
+              <XIcon :size="16" />
+            </button>
+
+            <!-- 发送按钮 -->
+            <button
+              type="submit"
+              class="send-btn"
+              :disabled="sending"
+              :title="sending ? '发送中...' : '发送'"
+            >
+              <ArrowUpIcon :size="18" />
+            </button>
           </div>
         </div>
       </div>
@@ -1266,59 +1280,26 @@ defineExpose({
   margin-left: auto;
 }
 
-/* 设置按钮样式 */
+/* 设置按钮样式 - 简化版 */
 .settings-wrapper {
   position: relative;
-}
-
-.settings-btn {
+  flex: 1;
   display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  padding: 6px 10px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  color: var(--color-text-primary);
-  max-width: 160px;
-}
-
-.settings-btn:hover {
-  background: var(--color-bg-primary);
-  border-color: var(--color-border-hover);
-}
-
-.settings-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.settings-arrow {
-  font-size: 10px;
-  color: var(--color-text-secondary);
-  transition: transform 0.2s;
-}
-
-.settings-arrow.open {
-  transform: rotate(180deg);
+  justify-content: center;
 }
 
 /* 设置弹出框样式 */
 .settings-popover {
   position: absolute;
-  bottom: calc(100% + 4px);
-  right: 0;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 12px;
-  min-width: 200px;
-  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
+  min-width: 180px;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.3);
   z-index: 100;
 }
 
@@ -1429,9 +1410,9 @@ defineExpose({
   max-width: 900px;
   margin: 0 auto;
   display: flex;
-  gap: 12px;
-  align-items: center;
-  padding: 10px 12px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 12px;
   border: 1px solid var(--color-border);
   border-radius: 16px;
   background: var(--color-bg-tertiary);
@@ -1440,51 +1421,155 @@ defineExpose({
 .textarea {
   flex: 1;
   resize: none;
-  padding: 6px 8px;
+  padding: 8px 4px;
   border: none;
   background: var(--color-bg-tertiary);
   outline: none;
   font-size: 14px;
   color: var(--color-text-primary);
   overflow-y: auto;
-  min-height: 51px;
+  min-height: 24px;
   max-height: 120px;
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
-.actions {
+/* 操作栏 - 单行布局 */
+.action-bar {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: stretch;
-  min-width: 140px;
-}
-
-.actions-row {
-  display: flex;
-  gap: 6px;
   align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
-.actions-config {
-  flex-wrap: wrap;
+/* 工作空间按钮 */
+.workspace-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  max-width: 100px;
+  overflow: hidden;
 }
 
-.actions-ops {
-  justify-content: flex-end;
+.workspace-btn:hover {
+  border-color: var(--color-border-hover);
+  color: var(--color-text-primary);
 }
 
-/* 思考模式开关样式 */
+.workspace-btn.active {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.workspace-btn .btn-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 模型选择器 */
+.model-selector {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.model-selector:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-tertiary);
+}
+
+.model-name {
+  font-weight: 500;
+}
+
+/* 操作按钮组 */
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 图标按钮 */
+.icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.icon-btn:hover:not(:disabled) {
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border-hover);
+  color: var(--color-text-primary);
+}
+
+.icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.icon-btn.cancel-btn:hover:not(:disabled) {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+/* 发送按钮 - 圆形 */
+.send-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.send-btn:hover:not(:disabled) {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+}
+
+.send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 思考模式开关样式 - 紧凑版 */
 .thinking-toggle {
   display: flex;
   align-items: center;
-  gap: 6px;
   cursor: pointer;
   user-select: none;
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  padding: 4px 6px;
-  border-radius: 16px;
+  padding: 4px;
+  border-radius: 6px;
   transition: all 0.2s;
 }
 
@@ -1498,18 +1583,18 @@ defineExpose({
 
 .thinking-slider {
   position: relative;
-  width: 32px;
-  height: 18px;
+  width: 28px;
+  height: 16px;
   background: var(--color-border);
-  border-radius: 18px;
+  border-radius: 16px;
   transition: 0.2s;
 }
 
 .thinking-slider::before {
   content: "";
   position: absolute;
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   left: 2px;
   bottom: 2px;
   background: white;
@@ -1522,101 +1607,7 @@ defineExpose({
 }
 
 .thinking-toggle input:checked + .thinking-slider::before {
-  transform: translateX(14px);
-}
-
-.thinking-label {
-  font-weight: 500;
-}
-
-.thinking-toggle input:checked ~ .thinking-label {
-  color: var(--color-primary);
-}
-
-.btn {
-  padding: 6px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--color-border);
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.btn.primary {
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-primary);
-  border-color: var(--color-border);
-}
-
-.btn.primary:hover:not(:disabled) {
-  border-color: var(--color-border-hover);
-  color: var(--color-primary);
-}
-
-.btn.primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn.ghost {
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-primary);
-}
-
-.btn.ghost:disabled {
-  color: var(--color-text-tertiary);
-}
-
-/* 文件夹按钮 */
-.btn.folder {
-  background: transparent;
-  color: var(--color-text-secondary);
-  border: 1px solid var(--color-border);
-  padding: 6px 10px;
-  font-size: 13px;
-  transition: all 0.2s;
-  min-width: 70px;
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.btn.folder:hover {
-  border-color: var(--color-border-hover);
-  color: var(--color-text-primary);
-}
-
-.btn.folder.has-folder {
-  color: var(--color-text-secondary);
-  font-weight: 400;
-}
-
-/* 参数配置按钮 */
-.params-btn {
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  padding: 6px 10px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.params-btn:hover:not(:disabled) {
-  background: var(--color-bg-primary);
-  border-color: var(--color-border);
-}
-
-.params-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.params-btn:focus {
-  outline: none;
-  border-color: var(--color-border);
-  box-shadow: 0 0 0 2px rgba(161, 161, 161, 0.2);
+  transform: translateX(12px);
 }
 
 :deep(hr) {
