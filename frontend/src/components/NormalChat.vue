@@ -653,8 +653,19 @@ defineExpose({
           <span class="token-value">{{ formatTokenCount(usage.totalTokens) }}</span>
           <span class="token-detail">({{ formatTokenCount(usage.promptTokens) }} → {{ formatTokenCount(usage.completionTokens) }})</span>
         </div>
-        <!-- 设置按钮和参数按钮组 -->
-        <div class="controls-group">
+      </div>
+
+      <div class="composer">
+        <textarea
+          :value="input"
+          class="textarea"
+          placeholder="输入消息，回车发送，Shift+Enter 换行"
+          @keydown.enter.exact.prevent="handleSend"
+          @input="handleUpdateInput"
+          ref="textareaRef"
+        />
+        <!-- 按钮区域 -->
+        <div class="actions">
           <!-- 设置按钮（包含助手和模型选择） -->
           <div class="settings-wrapper">
             <button
@@ -703,20 +714,6 @@ defineExpose({
           >
             参数
           </button>
-        </div>
-      </div>
-
-      <div class="composer">
-        <textarea
-          :value="input"
-          class="textarea"
-          placeholder="输入消息，回车发送，Shift+Enter 换行"
-          @keydown.enter.exact.prevent="handleSend"
-          @input="handleUpdateInput"
-          ref="textareaRef"
-        />
-        <!-- 按钮区域 -->
-        <div class="actions">
           <button type="submit" class="btn primary" :disabled="sending">发送</button>
           <button type="button" class="btn ghost" @click="handleCancel" :disabled="!sending">
             取消
