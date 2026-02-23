@@ -715,6 +715,7 @@ defineExpose({
           @input="handleUpdateInput"
           ref="textareaRef"
         />
+        <!-- 按钮区域 -->
         <div class="actions">
           <button type="submit" class="btn primary" :disabled="sending">发送</button>
           <button type="button" class="btn ghost" @click="handleCancel" :disabled="!sending">
