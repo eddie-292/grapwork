@@ -5,6 +5,7 @@ export interface AppConfig {
   name: string
   enabled: boolean
   extra_body?: string
+  enable_thinking?: boolean  // 启用思考模式（非标准参数，通过 extra_body 传入）
 }
 
 export interface Assistant {

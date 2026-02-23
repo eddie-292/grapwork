@@ -15,7 +15,8 @@ const currentConfig = ref<AppConfig>({
   apiKey: '',
   model: 'gpt-4o-mini',
   enabled: false,
-  extra_body: ''
+  extra_body: '',
+  enable_thinking: false
 })
 
 const editingIndex = ref(-1)
@@ -26,6 +27,44 @@ const saving = ref(false)
 const message = ref('')
 
 const deleteMessage = ref('')
+
+// 标志位，防止双向同步时无限循环
+let isSyncing = false
+
+// 监听 extra_body 变化，同步到 enable_thinking 开关
+watch(() => currentConfig.value.extra_body, (newVal) => {
+  if (isSyncing) return
+  if (newVal && newVal.trim()) {
+    try {
+      const parsed = JSON.parse(newVal)
+      if (typeof parsed.enable_thinking === 'boolean') {
+        isSyncing = true
+        currentConfig.value.enable_thinking = parsed.enable_thinking
+        setTimeout(() => { isSyncing = false }, 0)
+      }
+    } catch {
+      // JSON 解析失败，忽略
+    }
+  }
+})
+
+// 监听 enable_thinking 开关变化，同步到 extra_body
+watch(() => currentConfig.value.enable_thinking, (newVal) => {
+  if (isSyncing) return
+  isSyncing = true
+  try {
+    let extraBody: Record<string, any> = {}
+    if (currentConfig.value.extra_body && currentConfig.value.extra_body.trim()) {
+      extraBody = JSON.parse(currentConfig.value.extra_body)
+    }
+    extraBody.enable_thinking = newVal
+    currentConfig.value.extra_body = JSON.stringify(extraBody, null, 2)
+  } catch {
+    // 如果解析失败，创建新的 JSON
+    currentConfig.value.extra_body = JSON.stringify({ enable_thinking: newVal }, null, 2)
+  }
+  setTimeout(() => { isSyncing = false }, 0)
+})
 
 onMounted(async () => {
   const config = await storage.getConfigList()
@@ -46,7 +85,26 @@ watch(configToDeleteIndex, (index) => {
 function editConfig(index: number) {
   const configToEdit = configList.value.configs[index]
   if (configToEdit) {
-    currentConfig.value = { ...configToEdit }
+    // 复制配置
+    const config = { ...configToEdit }
+
+    // 如果 enable_thinking 未定义，尝试从 extra_body 中提取
+    if (config.enable_thinking === undefined && config.extra_body?.trim()) {
+      try {
+        const parsed = JSON.parse(config.extra_body)
+        if (typeof parsed.enable_thinking === 'boolean') {
+          config.enable_thinking = parsed.enable_thinking
+        } else {
+          config.enable_thinking = false
+        }
+      } catch {
+        config.enable_thinking = false
+      }
+    } else if (config.enable_thinking === undefined) {
+      config.enable_thinking = false
+    }
+
+    currentConfig.value = config
     editingIndex.value = index
     showEditForm.value = true
   }
@@ -85,7 +143,8 @@ async function saveCurrentConfig() {
       apiKey: currentConfig.value.apiKey || '',
       model: currentConfig.value.model || '',
       enabled: currentConfig.value.enabled || false,
-      extra_body: currentConfig.value.extra_body || ''
+      extra_body: currentConfig.value.extra_body || '',
+      enable_thinking: currentConfig.value.enable_thinking || false
     }
   } else {
     const newConfig = {
@@ -94,7 +153,8 @@ async function saveCurrentConfig() {
       apiKey: currentConfig.value.apiKey || '',
       model: currentConfig.value.model || '',
       enabled: currentConfig.value.enabled || false,
-      extra_body: currentConfig.value.extra_body || ''
+      extra_body: currentConfig.value.extra_body || '',
+      enable_thinking: currentConfig.value.enable_thinking || false
     }
     configList.value.configs.push(newConfig)
   }
@@ -104,7 +164,8 @@ async function saveCurrentConfig() {
     apiKey: '',
     model: 'gpt-4o-mini',
     enabled: false,
-    extra_body: ''
+    extra_body: '',
+    enable_thinking: false
   }
   editingIndex.value = -1
   showEditForm.value = false
@@ -137,7 +198,8 @@ function resetForm() {
     apiKey: '',
     model: 'gpt-4o-mini',
     enabled: false,
-    extra_body: ''
+    extra_body: '',
+    enable_thinking: false
   }
   editingIndex.value = -1
   showEditForm.value = false
@@ -226,6 +288,15 @@ defineExpose({
           <small>例如: gpt-4o, gpt-4o-mini, claude-3-5-sonnet 等</small>
         </div>
 
+        <div class="form-group form-group-row">
+          <label>启用思考模式 (enable_thinking)</label>
+          <label class="switch">
+            <input type="checkbox" v-model="currentConfig.enable_thinking" />
+            <span class="slider"></span>
+          </label>
+          <small>启用后支持模型的深度思考能力（非 OpenAI 标准参数，会自动合并到额外请求参数中）</small>
+        </div>
+
         <div class="form-group">
           <label>额外请求参数 (JSON 格式)</label>
           <textarea
@@ -249,7 +320,7 @@ defineExpose({
     </div>
 
     <div v-else class="add-section">
-      <button type="button" class="btn primary" @click="showEditForm = true; editingIndex = -1; currentConfig = { name: '', apiUrl: '', apiKey: '', model: 'gpt-4o-mini', enabled: false, extra_body: '' }">
+      <button type="button" class="btn primary" @click="showEditForm = true; editingIndex = -1; currentConfig = { name: '', apiUrl: '', apiKey: '', model: 'gpt-4o-mini', enabled: false, extra_body: '', enable_thinking: false }">
         添加新配置
       </button>
     </div>
@@ -428,5 +499,66 @@ defineExpose({
 .message.success {
   background: #efe;
   color: #3a3;
+}
+
+/* 开关样式 */
+.form-group-row {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.form-group-row > label:first-child {
+  flex-shrink: 0;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--color-border, #ccc);
+  transition: 0.3s;
+  border-radius: 24px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: var(--color-primary, #4a90d9);
+}
+
+input:checked + .slider:before {
+  transform: translateX(20px);
+}
+
+.form-group-row small {
+  flex: 1;
 }
 </style>

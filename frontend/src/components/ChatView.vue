@@ -552,6 +552,10 @@ async function sendMessageToLLM(messages: { role: string; content: string }[]): 
     }
   }
 
+  // 处理 enable_thinking 参数（非标准参数，合并到 extraBodyParams）
+  // 无论 true/false 都发送，确保与配置同步
+  extraBodyParams = { ...extraBodyParams, enable_thinking: activeConfig.value?.enable_thinking ?? false }
+
   let resp: Response
 
   // 浏览器开发环境始终走代理，Electron 环境直接请求
@@ -568,7 +572,7 @@ async function sendMessageToLLM(messages: { role: string; content: string }[]): 
         model: activeConfig.value.model,
         messages: messages,
         stream: false,
-        ...extraBodyParams,
+        extra_body: extraBodyParams,
       }),
     })
 
@@ -1443,6 +1447,10 @@ async function executeNormalChat(text: string) {
       }
     }
 
+    // 处理 enable_thinking 参数（非标准参数，合并到 extraBodyParams）
+    // 无论 true/false 都发送，确保与配置同步
+    extraBodyParams = { ...extraBodyParams, enable_thinking: activeConfig.value?.enable_thinking ?? false }
+
     // 浏览器开发环境始终走代理，Electron 环境直接请求
     const useProxy = import.meta.env.DEV && !isElectronEnv
     if (!useProxy && window.electronAPI && activeConfig.value) {
@@ -1475,7 +1483,7 @@ async function executeNormalChat(text: string) {
           stream_options: { include_usage: true },  // 启用 token 使用统计
           ...(mcpTools.length > 0 ? { tools: mcpTools } : {}),
           ...validParams,
-          ...extraBodyParams,
+          extra_body: extraBodyParams,
         }),
         signal: controllers.value[currentChat.value!.id]!.signal,
       })
@@ -1531,7 +1539,7 @@ async function executeNormalChat(text: string) {
         const line = part.trim()
         if (!line.startsWith('data:')) continue
         const data = line.slice(5).trim()
-        console.log(data)
+        //console.log(data)
         if (data === '[DONE]') {
           break
         }
