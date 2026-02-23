@@ -3388,7 +3388,7 @@ function handleFolderChanged(path: string) {
 
 .messages {
   background: var(--color-bg-primary);
-  height: calc(78vh);
+  height: calc(76vh);
   overflow: auto;
 }
 

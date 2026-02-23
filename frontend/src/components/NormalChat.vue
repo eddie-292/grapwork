@@ -666,78 +666,85 @@ defineExpose({
         />
         <!-- 按钮区域 -->
         <div class="actions">
-          <!-- 设置按钮（包含助手和模型选择） -->
-          <div class="settings-wrapper">
-            <button
-              type="button"
-              class="settings-btn"
-              @click.stop="showSettingsPopover = !showSettingsPopover"
-              :title="`${currentAssistantName} / ${currentConfigName}`"
-            >
-              <span class="settings-label">{{ currentAssistantName }} / {{ currentConfigName }}</span>
-              <span class="settings-arrow" :class="{ open: showSettingsPopover }">▲</span>
-            </button>
-            <!-- 设置弹出框 -->
-            <div v-if="showSettingsPopover" class="settings-popover" @click.stop>
-              <div class="popover-li">
-                <label>助手</label>
-                <select
-                  :disabled="(currentChat?.messages?.length ?? 0) > 0"
-                  :value="currentChat?.assistantId || ''"
-                  @change="handleAssistantChange"
-                  class="popover-select"
-                >
-                  <option value="">EddieLab-Agent</option>
-                  <option v-for="assistant in assistantList.assistants" :key="assistant.id" :value="assistant.id">
-                    {{ assistant.name }}
-                  </option>
-                </select>
-              </div>
-              <div class="popover-li">
-                <label>模型</label>
-                <select :value="currentChat?.configId ?? ''" @change="handleConfigChange" class="popover-select">
-                  <option value="">选择模型</option>
-                  <option v-for="(config, index) in configList.configs" :key="index" :value="index">
-                    {{ config.name || config.model }}
-                  </option>
-                </select>
+          <!-- 第一行：配置相关 -->
+          <div class="actions-row actions-config">
+            <!-- 设置按钮（包含助手和模型选择） -->
+            <div class="settings-wrapper">
+              <button
+                type="button"
+                class="settings-btn"
+                @click.stop="showSettingsPopover = !showSettingsPopover"
+                :title="`${currentAssistantName} / ${currentConfigName}`"
+              >
+                <span class="settings-label">{{ currentAssistantName }} / {{ currentConfigName }}</span>
+                <span class="settings-arrow" :class="{ open: showSettingsPopover }">▲</span>
+              </button>
+              <!-- 设置弹出框 -->
+              <div v-if="showSettingsPopover" class="settings-popover" @click.stop>
+                <div class="popover-li">
+                  <label>助手</label>
+                  <select
+                    :disabled="(currentChat?.messages?.length ?? 0) > 0"
+                    :value="currentChat?.assistantId || ''"
+                    @change="handleAssistantChange"
+                    class="popover-select"
+                  >
+                    <option value="">EddieLab-Agent</option>
+                    <option v-for="assistant in assistantList.assistants" :key="assistant.id" :value="assistant.id">
+                      {{ assistant.name }}
+                    </option>
+                  </select>
+                </div>
+                <div class="popover-li">
+                  <label>模型</label>
+                  <select :value="currentChat?.configId ?? ''" @change="handleConfigChange" class="popover-select">
+                    <option value="">选择模型</option>
+                    <option v-for="(config, index) in configList.configs" :key="index" :value="index">
+                      {{ config.name || config.model }}
+                    </option>
+                  </select>
+                </div>
               </div>
             </div>
+            <!-- 参数配置按钮 -->
+            <button
+              type="button"
+              class="params-btn"
+              @click="openParamsDialog"
+              title="对话参数配置"
+              :disabled="!currentChat"
+            >
+              参数
+            </button>
+            <!-- 工作空间按钮 -->
+            <button
+              type="button"
+              class="btn folder"
+              :class="{ 'has-folder': selectedFolderPath }"
+              @click="handleSelectFolder"
+              :title="selectedFolderPath || '选择文件夹'"
+            >
+              <template v-if="selectedFolderPath">
+                <CheckIcon :size="14" /> {{ selectedFolderPath.split('/').pop() || selectedFolderPath.split('\\').pop() || '文件夹' }}
+              </template>
+              <template v-else>
+                工作空间
+              </template>
+            </button>
           </div>
-          <!-- 参数配置按钮 -->
-          <button
-            type="button"
-            class="params-btn"
-            @click="openParamsDialog"
-            title="对话参数配置"
-            :disabled="!currentChat"
-          >
-            参数
-          </button>
-          <button type="submit" class="btn primary" :disabled="sending">发送</button>
-          <button type="button" class="btn ghost" @click="handleCancel" :disabled="!sending">
-            取消
-          </button>
-          <!-- 思考模式开关 -->
-          <label class="thinking-toggle" :title="enableThinking ? '已启用思考模式' : '点击启用思考模式'">
-            <input type="checkbox" :checked="enableThinking" @change="handleThinkingToggle" />
-            <span class="thinking-slider"></span>
-            <span class="thinking-label">思考</span>
-          </label>
-          <button
-            type="button"
-            class="btn folder"
-            :class="{ 'has-folder': selectedFolderPath }"
-            @click="handleSelectFolder"
-            :title="selectedFolderPath || '选择文件夹'"
-          >
-            <template v-if="selectedFolderPath">
-              <CheckIcon :size="14" /> {{ selectedFolderPath.split('/').pop() || selectedFolderPath.split('\\').pop() || '文件夹' }}
-            </template>
-            <template v-else>
-              工作空间
-            </template>
-          </button>
+          <!-- 第二行：操作相关 -->
+          <div class="actions-row actions-ops">
+            <button type="submit" class="btn primary" :disabled="sending">发送</button>
+            <button type="button" class="btn ghost" @click="handleCancel" :disabled="!sending">
+              取消
+            </button>
+            <!-- 思考模式开关 -->
+            <label class="thinking-toggle" :title="enableThinking ? '已启用思考模式' : '点击启用思考模式'">
+              <input type="checkbox" :checked="enableThinking" @change="handleThinkingToggle" />
+              <span class="thinking-slider"></span>
+              <span class="thinking-label">思考</span>
+            </label>
+          </div>
         </div>
       </div>
     </form>
@@ -802,7 +809,7 @@ defineExpose({
 
 .messages {
   background: var(--color-bg-primary);
-  height: calc(78vh);
+  height: calc(76vh);
   overflow: auto;
 }
 
@@ -1271,13 +1278,13 @@ defineExpose({
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: 6px;
-  padding: 4px 10px;
+  padding: 6px 10px;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
   color: var(--color-text-primary);
-  max-width: 200px;
+  max-width: 160px;
 }
 
 .settings-btn:hover {
@@ -1423,7 +1430,7 @@ defineExpose({
   margin: 0 auto;
   display: flex;
   gap: 12px;
-  align-items: flex-end;
+  align-items: center;
   padding: 10px 12px;
   border: 1px solid var(--color-border);
   border-radius: 16px;
@@ -1440,14 +1447,31 @@ defineExpose({
   font-size: 14px;
   color: var(--color-text-primary);
   overflow-y: auto;
-  height: 51px;
+  min-height: 51px;
+  max-height: 120px;
   line-height: 1.4;
 }
 
 .actions {
   display: flex;
+  flex-direction: column;
   gap: 8px;
+  align-items: stretch;
+  min-width: 140px;
+}
+
+.actions-row {
+  display: flex;
+  gap: 6px;
   align-items: center;
+}
+
+.actions-config {
+  flex-wrap: wrap;
+}
+
+.actions-ops {
+  justify-content: flex-end;
 }
 
 /* 思考模式开关样式 */
@@ -1459,7 +1483,7 @@ defineExpose({
   user-select: none;
   font-size: 12px;
   color: var(--color-text-secondary);
-  padding: 4px 8px;
+  padding: 4px 6px;
   border-radius: 16px;
   transition: all 0.2s;
 }
@@ -1510,7 +1534,7 @@ defineExpose({
 }
 
 .btn {
-  padding: 8px 14px;
+  padding: 6px 12px;
   border-radius: 999px;
   border: 1px solid var(--color-border);
   cursor: pointer;
@@ -1547,11 +1571,11 @@ defineExpose({
   background: transparent;
   color: var(--color-text-secondary);
   border: 1px solid var(--color-border);
-  padding: 8px 14px;
+  padding: 6px 10px;
   font-size: 13px;
   transition: all 0.2s;
-  min-width: 80px;
-  max-width: 200px;
+  min-width: 70px;
+  max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1572,7 +1596,7 @@ defineExpose({
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: 6px;
-  padding: 4px 10px;
+  padding: 6px 10px;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
