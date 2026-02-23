@@ -44,6 +44,17 @@ const BUILTIN_MCP_SERVERS: Omit<MCPServer, 'createdAt' | 'updatedAt'>[] = [
     command: 'python',
     args: ['mcp-servers/time-server/time_server.py'],
     tools: []
+  },
+  {
+    id: 'builtin-web-scraper',
+    name: 'Web Scraper',
+    description: '网页爬取工具 MCP 服务器，提供网页内容抓取、正文提取、链接/图片提取、元数据获取等功能。',
+    transportType: 'stdio' as const,
+    enabled: true,
+    builtin: true,
+    command: 'python',
+    args: ['mcp-servers/web-scraper/web_scraper.py'],
+    tools: []
   }
 ]
 
