@@ -1675,7 +1675,7 @@ async function executeNormalChat(text: string) {
       const msg = currentMessages[assistantIndex]
       if (msg) {
         msg.tool_calls = finalToolCalls
-        console.log('[MCP] Processing tool_calls:', finalToolCalls)
+        //console.log('[MCP] Processing tool_calls:', finalToolCalls)
 
         // 执行工具调用
         try {
