@@ -9,33 +9,212 @@ const __dirname = path.dirname(__filename)
 // MCP Client Implementation
 // ============================================================================
 
-// 检查命令是否存在
+// 常见的 PATH 路径（用于 GUI 启动时补充环境变量）
+const COMMON_PATHS: Record<string, string[]> = {
+  darwin: [
+    '/usr/local/bin',
+    '/opt/homebrew/bin',
+    '/opt/homebrew/sbin',
+    '/usr/bin',
+    '/bin',
+    '/usr/sbin',
+    '/sbin',
+    '/Library/Apple/usr/bin',
+    '/Library/Frameworks/Python.framework/Versions/Current/bin',
+    // 用户级 Python 安装路径
+    path.join(process.env.HOME || '', '.local/bin'),
+    path.join(process.env.HOME || '', 'Library/Python/*/bin'),
+  ],
+  linux: [
+    '/usr/local/bin',
+    '/usr/bin',
+    '/bin',
+    '/usr/sbin',
+    '/sbin',
+    '/snap/bin',
+    path.join(process.env.HOME || '', '.local/bin'),
+    path.join(process.env.HOME || '', '.cargo/bin'),
+  ],
+  win32: [
+    // Windows 通常通过注册表配置 PATH，这里添加一些常见路径
+  ]
+}
+
+// Python 命令的别名优先级（用于自动解析）
+const PYTHON_ALIASES = ['python3', 'python', 'uvx']
+
+// MCP 包要求的最低 Python 版本
+const MCP_MIN_PYTHON_VERSION = [3, 10]
+
+// 获取 Python 命令的版本号
+function getPythonVersion(pythonCmd: string): { major: number; minor: number } | null {
+  try {
+    const enhancedEnv = getEnhancedEnv()
+    const output = execSync(`${pythonCmd} --version`, {
+      encoding: 'utf-8',
+      env: enhancedEnv,
+      timeout: 5000
+    }).trim()
+
+    // 解析版本号，格式如 "Python 3.10.0" 或 "Python 3.9.6"
+    const match = output.match(/Python\s+(\d+)\.(\d+)/)
+    if (match) {
+      return {
+        major: parseInt(match[1], 10),
+        minor: parseInt(match[2], 10)
+      }
+    }
+  } catch (error) {
+    // 命令执行失败，忽略
+  }
+  return null
+}
+
+// 比较版本号
+function isVersionAtLeast(version: { major: number; minor: number }, minVersion: number[]): boolean {
+  if (version.major > minVersion[0]) return true
+  if (version.major === minVersion[0] && version.minor >= minVersion[1]) return true
+  return false
+}
+
+// 获取增强后的 PATH 环境变量
+function getEnhancedPath(): string {
+  const originalPath = process.env.PATH || ''
+  const platform = process.platform
+  const additionalPaths = COMMON_PATHS[platform] || []
+
+  // 过滤出存在的路径
+  const existingAdditionalPaths = additionalPaths.filter(p => {
+    // 处理通配符路径
+    if (p.includes('*')) {
+      try {
+        const baseDir = path.dirname(p.replace(/\/\*.*$/, ''))
+        if (fs.existsSync(baseDir)) {
+          return true
+        }
+      } catch {
+        return false
+      }
+    }
+    return fs.existsSync(p)
+  })
+
+  // 合并 PATH，保持原有 PATH 优先
+  const allPaths = originalPath.split(path.delimiter)
+  for (const p of existingAdditionalPaths) {
+    if (!allPaths.includes(p)) {
+      allPaths.push(p)
+    }
+  }
+
+  return allPaths.join(path.delimiter)
+}
+
+// 获取增强后的环境变量
+function getEnhancedEnv(): Record<string, string> {
+  return {
+    ...process.env,
+    PATH: getEnhancedPath()
+  }
+}
+
+// 尝试解析命令的实际路径
+function resolveCommand(command: string): string | null {
+  // 如果是绝对路径，直接返回
+  if (path.isAbsolute(command)) {
+    return fs.existsSync(command) ? command : null
+  }
+
+  const enhancedEnv = getEnhancedEnv()
+  const pathDirs = (enhancedEnv.PATH || '').split(path.delimiter)
+
+  // 在所有 PATH 目录中搜索
+  for (const dir of pathDirs) {
+    // 跳过通配符路径（无法直接检查）
+    if (dir.includes('*')) continue
+
+    const fullPath = path.join(dir, command)
+    if (fs.existsSync(fullPath)) {
+      return fullPath
+    }
+
+    // Windows 上尝试添加扩展名
+    if (process.platform === 'win32') {
+      for (const ext of ['.exe', '.cmd', '.bat']) {
+        const fullPathWithExt = fullPath + ext
+        if (fs.existsSync(fullPathWithExt)) {
+          return fullPathWithExt
+        }
+      }
+    }
+  }
+
+  return null
+}
+
+// 检查命令是否存在（使用增强的 PATH）
 function commandExists(command: string): boolean {
+  return resolveCommand(command) !== null
+}
+
+// 查找可用的 Python 命令（优先返回满足 MCP 最低版本要求的命令）
+function findPythonCommand(options: { requireMinVersion?: boolean } = {}): string | null {
+  const { requireMinVersion = false } = options
+
+  // 收集所有可用的 Python 命令及其版本
+  const availablePythons: Array<{ cmd: string; version: { major: number; minor: number } | null }> = []
+
+  for (const alias of PYTHON_ALIASES) {
+    if (alias === 'uvx') continue // uvx 不是 Python 解释器
+
+    const resolved = resolveCommand(alias)
+    if (resolved) {
+      const version = getPythonVersion(alias)
+      availablePythons.push({ cmd: alias, version })
+    }
+  }
+
+  if (availablePythons.length === 0) {
+    return null
+  }
+
+  // 如果需要满足最低版本要求，优先返回满足条件的命令
+  if (requireMinVersion) {
+    // 首先查找满足版本要求的 Python
+    const validPython = availablePythons.find(p => p.version && isVersionAtLeast(p.version, MCP_MIN_PYTHON_VERSION))
+    if (validPython) {
+      return validPython.cmd
+    }
+
+    // 如果没有满足版本要求的，仍然返回第一个可用的（让后续安装时报错）
+    console.log(`[MCP] Warning: No Python ${MCP_MIN_PYTHON_VERSION[0]}.${MCP_MIN_PYTHON_VERSION[1]}+ found, using ${availablePythons[0]?.cmd}`)
+  }
+
+  // 返回第一个可用的 Python 命令
+  return availablePythons[0]?.cmd || null
+}
+
+// 旧版本的 commandExists（保留用于向后兼容）
+function commandExistsLegacy(command: string): boolean {
   try {
     // 检查是否是绝对路径
     if (path.isAbsolute(command)) {
       return fs.existsSync(command)
     }
 
-    // 检查命令是否在 PATH 中
-    const isWindows = process.platform === 'win32'
-    const exts = isWindows ? ['.exe', '.cmd', '.bat'] : ['']
-
-    for (const ext of exts) {
-      try {
-        execSync(`command -v "${command}${ext}" 2>/dev/null || which "${command}${ext}" 2>/dev/null || type "${command}${ext}" > /dev/null 2>&1`, {
-          stdio: 'ignore'
-        })
-        return true
-      } catch {
-        // 继续尝试下一个扩展
-      }
+    // 使用增强的 PATH 检查
+    const resolved = resolveCommand(command)
+    if (resolved) {
+      return true
     }
 
     // Windows 上尝试 where 命令
-    if (isWindows) {
+    if (process.platform === 'win32') {
       try {
-        execSync(`where "${command}"`, { stdio: 'ignore' })
+        execSync(`where "${command}"`, {
+          stdio: 'ignore',
+          env: getEnhancedEnv()
+        })
         return true
       } catch {
         return false
@@ -188,9 +367,11 @@ class SimpleCommandExecutor {
     try {
       const fullCommand = commandArgs.length > 0 ? `${command} ${commandArgs.join(' ')}` : command
 
+      // 使用增强的环境变量
+      const enhancedEnv = getEnhancedEnv()
       const output = execSync(fullCommand, {
         encoding: 'utf-8',
-        env: { ...process.env, ...this.config.env },
+        env: { ...enhancedEnv, ...this.config.env },
         maxBuffer: 10 * 1024 * 1024 // 10MB buffer
       })
 
@@ -239,26 +420,57 @@ class MCPClient {
 
     return new Promise((resolve, reject) => {
       try {
-        // 检查命令是否存在
-        if (!commandExists(this.config.command!)) {
-          reject(new Error(
-            `MCP server command not found: "${this.config.command}"\n\n` +
-            `Please check:\n` +
+        // 获取增强后的环境变量（包含常见 PATH 路径）
+        const enhancedEnv = getEnhancedEnv()
+
+        // 尝试解析命令，如果找不到 python 则自动回退到 python3
+        let actualCommand = this.config.command!
+        let resolvedCommand = resolveCommand(actualCommand)
+
+        // Python 命令自动回退逻辑
+        if (!resolvedCommand && actualCommand === 'python') {
+          const python3Path = resolveCommand('python3')
+          if (python3Path) {
+            console.log(`[MCP] Command "python" not found, falling back to "python3"`)
+            actualCommand = 'python3'
+            resolvedCommand = python3Path
+          }
+        }
+
+        if (!resolvedCommand) {
+          // 构建更友好的错误信息
+          let errorMsg = `MCP server command not found: "${this.config.command}"\n\n`
+
+          // 针对 Python 命令提供特殊帮助
+          if (this.config.command === 'python' || this.config.command === 'python3') {
+            const availablePython = findPythonCommand()
+            if (availablePython) {
+              errorMsg += `提示：检测到 "${availablePython}" 命令可用，请尝试使用该命令代替 "${this.config.command}"。\n\n`
+            } else {
+              errorMsg += `提示：未检测到 Python 环境。请安装 Python 或使用 uvx 运行 Python MCP 服务器。\n\n`
+            }
+          }
+
+          errorMsg += `Please check:\n` +
             `1. The command path is correct\n` +
             `2. Use an absolute path if the command is not in your PATH\n` +
             `3. For npm packages, use: npx <package-name>\n` +
-            `4. For Python scripts, use: python /path/to/script.py\n` +
-            `5. For Node scripts, use: node /path/to/script.js`
-          ))
+            `4. For Python scripts, use: python3 /path/to/script.py or uvx <package>\n` +
+            `5. For Node scripts, use: node /path/to/script.js\n\n` +
+            `Current PATH:\n${enhancedEnv.PATH?.split(path.delimiter).join('\n')}`
+
+          reject(new Error(errorMsg))
           return
         }
 
         const args = this.config.args || []
-        const env = { ...process.env, ...this.config.env }
+        // 使用增强的环境变量（可能已回退到 python3）
+        const env = { ...enhancedEnv, ...this.config.env }
 
         // 解析内置 MCP 服务器的相对路径为绝对路径
         // __dirname 是 main.cjs 所在目录（开发时为 frontend/dist-electron，打包后为 app 目录）
         // 项目根目录 = __dirname 的上两级（开发时）或 app 目录（打包时）
+        // 注意：打包时使用 asarUnpack 解压 mcp-servers，文件会在 app.asar.unpacked 目录中
         const projectRoot = app.isPackaged
           ? app.getAppPath()
           : path.resolve(__dirname, '..', '..')
@@ -266,11 +478,15 @@ class MCPClient {
         const resolvedArgs = args.map(arg => {
           // 处理 mcp-servers/ 开头的相对路径（内置服务器）
           if (typeof arg === 'string' && arg.startsWith('mcp-servers/')) {
-            // 开发模式：projectRoot 是项目根目录，需要加上 frontend/ 前缀
-            // 打包模式：需要根据打包结构调整
-            const resolved = app.isPackaged
-              ? path.resolve(projectRoot, arg)
-              : path.resolve(projectRoot, 'frontend', arg)
+            let resolved: string
+            if (app.isPackaged) {
+              // 打包模式：使用 app.asar.unpacked 路径（因为 mcp-servers 已配置为 asarUnpack）
+              const unpackedRoot = projectRoot.replace('app.asar', 'app.asar.unpacked')
+              resolved = path.resolve(unpackedRoot, arg)
+            } else {
+              // 开发模式：projectRoot 是项目根目录，需要加上 frontend/ 前缀
+              resolved = path.resolve(projectRoot, 'frontend', arg)
+            }
             console.log(`[MCP] Resolved path: ${arg} -> ${resolved} (projectRoot: ${projectRoot}, isPackaged: ${app.isPackaged})`)
             return resolved
           }
@@ -278,12 +494,13 @@ class MCPClient {
         })
 
         console.log('[MCP] Starting process:', {
-          command: this.config.command,
+          command: actualCommand,
+          originalCommand: this.config.command !== actualCommand ? this.config.command : undefined,
           args: resolvedArgs,
           env: Object.keys(env)
         })
 
-        this.process = spawn(this.config.command, resolvedArgs, {
+        this.process = spawn(actualCommand, resolvedArgs, {
           env,
           stdio: ['pipe', 'pipe', 'pipe']
         })
@@ -307,7 +524,7 @@ class MCPClient {
         this.process.on('error', (error) => {
           console.error('[MCP] Process error:', error)
           const errorMsg = `Failed to start MCP server: ${error.message}. ` +
-            `Please check if the command "${this.config.command}" is valid and in your PATH.`
+            `Please check if the command "${actualCommand}" is valid and in your PATH.`
           this.rejectAllPending(new Error(errorMsg))
         })
 
@@ -321,7 +538,7 @@ class MCPClient {
           }
 
           if (code === 127 || code === 128) {
-            errorMsg = `Command not found: "${this.config.command}". ` +
+            errorMsg = `Command not found: "${actualCommand}". ` +
               `Please check:\n` +
               `1. The command path is correct\n` +
               `2. The command is in your PATH or use absolute path\n` +
@@ -736,6 +953,8 @@ function createWindow() {
     // __dirname 在打包后指向 dist-electron，所以需要回到项目根目录然后进入 dist
     const distPath = path.join(path.dirname(__dirname), 'dist', 'index.html')
     mainWindow.loadFile(distPath)
+    // 生产模式也打开 DevTools 用于调试
+    mainWindow.webContents.openDevTools()
   }
 
   // 隐藏默认菜单栏 (File, Edit, View 等)
@@ -1020,6 +1239,230 @@ ipcMain.handle('mcp-list-tools', async (_event, serverConfig: MCPServerConfig) =
 ipcMain.handle('mcp-cleanup', () => {
   mcpManager.cleanup()
   return { success: true }
+})
+
+// MCP 安装依赖
+interface MCPDependencyConfig {
+  type: 'python' | 'node' | 'uvx'
+  packages: string[]
+  requirementsFile?: string
+}
+
+ipcMain.handle('mcp-install-dependencies', async (_event, dependency: MCPDependencyConfig, serverPath?: string) => {
+  try {
+    console.log('[MCP IPC] Installing dependencies:', dependency)
+
+    const enhancedEnv = getEnhancedEnv()
+
+    if (dependency.type === 'uvx') {
+      // uvx 类型不需要单独安装依赖，uvx 会在运行时自动管理
+      // 只需要检查 uvx 命令是否存在
+      const uvxExists = commandExists('uvx')
+      if (uvxExists) {
+        return {
+          success: true,
+          output: 'uvx 已安装，依赖将在运行时自动管理',
+          method: 'uvx'
+        }
+      } else {
+        return {
+          success: false,
+          error: '未找到 uvx 命令。请安装 uv 工具:\n' +
+            'macOS/Linux: curl -LsSf https://astral.sh/uv/install.sh | sh\n' +
+            'Windows: powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"'
+        }
+      }
+    } else if (dependency.type === 'python') {
+      // 检查是否有满足版本要求的 Python
+      const pythonCmd = findPythonCommand({ requireMinVersion: true })
+
+      if (!pythonCmd) {
+        return {
+          success: false,
+          error: `未找到 Python 环境。MCP 包需要 Python ${MCP_MIN_PYTHON_VERSION[0]}.${MCP_MIN_PYTHON_VERSION[1]} 或更高版本。\n\n` +
+            `解决方案：\n` +
+            `1. 安装 Python ${MCP_MIN_PYTHON_VERSION[0]}.${MCP_MIN_PYTHON_VERSION[1]}+ : 访问 https://www.python.org/downloads/\n` +
+            `2. 或使用 uvx 运行 Python MCP 服务器（推荐）: curl -LsSf https://astral.sh/uv/install.sh | sh`
+        }
+      }
+
+      // 检查 Python 版本是否满足要求
+      const version = getPythonVersion(pythonCmd)
+      if (version && !isVersionAtLeast(version, MCP_MIN_PYTHON_VERSION)) {
+        return {
+          success: false,
+          error: `当前 Python 版本 ${version.major}.${version.minor} 过低。MCP 包需要 Python ${MCP_MIN_PYTHON_VERSION[0]}.${MCP_MIN_PYTHON_VERSION[1]} 或更高版本。\n\n` +
+            `检测到的 Python 路径: ${resolveCommand(pythonCmd)}\n\n` +
+            `解决方案：\n` +
+            `1. 安装 Python ${MCP_MIN_PYTHON_VERSION[0]}.${MCP_MIN_PYTHON_VERSION[1]}+ : 访问 https://www.python.org/downloads/\n` +
+            `2. 或使用 Homebrew: brew install python@3.10 (或更高版本)\n` +
+            `3. 或使用 uvx 运行 Python MCP 服务器（推荐）: curl -LsSf https://astral.sh/uv/install.sh | sh`
+        }
+      }
+
+      // 优先使用 uv 安装（更快）
+      const uvExists = commandExists('uv')
+
+      if (uvExists) {
+        // 使用 uv pip install
+        const packages = dependency.packages.join(' ')
+        const command = serverPath
+          ? `uv pip install --python ${pythonCmd} ${packages}`
+          : `uv pip install ${packages}`
+
+        console.log('[MCP IPC] Installing with uv:', command)
+
+        try {
+          const output = execSync(command, {
+            encoding: 'utf-8',
+            env: enhancedEnv,
+            timeout: 120000, // 2 minutes timeout
+            maxBuffer: 10 * 1024 * 1024
+          })
+
+          return {
+            success: true,
+            output: output.trim(),
+            method: 'uv'
+          }
+        } catch (uvError: any) {
+          console.log('[MCP IPC] uv install failed, falling back to pip:', uvError.message)
+          // 如果 uv 失败，回退到 pip
+        }
+      }
+
+      // 回退到 pip 安装
+      const packages = dependency.packages.join(' ')
+      const command = `${pythonCmd} -m pip install ${packages}`
+
+      console.log('[MCP IPC] Installing with pip:', command)
+
+      const output = execSync(command, {
+        encoding: 'utf-8',
+        env: enhancedEnv,
+        timeout: 180000, // 3 minutes timeout
+        maxBuffer: 10 * 1024 * 1024
+      })
+
+      return {
+        success: true,
+        output: output.trim(),
+        method: 'pip'
+      }
+    } else if (dependency.type === 'node') {
+      // Node.js 依赖安装
+      const packages = dependency.packages.join(' ')
+      const command = `npm install ${packages}`
+
+      console.log('[MCP IPC] Installing with npm:', command)
+
+      const output = execSync(command, {
+        encoding: 'utf-8',
+        env: enhancedEnv,
+        cwd: serverPath || process.cwd(),
+        timeout: 180000, // 3 minutes timeout
+        maxBuffer: 10 * 1024 * 1024
+      })
+
+      return {
+        success: true,
+        output: output.trim(),
+        method: 'npm'
+      }
+    }
+
+    return {
+      success: false,
+      error: 'Unknown dependency type'
+    }
+  } catch (error: any) {
+    console.error('[MCP IPC] Install dependencies failed:', error)
+
+    let errorMessage = error.message
+    if (error.stderr) {
+      errorMessage += `\n${error.stderr.toString()}`
+    }
+
+    return {
+      success: false,
+      error: errorMessage,
+      output: error.stdout?.toString() || ''
+    }
+  }
+})
+
+// 检查 MCP 依赖是否已安装
+ipcMain.handle('mcp-check-dependencies', async (_event, dependency: MCPDependencyConfig) => {
+  try {
+    if (dependency.type === 'uvx') {
+      // uvx 类型只需要检查 uvx 命令是否存在，包会在运行时自动安装
+      const uvxExists = commandExists('uvx')
+      return {
+        success: true,
+        installed: uvxExists,
+        missingPackages: uvxExists ? [] : ['uvx']
+      }
+    } else if (dependency.type === 'python') {
+      const pythonCmd = findPythonCommand() || 'python3'
+
+      // 检查每个包是否已安装
+      const missingPackages: string[] = []
+
+      for (const pkg of dependency.packages) {
+        try {
+          // 尝试导入模块
+          execSync(`${pythonCmd} -c "import ${pkg.replace('-', '_')}"`, {
+            encoding: 'utf-8',
+            env: getEnhancedEnv(),
+            timeout: 10000
+          })
+        } catch {
+          missingPackages.push(pkg)
+        }
+      }
+
+      return {
+        success: true,
+        installed: missingPackages.length === 0,
+        missingPackages
+      }
+    } else if (dependency.type === 'node') {
+      // Node.js 依赖检查
+      const missingPackages: string[] = []
+
+      for (const pkg of dependency.packages) {
+        try {
+          execSync(`npm list ${pkg}`, {
+            encoding: 'utf-8',
+            env: getEnhancedEnv(),
+            timeout: 10000
+          })
+        } catch {
+          missingPackages.push(pkg)
+        }
+      }
+
+      return {
+        success: true,
+        installed: missingPackages.length === 0,
+        missingPackages
+      }
+    }
+
+    return {
+      success: true,
+      installed: true,
+      missingPackages: []
+    }
+  } catch (error: any) {
+    console.error('[MCP IPC] Check dependencies failed:', error)
+    return {
+      success: false,
+      error: error.message,
+      installed: false,
+      missingPackages: dependency.packages
+    }
+  }
 })
 
 // ============================================================================
@@ -1795,8 +2238,10 @@ function getSkillsBasePath(): string {
     // 开发模式：使用 frontend 目录下的 skills
     return path.join(path.dirname(__dirname), 'skills')
   }
-  // 生产模式：使用应用资源目录
-  return path.join(path.dirname(__dirname), 'skills')
+  // 生产模式：使用 app.asar.unpacked 路径（因为 skills 已配置为 asarUnpack）
+  const appPath = app.getAppPath()
+  const unpackedPath = appPath.replace('app.asar', 'app.asar.unpacked')
+  return path.join(unpackedPath, 'skills')
 }
 
 // 获取所有 Skills 目录
@@ -2238,10 +2683,175 @@ interface EnvironmentCheckResult {
   message: string
   details?: string
   fixSuggestion?: string
+  // 自动安装相关
+  canAutoInstall?: boolean
+  installMethod?: 'brew' | 'winget' | 'scoop' | 'choco' | 'apt' | 'yum' | 'dnf' | 'script'
+  installCommand?: string
+  downloadUrl?: string
+}
+
+// 包管理器检测
+type PackageManagerType = 'brew' | 'winget' | 'scoop' | 'choco' | 'apt' | 'yum' | 'dnf'
+
+interface PackageManagerInfo {
+  type: PackageManagerType
+  exists: boolean
+  installCommands: Record<string, string> // 环境项 -> 安装命令
+}
+
+// 检测可用的包管理器
+function detectPackageManagers(): PackageManagerInfo[] {
+  const managers: PackageManagerInfo[] = []
+  const platform = process.platform
+
+  if (platform === 'darwin') {
+    // macOS: 优先 Homebrew
+    const brewExists = commandExists('brew')
+    managers.push({
+      type: 'brew',
+      exists: brewExists,
+      installCommands: {
+        'node-command': 'brew install node',
+        'npx-command': 'brew install node', // npx 随 node 安装
+        'uvx-command': 'brew install uv',
+        'uv-command': 'brew install uv',
+        'python-command': 'brew install python@3.12'
+      }
+    })
+  } else if (platform === 'win32') {
+    // Windows: winget, scoop, chocolatey
+    const wingetExists = commandExists('winget')
+    managers.push({
+      type: 'winget',
+      exists: wingetExists,
+      installCommands: {
+        'node-command': 'winget install OpenJS.NodeJS.LTS',
+        'npx-command': 'winget install OpenJS.NodeJS.LTS',
+        'uvx-command': 'winget install astral-sh.uv',
+        'uv-command': 'winget install astral-sh.uv',
+        'python-command': 'winget install Python.Python.3.12'
+      }
+    })
+
+    const scoopExists = commandExists('scoop')
+    managers.push({
+      type: 'scoop',
+      exists: scoopExists,
+      installCommands: {
+        'node-command': 'scoop install nodejs-lts',
+        'npx-command': 'scoop install nodejs-lts',
+        'uvx-command': 'scoop install uv',
+        'uv-command': 'scoop install uv',
+        'python-command': 'scoop install python'
+      }
+    })
+
+    const chocoExists = commandExists('choco')
+    managers.push({
+      type: 'choco',
+      exists: chocoExists,
+      installCommands: {
+        'node-command': 'choco install nodejs-lts -y',
+        'npx-command': 'choco install nodejs-lts -y',
+        'uvx-command': 'choco install uv -y',
+        'uv-command': 'choco install uv -y',
+        'python-command': 'choco install python -y'
+      }
+    })
+  } else {
+    // Linux: apt, yum, dnf
+    const aptExists = commandExists('apt') || commandExists('apt-get')
+    managers.push({
+      type: 'apt',
+      exists: aptExists,
+      installCommands: {
+        'node-command': 'sudo apt install -y nodejs npm',
+        'npx-command': 'sudo apt install -y nodejs npm',
+        'uvx-command': 'curl -LsSf https://astral.sh/uv/install.sh | sh',
+        'uv-command': 'curl -LsSf https://astral.sh/uv/install.sh | sh',
+        'python-command': 'sudo apt install -y python3 python3-pip'
+      }
+    })
+
+    const yumExists = commandExists('yum')
+    managers.push({
+      type: 'yum',
+      exists: yumExists,
+      installCommands: {
+        'node-command': 'sudo yum install -y nodejs npm',
+        'npx-command': 'sudo yum install -y nodejs npm',
+        'uvx-command': 'curl -LsSf https://astral.sh/uv/install.sh | sh',
+        'uv-command': 'curl -LsSf https://astral.sh/uv/install.sh | sh',
+        'python-command': 'sudo yum install -y python3 python3-pip'
+      }
+    })
+
+    const dnfExists = commandExists('dnf')
+    managers.push({
+      type: 'dnf',
+      exists: dnfExists,
+      installCommands: {
+        'node-command': 'sudo dnf install -y nodejs npm',
+        'npx-command': 'sudo dnf install -y nodejs npm',
+        'uvx-command': 'curl -LsSf https://astral.sh/uv/install.sh | sh',
+        'uv-command': 'curl -LsSf https://astral.sh/uv/install.sh | sh',
+        'python-command': 'sudo dnf install -y python3 python3-pip'
+      }
+    })
+  }
+
+  return managers
+}
+
+// 获取推荐的包管理器
+function getRecommendedPackageManager(): PackageManagerInfo | null {
+  const managers = detectPackageManagers()
+  return managers.find(m => m.exists) || null
+}
+
+// 下载链接配置
+const DOWNLOAD_URLS: Record<string, Record<string, string>> = {
+  'node-command': {
+    default: 'https://nodejs.org/'
+  },
+  'npx-command': {
+    default: 'https://nodejs.org/'
+  },
+  'uvx-command': {
+    default: 'https://docs.astral.sh/uv/getting-started/installation/'
+  },
+  'uv-command': {
+    default: 'https://docs.astral.sh/uv/getting-started/installation/'
+  },
+  'python-command': {
+    default: 'https://www.python.org/downloads/'
+  }
 }
 
 ipcMain.handle('check-environment', async (): Promise<EnvironmentCheckResult[]> => {
   const results: EnvironmentCheckResult[] = []
+  const packageManager = getRecommendedPackageManager()
+
+  // 辅助函数：获取安装信息
+  function getInstallInfo(itemName: string): {
+    canAutoInstall: boolean
+    installMethod?: 'brew' | 'winget' | 'scoop' | 'choco' | 'apt' | 'yum' | 'dnf' | 'script'
+    installCommand?: string
+    downloadUrl?: string
+  } {
+    if (packageManager && packageManager.installCommands[itemName]) {
+      return {
+        canAutoInstall: true,
+        installMethod: packageManager.type,
+        installCommand: packageManager.installCommands[itemName],
+        downloadUrl: DOWNLOAD_URLS[itemName]?.default
+      }
+    }
+    return {
+      canAutoInstall: false,
+      downloadUrl: DOWNLOAD_URLS[itemName]?.default
+    }
+  }
 
   // 1. 检查 node 命令
   const nodeExists = commandExists('node')
@@ -2251,7 +2861,8 @@ ipcMain.handle('check-environment', async (): Promise<EnvironmentCheckResult[]> 
     status: nodeExists ? 'success' : 'warning',
     message: nodeExists ? 'node 命令可用' : 'node 命令未找到（MCP 服务器可能需要）',
     details: nodeExists ? '可用于运行 MCP 服务器' : '建议安装 Node.js',
-    fixSuggestion: nodeExists ? undefined : '访问 https://nodejs.org/ 下载并安装 Node.js（推荐 LTS 版本）。安装后重启终端或应用程序。'
+    fixSuggestion: nodeExists ? undefined : '访问 https://nodejs.org/ 下载并安装 Node.js（推荐 LTS 版本）。安装后重启终端或应用程序。',
+    ...getInstallInfo('node-command')
   })
 
   // 2. 检查 npx 命令
@@ -2262,7 +2873,8 @@ ipcMain.handle('check-environment', async (): Promise<EnvironmentCheckResult[]> 
     status: npxExists ? 'success' : 'warning',
     message: npxExists ? 'npx 命令可用' : 'npx 命令未找到（MCP 服务器可能需要）',
     details: npxExists ? '可用于运行 npm 包形式的 MCP 服务器' : '建议安装 Node.js (包含 npx)',
-    fixSuggestion: npxExists ? undefined : 'npx 随 Node.js 一起安装。请安装 Node.js：访问 https://nodejs.org/ 下载 LTS 版本。'
+    fixSuggestion: npxExists ? undefined : 'npx 随 Node.js 一起安装。请安装 Node.js：访问 https://nodejs.org/ 下载 LTS 版本。',
+    ...getInstallInfo('npx-command')
   })
 
   // 3. 检查 uvx 命令（Python MCP 工具）
@@ -2273,7 +2885,8 @@ ipcMain.handle('check-environment', async (): Promise<EnvironmentCheckResult[]> 
     status: uvxExists ? 'success' : 'warning',
     message: uvxExists ? 'uvx 命令可用' : 'uvx 命令未找到（Python MCP 服务器可能需要）',
     details: uvxExists ? '可用于运行 Python 包形式的 MCP 服务器' : '可选：安装 uv 以使用 Python MCP 服务器',
-    fixSuggestion: uvxExists ? undefined : '安装 uv 工具：\n• macOS/Linux: curl -LsSf https://astral.sh/uv/install.sh | sh\n• Windows: pip install uv\n或访问 https://docs.astral.sh/uv/ 查看更多安装方式。'
+    fixSuggestion: uvxExists ? undefined : '安装 uv 工具：\n• macOS/Linux: curl -LsSf https://astral.sh/uv/install.sh | sh\n• Windows: pip install uv\n或访问 https://docs.astral.sh/uv/ 查看更多安装方式。',
+    ...getInstallInfo('uvx-command')
   })
 
   // 4. 检查 uv 命令（Python 包管理器）
@@ -2284,10 +2897,40 @@ ipcMain.handle('check-environment', async (): Promise<EnvironmentCheckResult[]> 
     status: uvExists ? 'success' : 'warning',
     message: uvExists ? 'uv 命令可用' : 'uv 命令未找到',
     details: uvExists ? 'Python 包管理器可用' : '可选：安装 uv 以使用 Python MCP 服务器',
-    fixSuggestion: uvExists ? undefined : '安装 uv 工具：\n• macOS/Linux: curl -LsSf https://astral.sh/uv/install.sh | sh\n• Windows: pip install uv\n或访问 https://docs.astral.sh/uv/ 查看更多安装方式。'
+    fixSuggestion: uvExists ? undefined : '安装 uv 工具：\n• macOS/Linux: curl -LsSf https://astral.sh/uv/install.sh | sh\n• Windows: pip install uv\n或访问 https://docs.astral.sh/uv/ 查看更多安装方式。',
+    ...getInstallInfo('uv-command')
   })
 
-  // 5. 检查配置目录可写
+  // 5. 检查 Python 命令（优先检测 python3，然后是 python）
+  const python3Exists = commandExists('python3')
+  const pythonExists = commandExists('python')
+  const pythonCommand = findPythonCommand()
+  const pythonCommandForMCP = findPythonCommand({ requireMinVersion: true })
+  const pythonVersion = pythonCommand ? getPythonVersion(pythonCommand) : null
+  const meetsMinVersion = pythonVersion && isVersionAtLeast(pythonVersion, MCP_MIN_PYTHON_VERSION)
+
+  results.push({
+    name: 'python-command',
+    displayName: 'Python 命令',
+    status: meetsMinVersion ? 'success' : (pythonCommand ? 'warning' : 'warning'),
+    message: pythonCommand
+      ? `检测到 "${pythonCommand}" 命令${pythonVersion ? ` (版本 ${pythonVersion.major}.${pythonVersion.minor})` : ''}${meetsMinVersion ? '' : ' - MCP 需要 Python 3.10+'}`
+      : 'Python 命令未找到',
+    details: pythonCommand
+      ? `可用于运行 Python MCP 服务器（使用 ${pythonCommand}）${meetsMinVersion ? '' : '\n警告: MCP 包需要 Python 3.10 或更高版本'}`
+      : `python3: ${python3Exists ? '可用' : '不可用'}, python: ${pythonExists ? '可用' : '不可用'}`,
+    fixSuggestion: meetsMinVersion ? undefined :
+      pythonCommand
+        ? `当前 Python 版本 ${pythonVersion?.major}.${pythonVersion?.minor} 过低，MCP 包需要 Python 3.10+。\n\n` +
+          `解决方案：\n` +
+          `1. 使用 Homebrew 安装新版本: brew install python@3.10 (或更高版本)\n` +
+          `2. 或访问 https://www.python.org/downloads/ 下载安装\n` +
+          `3. 或使用 uvx 运行 Python MCP 服务器（推荐）: curl -LsSf https://astral.sh/uv/install.sh | sh`
+        : '安装 Python 3.10+：\n• macOS: brew install python@3.10 或访问 https://www.python.org/downloads/\n• Windows: 访问 https://www.python.org/downloads/ 下载安装\n• Linux: sudo apt install python3.10 或 sudo yum install python3\n\n推荐使用 uvx 运行 Python MCP 服务器，无需手动安装 Python 依赖。',
+    ...getInstallInfo('python-command')
+  })
+
+  // 6. 检查配置目录可写
   try {
     const testFile = path.join(app.getPath('userData'), '.write-test')
     fs.writeFileSync(testFile, 'test')
@@ -2310,7 +2953,7 @@ ipcMain.handle('check-environment', async (): Promise<EnvironmentCheckResult[]> 
     })
   }
 
-  // 6. 检查平台信息
+  // 7. 检查平台信息
   results.push({
     name: 'platform',
     displayName: '系统平台',
@@ -2318,6 +2961,231 @@ ipcMain.handle('check-environment', async (): Promise<EnvironmentCheckResult[]> 
     message: `${process.platform} ${process.arch}`,
     details: `操作系统: ${process.platform}, 架构: ${process.arch}`
   })
+
+  return results
+})
+
+// 检测可用的包管理器
+ipcMain.handle('detect-package-manager', async () => {
+  const managers = detectPackageManagers()
+  const available = managers.filter(m => m.exists).map(m => m.type)
+  const recommended = available[0] || null
+
+  return {
+    available,
+    recommended,
+    platform: process.platform
+  }
+})
+
+// 环境安装进度接口
+interface EnvironmentInstallProgress {
+  name: string
+  status: 'pending' | 'installing' | 'success' | 'error'
+  message: string
+  progress?: number
+}
+
+// 环境安装结果接口
+interface EnvironmentInstallResult {
+  success: boolean
+  name: string
+  message: string
+  error?: string
+  requiresRestart?: boolean
+}
+
+// 安装单个环境项
+async function installEnvironmentItem(
+  itemName: string,
+  sendProgress: (progress: EnvironmentInstallProgress) => void
+): Promise<EnvironmentInstallResult> {
+  const packageManager = getRecommendedPackageManager()
+
+  if (!packageManager) {
+    return {
+      success: false,
+      name: itemName,
+      message: '未找到可用的包管理器',
+      error: '请先安装 Homebrew (macOS)、winget/scoop/chocolatey (Windows) 或使用系统包管理器 (Linux)'
+    }
+  }
+
+  const installCommand = packageManager.installCommands[itemName]
+  if (!installCommand) {
+    return {
+      success: false,
+      name: itemName,
+      message: '该环境项不支持自动安装',
+      error: '请手动安装或访问官方网站下载'
+    }
+  }
+
+  sendProgress({
+    name: itemName,
+    status: 'installing',
+    message: `正在安装 ${itemName}...`,
+    progress: 0
+  })
+
+  try {
+    const enhancedEnv = getEnhancedEnv()
+
+    // 使用 spawn 来执行命令以便获取实时输出
+    return new Promise((resolve) => {
+      const isSudoCommand = installCommand.startsWith('sudo')
+      let command = installCommand
+      let args: string[] = []
+
+      // 解析命令和参数
+      if (isSudoCommand) {
+        // sudo 命令需要特殊处理
+        const parts = installCommand.split(' ')
+        command = parts[0] // sudo
+        args = parts.slice(1)
+      } else if (packageManager.type === 'brew') {
+        // brew install package
+        const parts = installCommand.split(' ')
+        command = parts[0]
+        args = parts.slice(1)
+      } else if (packageManager.type === 'winget') {
+        // winget install ...
+        const parts = installCommand.split(' ')
+        command = parts[0]
+        args = parts.slice(1)
+      } else if (packageManager.type === 'scoop') {
+        // scoop install ...
+        const parts = installCommand.split(' ')
+        command = parts[0]
+        args = parts.slice(1)
+      } else if (packageManager.type === 'choco') {
+        // choco install ... -y
+        const parts = installCommand.split(' ')
+        command = parts[0]
+        args = parts.slice(1)
+      } else {
+        // 脚本命令（如 curl | sh）
+        command = '/bin/bash'
+        args = ['-c', installCommand]
+      }
+
+      console.log(`[Environment Install] Executing: ${command} ${args.join(' ')}`)
+
+      const child = spawn(command, args, {
+        env: enhancedEnv,
+        shell: !isSudoCommand, // sudo 命令不使用 shell
+        stdio: ['ignore', 'pipe', 'pipe']
+      })
+
+      let output = ''
+      let errorOutput = ''
+
+      child.stdout?.on('data', (data) => {
+        const text = data.toString()
+        output += text
+        console.log(`[Environment Install] stdout: ${text}`)
+
+        // 发送进度更新
+        sendProgress({
+          name: itemName,
+          status: 'installing',
+          message: `正在安装 ${itemName}...`,
+          progress: 50 // 简化的进度
+        })
+      })
+
+      child.stderr?.on('data', (data) => {
+        const text = data.toString()
+        errorOutput += text
+        console.log(`[Environment Install] stderr: ${text}`)
+      })
+
+      child.on('close', (code) => {
+        if (code === 0) {
+          sendProgress({
+            name: itemName,
+            status: 'success',
+            message: `${itemName} 安装成功`,
+            progress: 100
+          })
+          resolve({
+            success: true,
+            name: itemName,
+            message: `${itemName} 安装成功`,
+            requiresRestart: true
+          })
+        } else {
+          sendProgress({
+            name: itemName,
+            status: 'error',
+            message: `${itemName} 安装失败`,
+            progress: 100
+          })
+          resolve({
+            success: false,
+            name: itemName,
+            message: `${itemName} 安装失败`,
+            error: errorOutput || output || `进程退出码: ${code}`
+          })
+        }
+      })
+
+      child.on('error', (err) => {
+        sendProgress({
+          name: itemName,
+          status: 'error',
+          message: `${itemName} 安装出错`,
+          progress: 100
+        })
+        resolve({
+          success: false,
+          name: itemName,
+          message: `${itemName} 安装出错`,
+          error: err.message
+        })
+      })
+
+      // 设置超时（10分钟）
+      setTimeout(() => {
+        child.kill()
+        resolve({
+          success: false,
+          name: itemName,
+          message: `${itemName} 安装超时`,
+          error: '安装过程超时（超过10分钟）'
+        })
+      }, 10 * 60 * 1000)
+    })
+  } catch (error: any) {
+    sendProgress({
+      name: itemName,
+      status: 'error',
+      message: `${itemName} 安装异常`,
+      progress: 100
+    })
+    return {
+      success: false,
+      name: itemName,
+      message: `${itemName} 安装异常`,
+      error: error?.message || '未知错误'
+    }
+  }
+}
+
+// 环境安装 IPC 处理器
+ipcMain.handle('install-environment', async (event, items: string[]): Promise<EnvironmentInstallResult[]> => {
+  const results: EnvironmentInstallResult[] = []
+
+  // 进度回调函数
+  const sendProgress = (progress: EnvironmentInstallProgress) => {
+    event.sender.send('install-environment-progress', progress)
+  }
+
+  for (const item of items) {
+    console.log(`[Environment Install] Installing: ${item}`)
+    const result = await installEnvironmentItem(item, sendProgress)
+    results.push(result)
+  }
 
   return results
 })

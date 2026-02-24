@@ -5,11 +5,13 @@
 /**
  * 工作记忆类型
  */
-export enum WorkingMemoryType {
-  NOTES = 'notes',
-  DRAFTS = 'drafts',
-  FINAL_RESULT = 'final'
-}
+export const WorkingMemoryType = {
+  NOTES: 'notes',
+  DRAFTS: 'drafts',
+  FINAL_RESULT: 'final'
+} as const
+
+export type WorkingMemoryType = typeof WorkingMemoryType[keyof typeof WorkingMemoryType]
 
 /**
  * 单个工作记忆条目
@@ -54,13 +56,15 @@ export interface Task {
 /**
  * 任务执行状态
  */
-export enum TaskStatus {
-  PENDING = 'pending',
-  RUNNING = 'running',
-  COMPLETED = 'completed',
-  FAILED = 'failed',
-  SKIPPED = 'skipped'
-}
+export const TaskStatus = {
+  PENDING: 'pending',
+  RUNNING: 'running',
+  COMPLETED: 'completed',
+  FAILED: 'failed',
+  SKIPPED: 'skipped'
+} as const
+
+export type TaskStatus = typeof TaskStatus[keyof typeof TaskStatus]
 
 /**
  * 任务模式配置选项
@@ -150,6 +154,7 @@ export interface TaskExecutionContext {
   conversationHistory: Message[]
   taskIndex: number
   totalTasks: number
+  workingMemoryContext?: string
 }
 
 /**
@@ -181,29 +186,38 @@ export const TASK_MODE_CONSTANTS = {
 /**
  * 错误类型
  */
-export enum TaskErrorType {
-  PLANNING_FAILED = 'planning_failed',
-  EXECUTION_FAILED = 'execution_failed',
-  MERGE_FAILED = 'merge_failed',
-  SUMMARIZE_FAILED = 'summarize_failed',
-  API_ERROR = 'api_error',
-  PARSE_ERROR = 'parse_error',
-  ABORTED = 'aborted',
-  VALIDATION_ERROR = 'validation_error'
-}
+export const TaskErrorType = {
+  PLANNING_FAILED: 'planning_failed',
+  EXECUTION_FAILED: 'execution_failed',
+  MERGE_FAILED: 'merge_failed',
+  SUMMARIZE_FAILED: 'summarize_failed',
+  API_ERROR: 'api_error',
+  PARSE_ERROR: 'parse_error',
+  ABORTED: 'aborted',
+  VALIDATION_ERROR: 'validation_error'
+} as const
+
+export type TaskErrorType = typeof TaskErrorType[keyof typeof TaskErrorType]
 
 /**
  * 任务错误类
  */
 export class TaskError extends Error {
+  type: TaskErrorType
+  taskId?: number
+  originalError?: Error
+
   constructor(
-    public type: TaskErrorType,
+    type: TaskErrorType,
     message: string,
-    public taskId?: number,
-    public originalError?: Error
+    taskId?: number,
+    originalError?: Error
   ) {
     super(message)
     this.name = 'TaskError'
+    this.type = type
+    this.taskId = taskId
+    this.originalError = originalError
   }
 
   /**
@@ -245,11 +259,12 @@ export class TaskError extends Error {
    * 获取可重试的判断
    */
   isRetryable(): boolean {
-    return [
+    const retryableTypes: TaskErrorType[] = [
       TaskErrorType.API_ERROR,
       TaskErrorType.EXECUTION_FAILED,
       TaskErrorType.MERGE_FAILED
-    ].includes(this.type)
+    ]
+    return retryableTypes.includes(this.type)
   }
 }
 

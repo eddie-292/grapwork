@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import type { EnvironmentCheckResult } from '../../types/electron'
+import type { EnvironmentCheckResult, EnvironmentInstallProgress, EnvironmentInstallResult } from '../../types/electron'
 import CheckIcon from '../icons/CheckIcon.vue'
 import XIcon from '../icons/XIcon.vue'
 import LightbulbIcon from '../icons/LightbulbIcon.vue'
+import DownloadIcon from '../icons/DownloadIcon.vue'
 
 // Props
 const props = defineProps<{
@@ -13,6 +14,7 @@ const props = defineProps<{
 // Emits
 const emit = defineEmits<{
   (e: 'checkComplete', results: EnvironmentCheckResult[]): void
+  (e: 'continue'): void
 }>()
 
 const checking = ref(false)
@@ -20,20 +22,43 @@ const checkResults = ref<EnvironmentCheckResult[]>([])
 const checkingProgress = ref(0)
 const hasChecked = ref(false)  // 是否已经检查过
 
+// 安装相关状态
+const installing = ref(false)
+const installProgress = ref<Map<string, EnvironmentInstallProgress>>(new Map())
+const installResults = ref<EnvironmentInstallResult[]>([])
+
 const hasErrors = computed(() => checkResults.value.some(r => r.status === 'error'))
 const hasWarnings = computed(() => checkResults.value.some(r => r.status === 'warning'))
 const hasProblems = computed(() => hasErrors.value || hasWarnings.value)
-const canContinue = computed(() => !hasErrors.value)
+const canContinue = computed(() => !hasErrors.value && !installing.value)
 
 // 分离正常项和问题项（warning + error）
 const successItems = computed(() => checkResults.value.filter(r => r.status === 'success'))
 const problemItems = computed(() => checkResults.value.filter(r => r.status !== 'success'))
+
+// 可以自动安装的项目
+const autoInstallableItems = computed(() =>
+  problemItems.value.filter(r => r.canAutoInstall && !isInstalling(r.name))
+)
+
+// 检查某个项是否正在安装
+function isInstalling(name: string): boolean {
+  const progress = installProgress.value.get(name)
+  return progress?.status === 'installing'
+}
+
+// 获取某个项的安装状态
+function getInstallStatus(name: string): EnvironmentInstallProgress | undefined {
+  return installProgress.value.get(name)
+}
 
 async function runEnvironmentCheck() {
   checking.value = true
   hasChecked.value = true
   checkResults.value = []
   checkingProgress.value = 0
+  installProgress.value.clear()
+  installResults.value = []
 
   if (!window.electronAPI?.checkEnvironment) {
     checkResults.value = [
@@ -85,6 +110,85 @@ async function runEnvironmentCheck() {
   } finally {
     checking.value = false
     emit('checkComplete', checkResults.value)
+  }
+}
+
+// 安装单个环境项
+async function installSingleItem(itemName: string) {
+  if (!window.electronAPI?.installEnvironment) {
+    alert('安装功能不可用，请手动安装')
+    return
+  }
+
+  installing.value = true
+
+  try {
+    const results = await window.electronAPI.installEnvironment([itemName], (progress) => {
+      installProgress.value.set(progress.name, { ...progress })
+    })
+
+    installResults.value = results
+
+    // 如果安装成功，重新检查环境
+    const successResult = results.find(r => r.name === itemName && r.success)
+    if (successResult) {
+      // 短暂延迟后重新检查
+      setTimeout(() => {
+        runEnvironmentCheck()
+      }, 1000)
+    }
+  } catch (error) {
+    console.error('Install error:', error)
+    installProgress.value.set(itemName, {
+      name: itemName,
+      status: 'error',
+      message: error instanceof Error ? error.message : '安装失败'
+    })
+  } finally {
+    installing.value = false
+  }
+}
+
+// 一键安装所有可安装的项目
+async function installAllItems() {
+  if (!window.electronAPI?.installEnvironment) {
+    alert('安装功能不可用，请手动安装')
+    return
+  }
+
+  const itemsToInstall = autoInstallableItems.value.map(r => r.name)
+  if (itemsToInstall.length === 0) {
+    return
+  }
+
+  installing.value = true
+
+  try {
+    const results = await window.electronAPI.installEnvironment(itemsToInstall, (progress) => {
+      installProgress.value.set(progress.name, { ...progress })
+    })
+
+    installResults.value = results
+
+    // 如果有成功的安装，重新检查环境
+    const hasSuccess = results.some(r => r.success)
+    if (hasSuccess) {
+      // 短暂延迟后重新检查
+      setTimeout(() => {
+        runEnvironmentCheck()
+      }, 1000)
+    }
+  } catch (error) {
+    console.error('Install all error:', error)
+  } finally {
+    installing.value = false
+  }
+}
+
+// 打开下载链接
+function openDownloadUrl(url: string) {
+  if (window.electronAPI?.openExternal) {
+    window.electronAPI.openExternal(url)
   }
 }
 
@@ -140,6 +244,23 @@ onMounted(() => {
         </div>
       </div>
 
+      <!-- 一键安装按钮 -->
+      <div v-if="autoInstallableItems.length > 0 && !installing" class="install-all-section">
+        <button class="btn install-all" @click="installAllItems">
+          <DownloadIcon :size="16" />
+          一键安装缺失环境 ({{ autoInstallableItems.length }})
+        </button>
+        <p class="install-hint">将自动安装以下缺失的工具：{{ autoInstallableItems.map(r => r.displayName).join('、') }}</p>
+      </div>
+
+      <!-- 安装进度 -->
+      <div v-if="installing" class="installing-progress">
+        <div class="progress-bar installing">
+          <div class="progress-fill" :style="{ width: '100%', animation: 'indeterminate 1.5s infinite linear' }" />
+        </div>
+        <p class="progress-text">正在安装环境，请稍候...</p>
+      </div>
+
       <!-- 检查项目列表 - 双列布局 -->
       <div class="check-lists" :class="{ 'has-problems': hasProblems }">
         <!-- 正常项列表 -->
@@ -171,17 +292,50 @@ onMounted(() => {
             v-for="result in problemItems"
             :key="result.name"
             class="check-item"
-            :class="getStatusClass(result.status)"
+            :class="[getStatusClass(result.status), { 'installing': isInstalling(result.name) }]"
           >
             <div class="check-icon">
-              <XIcon v-if="result.status === 'error'" :size="14" />
+              <XIcon v-if="result.status === 'error' && !isInstalling(result.name)" :size="14" />
+              <span v-else-if="isInstalling(result.name)" class="spinner"></span>
               <span v-else>!</span>
             </div>
             <div class="check-content">
-              <div class="check-title">{{ result.displayName }}</div>
-              <div class="check-message">{{ result.message }}</div>
-              <div v-if="result.details" class="check-details">{{ result.details }}</div>
-              <div v-if="result.fixSuggestion" class="fix-suggestion">
+              <div class="check-title">
+                {{ result.displayName }}
+                <span v-if="isInstalling(result.name)" class="install-badge">安装中...</span>
+              </div>
+              <div class="check-message">
+                <template v-if="getInstallStatus(result.name)">
+                  {{ getInstallStatus(result.name)?.message }}
+                </template>
+                <template v-else>
+                  {{ result.message }}
+                </template>
+              </div>
+              <div v-if="result.details && !isInstalling(result.name)" class="check-details">{{ result.details }}</div>
+
+              <!-- 安装按钮 -->
+              <div v-if="result.canAutoInstall && !isInstalling(result.name)" class="install-actions">
+                <button
+                  class="btn-install"
+                  @click="installSingleItem(result.name)"
+                  :disabled="installing"
+                >
+                  <DownloadIcon :size="14" />
+                  安装
+                </button>
+                <span class="install-command">{{ result.installCommand }}</span>
+              </div>
+
+              <!-- 下载链接 -->
+              <div v-else-if="result.downloadUrl && !result.canAutoInstall" class="download-link">
+                <button class="btn-download" @click="openDownloadUrl(result.downloadUrl!)">
+                  打开下载页面
+                </button>
+              </div>
+
+              <!-- 修复建议 -->
+              <div v-if="result.fixSuggestion && !result.canAutoInstall" class="fix-suggestion">
                 <div class="fix-label"><LightbulbIcon :size="14" /> 修复建议：</div>
                 <pre class="fix-content">{{ result.fixSuggestion }}</pre>
               </div>
@@ -192,7 +346,7 @@ onMounted(() => {
 
       <!-- 操作按钮 -->
       <div class="check-actions">
-        <button class="btn secondary" @click="runEnvironmentCheck">
+        <button class="btn secondary" @click="runEnvironmentCheck" :disabled="installing">
           重新检查
         </button>
         <slot name="actions" :can-continue="canContinue">
@@ -208,7 +362,7 @@ onMounted(() => {
       </div>
 
       <!-- 错误提示 -->
-      <div v-if="!canContinue" class="error-hint">
+      <div v-if="!canContinue && !installing" class="error-hint">
         <p>请解决以上错误后再继续使用应用程序</p>
       </div>
     </div>
@@ -228,7 +382,8 @@ onMounted(() => {
 }
 
 /* 进度条 */
-.checking-progress {
+.checking-progress,
+.installing-progress {
   text-align: center;
   padding: 24px 0;
 }
@@ -239,6 +394,7 @@ onMounted(() => {
   border-radius: 4px;
   overflow: hidden;
   margin-bottom: 16px;
+  position: relative;
 }
 
 .progress-fill {
@@ -248,10 +404,54 @@ onMounted(() => {
   transition: width 0.3s ease;
 }
 
+.progress-bar.installing .progress-fill {
+  background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary-hover) 50%, var(--color-primary) 100%);
+  background-size: 200% 100%;
+}
+
+@keyframes indeterminate {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 .progress-text {
   color: var(--color-text-secondary);
   font-size: 14px;
   margin: 0;
+}
+
+/* 一键安装区域 */
+.install-all-section {
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.btn.install-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  background: #3b82f6;
+  color: white;
+}
+
+.btn.install-all:hover {
+  background: #2563eb;
+}
+
+.install-hint {
+  margin: 12px 0 0 0;
+  font-size: 13px;
+  color: var(--color-text-secondary);
 }
 
 /* 状态摘要 */
@@ -378,6 +578,12 @@ onMounted(() => {
   padding: 12px;
   border-radius: 8px;
   background: var(--color-bg-secondary);
+  transition: all 0.2s;
+}
+
+.check-item.installing {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
 .check-icon {
@@ -407,6 +613,21 @@ onMounted(() => {
   color: white;
 }
 
+/* 旋转动画 */
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .check-content {
   flex: 1;
   min-width: 0;
@@ -417,6 +638,18 @@ onMounted(() => {
   font-size: 14px;
   color: var(--color-text-primary);
   margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.install-badge {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  background: #3b82f6;
+  color: white;
+  border-radius: 10px;
 }
 
 .check-message {
@@ -429,6 +662,70 @@ onMounted(() => {
   color: var(--color-text-tertiary);
   margin-top: 4px;
   word-break: break-all;
+}
+
+/* 安装按钮 */
+.install-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.btn-install {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid #3b82f6;
+  background: transparent;
+  color: #3b82f6;
+}
+
+.btn-install:hover:not(:disabled) {
+  background: #3b82f6;
+  color: white;
+}
+
+.btn-install:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.install-command {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  font-family: monospace;
+  background: var(--color-bg-tertiary);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+/* 下载链接 */
+.download-link {
+  margin-top: 8px;
+}
+
+.btn-download {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+.btn-download:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
 }
 
 /* 修复建议 */
@@ -492,6 +789,11 @@ onMounted(() => {
 
 .btn.secondary:hover {
   background: var(--color-border);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* 错误提示 */

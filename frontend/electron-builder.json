@@ -9,12 +9,18 @@
   "files": [
     "dist/**/*",
     "dist-electron/main.cjs",
-    "dist-electron/preload.cjs"
+    "dist-electron/preload.cjs",
+    "mcp-servers/**/*",
+    "skills/**/*"
   ],
   "extraMetadata": {
     "main": "dist-electron/main.cjs"
   },
   "asar": true,
+  "asarUnpack": [
+    "mcp-servers/**/*",
+    "skills/**/*"
+  ],
   "mac": {
     "target": ["dmg", "zip"],
     "category": "public.app-category.productivity"

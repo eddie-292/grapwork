@@ -3,6 +3,13 @@
  * 用于管理和配置 MCP 服务器，并与 LLM Function Calling 集成
  */
 
+// MCP 服务器依赖配置
+export interface MCPDependency {
+  type: 'python' | 'node' | 'uvx'  // 依赖类型
+  packages: string[]            // 依赖包列表（如 ['mcp', 'requests']）
+  requirementsFile?: string     // requirements.txt 路径（可选，用于 Python）
+}
+
 // MCP 服务器配置
 export interface MCPServer {
   id: string                    // 唯一标识符
@@ -25,13 +32,18 @@ export interface MCPServer {
 
   // 工具配置（从服务器获取的工具列表）
   tools?: MCPToolDefinition[]   // 可用工具列表
+
+  // 依赖配置（用于安装服务器所需的依赖）
+  dependencies?: MCPDependency  // 依赖配置
 }
 
 // MCP 传输类型
-export enum MCPTransportType {
-  STDIO = 'stdio',      // 标准输入输出
-  SSE = 'sse',          // Server-Sent Events
-}
+export const MCPTransportType = {
+  STDIO: 'stdio',      // 标准输入输出
+  SSE: 'sse',          // Server-Sent Events
+} as const
+
+export type MCPTransportType = typeof MCPTransportType[keyof typeof MCPTransportType]
 
 // MCP 工具定义（符合 OpenAI Function Calling 格式）
 export interface MCPToolDefinition {

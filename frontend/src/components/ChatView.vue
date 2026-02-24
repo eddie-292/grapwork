@@ -26,9 +26,6 @@ import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
 import { storage } from '../services/StorageService'
-import ChevronLeftIcon from './icons/ChevronLeftIcon.vue'
-import ChevronRightIcon from './icons/ChevronRightIcon.vue'
-import MenuIcon from './icons/MenuIcon.vue'
 import SettingsIcon from './icons/SettingsIcon.vue'
 import LogoutIcon from './icons/LogoutIcon.vue'
 import XIcon from './icons/XIcon.vue'
@@ -95,17 +92,6 @@ function onCommandCancel() {
   }
 }
 
-// 提取关键词的简单函数
-function extractKeywords(content: string): string[] {
-  // 简单分词（中英文混合）
-  const words = content
-    .toLowerCase()
-    .split(/[\s\u4e00-\u9fa5,;.!?。，；！？、]+/)
-    .filter(w => w.length > 1)
-  // 去重并返回前 5 个
-  return Array.from(new Set(words)).slice(0, 5)
-}
-
 // 打开保存到全局记忆对话框
 // function openSaveToGlobalMemoryDialog(content: string) {
 //   saveToGlobalMemoryContent.value = content
@@ -117,7 +103,7 @@ type Role = 'user' | 'assistant' | 'system' | 'tool'
 type Message = {
   role: Role
   content: string
-  reasoning: string
+  reasoning?: string
   reasoningDuration?: number
   visible?: boolean
   copyable?: boolean
@@ -536,7 +522,8 @@ function parseQwenToolCalls(content: string): { toolCalls: any[]; cleanedContent
   return { toolCalls, cleanedContent }
 }
 
-// 发送消息到 LLM（支持流式响应）
+// 发送消息到 LLM（支持流式响应）- 保留用于任务模式
+// @ts-expect-error 保留用于未来任务模式功能
 async function sendMessageToLLM(messages: { role: string; content: string }[]): Promise<string> {
   if (!activeConfig.value?.apiKey) {
     throw new Error('请先配置并启用一个 LLM 接口')
@@ -2464,6 +2451,7 @@ function toggleReasoning(index: number) {
   reasoningExpanded.value[index] = !reasoningExpanded.value[index]
 }
 
+// @ts-expect-error 保留用于未来功能
 function toggleArchived(index: number) {
   archivedExpanded.value[index] = !archivedExpanded.value[index]
 }

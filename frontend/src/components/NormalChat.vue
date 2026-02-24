@@ -19,7 +19,7 @@ type Role = 'user' | 'assistant' | 'system' | 'tool'
 export type Message = {
   role: Role
   content: string
-  reasoning: string
+  reasoning?: string
   reasoningDuration?: number
   visible?: boolean
   copyable?: boolean
@@ -667,7 +667,7 @@ defineExpose({
                 <span>思考</span>
                 <span v-if="m.reasoningDuration">{{ m.reasoningDuration }}s</span>
               </button>
-              <div v-show="reasoningExpanded[i]" class="msg-reasoning-bubble" v-html="render(m.reasoning)" />
+              <div v-show="reasoningExpanded[i]" class="msg-reasoning-bubble" v-html="render(m.reasoning || '')" />
             </div>
             <div class="msg-bubble-wrapper">
               <!-- 渲染输出内容 -->

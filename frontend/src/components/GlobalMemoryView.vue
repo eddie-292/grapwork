@@ -48,22 +48,22 @@ const filteredEntries = computed(() => {
 
   // Filter by type
   if (selectedType.value !== 'all') {
-    result = result.filter(e => e.type === selectedType.value)
+    result = result.filter((e: GlobalMemoryEntry) => e.type === selectedType.value)
   }
 
   // Filter by category
   if (selectedCategory.value !== 'all') {
-    result = result.filter(e => e.category === selectedCategory.value)
+    result = result.filter((e: GlobalMemoryEntry) => e.category === selectedCategory.value)
   }
 
   // Filter by search query
   if (searchQuery.value.trim()) {
     const query = searchQuery.value.toLowerCase()
-    result = result.filter(e =>
+    result = result.filter((e: GlobalMemoryEntry) =>
       e.title.toLowerCase().includes(query) ||
       e.content.toLowerCase().includes(query) ||
       e.category.toLowerCase().includes(query) ||
-      e.keywords.some(k => k.toLowerCase().includes(query))
+      e.keywords.some((k: string) => k.toLowerCase().includes(query))
     )
   }
 
@@ -73,9 +73,9 @@ const filteredEntries = computed(() => {
 // Statistics
 const stats = computed(() => {
   const total = entries.value.length
-  const enabled = entries.value.filter(e => e.enabled).length
+  const enabled = entries.value.filter((e: GlobalMemoryEntry) => e.enabled).length
   const byType: Record<string, number> = {}
-  entries.value.forEach(e => {
+  entries.value.forEach((e: GlobalMemoryEntry) => {
     byType[e.type] = (byType[e.type] || 0) + 1
   })
   return { total, enabled, disabled: total - enabled, byType }

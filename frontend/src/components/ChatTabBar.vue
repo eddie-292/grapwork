@@ -61,7 +61,7 @@ function getChatColor(chatId: string): string {
   for (let i = 0; i < chatId.length; i++) {
     hash = chatId.charCodeAt(i) + ((hash << 5) - hash)
   }
-  return colors[Math.abs(hash) % colors.length]
+  return colors[Math.abs(hash) % colors.length]!
 }
 
 // 截断标题显示
@@ -121,25 +121,6 @@ function switchToResult(chatId: string) {
 async function handleDoubleClick() {
   if (window.electronAPI?.windowMaximize) {
     isMaximized.value = await window.electronAPI.windowMaximize()
-  }
-}
-
-// 窗口控制
-async function handleMinimize() {
-  if (window.electronAPI?.windowMinimize) {
-    await window.electronAPI.windowMinimize()
-  }
-}
-
-async function handleMaximize() {
-  if (window.electronAPI?.windowMaximize) {
-    isMaximized.value = await window.electronAPI.windowMaximize()
-  }
-}
-
-async function handleClose() {
-  if (window.electronAPI?.windowClose) {
-    await window.electronAPI.windowClose()
   }
 }
 </script>

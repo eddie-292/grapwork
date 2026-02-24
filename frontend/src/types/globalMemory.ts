@@ -1,12 +1,14 @@
 /**
- * 全局记忆类型枚举
+ * 全局记忆类型
  */
-export enum GlobalMemoryType {
-  PREFERENCES = 'preferences',      // 用户偏好（按钮颜色、样式等）
-  SETTINGS = 'settings',            // 通用设置
-  GENERAL_INFO = 'general_info',    // 通用信息
-  CUSTOM = 'custom'                 // 自定义类型
-}
+export const GlobalMemoryType = {
+  PREFERENCES: 'preferences',      // 用户偏好（按钮颜色、样式等）
+  SETTINGS: 'settings',            // 通用设置
+  GENERAL_INFO: 'general_info',    // 通用信息
+  CUSTOM: 'custom'                 // 自定义类型
+} as const
+
+export type GlobalMemoryType = typeof GlobalMemoryType[keyof typeof GlobalMemoryType]
 
 /**
  * 单个全局记忆条目

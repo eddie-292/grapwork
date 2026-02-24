@@ -12,7 +12,9 @@ import type {
   OpenAIToolCall,
   MCPToolResult,
   MCPChatMessage,
+  MCPDependency,
 } from '@/types/mcp'
+import { MCPTransportType } from '@/types/mcp'
 
 // 检查是否在 Electron 环境中
 const isElectronEnv =
@@ -20,41 +22,55 @@ const isElectronEnv =
   navigator.userAgent.toLowerCase().includes('electron')
 
 // 内置 MCP 服务器配置
-// 注意：路径相对于 app.getAppPath()（开发时为项目根目录，打包后为 app 目录）
-// 使用 python 直接运行，需要预先安装依赖：pip install -r requirements.txt
+// 使用 uvx 运行本地 MCP 服务器，uvx 会自动安装和管理 Python 包依赖
+// 路径格式：uvx --from <本地路径> <入口点>
+// main.ts 会自动将 mcp-servers/ 开头的路径解析为绝对路径
+// --refresh 参数确保使用最新的本地代码
 const BUILTIN_MCP_SERVERS: Omit<MCPServer, 'createdAt' | 'updatedAt'>[] = [
   {
     id: 'builtin-email-server',
     name: 'Email Server',
     description: '邮件收发 MCP 服务器，支持发送、接收、搜索邮件等功能。需要配置 .env 文件设置邮件服务。',
-    transportType: 'stdio' as const,
+    transportType: MCPTransportType.STDIO,
     enabled: true,
     builtin: true,
-    command: 'python',
-    args: ['mcp-servers/email-server/email_server.py'],
-    tools: []
+    command: 'uvx',
+    args: ['--refresh', '--from', 'mcp-servers/email-server', 'email_server'],
+    tools: [],
+    dependencies: {
+      type: 'uvx',
+      packages: ['mcp']
+    }
   },
   {
     id: 'builtin-time-server',
     name: 'Time Server',
     description: '时间工具 MCP 服务器，提供时区转换、时间计算、格式化等功能。',
-    transportType: 'stdio' as const,
+    transportType: MCPTransportType.STDIO,
     enabled: true,
     builtin: true,
-    command: 'python',
-    args: ['mcp-servers/time-server/time_server.py'],
-    tools: []
+    command: 'uvx',
+    args: ['--refresh', '--from', 'mcp-servers/time-server', 'time_server'],
+    tools: [],
+    dependencies: {
+      type: 'uvx',
+      packages: ['mcp']
+    }
   },
   {
     id: 'builtin-web-scraper',
     name: 'Web Scraper',
     description: '网页爬取工具 MCP 服务器，提供网页内容抓取、正文提取、链接/图片提取、元数据获取等功能。',
-    transportType: 'stdio' as const,
+    transportType: MCPTransportType.STDIO,
     enabled: true,
     builtin: true,
-    command: 'python',
-    args: ['mcp-servers/web-scraper/web_scraper.py'],
-    tools: []
+    command: 'uvx',
+    args: ['--refresh', '--from', 'mcp-servers/web-scraper', 'web_scraper'],
+    tools: [],
+    dependencies: {
+      type: 'uvx',
+      packages: ['mcp', 'requests', 'beautifulsoup4']
+    }
   }
 ]
 
@@ -76,7 +92,6 @@ function tryFixJsonString(jsonStr: string): string {
   const contentMatch = jsonStr.match(/"content"\s*:\s*"/)
   if (contentMatch && contentMatch.index !== undefined) {
     const startIndex = contentMatch.index + contentMatch[0].length
-    let depth = 0
     let inString = true
     let escapeNext = false
     let endIndex = startIndex
@@ -99,7 +114,7 @@ function tryFixJsonString(jsonStr: string): string {
         // 检查这是否是对象的结束引号
         // 查看后面的非空白字符
         let j = i + 1
-        while (j < jsonStr.length && /\s/.test(jsonStr[j])) j++
+        while (j < jsonStr.length && /\s/.test(jsonStr[j]!)) j++
 
         if (j >= jsonStr.length || jsonStr[j] === '}' || jsonStr[j] === ',') {
           // 这可能是结束引号
@@ -218,20 +233,20 @@ function safeParseToolArguments(argsStr: string): { success: boolean; args: Reco
 
       while (i < argsStr.length) {
         if (argsStr[i] === '\\' && i + 1 < argsStr.length) {
-          content += argsStr[i] + argsStr[i + 1]
+          content += argsStr[i]! + argsStr[i + 1]!
           i += 2
           continue
         }
         if (argsStr[i] === '"') {
           // 检查是否是字段结束
           let j = i + 1
-          while (j < argsStr.length && /\s/.test(argsStr[j])) j++
+          while (j < argsStr.length && /\s/.test(argsStr[j]!)) j++
           if (j >= argsStr.length || argsStr[j] === '}' || argsStr[j] === ',') {
             lastValidEnd = i
             break
           }
         }
-        content += argsStr[i]
+        content += argsStr[i]!
         lastValidEnd = i
         i++
       }
@@ -375,19 +390,25 @@ export function useMCP() {
 
       // 合并内置服务器和用户服务器
       const now = Date.now()
-      const builtinServers: MCPServer[] = BUILTIN_MCP_SERVERS.map(s => ({
-        ...s,
-        createdAt: now,
-        updatedAt: now,
-        // 应用用户自定义的配置覆盖
-        ...(builtinConfig[s.id] || {}),
-        // 确保关键属性不被覆盖
-        id: s.id,
-        name: s.name,
-        builtin: true,
-        // 恢复之前保存的工具列表
-        tools: builtinTools[s.id] || builtinConfig[s.id]?.tools || []
-      }))
+      const builtinServers: MCPServer[] = BUILTIN_MCP_SERVERS.map(s => {
+        const savedConfig = builtinConfig[s.id] || {}
+        return {
+          ...s,
+          createdAt: now,
+          updatedAt: now,
+          // 只允许覆盖 description 和 env，其他属性使用默认值
+          description: savedConfig.description || s.description,
+          env: savedConfig.env || s.env,
+          // 确保关键属性不被覆盖
+          id: s.id,
+          name: s.name,
+          builtin: true,
+          command: s.command,
+          args: s.args,
+          // 恢复之前保存的工具列表
+          tools: builtinTools[s.id] || []
+        }
+      })
 
       // 过滤掉用户服务器中可能存在的旧版本内置服务器（通过名称匹配）
       const filteredUserServers = userServers.filter(
@@ -468,15 +489,12 @@ export function useMCP() {
     // 内置服务器保存到单独的存储
     if (server.builtin) {
       // 保存内置服务器的配置到单独的存储键
+      // 只保存允许覆盖的字段：description、env
       const builtinConfigResult = await storage.get<Record<string, Partial<MCPServer>>>(StorageKey.BUILTIN_MCP_CONFIG)
       const builtinConfig = builtinConfigResult?.data || {}
       builtinConfig[id] = {
-        command: safeUpdates.command,
-        args: safeUpdates.args,
-        env: safeUpdates.env,
-        url: safeUpdates.url,
         description: safeUpdates.description,
-        tools: safeUpdates.tools
+        env: safeUpdates.env
       }
       await storage.set(StorageKey.BUILTIN_MCP_CONFIG, builtinConfig)
     } else {
@@ -1168,6 +1186,103 @@ export function useMCP() {
     return generateOpenAITools().length > 0
   })
 
+  /**
+   * 检查服务器依赖是否已安装
+   * @param serverId 服务器 ID
+   * @returns 检查结果
+   */
+  async function checkServerDependencies(serverId: string): Promise<{
+    installed: boolean
+    missingPackages: string[]
+    hasDependencies: boolean
+  }> {
+    const server = serverList.value.servers.find(s => s.id === serverId)
+    if (!server) {
+      throw new Error('服务器不存在')
+    }
+
+    // 如果没有配置依赖，则认为已安装
+    if (!server.dependencies || !server.dependencies.packages.length) {
+      return {
+        installed: true,
+        missingPackages: [],
+        hasDependencies: false
+      }
+    }
+
+    if (!isElectronEnv || !window.electronAPI?.mcpCheckDependencies) {
+      return {
+        installed: false,
+        missingPackages: server.dependencies.packages,
+        hasDependencies: true
+      }
+    }
+
+    try {
+      // 使用 JSON 序列化进行深度克隆，确保所有嵌套对象都是普通对象
+      const dependency = JSON.parse(JSON.stringify(server.dependencies))
+      const result = await window.electronAPI.mcpCheckDependencies(dependency)
+      return {
+        installed: result.installed,
+        missingPackages: result.missingPackages,
+        hasDependencies: true
+      }
+    } catch (e: any) {
+      console.error('[MCP] Check dependencies failed:', e)
+      return {
+        installed: false,
+        missingPackages: server.dependencies.packages,
+        hasDependencies: true
+      }
+    }
+  }
+
+  /**
+   * 安装服务器依赖
+   * @param serverId 服务器 ID
+   * @returns 安装结果
+   */
+  async function installServerDependencies(serverId: string): Promise<{
+    success: boolean
+    output?: string
+    method?: string
+    error?: string
+  }> {
+    const server = serverList.value.servers.find(s => s.id === serverId)
+    if (!server) {
+      throw new Error('服务器不存在')
+    }
+
+    if (!server.dependencies || !server.dependencies.packages.length) {
+      return {
+        success: true,
+        output: '无需安装依赖'
+      }
+    }
+
+    if (!isElectronEnv || !window.electronAPI?.mcpInstallDependencies) {
+      throw new Error('Electron 环境不可用')
+    }
+
+    try {
+      // 使用 JSON 序列化进行深度克隆，确保所有嵌套对象都是普通对象
+      const dependency: MCPDependency = JSON.parse(JSON.stringify(server.dependencies))
+      const result = await window.electronAPI.mcpInstallDependencies(dependency)
+      return {
+        success: result.success,
+        output: result.output,
+        method: result.method,
+        error: result.error
+      }
+    } catch (e: any) {
+      console.error('[MCP] Install dependencies failed:', e)
+      return {
+        success: false,
+        error: e?.message || '安装依赖失败'
+      }
+    }
+  }
+
   return {
     serverList,
     loading,
@@ -1185,6 +1300,9 @@ export function useMCP() {
     // 工具获取相关
     fetchServerTools,
     refreshServerTools,
+    // 依赖管理相关
+    checkServerDependencies,
+    installServerDependencies,
     // Function Calling 相关
     generateOpenAITools,
     parseToolCalls,

@@ -1,11 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
 import type { Assistant, AssistantList } from '../types/electron'
 import ConfirmDialog from './ConfirmDialog.vue'
 import { storage } from '../services/StorageService'
-
-const router = useRouter()
 
 interface AvatarIcon {
   id: string
@@ -144,10 +141,6 @@ function saveCurrentAssistant() {
 
 async function saveAssistants() {
   await storage.saveAssistantListFull(assistantList.value)
-}
-
-function goBack() {
-  router.push('/')
 }
 
 function truncateText(text: string, maxLength: number): string {

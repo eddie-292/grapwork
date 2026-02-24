@@ -39,6 +39,30 @@ export interface MCPServerConfig {
   url?: string
 }
 
+// MCP 依赖配置
+export interface MCPDependencyConfig {
+  type: 'python' | 'node'
+  packages: string[]
+  requirementsFile?: string
+}
+
+// 环境安装进度
+export interface EnvironmentInstallProgress {
+  name: string
+  status: 'pending' | 'installing' | 'success' | 'error'
+  message: string
+  progress?: number
+}
+
+// 环境安装结果
+export interface EnvironmentInstallResult {
+  success: boolean
+  name: string
+  message: string
+  error?: string
+  requiresRestart?: boolean
+}
+
 contextBridge.exposeInMainWorld('electronAPI', {
   getConfig: () => ipcRenderer.invoke('get-config'),
   saveConfig: (config: AppConfig) => ipcRenderer.invoke('save-config', config),
@@ -58,6 +82,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // MCP 清理
   mcpCleanup: () =>
     ipcRenderer.invoke('mcp-cleanup'),
+  // MCP 安装依赖
+  mcpInstallDependencies: (dependency: MCPDependencyConfig, serverPath?: string) =>
+    ipcRenderer.invoke('mcp-install-dependencies', dependency, serverPath),
+  // MCP 检查依赖
+  mcpCheckDependencies: (dependency: MCPDependencyConfig) =>
+    ipcRenderer.invoke('mcp-check-dependencies', dependency),
   // 选择文件夹
   selectFolder: () =>
     ipcRenderer.invoke('select-folder'),
@@ -76,6 +106,28 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 环境检查
   checkEnvironment: () =>
     ipcRenderer.invoke('check-environment'),
+  // 环境安装
+  installEnvironment: (
+    items: string[],
+    onProgress?: (progress: EnvironmentInstallProgress) => void
+  ) => {
+    // 监听进度事件
+    const progressHandler = (_event: any, progress: EnvironmentInstallProgress) => {
+      if (onProgress) {
+        onProgress(progress)
+      }
+    }
+    ipcRenderer.on('install-environment-progress', progressHandler)
+
+    // 调用安装命令
+    return ipcRenderer.invoke('install-environment', items).finally(() => {
+      // 安装完成后移除监听器
+      ipcRenderer.removeListener('install-environment-progress', progressHandler)
+    })
+  },
+  // 检测可用的包管理器
+  detectPackageManager: () =>
+    ipcRenderer.invoke('detect-package-manager'),
   // 读取更新日志
   getChangelog: () =>
     ipcRenderer.invoke('get-changelog'),

@@ -15,10 +15,11 @@ import type {
   BatchOperationOptions,
 } from '@/types/storage';
 import { StorageBackendType, StorageKey } from '@/types/storage';
-import type { AppConfig, ConfigList } from '@/types/electron';
-import type { GlobalMemory, GlobalMemoryEntry } from '@/types/globalMemory';
+import type { ConfigList } from '@/types/electron';
+import type { GlobalMemory } from '@/types/globalMemory';
 import type { Assistant } from '@/types/electron';
-import type { ChatMessage } from '@/types/chat';
+import type { Chat } from '@/types/chat';
+import type { WorkingMemory } from '@/types/task';
 import type { MCPServerList } from '@/types/mcp';
 import type { SkillRegistry } from '@/types/skill';
 
@@ -380,10 +381,8 @@ export class StorageService {
   private backends: Map<StorageBackendType, IStorageBackend> = new Map();
   private primaryBackend: IStorageBackend;
   private eventHandlers: Set<StorageEventHandler> = new Set();
-  private config: StorageConfig;
 
   private constructor(config: StorageConfig) {
-    this.config = config;
     this.primaryBackend = this.createBackend(config.defaultBackend);
   }
 
@@ -677,15 +676,15 @@ export class StorageService {
   /**
    * 获取聊天历史
    */
-  async getChatHistory(): Promise<ChatMessage[][]> {
-    const result = await this.get<ChatMessage[][]>(StorageKey.CHAT_HISTORY);
+  async getChatHistory(): Promise<Chat[]> {
+    const result = await this.get<Chat[]>(StorageKey.CHAT_HISTORY);
     return result.data ?? [];
   }
 
   /**
    * 保存聊天历史
    */
-  async saveChatHistory(history: ChatMessage[][]): Promise<boolean> {
+  async saveChatHistory(history: Chat[]): Promise<boolean> {
     const result = await this.set(StorageKey.CHAT_HISTORY, history);
     return result.success;
   }
@@ -751,16 +750,16 @@ export class StorageService {
   /**
    * 获取工作记忆
    */
-  async getWorkingMemory(chatId: string): Promise<GlobalMemory | null> {
+  async getWorkingMemory(chatId: string): Promise<WorkingMemory | null> {
     const key = `${StorageKey.WORKING_MEMORY_PREFIX}${chatId}`;
-    const result = await this.get<GlobalMemory>(key);
+    const result = await this.get<WorkingMemory>(key);
     return result.data ?? null;
   }
 
   /**
    * 保存工作记忆
    */
-  async saveWorkingMemory(chatId: string, memory: GlobalMemory): Promise<boolean> {
+  async saveWorkingMemory(chatId: string, memory: WorkingMemory): Promise<boolean> {
     const key = `${StorageKey.WORKING_MEMORY_PREFIX}${chatId}`;
     const result = await this.set(key, memory);
     return result.success;

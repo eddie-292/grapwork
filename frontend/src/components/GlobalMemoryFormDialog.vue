@@ -88,7 +88,14 @@ const globalMemoryManager = useGlobalMemory()
 // 自定义下拉列表状态
 const showCategoryDropdown = ref(false)
 
-const formData = ref({
+const formData = ref<{
+  type: GlobalMemoryType
+  category: string
+  title: string
+  content: string
+  keywords: string
+  enabled: boolean
+}>({
   type: GlobalMemoryType.PREFERENCES,
   category: '',
   title: '',
@@ -137,7 +144,7 @@ const groupedCategories = computed(() => {
   const groups: Record<string, CategoryOption[]> = {}
   filteredCategories.value.forEach(opt => {
     if (!groups[opt.group]) groups[opt.group] = []
-    groups[opt.group].push(opt)
+    groups[opt.group]!.push(opt)
   })
   return groups
 })

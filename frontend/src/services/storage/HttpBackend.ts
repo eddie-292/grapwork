@@ -13,7 +13,6 @@ export interface HttpBackendConfig {
 export class HttpBackend implements IStorageBackend {
   readonly type: StorageBackendType = StorageBackendType.HTTP;
   private config: HttpBackendConfig;
-  private initialized = false;
 
   constructor(config: HttpBackendConfig) {
     this.config = config;
@@ -21,7 +20,6 @@ export class HttpBackend implements IStorageBackend {
 
   async init(): Promise<void> {
     // TODO: 实现连接测试等初始化逻辑
-    this.initialized = true;
   }
 
   async isAvailable(): Promise<boolean> {
@@ -110,7 +108,7 @@ export class HttpBackend implements IStorageBackend {
     });
 
     if (!result.success) {
-      return result;
+      return { success: false, error: result.error };
     }
 
     return { success: true, data: result.data?.data ?? [] };

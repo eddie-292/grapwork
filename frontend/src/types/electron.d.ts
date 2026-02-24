@@ -34,6 +34,28 @@ export interface EnvironmentCheckResult {
   message: string
   details?: string
   fixSuggestion?: string // 修复建议
+  // 自动安装相关
+  canAutoInstall?: boolean // 是否支持自动安装
+  installMethod?: 'brew' | 'winget' | 'scoop' | 'choco' | 'apt' | 'yum' | 'dnf' | 'script' // 安装方式
+  installCommand?: string // 安装命令（用于显示）
+  downloadUrl?: string // 下载链接（不支持自动安装时）
+}
+
+// 环境安装进度
+export interface EnvironmentInstallProgress {
+  name: string // 环境项名称
+  status: 'pending' | 'installing' | 'success' | 'error'
+  message: string
+  progress?: number // 0-100
+}
+
+// 环境安装结果
+export interface EnvironmentInstallResult {
+  success: boolean
+  name: string
+  message: string
+  error?: string
+  requiresRestart?: boolean // 是否需要重启应用或终端
 }
 
 // 全局记忆类型
@@ -88,6 +110,29 @@ export interface MCPToolsListResult {
   error?: string
 }
 
+// MCP 依赖配置
+export interface MCPDependencyConfig {
+  type: 'python' | 'node' | 'uvx'
+  packages: string[]
+  requirementsFile?: string
+}
+
+// MCP 安装依赖结果
+export interface MCPInstallDependenciesResult {
+  success: boolean
+  output?: string
+  method?: 'uv' | 'pip' | 'npm'
+  error?: string
+}
+
+// MCP 检查依赖结果
+export interface MCPCheckDependenciesResult {
+  success: boolean
+  installed: boolean
+  missingPackages: string[]
+  error?: string
+}
+
 // Skills 技能系统类型
 import type { SkillMetadata, Skill, SkillScanResult, SkillLoadResult } from './skill'
 
@@ -116,6 +161,15 @@ interface ElectronAPI {
   mcpListTools: (serverConfig: MCPServerConfig) => Promise<MCPToolsListResult>
   // MCP 清理
   mcpCleanup: () => Promise<{ success: boolean }>
+  // MCP 安装依赖
+  mcpInstallDependencies: (
+    dependency: MCPDependencyConfig,
+    serverPath?: string
+  ) => Promise<MCPInstallDependenciesResult>
+  // MCP 检查依赖
+  mcpCheckDependencies: (
+    dependency: MCPDependencyConfig
+  ) => Promise<MCPCheckDependenciesResult>
   // 选择文件夹
   selectFolder: () => Promise<{ success: boolean; path: string }>
   // 读取目录内容
@@ -147,6 +201,17 @@ interface ElectronAPI {
   }>
   // 环境检查
   checkEnvironment: () => Promise<EnvironmentCheckResult[]>
+  // 环境安装
+  installEnvironment: (
+    items: string[],
+    onProgress?: (progress: EnvironmentInstallProgress) => void
+  ) => Promise<EnvironmentInstallResult[]>
+  // 检测可用的包管理器
+  detectPackageManager: () => Promise<{
+    available: string[]
+    recommended: string | null
+    platform: string
+  }>
   // 读取更新日志
   getChangelog: () => Promise<{
     success: boolean

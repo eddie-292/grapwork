@@ -19,7 +19,8 @@ const {
   deleteServer,
   toggleServerActive,
   toggleServerEnabled,
-  refreshServerTools
+  refreshServerTools,
+  installServerDependencies
 } = useMCP()
 
 // 表单状态
@@ -29,7 +30,9 @@ const editingServer = ref<MCPServer | null>(null)
 const showDeleteConfirm = ref(false)
 const serverToDelete = ref<MCPServer | null>(null)
 const refreshingServerId = ref<string | null>(null)
+const installingDependenciesServerId = ref<string | null>(null)
 const toastError = ref<string | null>(null)
+const toastSuccess = ref<string | null>(null)
 let toastTimer: ReturnType<typeof setTimeout> | null = null
 
 // 新建服务器表单数据
@@ -288,6 +291,17 @@ function showToastError(message: string) {
   }, 5000)
 }
 
+// 显示 toast 成功提示
+function showToastSuccess(message: string) {
+  if (toastTimer) {
+    clearTimeout(toastTimer)
+  }
+  toastSuccess.value = message
+  toastTimer = setTimeout(() => {
+    toastSuccess.value = null
+  }, 3000)
+}
+
 // 从服务器刷新工具列表
 async function handleRefreshTools(server: MCPServer) {
   refreshingServerId.value = server.id
@@ -312,6 +326,32 @@ async function handleRefreshTools(server: MCPServer) {
 // 判断是否可以从服务器获取工具（仅 MCP 服务器支持，简单命令不支持）
 function canFetchTools(server: MCPServer): boolean {
   return !server.simpleCommand && server.enabled
+}
+
+// 判断服务器是否有依赖配置
+function hasDependencies(server: MCPServer): boolean {
+  return !!(server.dependencies && server.dependencies.packages.length > 0)
+}
+
+// 安装服务器依赖
+async function handleInstallDependencies(server: MCPServer) {
+  if (!server.dependencies) return
+
+  installingDependenciesServerId.value = server.id
+  try {
+    const result = await installServerDependencies(server.id)
+    if (result.success) {
+      console.log(`[MCP] Dependencies installed for "${server.name}":`, result.output)
+      showToastSuccess(`依赖安装成功: ${server.name}${result.method ? ` (使用 ${result.method})` : ''}`)
+    } else {
+      showToastError(`依赖安装失败: ${result.error || '未知错误'}`)
+    }
+  } catch (e: any) {
+    console.error('Failed to install dependencies:', e)
+    showToastError(`依赖安装失败: ${e?.message || e}`)
+  } finally {
+    installingDependenciesServerId.value = null
+  }
 }
 
 // 导出 MCP 配置
@@ -440,6 +480,14 @@ async function importMCPConfig() {
       <div v-if="toastError" class="toast-error">
         <span>{{ toastError }}</span>
         <button class="toast-close" @click="toastError = null">×</button>
+      </div>
+    </Transition>
+
+    <!-- Toast 成功提示 -->
+    <Transition name="toast">
+      <div v-if="toastSuccess" class="toast-success">
+        <span>{{ toastSuccess }}</span>
+        <button class="toast-close" @click="toastSuccess = null">×</button>
       </div>
     </Transition>
 
@@ -780,6 +828,15 @@ async function importMCPConfig() {
               <span class="detail-label">工具:</span>
               <code>{{ server.tools?.length || 0 }} 个</code>
             </div>
+            <div v-if="server.dependencies && server.dependencies.packages.length > 0" class="detail-item">
+              <span class="detail-label">依赖:</span>
+              <code :title="server.dependencies.packages.join(', ')">
+                {{ server.dependencies.type === 'python' ? 'pip' : server.dependencies.type === 'uvx' ? 'uvx' : 'npm' }}:
+                {{ server.dependencies.packages.length > 2
+                  ? server.dependencies.packages.slice(0, 2).join(', ') + '...'
+                  : server.dependencies.packages.join(', ') }}
+              </code>
+            </div>
           </div>
 
           <div class="card-actions">
@@ -816,6 +873,16 @@ async function importMCPConfig() {
               title="从服务器刷新工具列表"
             >
               {{ refreshingServerId === server.id ? '刷新中...' : '刷新工具' }}
+            </button>
+            <button
+              v-if="hasDependencies(server)"
+              class="action-btn install-btn"
+              :class="{ loading: installingDependenciesServerId === server.id }"
+              @click="handleInstallDependencies(server)"
+              :disabled="installingDependenciesServerId === server.id"
+              title="安装服务器依赖"
+            >
+              {{ installingDependenciesServerId === server.id ? '安装中...' : '安装依赖' }}
             </button>
             <button
               v-if="!server.builtin"
@@ -1036,6 +1103,21 @@ async function importMCPConfig() {
 
 /* action-btn, toggle-btn, delete-btn, refresh-btn styles moved to global style.css */
 
+/* 安装依赖按钮样式 */
+.install-btn {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.install-btn:hover {
+  background: #fde68a;
+}
+
+.install-btn.loading {
+  opacity: 0.6;
+  cursor: wait;
+}
+
 /* 模态框样式 */
 .modal-overlay {
   position: fixed;
@@ -1232,9 +1314,9 @@ async function importMCPConfig() {
   top: 20px;
   left: 50%;
   transform: translateX(-50%);
-  background: #fee2e2;
-  border: 1px solid #fecaca;
-  color: #991b1b;
+  background: #dc2626;
+  border: 1px solid #b91c1c;
+  color: #ffffff !important;
   padding: 12px 16px;
   border-radius: 8px;
   display: flex;
@@ -1246,6 +1328,43 @@ async function importMCPConfig() {
   z-index: 1000;
   font-size: 14px;
   line-height: 1.5;
+}
+
+.toast-error span {
+  color: #ffffff !important;
+}
+
+.toast-error .toast-close {
+  color: #ffffff !important;
+}
+
+.toast-success {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #16a34a;
+  border: 1px solid #15803d;
+  color: #ffffff !important;
+  padding: 12px 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: 600px;
+  width: calc(100% - 40px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.toast-success span {
+  color: #ffffff !important;
+}
+
+.toast-success .toast-close {
+  color: #ffffff !important;
 }
 
 .toast-error span {

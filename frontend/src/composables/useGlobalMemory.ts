@@ -1,13 +1,33 @@
-import { ref, computed, toRaw, type Ref } from 'vue'
+import { ref, computed, toRaw, type Ref, type ComputedRef } from 'vue'
 import type { GlobalMemory, GlobalMemoryEntry, GlobalMemoryType } from '../types/globalMemory'
 import { storage } from '../services/StorageService'
 
 const GLOBAL_MEMORY_VERSION = 1
 
-// 单例模式，全局共享状态
-let globalMemoryManager: ReturnType<typeof useGlobalMemory> | null = null
+// 定义返回类型接口
+interface GlobalMemoryManager {
+  memory: Ref<GlobalMemory | null>
+  entries: ComputedRef<GlobalMemoryEntry[]>
+  enabledEntries: ComputedRef<GlobalMemoryEntry[]>
+  categories: ComputedRef<string[]>
+  isLoading: Ref<boolean>
+  error: Ref<Error | null>
+  load: () => Promise<GlobalMemory | null>
+  save: () => Promise<boolean>
+  addEntry: (type: GlobalMemoryType, category: string, title: string, content: string, keywords?: string[]) => Promise<GlobalMemoryEntry | null>
+  updateEntry: (id: string, updates: Partial<GlobalMemoryEntry>) => Promise<boolean>
+  deleteEntry: (id: string) => Promise<boolean>
+  toggleEntry: (id: string) => Promise<boolean>
+  findRelevantEntries: (userMessage: string, maxEntries?: number) => GlobalMemoryEntry[]
+  generateInjectContext: (userMessage: string) => string
+  entriesByType: (type: GlobalMemoryType) => ComputedRef<GlobalMemoryEntry[]>
+  entriesByCategory: (category: string) => ComputedRef<GlobalMemoryEntry[]>
+}
 
-export function useGlobalMemory() {
+// 单例模式，全局共享状态
+let globalMemoryManager: GlobalMemoryManager | null = null
+
+export function useGlobalMemory(): GlobalMemoryManager {
   // 如果已经存在实例，返回它
   if (globalMemoryManager) {
     return globalMemoryManager

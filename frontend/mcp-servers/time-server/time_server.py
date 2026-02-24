@@ -866,7 +866,7 @@ async def handle_countdown(args: dict) -> list[TextContent]:
     return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
 
 
-async def main():
+async def async_main():
     """启动 MCP 服务器"""
     async with stdio_server() as (read_stream, write_stream):
         await server.run(
@@ -876,5 +876,10 @@ async def main():
         )
 
 
+def main():
+    """同步入口点，供 uvx/pyproject.toml 调用"""
+    asyncio.run(async_main())
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

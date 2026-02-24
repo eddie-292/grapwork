@@ -4,7 +4,7 @@
  */
 
 import { ref, computed, type Ref } from 'vue'
-import { WorkingMemoryType } from '../types/task'
+import { WorkingMemoryType, TaskErrorType, TaskError } from '../types/task'
 import type {
   Task,
   TaskModeState,
@@ -61,34 +61,6 @@ interface QwenStreamParser {
   contentBuffer: string
   state: 'NORMAL' | 'IN_THINK_CONTENT'
   tagBuffer: string
-}
-
-/**
- * 错误类型
- */
-export enum TaskErrorType {
-  PLANNING_FAILED = 'planning_failed',
-  EXECUTION_FAILED = 'execution_failed',
-  MERGE_FAILED = 'merge_failed',
-  SUMMARIZE_FAILED = 'summarize_failed',
-  API_ERROR = 'api_error',
-  PARSE_ERROR = 'parse_error',
-  ABORTED = 'aborted'
-}
-
-/**
- * 任务错误类
- */
-export class TaskError extends Error {
-  constructor(
-    public type: TaskErrorType,
-    message: string,
-    public taskId?: number,
-    public originalError?: Error
-  ) {
-    super(message)
-    this.name = 'TaskError'
-  }
 }
 
 /**
@@ -533,7 +505,7 @@ ${content}
     onDelta: (delta: string) => void,
     onReasoningDelta: (delta: string) => void,
     onReasoningDuration: (duration: number) => void,
-    onToolCalls?: (toolCalls: OpenAIToolCall[]) => Promise<void>  // 新增：工具调用回调
+    _onToolCalls?: (toolCalls: OpenAIToolCall[]) => Promise<void>  // 工具调用回调（预留）
   ): Promise<{ toolCalls?: OpenAIToolCall[] }> {  // 返回可能包含的工具调用
     if (!activeConfig.value?.apiUrl || !activeConfig.value?.apiKey) {
       throw new TaskError(TaskErrorType.API_ERROR, '请先配置并启用一个 LLM 接口')

@@ -6,12 +6,14 @@
 /**
  * Skill location type - determines priority and editability
  */
-export enum SkillLocation {
-  PUBLIC = 'public',     // System built-in, read-only
-  EXAMPLES = 'examples', // Examples, read-only
-  USER = 'user',         // User created in app, read-write
-  INSTALLED = 'installed' // Installed via npx skills add, stored in ~/.agents/skills
-}
+export const SkillLocation = {
+  PUBLIC: 'public',     // System built-in, read-only
+  EXAMPLES: 'examples', // Examples, read-only
+  USER: 'user',         // User created in app, read-write
+  INSTALLED: 'installed' // Installed via npx skills add, stored in ~/.agents/skills
+} as const
+
+export type SkillLocation = typeof SkillLocation[keyof typeof SkillLocation]
 
 /**
  * Skill priority order (higher number = higher priority)

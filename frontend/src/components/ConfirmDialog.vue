@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import DeleteIcon from './icons/DeleteIcon.vue'
 import AlertTriangleIcon from './icons/AlertTriangleIcon.vue'
 import InfoIcon from './icons/InfoIcon.vue'
 

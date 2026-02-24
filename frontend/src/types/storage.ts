@@ -3,47 +3,51 @@
  * 支持多种存储后端（LocalStorage, FileSystem, HTTP等）
  */
 
-// 存储键名枚举
-export enum StorageKey {
+// 存储键名
+export const StorageKey = {
   // 用户认证
-  IS_LOGGED_IN = 'isLoggedIn',
-  USERNAME = 'username',
+  IS_LOGGED_IN: 'isLoggedIn',
+  USERNAME: 'username',
 
   // LLM 配置
-  LLM_CONFIG_LIST = 'llm-config-list',
-  HIGHLIGHT_THEME = 'highlight-theme',
+  LLM_CONFIG_LIST: 'llm-config-list',
+  HIGHLIGHT_THEME: 'highlight-theme',
 
   // 全局记忆
-  GLOBAL_MEMORY = 'global-memory',
+  GLOBAL_MEMORY: 'global-memory',
 
   // 助理系统
-  ASSISTANT_LIST = 'assistant-list',
-  ACTIVE_ASSISTANT_INDEX = 'active-assistant-index',
+  ASSISTANT_LIST: 'assistant-list',
+  ACTIVE_ASSISTANT_INDEX: 'active-assistant-index',
 
   // 聊天历史
-  CHAT_HISTORY = 'chat-history',
+  CHAT_HISTORY: 'chat-history',
 
   // 工作记忆（动态键：task-working-memory-${chatId}）
-  WORKING_MEMORY_PREFIX = 'task-working-memory-',
+  WORKING_MEMORY_PREFIX: 'task-working-memory-',
 
   // MCP (Model Context Protocol) 服务器配置
-  MCP_SERVER_LIST = 'mcp-server-list',
-  BUILTIN_MCP_TOOLS = 'builtin-mcp-tools',  // 内置服务器的工具列表
-  BUILTIN_MCP_CONFIG = 'builtin-mcp-config',  // 内置服务器的配置覆盖
+  MCP_SERVER_LIST: 'mcp-server-list',
+  BUILTIN_MCP_TOOLS: 'builtin-mcp-tools',  // 内置服务器的工具列表
+  BUILTIN_MCP_CONFIG: 'builtin-mcp-config',  // 内置服务器的配置覆盖
 
   // 选中的文件夹路径
-  SELECTED_FOLDER = 'selected-folder',
+  SELECTED_FOLDER: 'selected-folder',
 
   // Skills 技能系统
-  SKILL_REGISTRY = 'skill-registry',
-}
+  SKILL_REGISTRY: 'skill-registry',
+} as const
+
+export type StorageKey = typeof StorageKey[keyof typeof StorageKey]
 
 // 存储后端类型
-export enum StorageBackendType {
-  LOCAL_STORAGE = 'localStorage',
-  FILE_SYSTEM = 'fileSystem',
-  HTTP = 'http',
-}
+export const StorageBackendType = {
+  LOCAL_STORAGE: 'localStorage',
+  FILE_SYSTEM: 'fileSystem',
+  HTTP: 'http',
+} as const
+
+export type StorageBackendType = typeof StorageBackendType[keyof typeof StorageBackendType]
 
 // 存储操作结果
 export interface StorageResult<T> {
