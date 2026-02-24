@@ -155,10 +155,21 @@ npm run build:electron:watch
 
 ```bash
 cd frontend
+
+# 打包当前平台（Mac 上打 Mac，Windows 上打 Windows）
 npm run electron:build
+
+# 仅打包 macOS 版本
+npm run electron:build:mac
+
+# 仅打包 Windows 版本
+npm run electron:build:win
+
+# 同时打包 Mac 和 Windows 版本
+npm run electron:build:all
 ```
 
-此命令会依次执行：
+这些命令会依次执行：
 
 1. `npm run build:renderer` - 构建渲染进程
 2. `npm run build:electron` - 构建 Electron 进程
@@ -231,12 +242,28 @@ npx electron-builder --config electron-builder.json
   "files": [
     "dist/**/*",
     "dist-electron/main.cjs",
-    "dist-electron/preload.cjs"
+    "dist-electron/preload.cjs",
+    "mcp-servers/**/*",
+    "skills/**/*"
   ],
   "extraMetadata": {
     "main": "dist-electron/main.cjs"
   },
-  "asar": true
+  "asar": true,
+  "asarUnpack": [
+    "mcp-servers/**/*",
+    "skills/**/*"
+  ],
+  "mac": {
+    "target": ["dmg", "zip"],
+    "category": "public.app-category.productivity"
+  },
+  "win": {
+    "target": ["nsis", "zip"]
+  },
+  "linux": {
+    "target": ["AppImage", "deb"]
+  }
 }
 ```
 
@@ -250,6 +277,10 @@ npx electron-builder --config electron-builder.json
 | `files` | 包含在安装包中的文件 |
 | `extraMetadata.main` | Electron 入口文件 |
 | `asar` | 是否使用 ASAR 归档格式 |
+| `asarUnpack` | 不打包进 ASAR 的文件（MCP 服务器、技能文件） |
+| `mac.target` | macOS 输出格式：DMG + ZIP |
+| `win.target` | Windows 输出格式：NSIS 安装程序 + ZIP |
+| `linux.target` | Linux 输出格式：AppImage + DEB |
 
 ### 图标生成
 
@@ -269,7 +300,7 @@ npm run generate-icons
 
 ```bash
 # 构建 macOS 版本
-npm run electron:build
+npm run electron:build:mac
 ```
 
 输出文件：
@@ -283,8 +314,8 @@ npm run electron:build
 **输出格式**: NSIS 安装程序, ZIP
 
 ```bash
-# 在 Windows 上构建
-npm run electron:build
+# 构建 Windows 版本
+npm run electron:build:win
 ```
 
 输出文件：
@@ -292,6 +323,8 @@ npm run electron:build
 - `release/PrismChat-{version}-win.zip`
 
 **系统要求**: Windows 10+
+
+**注意**: 在 macOS 上打包 Windows 版本需要安装 Wine。
 
 ### Linux
 
@@ -307,6 +340,19 @@ npm run electron:build
 - `release/prismchat_{version}_amd64.deb`
 
 **系统要求**: glibc 2.17+
+
+### 多平台构建
+
+同时打包 Mac 和 Windows 版本：
+
+```bash
+npm run electron:build:all
+```
+
+**注意事项**:
+- 在 macOS 上打包 Windows 版本需要安装 Wine
+- 跨平台构建可能存在兼容性问题，建议在目标平台上构建
+- 可使用 GitHub Actions 实现自动化多平台构建
 
 ---
 
@@ -343,15 +389,23 @@ npx vue-tsc --noEmit
 
 ### 跨平台构建
 
-推荐在目标平台上构建：
+使用 `electron:build:all` 可同时构建多个平台：
 
 ```bash
-# macOS → macOS 安装包
-# Windows → Windows 安装包
-# Linux → Linux 安装包
+npm run electron:build:all
 ```
 
-如需跨平台构建，可使用 GitHub Actions 或 Docker。
+或分别构建：
+
+```bash
+# macOS 上构建 Mac 版本
+npm run electron:build:mac
+
+# macOS 上构建 Windows 版本（需要 Wine）
+npm run electron:build:win
+```
+
+如需自动化多平台构建，推荐使用 GitHub Actions 或 Docker。
 
 ---
 
@@ -360,7 +414,10 @@ npx vue-tsc --noEmit
 | 命令 | 说明 |
 |------|------|
 | `npm run electron:dev` | 开发模式（热重载） |
-| `npm run electron:build` | 完整构建 + 打包 |
+| `npm run electron:build` | 完整构建 + 打包当前平台 |
+| `npm run electron:build:mac` | 完整构建 + 打包 macOS 版本 |
+| `npm run electron:build:win` | 完整构建 + 打包 Windows 版本 |
+| `npm run electron:build:all` | 完整构建 + 同时打包 Mac 和 Windows |
 | `npm run build:renderer` | 仅构建渲染进程 |
 | `npm run build:electron` | 仅构建 Electron 进程 |
 | `npm run build:electron:watch` | 监听 Electron 进程变更 |
