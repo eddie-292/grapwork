@@ -253,7 +253,7 @@ async function loadHighlightTheme() {
     const link = document.createElement('link')
     link.id = 'highlight-theme'
     link.rel = 'stylesheet'
-    link.href = `/${savedTheme}.css`
+    link.href = `./${savedTheme}.css`
     document.head.appendChild(link)
 
     // 强制页面重新加载样式

@@ -88,7 +88,7 @@ function loadHighlightTheme(theme: string): Promise<void> {
       const link = document.createElement('link')
       link.id = 'highlight-theme'
       link.rel = 'stylesheet'
-      link.href = `/${theme}.css`
+      link.href = `./${theme}.css`
 
       link.onload = () => {
         // CSS 加载完成后稍作延迟确保样式应用
