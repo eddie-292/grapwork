@@ -916,7 +916,7 @@ async function importMCPConfig() {
 
 .mcp-header h1 {
   margin: 0;
-  font-size: 20px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--color-text-primary);
 }
@@ -965,14 +965,14 @@ async function importMCPConfig() {
 .server-card {
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
-  border-radius: 16px;
+  border-radius: 8px;
   padding: 24px;
   transition: all 0.2s;
 }
 
 .server-card:hover {
   border-color: var(--color-primary);
-  box-shadow: 0 4px 12px rgba(16, 163, 127, 0.1);
+  box-shadow: 0 4px 12px rgba(51, 51, 51, 0.1);
 }
 
 .server-card.disabled {
@@ -1153,7 +1153,7 @@ async function importMCPConfig() {
 
 .modal-header h3 {
   margin: 0;
-  font-size: 20px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--color-text-primary);
 }
@@ -1195,10 +1195,10 @@ async function importMCPConfig() {
 }
 
 .input {
-  padding: 12px 14px;
+  padding: 10px 12px;
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 13px;
   outline: none;
   transition: border-color 0.2s;
   background: var(--color-bg-primary);
@@ -1206,7 +1206,7 @@ async function importMCPConfig() {
 }
 
 .input:focus {
-  border-color: var(--color-primary);
+  border-color: var(--color-border-hover);
 }
 
 .input.textarea {

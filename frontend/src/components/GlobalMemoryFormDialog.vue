@@ -346,7 +346,7 @@ function cancel() {
 
 .dialog h2 {
   margin: 0 0 20px 0;
-  font-size: 20px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--color-text-primary);
 }
@@ -370,13 +370,13 @@ function cancel() {
   border: 1px solid var(--color-border);
   border-radius: 8px;
   color: var(--color-text-primary);
-  font-size: 14px;
+  font-size: 13px;
   outline: none;
   transition: border-color 0.2s;
 }
 
 .form-control:focus {
-  border-color: var(--color-primary);
+  border-color: var(--color-border-hover);
 }
 
 .textarea {

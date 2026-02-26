@@ -265,7 +265,7 @@ onMounted(async () => {
 
 .header h1 {
   margin: 0;
-  font-size: 20px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--color-text-primary);
 }
@@ -292,7 +292,7 @@ onMounted(async () => {
   margin-bottom: 20px;
   padding: 20px;
   background: var(--color-bg-primary);
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid var(--color-border);
 }
 
@@ -334,7 +334,7 @@ onMounted(async () => {
   color: var(--color-text-primary);
   border-radius: 8px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .search-input {
@@ -344,7 +344,7 @@ onMounted(async () => {
   border: 1px solid var(--color-border);
   color: var(--color-text-primary);
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .search-input::placeholder {
@@ -361,14 +361,14 @@ onMounted(async () => {
   padding: 60px 20px;
   color: var(--color-text-tertiary);
   background: var(--color-bg-primary);
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid var(--color-border);
 }
 
 .entry-card {
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 16px;
   transition: all 0.2s;
 }

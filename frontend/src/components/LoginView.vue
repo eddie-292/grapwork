@@ -76,7 +76,7 @@ async function handleLogin() {
         </button>
 
         <div class="demo-hint">
-          <p>演示账号：admin / admin</p>
+          <p>账号：admin / admin</p>
         </div>
       </form>
     </div>
@@ -160,15 +160,14 @@ async function handleLogin() {
   padding: 12px 16px;
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--color-text-primary);
   outline: none;
   transition: all 0.2s;
 }
 
 .form-group input:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.1);
+  border-color: var(--color-border-hover);
 }
 
 .form-group input::placeholder {
@@ -186,7 +185,7 @@ async function handleLogin() {
 /* login-btn styles moved to global style.css */
 .login-btn {
   padding: 14px;
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 600;
 }
 

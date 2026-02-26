@@ -916,7 +916,7 @@ defineExpose({
   margin: 0;
   font-size: 32px;
   font-weight: 700;
-  background: linear-gradient(135deg, var(--color-primary) 0%, #1a7f64 100%);
+  background: linear-gradient(135deg, #555 0%, #333 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -950,7 +950,7 @@ defineExpose({
 .feature-card:hover {
   border-color: var(--color-primary);
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(16, 163, 127, 0.12);
+  box-shadow: 0 8px 24px rgba(51, 51, 51, 0.12);
 }
 
 .feature-icon {
@@ -969,7 +969,7 @@ defineExpose({
 }
 
 .task-icon {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, #555 0%, #333 100%);
   color: white;
 }
 
@@ -1133,8 +1133,8 @@ defineExpose({
 }
 
 .msg-bubble {
-  font-size: 15px;
-  line-height: 1.7;
+  font-size: 14px;
+  line-height: 1.5;
   max-width: 720px;
   word-break: break-word;
 }
@@ -1180,7 +1180,7 @@ defineExpose({
   background: var(--color-bg-secondary);
   color: var(--color-primary-text);
   padding: 12px 16px;
-  border-radius: 14px;
+  border-radius: 16px;
 }
 
 .msg-row.assistant .msg-bubble {
@@ -1202,7 +1202,7 @@ defineExpose({
 .copy-btn {
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
-  border-radius: 4px;
+  border-radius: 3px;
   padding: 4px 8px;
   font-size: 12px;
   cursor: pointer;
@@ -1226,7 +1226,7 @@ defineExpose({
 
 .msg-bubble :deep(pre) {
   background: var(--color-bg-tertiary);
-  border-radius: 10px;
+  border-radius: 8px;
   overflow: auto;
   border: 1px solid var(--color-border);
   position: relative;
@@ -1237,7 +1237,7 @@ defineExpose({
   top: 8px;
   right: 8px;
   border: 1px solid var(--color-border);
-  border-radius: 4px;
+  border-radius: 3px;
   padding: 4px 10px;
   font-size: 12px;
   cursor: pointer;
@@ -1255,9 +1255,9 @@ defineExpose({
   position: absolute;
   top: 8px;
   right: 72px;
-  background: rgba(16, 163, 127, 0.9);
-  border: 1px solid #22c55e;
-  border-radius: 4px;
+  background: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  border-radius: 3px;
   padding: 4px 10px;
   font-size: 12px;
   cursor: pointer;
@@ -1266,12 +1266,12 @@ defineExpose({
 }
 
 .msg-bubble :deep(.code-preview-btn:hover) {
-  background: #0d8a6c;
-  border-color: #0d8a6c;
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
 }
 
 .msg-bubble :deep(code) {
-  font-family: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: 'SF Mono', Monaco, 'Andale Mono', "JetBrains Mono", Menlo, Consolas, monospace;
   font-size: 13px;
 }
 
@@ -1463,7 +1463,7 @@ defineExpose({
   gap: 8px;
   padding: 8px 12px;
   border: 1px solid var(--color-border);
-  border-radius: 16px;
+  border-radius: 24px;
   background: var(--color-bg-tertiary);
 }
 
@@ -1559,8 +1559,8 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   background: transparent;
   border: 1px solid var(--color-border);
   border-radius: 8px;
@@ -1576,7 +1576,7 @@ defineExpose({
 }
 
 .icon-btn:disabled {
-  opacity: 0.5;
+  background: var(--color-button-disabled, #ccc);
   cursor: not-allowed;
 }
 
@@ -1590,8 +1590,8 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: 50%;
@@ -1607,7 +1607,7 @@ defineExpose({
 }
 
 .send-btn:disabled {
-  opacity: 0.5;
+  background: var(--color-button-disabled, #ccc);
   cursor: not-allowed;
 }
 
@@ -1616,8 +1616,8 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   background: transparent;
   border: 1px solid var(--color-border);
   border-radius: 8px;
@@ -1752,7 +1752,7 @@ defineExpose({
 }
 
 .tool-result-name {
-  font-family: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+  font-family: 'SF Mono', Monaco, 'Andale Mono', "JetBrains Mono", Menlo, Consolas, monospace;
   font-size: 14px;
   color: var(--color-text-primary);
   font-weight: 500;
@@ -1879,7 +1879,7 @@ defineExpose({
   margin: 0;
   padding: 16px;
   overflow-x: auto;
-  font-family: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: 'SF Mono', Monaco, 'Andale Mono', "JetBrains Mono", Menlo, Consolas, monospace;
   font-size: 13px;
   line-height: 1.6;
   color: var(--color-text-primary);
@@ -2000,7 +2000,7 @@ defineExpose({
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+  font-family: 'SF Mono', Monaco, 'Andale Mono', "JetBrains Mono", Menlo, Consolas, monospace;
   word-break: break-all;
 }
 

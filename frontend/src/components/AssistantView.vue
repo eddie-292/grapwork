@@ -288,7 +288,7 @@ function truncateText(text: string, maxLength: number): string {
 
 .assistant-header h1 {
   margin: 0;
-  font-size: 20px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--color-text-primary);
 }
@@ -337,7 +337,7 @@ function truncateText(text: string, maxLength: number): string {
 .assistant-card {
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
-  border-radius: 16px;
+  border-radius: 8px;
   padding: 24px;
   display: flex;
   flex-direction: column;
@@ -348,7 +348,7 @@ function truncateText(text: string, maxLength: number): string {
 
 .assistant-card:hover {
   border-color: var(--color-primary);
-  box-shadow: 0 8px 24px rgba(16, 163, 127, 0.12);
+  box-shadow: 0 8px 24px rgba(51, 51, 51, 0.12);
 }
 
 .card-avatar {
@@ -428,7 +428,7 @@ function truncateText(text: string, maxLength: number): string {
 
 .modal-header h3 {
   margin: 0;
-  font-size: 20px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--color-text-primary);
 }
@@ -455,10 +455,10 @@ function truncateText(text: string, maxLength: number): string {
 }
 
 .input {
-  padding: 12px 14px;
+  padding: 10px 12px;
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 13px;
   outline: none;
   transition: border-color 0.2s;
   background: var(--color-bg-primary);
@@ -466,7 +466,7 @@ function truncateText(text: string, maxLength: number): string {
 }
 
 .input:focus {
-  border-color: var(--color-primary);
+  border-color: var(--color-border-hover);
 }
 
 .input.textarea {

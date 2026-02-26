@@ -101,7 +101,7 @@ const iconComponent = computed(() => {
 
 .confirm-modal h3 {
   margin: 0 0 12px 0;
-  font-size: 20px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--color-text-primary);
 }

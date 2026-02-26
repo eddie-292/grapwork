@@ -340,7 +340,7 @@ defineExpose({
 
 .title {
   margin: 0 0 24px 0;
-  font-size: 20px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--color-text-primary);
 }
@@ -439,28 +439,29 @@ defineExpose({
   padding: 10px 12px;
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 13px;
   outline: none;
   transition: border-color 0.2s;
 }
 
 .input:focus {
-  border-color: var(--color-primary);
+  border-color: var(--color-border-hover);
 }
 
 .textarea {
-  padding: 10px 12px;
+  padding: 12px;
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 13px;
   outline: none;
   transition: border-color 0.2s;
-  font-family: 'JetBrains Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace;
+  font-family: 'SF Mono', Monaco, 'Andale Mono', "JetBrains Mono", Menlo, Consolas, monospace;
   resize: vertical;
+  min-height: 100px;
 }
 
 .textarea:focus {
-  border-color: var(--color-primary);
+  border-color: var(--color-border-hover);
 }
 
 .form-group small {

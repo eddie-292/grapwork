@@ -48,7 +48,7 @@ onMounted(async () => {
 // 基于 chat.id 生成稳定的颜色
 function getChatColor(chatId: string): string {
   const colors = [
-    '#22c55e', // green
+    '#333',   // dark gray (primary)
     '#3b82f6', // blue
     '#f59e0b', // amber
     '#ec4899', // pink
@@ -302,11 +302,11 @@ async function handleDoubleClick() {
 
 .chat-tab.active {
   background: var(--color-bg-tertiary, #f0f0f0);
-  border-color: var(--color-primary, #22c55e);
+  border-color: var(--color-primary, #333);
 }
 
 .chat-tab.search-highlight {
-  border-color: var(--color-primary, #22c55e);
+  border-color: var(--color-primary, #333);
 }
 
 .tab-indicator {
@@ -385,8 +385,8 @@ async function handleDoubleClick() {
 }
 
 .new-tab-btn:hover {
-  border-color: var(--color-primary, #22c55e);
-  color: var(--color-primary, #22c55e);
+  border-color: var(--color-border-hover, #ccc);
+  color: var(--color-primary, #333);
   background: var(--color-bg-tertiary, #f0f0f0);
 }
 
@@ -453,8 +453,8 @@ async function handleDoubleClick() {
 
 .search-btn:hover,
 .search-btn.active {
-  border-color: var(--color-primary, #22c55e);
-  color: var(--color-primary, #22c55e);
+  border-color: var(--color-primary, #333);
+  color: var(--color-primary, #333);
   background: var(--color-bg-tertiary, #f0f0f0);
 }
 
@@ -498,8 +498,8 @@ async function handleDoubleClick() {
 }
 
 :global(.dark-mode) .new-tab-btn:hover {
-  border-color: var(--color-primary, #22c55e);
-  color: var(--color-primary, #22c55e);
+  border-color: var(--color-primary, #666);
+  color: var(--color-primary, #666);
   background: var(--color-bg-tertiary, #252525);
 }
 
@@ -523,8 +523,8 @@ async function handleDoubleClick() {
 
 :global(.dark-mode) .search-btn:hover,
 :global(.dark-mode) .search-btn.active {
-  border-color: var(--color-primary, #22c55e);
-  color: var(--color-primary, #22c55e);
+  border-color: var(--color-primary, #666);
+  color: var(--color-primary, #666);
   background: var(--color-bg-tertiary, #252525);
 }
 </style>
