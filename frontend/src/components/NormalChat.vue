@@ -1305,42 +1305,34 @@ defineExpose({
 
 /* Worker 标签颜色与左边框一致 */
 .msg-row.worker-color-blue .worker-name-tag {
-  background: #eff6ff;
   border-color: #3b82f6;
   color: #1d4ed8;
 }
 .msg-row.worker-color-green .worker-name-tag {
-  background: #f0fdf4;
   border-color: #22c55e;
   color: #16a34a;
 }
 .msg-row.worker-color-purple .worker-name-tag {
-  background: #faf5ff;
   border-color: #a855f7;
   color: #9333ea;
 }
 .msg-row.worker-color-orange .worker-name-tag {
-  background: #fff7ed;
   border-color: #f97316;
   color: #ea580c;
 }
 .msg-row.worker-color-pink .worker-name-tag {
-  background: #fdf2f8;
   border-color: #ec4899;
   color: #db2777;
 }
 .msg-row.worker-color-teal .worker-name-tag {
-  background: #f0fdfa;
   border-color: #14b8a6;
   color: #0d9488;
 }
 .msg-row.worker-color-indigo .worker-name-tag {
-  background: #eef2ff;
   border-color: #6366f1;
   color: #4f46e5;
 }
 .msg-row.worker-color-amber .worker-name-tag {
-  background: #fffbeb;
   border-color: #f59e0b;
   color: #d97706;
 }
