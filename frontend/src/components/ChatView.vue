@@ -1484,8 +1484,8 @@ async function executeTeamMode(text: string) {
       currentSessionState.status = iteration === 1 ? 'planning' : 'executing'
       await teamManager.updateSession(currentSessionState)
 
-      // 调用 LLM（带 MCP 工具 + 流式输出）
-      const response = await sendMessageToLLMWithTools(messagesToSend, mcpTools, {
+      // 调用 LLM（Orchestrator 不使用 MCP 工具，只输出 JSON 决策）
+      const response = await sendMessageToLLMWithTools(messagesToSend, undefined, {
         onStream: (content, reasoning) => {
           // 实时更新 UI
           if (currentChat.value?.messages[assistantIndex]) {
@@ -1509,9 +1509,7 @@ async function executeTeamMode(text: string) {
             currentChat.value.messages[assistantIndex].reasoning = reasoning
             scrollToBottom()
           }
-        },
-        uiMessages: currentChat.value?.messages,
-        onToolStatusUpdate: () => scrollToBottom()
+        }
       })
 
       // 解析并执行决策
@@ -2057,6 +2055,7 @@ async function sendMessageToLLMWithTools(
             content: '执行中...',
             reasoning: '',
             tool_call_id: toolCall.id,
+            toolName: toolCall.function?.name || 'Tool',  // 添加工具名称
             toolStatus: 'running'
           })
         }

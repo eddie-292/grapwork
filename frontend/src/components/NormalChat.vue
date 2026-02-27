@@ -159,9 +159,14 @@ const reasoningExpanded = ref<Record<number, boolean>>({})
 const reasoningStartTime = ref<Record<number, number>>({})
 const toolResultExpanded = ref<Record<number, boolean>>({})
 
-// 获取工具名称（从 tool_calls 中查找对应的工具调用）
+// 获取工具名称（优先使用 toolName 字段，否则从 tool_calls 中查找）
 function getToolName(message: Message, messages: Message[]): string {
   if (!message.tool_call_id) return 'Tool'
+
+  // 优先使用消息中的 toolName 字段（Team Mode 中直接设置）
+  if ((message as any).toolName) {
+    return (message as any).toolName
+  }
 
   // 向前查找包含 tool_calls 的 assistant 消息
   for (let i = messages.indexOf(message) - 1; i >= 0; i--) {
