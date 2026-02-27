@@ -22,7 +22,6 @@ import { useSkills } from '../composables/useSkills'
 import { useAgentTeam } from '../composables/useAgentTeam'
 import { createDefaultExecutionConfig, createDefaultOrchestrator } from '../types/agentTeam'
 import NormalChat from './NormalChat.vue'
-import TeamExecutionView from './teams/TeamExecutionView.vue'
 import WorkspaceView from './WorkspaceView.vue'
 import ChatTabBar from './ChatTabBar.vue'
 import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
@@ -1446,7 +1445,7 @@ async function executeTeamMode(text: string) {
   const assistantIndex = currentChat.value.messages.length
   currentChat.value.messages.push({
     role: 'assistant',
-    content: '🔄 Team Lead 正在分析任务并创建 Workers...',
+    content: '🔄 Team Lead 正在分析任务...',
     reasoning: ''
   })
 
@@ -1458,66 +1457,97 @@ async function executeTeamMode(text: string) {
       await window.electronAPI.teamInitWorkspace(team.id, session.id)
     }
 
-    // 获取 Orchestrator 配置（使用向后兼容辅助函数）
+    // 获取 Orchestrator 配置
     const orchestrator = getTeamOrchestrator(team)
-    let systemPrompt = orchestrator.systemPrompt || ''
-
-    // 注入团队上下文
-    const teamContext = teamManager.buildTeamContext(session.id)
-    systemPrompt = systemPrompt.replace('{{teamContext}}', teamContext)
-
-    // 添加执行配置信息
     const execConfig = getTeamExecutionConfig(team)
-    systemPrompt += `\n\n## 执行配置\n`
-    systemPrompt += `- 最大并行 Workers: ${execConfig.maxParallelWorkers}\n`
-    systemPrompt += `- 任务超时: ${execConfig.taskTimeout / 1000}s\n`
-    systemPrompt += `\n注意: Workers 由你按需创建，按技能类型复用。每个 Worker 可以处理多个相关任务。\n`
+    const maxIterations = 10 // 防止无限循环
+    let iteration = 0
+    let hasCompleteAction = false
+    let finalContent = ''
 
-    // 构建消息
-    const messagesToSend = [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: text }
-    ]
+    // 执行循环
+    while (!hasCompleteAction && iteration < maxIterations) {
+      iteration++
+      console.log(`[Team Mode] Iteration ${iteration}`)
 
-    // 调用 LLM（Orchestrator 思考）
-    session.status = 'planning'
-    await teamManager.updateSession(session)
+      // 获取当前会话状态
+      const currentSessionState = teamManager.sessions.value.find(s => s.id === session.id)
+      if (!currentSessionState) break
 
-    const response = await sendMessageToLLM(messagesToSend)
+      // 构建 Orchestrator 提示词
+      let systemPrompt = orchestrator.systemPrompt || ''
+      const teamContext = teamManager.buildTeamContext(session.id)
+      systemPrompt = systemPrompt.replace('{{teamContext}}', teamContext)
+      systemPrompt += `\n\n## 执行配置\n`
+      systemPrompt += `- 最大并行 Workers: ${execConfig.maxParallelWorkers}\n`
+      systemPrompt += `- 当前轮次: ${iteration}/${maxIterations}\n`
 
-    // 解析 Orchestrator 输出中的决策
-    const { hasCompleteAction } = await teamManager.executeOrchestratorDecisions(
-      session.id,
-      response
-    )
+      // 构建消息
+      const messagesToSend: Array<{ role: string; content: string }> = [
+        { role: 'system', content: systemPrompt }
+      ]
 
-    // 构建响应内容
-    let finalContent = response
+      // 添加用户请求（第一轮）或执行状态（后续轮）
+      if (iteration === 1) {
+        messagesToSend.push({ role: 'user', content: text })
+      } else {
+        // 添加执行状态摘要
+        const workerResults = Object.entries(currentSessionState.dynamicWorkers)
+          .filter(([_, w]) => w.completedTaskIds.length > 0)
+          .map(([_id, w]) => `${w.name}: 完成了 ${w.completedTaskIds.length} 个任务`)
+          .join('\n')
 
-    // 如果创建了 Workers，显示统计信息
-    const sessionUpdated = teamManager.sessions.value.find(s => s.id === session.id)
-    if (sessionUpdated && Object.keys(sessionUpdated.dynamicWorkers).length > 0) {
-      const workerNames = Object.values(sessionUpdated.dynamicWorkers).map(w => w.name).join(', ')
-      finalContent += `\n\n---\n**创建的 Workers**: ${workerNames}`
+        messagesToSend.push({
+          role: 'user',
+          content: `## 执行状态更新\n\n**已完成任务**: ${currentSessionState.taskQueue.completed.length}\n**待处理任务**: ${currentSessionState.taskQueue.pending.length}\n**执行中任务**: ${currentSessionState.taskQueue.inProgress.length}\n\n**Worker 状态**:\n${workerResults || '暂无完成的任务'}\n\n请继续分配任务或输出 complete 表示完成。`
+        })
+      }
+
+      // 调用 Orchestrator
+      currentSessionState.status = iteration === 1 ? 'planning' : 'executing'
+      await teamManager.updateSession(currentSessionState)
+
+      const response = await sendMessageToLLM(messagesToSend)
+
+      // 解析并执行决策
+      const result = await teamManager.executeOrchestratorDecisions(session.id, response)
+      hasCompleteAction = result.hasCompleteAction
+      finalContent = response
+
+      // 更新 UI
+      let displayContent = response
+      const sessionUpdated = teamManager.sessions.value.find(s => s.id === session.id)
+
+      if (sessionUpdated) {
+        if (Object.keys(sessionUpdated.dynamicWorkers).length > 0) {
+          const workerNames = Object.values(sessionUpdated.dynamicWorkers).map(w => w.name).join(', ')
+          displayContent += `\n\n---\n**Workers**: ${workerNames}`
+        }
+        if (sessionUpdated.taskQueue.pending.length > 0) {
+          displayContent += `\n**待处理**: ${sessionUpdated.taskQueue.pending.length} | **已完成**: ${sessionUpdated.taskQueue.completed.length}`
+        }
+      }
+
+      if (currentChat.value?.messages[assistantIndex]) {
+        currentChat.value.messages[assistantIndex].content = displayContent
+      }
+
+      // 如果有任务需要执行，执行 Worker 任务
+      if (!hasCompleteAction && sessionUpdated && sessionUpdated.taskQueue.pending.length > 0) {
+        await executePendingTasks(session.id, sessionUpdated, assistantIndex)
+      }
     }
 
-    // 如果有任务，显示任务统计
-    if (sessionUpdated && sessionUpdated.taskQueue.pending.length > 0) {
-      finalContent += `\n**待处理任务**: ${sessionUpdated.taskQueue.pending.length}`
+    // 最终状态更新
+    const finalSession = teamManager.sessions.value.find(s => s.id === session.id)
+    if (finalSession) {
+      finalSession.status = hasCompleteAction ? 'completed' : 'executing'
+      finalSession.finalOutput = finalContent
+      if (hasCompleteAction) {
+        finalSession.completedAt = Date.now()
+      }
+      await teamManager.updateSession(finalSession)
     }
-
-    // 更新消息
-    if (currentChat.value?.messages[assistantIndex]) {
-      currentChat.value.messages[assistantIndex].content = finalContent
-    }
-
-    // 更新会话状态
-    session.status = hasCompleteAction ? 'completed' : 'executing'
-    session.finalOutput = finalContent
-    if (hasCompleteAction) {
-      session.completedAt = Date.now()
-    }
-    await teamManager.updateSession(session)
 
   } catch (err) {
     console.error('[Team Mode] Execution failed:', err)
@@ -1531,10 +1561,90 @@ async function executeTeamMode(text: string) {
     if (currentChat.value) {
       currentChat.value.sending = false
     }
-    // 如果已完成，清除会话 ID
     const finalSession = teamManager.sessions.value.find(s => s.id === session.id)
     if (finalSession?.status === 'completed' || finalSession?.status === 'failed') {
       teamSessionId.value = null
+    }
+  }
+}
+
+/**
+ * 执行待处理的 Worker 任务
+ */
+async function executePendingTasks(
+  _sessionId: string,
+  session: any,
+  messageIndex: number
+) {
+  const pendingTasks = [...session.taskQueue.pending]
+
+  for (const task of pendingTasks) {
+    // 找到分配的 Worker
+    const worker = Object.values(session.dynamicWorkers).find(
+      (w: any) => w.name === task.assignedTo || w.id === task.assignedTo
+    ) as any
+
+    if (!worker) {
+      console.log(`[Team Mode] No worker found for task: ${task.title}`)
+      continue
+    }
+
+    // 更新任务状态为执行中
+    task.status = 'in_progress'
+    task.startedAt = Date.now()
+    session.taskQueue.pending = session.taskQueue.pending.filter((t: any) => t.id !== task.id)
+    session.taskQueue.inProgress.push(task)
+    await teamManager.updateSession(session)
+
+    // 更新 UI 显示执行进度
+    if (currentChat.value?.messages[messageIndex]) {
+      const currentContent = currentChat.value.messages[messageIndex].content
+      currentChat.value.messages[messageIndex].content =
+        currentContent + `\n\n🔄 **${worker.name}** 正在执行: ${task.title}...`
+    }
+
+    try {
+      // 构建 Worker 提示词
+      const workerPrompt = worker.systemPrompt || `你是 ${worker.name}。\n\n## 你的任务\n${task.description}`
+
+      const workerMessages = [
+        { role: 'system', content: workerPrompt },
+        { role: 'user', content: task.description }
+      ]
+
+      // 调用 LLM 执行任务
+      const workerResponse = await sendMessageToLLM(workerMessages)
+
+      // 记录任务完成
+      task.status = 'completed'
+      task.completedAt = Date.now()
+      task.output = { result: workerResponse }
+
+      // 移动任务到已完成
+      session.taskQueue.inProgress = session.taskQueue.inProgress.filter((t: any) => t.id !== task.id)
+      session.taskQueue.completed.push(task)
+
+      // 更新 Worker 状态
+      worker.completedTaskIds.push(task.id)
+      worker.status = 'idle'
+
+      // 更新会话
+      await teamManager.updateSession(session)
+
+      // 更新 UI 显示结果
+      if (currentChat.value?.messages[messageIndex]) {
+        const currentContent = currentChat.value.messages[messageIndex].content
+        currentChat.value.messages[messageIndex].content =
+          currentContent + `\n\n✅ **${worker.name}** 完成: ${task.title}\n\`\`\`\n${workerResponse.slice(0, 500)}${workerResponse.length > 500 ? '...' : ''}\n\`\`\``
+      }
+
+    } catch (err) {
+      console.error(`[Team Mode] Task failed: ${task.title}`, err)
+      task.status = 'failed'
+      task.error = err instanceof Error ? err.message : '未知错误'
+      session.taskQueue.inProgress = session.taskQueue.inProgress.filter((t: any) => t.id !== task.id)
+      session.taskQueue.completed.push(task)
+      await teamManager.updateSession(session)
     }
   }
 }
@@ -3043,13 +3153,6 @@ function handleFolderChanged(path: string) {
           @create-chat="createNewChat"
         />
 
-        <!-- Team Execution View -->
-        <TeamExecutionView
-          v-if="activeTeamSession"
-          :session="activeTeamSession"
-          @cancel="cancelTeamExecution"
-        />
-
       <!-- ============================================= -->
       <!-- 普通会话模式 -->
       <NormalChat
@@ -3064,6 +3167,7 @@ function handleFolderChanged(path: string) {
         :usage="currentChat?.usage"
         :enable-thinking="activeConfig?.enable_thinking ?? false"
         :is-team-mode="isTeamMode"
+        :team-session="activeTeamSession ?? undefined"
         @send="send"
         @cancel="cancel"
         @update:input="input = $event"
@@ -3075,6 +3179,7 @@ function handleFolderChanged(path: string) {
         @folder-changed="handleFolderChanged"
         @update:enable-thinking="handleUpdateEnableThinking"
         @toggle-team-mode="toggleTeamMode"
+        @cancel-team-execution="cancelTeamExecution"
         ref="normalChatRef"
       />
 
@@ -3287,6 +3392,9 @@ function handleFolderChanged(path: string) {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
 }
 
 .sidebar {

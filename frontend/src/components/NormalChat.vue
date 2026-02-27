@@ -4,6 +4,7 @@ import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
 import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
+import TeamExecutionView from './teams/TeamExecutionView.vue'
 import { storage } from '@/services/StorageService'
 import CopyIcon from './icons/CopyIcon.vue'
 import ChevronDownIcon from './icons/ChevronDownIcon.vue'
@@ -14,6 +15,7 @@ import CheckIcon from './icons/CheckIcon.vue'
 import XIcon from './icons/XIcon.vue'
 import ArrowUpIcon from './icons/ArrowUpIcon.vue'
 import SettingsIcon from './icons/SettingsIcon.vue'
+import type { TeamSession } from '@/types/agentTeam'
 
 type Role = 'user' | 'assistant' | 'system' | 'tool'
 export type Message = {
@@ -52,6 +54,7 @@ interface Props {
   usage?: TokenUsage  // 添加 token 使用统计
   enableThinking?: boolean  // 启用思考模式
   isTeamMode?: boolean  // Team Mode 状态
+  teamSession?: TeamSession  // Team 会话数据
 }
 
 const props = defineProps<Props>()
@@ -70,6 +73,7 @@ const emit = defineEmits<{
   'folder-changed': [path: string]
   'update:enable-thinking': [value: boolean]  // 更新思考模式
   'toggle-team-mode': []  // 切换 Team Mode
+  'cancel-team-execution': []  // 取消团队执行
 }>()
 
 // 思考模式
@@ -523,6 +527,14 @@ defineExpose({
 <template>
   <main class="main">
     <div id="messages_dev" class="messages" ref="messagesRef" @scroll="handleMessagesScroll" @click="handleLinkClick">
+      <!-- Team Execution View - 浮动在消息顶部 -->
+      <TeamExecutionView
+        v-if="teamSession"
+        :session="teamSession"
+        @cancel="emit('cancel-team-execution')"
+        class="team-execution-overlay"
+      />
+
       <div v-if="messages.length === 0" class="welcome">
         <div class="welcome-hero">
           <h2 class="welcome-title">PrismChat</h2>
@@ -1711,6 +1723,14 @@ defineExpose({
 .team-mode-btn svg {
   width: 18px;
   height: 18px;
+}
+
+/* Team Execution Overlay */
+.team-execution-overlay {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  margin-bottom: 12px;
 }
 
 :deep(hr) {

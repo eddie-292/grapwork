@@ -192,12 +192,14 @@ function formatDuration(ms: number): string {
 
 <style scoped>
 .execution-view {
-  background: #fff;
+  background: var(--color-bg-primary, #fff);
   border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 16px;
-  border: 1px solid #eee;
+  padding: 12px 16px;
+  border: 1px solid var(--color-border, #eee);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  max-height: 250px;
+  overflow-y: auto;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .execution-header {
@@ -370,7 +372,6 @@ function formatDuration(ms: number): string {
 }
 
 .task-card.in-progress {
-  border-left: 3px solid #333;
   background: #fff;
 }
 
