@@ -182,6 +182,33 @@ function getToolName(message: Message, messages: Message[]): string {
   return 'Tool'
 }
 
+// Worker 颜色数组（用于区分不同 Worker 的输出）
+const WORKER_COLORS = [
+  'blue', 'green', 'purple', 'orange', 'pink', 'teal', 'indigo', 'amber'
+]
+
+// 获取 Worker 颜色类名（基于消息列表中的 Worker 名称分配颜色）
+function getWorkerColorClass(workerName: string | undefined): string {
+  if (!workerName) return ''
+
+  // 从当前消息列表中获取所有唯一的 Worker 名称
+  const workerNames = new Set<string>()
+  for (const msg of props.messages) {
+    if (msg.workerName) {
+      workerNames.add(msg.workerName)
+    }
+  }
+
+  // 将 Set 转为数组并排序，确保颜色分配一致
+  const sortedNames = Array.from(workerNames).sort()
+  const index = sortedNames.indexOf(workerName)
+
+  if (index === -1) return ''
+
+  const color = WORKER_COLORS[index % WORKER_COLORS.length]
+  return `worker-color-${color}`
+}
+
 // 切换工具结果展开状态
 function toggleToolResult(index: number) {
   toolResultExpanded.value[index] = !toolResultExpanded.value[index]
@@ -683,7 +710,7 @@ defineExpose({
         <!-- 普通消息 -->
         <div
           v-else-if="m.visible !== false"
-          :class="['msg-row', m.role, { 'error-message': isErrorMessage(m) }]"
+          :class="['msg-row', m.role, { 'error-message': isErrorMessage(m) }, getWorkerColorClass(m.workerName)]"
         >
           <div class="msg-content">
             <div v-if="m.reasoning || (sending && i === messages.length - 1 && m.role === 'assistant')" class="reasoning-section">
@@ -1228,6 +1255,40 @@ defineExpose({
   width: 12px;
   height: 12px;
   color: var(--color-text-secondary, #666);
+}
+
+/* Worker 颜色区分样式 - 为不同 Worker 的消息添加左边框 */
+.msg-row.worker-color-blue {
+  border-left: 4px solid #3b82f6;
+  margin-left: -4px;
+}
+.msg-row.worker-color-green {
+  border-left: 4px solid #22c55e;
+  margin-left: -4px;
+}
+.msg-row.worker-color-purple {
+  border-left: 4px solid #a855f7;
+  margin-left: -4px;
+}
+.msg-row.worker-color-orange {
+  border-left: 4px solid #f97316;
+  margin-left: -4px;
+}
+.msg-row.worker-color-pink {
+  border-left: 4px solid #ec4899;
+  margin-left: -4px;
+}
+.msg-row.worker-color-teal {
+  border-left: 4px solid #14b8a6;
+  margin-left: -4px;
+}
+.msg-row.worker-color-indigo {
+  border-left: 4px solid #6366f1;
+  margin-left: -4px;
+}
+.msg-row.worker-color-amber {
+  border-left: 4px solid #f59e0b;
+  margin-left: -4px;
 }
 
 .reasoning-toggle {
