@@ -143,18 +143,6 @@ function getMessagePreview(message: any): string {
   max-height: 40px;
 }
 
-.float-window.status-working {
-  border-left: 3px solid #4a90d9;
-}
-
-.float-window.status-completed {
-  border-left: 3px solid #22c55e;
-}
-
-.float-window.status-failed {
-  border-left: 3px solid #ef4444;
-}
-
 .window-header {
   display: flex;
   justify-content: space-between;
