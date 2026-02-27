@@ -22,7 +22,7 @@ import type { Chat } from '@/types/chat';
 import type { WorkingMemory } from '@/types/task';
 import type { MCPServerList } from '@/types/mcp';
 import type { SkillRegistry } from '@/types/skill';
-import type { TeamRegistry, SessionRegistry, TeamSession } from '@/types/agentTeam';
+import type { TeamRegistry, SessionRegistry, TeamSession, SubSessionRegistry, SubSession } from '@/types/agentTeam';
 
 /**
  * 默认内置助理的System Prompt
@@ -1001,6 +1001,106 @@ export class StorageService {
     const registry = await this.getSessionRegistry();
     registry.activeSessionId = sessionId;
     return this.saveSessionRegistry(registry);
+  }
+
+  // ==================== 子会话（SubSession）系统 ====================
+
+  /**
+   * 获取子会话注册表
+   */
+  async getSubSessionRegistry(): Promise<SubSessionRegistry> {
+    const result = await this.get<SubSessionRegistry>(StorageKey.SUB_SESSION_REGISTRY);
+    return result.data ?? {
+      sessions: [],
+      version: 1,
+      lastUpdated: Date.now(),
+      lastCleanupTime: Date.now()
+    };
+  }
+
+  /**
+   * 保存子会话注册表
+   */
+  async saveSubSessionRegistry(registry: SubSessionRegistry): Promise<boolean> {
+    registry.lastUpdated = Date.now();
+    const result = await this.set(StorageKey.SUB_SESSION_REGISTRY, registry);
+    return result.success;
+  }
+
+  /**
+   * 获取指定子会话
+   */
+  async getSubSession(subSessionId: string): Promise<SubSession | null> {
+    const registry = await this.getSubSessionRegistry();
+    return registry.sessions.find(s => s.id === subSessionId) ?? null;
+  }
+
+  /**
+   * 保存子会话（新增或更新）
+   */
+  async saveSubSession(subSession: SubSession): Promise<boolean> {
+    const registry = await this.getSubSessionRegistry();
+    const index = registry.sessions.findIndex(s => s.id === subSession.id);
+    if (index >= 0) {
+      registry.sessions[index] = subSession;
+    } else {
+      registry.sessions.push(subSession);
+    }
+    return this.saveSubSessionRegistry(registry);
+  }
+
+  /**
+   * 删除子会话
+   */
+  async deleteSubSession(subSessionId: string): Promise<boolean> {
+    const registry = await this.getSubSessionRegistry();
+    registry.sessions = registry.sessions.filter(s => s.id !== subSessionId);
+    return this.saveSubSessionRegistry(registry);
+  }
+
+  /**
+   * 获取父会话的所有子会话
+   */
+  async getSubSessionsByParentSession(parentSessionId: string): Promise<SubSession[]> {
+    const registry = await this.getSubSessionRegistry();
+    return registry.sessions.filter(s => s.parentSessionId === parentSessionId);
+  }
+
+  /**
+   * 获取父聊天的所有子会话
+   */
+  async getSubSessionsByParentChat(parentChatId: string): Promise<SubSession[]> {
+    const registry = await this.getSubSessionRegistry();
+    return registry.sessions.filter(s => s.parentChatId === parentChatId);
+  }
+
+  /**
+   * 删除父会话的所有子会话
+   */
+  async deleteSubSessionsByParentSession(parentSessionId: string): Promise<boolean> {
+    const registry = await this.getSubSessionRegistry();
+    registry.sessions = registry.sessions.filter(s => s.parentSessionId !== parentSessionId);
+    return this.saveSubSessionRegistry(registry);
+  }
+
+  /**
+   * 清理过期的子会话（超过 30 天）
+   */
+  async cleanupExpiredSubSessions(): Promise<number> {
+    const registry = await this.getSubSessionRegistry();
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+
+    // 只在距离上次清理超过 24 小时时执行
+    if (registry.lastCleanupTime && registry.lastCleanupTime > Date.now() - 24 * 60 * 60 * 1000) {
+      return 0;
+    }
+
+    const beforeCount = registry.sessions.length;
+    registry.sessions = registry.sessions.filter(s => s.startTime > thirtyDaysAgo);
+    registry.lastCleanupTime = Date.now();
+
+    await this.saveSubSessionRegistry(registry);
+    return beforeCount - registry.sessions.length;
   }
 }
 

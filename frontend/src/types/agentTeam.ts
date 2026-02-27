@@ -370,6 +370,40 @@ export interface WorkerSession {
   status: 'idle' | 'working' | 'completed' | 'failed'
   currentTaskId?: string        // 当前正在执行的任务 ID
   processId?: number            // ChildProcess PID（用于取消）
+  // 新增字段 - 子会话支持
+  title?: string                // 子会话标题
+  startTime?: number            // 开始时间
+  endTime?: number              // 结束时间
+  result?: string               // 执行结果摘要
+}
+
+/**
+ * 子会话 - 独立持久化的 Worker 执行记录
+ * 用于悬浮窗口展示和历史查询
+ */
+export interface SubSession {
+  id: string                    // 子会话唯一 ID
+  parentChatId: string          // 父聊天 ID
+  parentSessionId: string       // 父 TeamSession ID
+  workerId: string              // DynamicWorker ID
+  workerName: string            // Worker 显示名称
+  title: string                 // 子会话标题（通常是任务名称）
+  messages: any[]               // 完整消息历史
+  status: WorkerSession['status']
+  startTime: number             // 开始时间
+  endTime?: number              // 结束时间
+  result?: string               // 执行结果摘要
+  taskIds: string[]             // 关联的任务 IDs
+}
+
+/**
+ * 子会话注册表
+ */
+export interface SubSessionRegistry {
+  sessions: SubSession[]
+  version: number
+  lastUpdated: number
+  lastCleanupTime: number       // 上次清理时间
 }
 
 /**
@@ -468,6 +502,13 @@ export function generateSessionId(): string {
 
 export function generateMessageId(): string {
   return `msg_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+}
+
+/**
+ * 生成子会话 ID
+ */
+export function generateSubSessionId(): string {
+  return `sub_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
 }
 
 /**
@@ -797,5 +838,44 @@ export function createDefaultTeam(name: string = 'My Team'): AgentTeam {
     enabled: true,
     createdAt: now,
     updatedAt: now
+  }
+}
+
+// ==================== SubSession Utilities ====================
+
+/**
+ * 创建子会话
+ */
+export function createSubSession(config: {
+  parentChatId: string
+  parentSessionId: string
+  workerId: string
+  workerName: string
+  title: string
+  taskId?: string
+}): SubSession {
+  return {
+    id: generateSubSessionId(),
+    parentChatId: config.parentChatId,
+    parentSessionId: config.parentSessionId,
+    workerId: config.workerId,
+    workerName: config.workerName,
+    title: config.title,
+    messages: [],
+    status: 'idle',
+    startTime: Date.now(),
+    taskIds: config.taskId ? [config.taskId] : []
+  }
+}
+
+/**
+ * 创建默认子会话注册表
+ */
+export function createDefaultSubSessionRegistry(): SubSessionRegistry {
+  return {
+    sessions: [],
+    version: 1,
+    lastUpdated: Date.now(),
+    lastCleanupTime: Date.now()
   }
 }

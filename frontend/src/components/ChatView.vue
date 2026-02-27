@@ -20,7 +20,7 @@ import { useGlobalMemory } from '../composables/useGlobalMemory'
 import { useMCP } from '../composables/useMCP'
 import { useSkills } from '../composables/useSkills'
 import { useAgentTeam } from '../composables/useAgentTeam'
-import { createDefaultExecutionConfig, createDefaultOrchestrator } from '../types/agentTeam'
+import { createDefaultExecutionConfig, createDefaultOrchestrator, createSubSession, type SubSession } from '../types/agentTeam'
 import NormalChat from './NormalChat.vue'
 import WorkspaceView from './WorkspaceView.vue'
 import ChatTabBar from './ChatTabBar.vue'
@@ -55,6 +55,7 @@ const teamManager = useAgentTeam()
 const isTeamMode = ref(false)
 const selectedTeamId = ref<string | null>(null)
 const teamSessionId = ref<string | null>(null)
+const activeSubSessions = ref<SubSession[]>([])
 
 // Team Mode 向后兼容辅助函数
 function getTeamOrchestrator(team: any) {
@@ -1360,6 +1361,7 @@ async function executeTeamMode(text: string) {
   }
 
   teamSessionId.value = session.id
+  activeSubSessions.value = []  // 清空子会话列表
 
   // 更新聊天标题
   if (currentChat.value.messages.length === 0) {
@@ -1786,6 +1788,18 @@ async function executeSingleTask(
     throw new Error(`No worker found for task: ${task.title}`)
   }
 
+  // 创建子会话用于悬浮窗口显示
+  const subSession = createSubSession({
+    parentChatId: currentChat.value?.id || '',
+    parentSessionId: session.id,
+    workerId: worker.id,
+    workerName: worker.name,
+    title: task.title,
+    taskId: task.id
+  })
+  subSession.status = 'working'
+  activeSubSessions.value.push(subSession)
+
   // 构建 Worker 提示词，包含完整上下文
   let workerPrompt = worker.systemPrompt || `你是 ${worker.name}，一个专业的 AI Worker。`
 
@@ -1845,6 +1859,15 @@ async function executeSingleTask(
         currentChat.value.messages[messageIndex].reasoning = reasoning
         scrollToBottom()
       }
+
+      // 更新子会话消息（用于悬浮窗口）
+      const existingMsg = subSession.messages.find((m: any) => m.role === 'assistant')
+      if (existingMsg) {
+        existingMsg.content = content
+        existingMsg.reasoning = reasoning
+      } else {
+        subSession.messages.push({ role: 'assistant', content, reasoning })
+      }
     },
     uiMessages: currentChat.value?.messages,
     onToolStatusUpdate: () => scrollToBottom()
@@ -1864,6 +1887,27 @@ async function executeSingleTask(
       console.error(`[Team Mode] Failed to write worker message: ${worker.id}`, err)
     }
   }
+
+  // 完成并保存子会话
+  subSession.status = 'completed'
+  subSession.endTime = Date.now()
+  subSession.result = result.slice(0, 500)  // 保存结果摘要
+  subSession.messages.push({ role: 'assistant', content: result })
+
+  // 保存到存储
+  try {
+    await storage.saveSubSession(subSession)
+  } catch (err) {
+    console.error('[Team Mode] Failed to save subSession:', err)
+  }
+
+  // 从活跃列表移除（延迟移除，让用户看到完成状态）
+  setTimeout(() => {
+    const index = activeSubSessions.value.findIndex(s => s.id === subSession.id)
+    if (index >= 0) {
+      activeSubSessions.value.splice(index, 1)
+    }
+  }, 3000)
 
   return result
 }
@@ -3646,6 +3690,7 @@ function handleFolderChanged(path: string) {
         :enable-thinking="activeConfig?.enable_thinking ?? false"
         :is-team-mode="isTeamMode"
         :team-session="activeTeamSession ?? undefined"
+        :sub-sessions="activeSubSessions"
         @send="send"
         @cancel="cancel"
         @update:input="input = $event"

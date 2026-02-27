@@ -5,6 +5,8 @@ import hljs from 'highlight.js'
 import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
 import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
 import TeamExecutionView from './teams/TeamExecutionView.vue'
+import SubSessionManager from './teams/SubSessionManager.vue'
+import type { SubSession } from '@/types/agentTeam'
 import { storage } from '@/services/StorageService'
 import CopyIcon from './icons/CopyIcon.vue'
 import ChevronDownIcon from './icons/ChevronDownIcon.vue'
@@ -57,6 +59,7 @@ interface Props {
   enableThinking?: boolean  // 启用思考模式
   isTeamMode?: boolean  // Team Mode 状态
   teamSession?: TeamSession  // Team 会话数据
+  subSessions?: SubSession[]  // 活跃的子会话列表（用于悬浮窗口）
 }
 
 const props = defineProps<Props>()
@@ -88,6 +91,15 @@ function handleThinkingToggle() {
 const isTeamMode = computed(() => props.isTeamMode ?? false)
 function handleTeamModeToggle() {
   emit('toggle-team-mode')
+}
+
+// 处理子会话关闭
+function handleSubSessionClose(sessionId: string) {
+  // 从列表中移除（仅影响 UI 显示，不影响存储）
+  const index = props.subSessions?.findIndex(s => s.id === sessionId) ?? -1
+  if (index >= 0 && props.subSessions) {
+    props.subSessions.splice(index, 1)
+  }
 }
 
 // 全局记忆对话框状态
@@ -567,6 +579,14 @@ defineExpose({
         :session="teamSession"
         @cancel="emit('cancel-team-execution')"
         class="team-execution-overlay"
+      />
+
+      <!-- Sub Session Manager - 悬浮窗口容器 -->
+      <SubSessionManager
+        v-if="subSessions && subSessions.length > 0"
+        :sessions="subSessions"
+        :visible="isTeamMode"
+        @close="handleSubSessionClose"
       />
 
       <div v-if="messages.length === 0" class="welcome">
