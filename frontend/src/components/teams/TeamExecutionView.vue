@@ -149,7 +149,6 @@ function formatTime(timestamp: number): string {
 <style scoped>
 .execution-view {
   background: var(--color-bg-primary, #fff);
-  border-radius: 8px;
   padding: 12px 16px;
   border: 1px solid var(--color-border, #eee);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;

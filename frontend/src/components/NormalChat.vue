@@ -693,7 +693,13 @@ defineExpose({
             </div>
             <!-- Worker 名称标签 -->
             <div v-if="m.workerName" class="worker-name-tag">
-              <span class="worker-icon">🤖</span>
+              <svg class="worker-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="10" rx="2"/>
+                <circle cx="8.5" cy="16" r="1.5"/>
+                <circle cx="15.5" cy="16" r="1.5"/>
+                <path d="M12 2v4"/>
+                <path d="M8 6h8"/>
+              </svg>
               <span>{{ m.workerName }}</span>
             </div>
             <div class="msg-bubble-wrapper">
@@ -810,7 +816,8 @@ defineExpose({
               class="team-mode-btn"
               :class="{ active: isTeamMode }"
               @click="handleTeamModeToggle"
-              :title="isTeamMode ? '退出 Team Mode' : '进入 Team Mode'"
+              :disabled="isTeamMode && ((currentChat?.messages?.length ?? 0) > 0 || sending)"
+              :title="isTeamMode ? 'Team Mode 已激活（对话开始后无法切换）' : '进入 Team Mode'"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
@@ -1202,17 +1209,20 @@ defineExpose({
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #fff;
-  padding: 4px 12px;
-  border-radius: 12px;
+  background: var(--color-bg-tertiary, #f5f5f5);
+  border: 1px solid var(--color-border, #eee);
+  color: var(--color-text-secondary, #666);
+  padding: 4px 10px;
+  border-radius: 6px;
   font-size: 12px;
   font-weight: 500;
   margin-bottom: 8px;
 }
 
 .worker-icon {
-  font-size: 12px;
+  width: 12px;
+  height: 12px;
+  color: var(--color-text-secondary, #666);
 }
 
 .reasoning-toggle {

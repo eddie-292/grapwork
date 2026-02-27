@@ -1291,8 +1291,12 @@ async function toggleTeamMode() {
     isTeamMode.value = false
     selectedTeamId.value = null
     if (teamSessionId.value) {
-      teamManager.cancelSession(teamSessionId.value)
+      await teamManager.cancelSession(teamSessionId.value)
       teamSessionId.value = null
+    }
+    // 清理发送状态
+    if (currentChat.value) {
+      currentChat.value.sending = false
     }
   } else {
     // 进入 Team Mode
@@ -1505,13 +1509,29 @@ async function executeTeamMode(text: string) {
             currentChat.value.messages[assistantIndex].reasoning = reasoning
             scrollToBottom()
           }
-        }
+        },
+        uiMessages: currentChat.value?.messages,
+        onToolStatusUpdate: () => scrollToBottom()
       })
 
       // 解析并执行决策
       const result = await teamManager.executeOrchestratorDecisions(session.id, response)
       hasCompleteAction = result.hasCompleteAction
       finalContent = response
+
+      // 保存 Orchestrator 决策到工作空间
+      if (workspacePath && window.electronAPI?.teamWriteMessage) {
+        try {
+          await window.electronAPI.teamWriteMessage(workspacePath, 'orchestrator', {
+            timestamp: Date.now(),
+            iteration,
+            content: response,
+            decisions: result.results
+          })
+        } catch (err) {
+          console.error('[Team Mode] Failed to write orchestrator message:', err)
+        }
+      }
 
       // 更新 UI
       let displayContent = response
@@ -1551,6 +1571,25 @@ async function executeTeamMode(text: string) {
         finalSession.completedAt = Date.now()
       }
       await teamManager.updateSession(finalSession)
+
+      // 保存会话状态到工作空间
+      if (workspacePath && window.electronAPI?.teamWriteState) {
+        try {
+          await window.electronAPI.teamWriteState(workspacePath, {
+            status: finalSession.status,
+            taskQueue: {
+              pending: finalSession.taskQueue.pending.length,
+              inProgress: finalSession.taskQueue.inProgress.length,
+              completed: finalSession.taskQueue.completed.length
+            },
+            orchestratorDecisions: finalSession.orchestratorDecisions,
+            finalOutput: finalSession.finalOutput,
+            updatedAt: Date.now()
+          })
+        } catch (err) {
+          console.error('[Team Mode] Failed to write session state:', err)
+        }
+      }
     }
 
   } catch (err) {
@@ -1668,6 +1707,21 @@ async function executePendingTasksParallel(
         worker.status = 'idle'
       }
 
+      // 将结果写入工作空间文件
+      if (context.workspacePath && window.electronAPI?.teamWriteResult) {
+        try {
+          await window.electronAPI.teamWriteResult(
+            context.workspacePath,
+            task.id,
+            result.value
+          )
+          task.resultPath = `${context.workspacePath}/results/${task.id}.md`
+          console.log(`[Team Mode] Task result written: ${task.id}`)
+        } catch (err) {
+          console.error(`[Team Mode] Failed to write task result: ${task.id}`, err)
+        }
+      }
+
       // 更新 Worker 消息为完成状态
       if (currentChat.value?.messages[workerMsgIndex]) {
         const currentContent = currentChat.value.messages[workerMsgIndex].content
@@ -1745,13 +1799,23 @@ async function executeSingleTask(
     workerPrompt += `\n\n## 可用技能\n${context.skillsContext}\n`
   }
 
+  // 添加详细的 MCP 工具描述
+  if (context.mcpTools && context.mcpTools.length > 0) {
+    const toolDescriptions = context.mcpTools.map((t: any) => {
+      const name = t.function?.name || t.name
+      const desc = t.function?.description || t.description || ''
+      return `- **${name}**: ${desc}`
+    }).join('\n')
+    workerPrompt += `\n\n## 可用工具（请主动使用）\n${toolDescriptions}\n\n**重要提示**: 执行任务时，请直接调用上述工具，而不是只描述要做什么。完成操作后将结果保存到工作空间。`
+  }
+
   const workerMessages = [
     { role: 'system', content: workerPrompt },
     { role: 'user', content: `## 你的任务\n${task.description}\n\n请开始执行。` }
   ]
 
   // 调用 LLM 执行任务（带工具 + 流式输出）
-  return await sendMessageToLLMWithTools(workerMessages, context.mcpTools, {
+  const result = await sendMessageToLLMWithTools(workerMessages, context.mcpTools, {
     onStream: (content, reasoning) => {
       // 更新 Worker 消息
       if (currentChat.value?.messages[messageIndex]) {
@@ -1776,8 +1840,27 @@ async function executeSingleTask(
         currentChat.value.messages[messageIndex].reasoning = reasoning
         scrollToBottom()
       }
-    }
+    },
+    uiMessages: currentChat.value?.messages,
+    onToolStatusUpdate: () => scrollToBottom()
   })
+
+  // 保存 Worker 消息到工作空间
+  if (context.workspacePath && window.electronAPI?.teamWriteMessage) {
+    try {
+      await window.electronAPI.teamWriteMessage(context.workspacePath, worker.id, {
+        taskId: task.id,
+        taskTitle: task.title,
+        workerName: worker.name,
+        result: result,
+        timestamp: Date.now()
+      })
+    } catch (err) {
+      console.error(`[Team Mode] Failed to write worker message: ${worker.id}`, err)
+    }
+  }
+
+  return result
 }
 
 /**
@@ -1790,6 +1873,8 @@ async function sendMessageToLLMWithTools(
   options?: {
     onStream?: (content: string, reasoning: string) => void
     maxToolRounds?: number
+    uiMessages?: any[]  // UI 消息数组，用于显示工具状态
+    onToolStatusUpdate?: () => void  // 状态更新回调（如 scrollToBottom）
   }
 ): Promise<string> {
   if (!activeConfig.value?.apiKey) {
@@ -1964,16 +2049,45 @@ async function sendMessageToLLMWithTools(
 
     // 执行工具调用
     try {
+      // 1. 添加"执行中..."状态消息到 UI
+      if (options?.uiMessages) {
+        for (const toolCall of finalToolCalls) {
+          options.uiMessages.push({
+            role: 'tool',
+            content: '执行中...',
+            reasoning: '',
+            tool_call_id: toolCall.id,
+            toolStatus: 'running'
+          })
+        }
+        options?.onToolStatusUpdate?.()
+      }
+
+      // 2. 执行工具
       const toolResults = await mcpManager.executeToolCalls(finalToolCalls)
 
-      // 添加 assistant 消息（包含 tool_calls）
+      // 3. 更新 UI 消息状态
+      if (options?.uiMessages) {
+        for (const result of toolResults) {
+          const uiMsg = options.uiMessages.find(
+            (m: any) => m.role === 'tool' && m.tool_call_id === result.tool_call_id
+          )
+          if (uiMsg) {
+            uiMsg.content = result.content
+            uiMsg.toolStatus = result.content.startsWith('Error:') ? 'error' : 'success'
+          }
+        }
+        options?.onToolStatusUpdate?.()
+      }
+
+      // 4. 添加 assistant 消息（包含 tool_calls）到 LLM 上下文
       currentMessages.push({
         role: 'assistant',
         content: finalContent,
         tool_calls: finalToolCalls
       } as any)
 
-      // 添加工具结果消息
+      // 5. 添加工具结果消息到 LLM 上下文
       for (const result of toolResults) {
         currentMessages.push({
           role: 'tool',
@@ -1986,6 +2100,19 @@ async function sendMessageToLLMWithTools(
       // 继续下一轮循环，让 LLM 处理工具结果
     } catch (e) {
       console.error('[Team Mode] Tool execution failed:', e)
+      // 更新 UI 消息为错误状态
+      if (options?.uiMessages) {
+        for (const toolCall of finalToolCalls) {
+          const uiMsg = options.uiMessages.find(
+            (m: any) => m.role === 'tool' && m.tool_call_id === toolCall.id
+          )
+          if (uiMsg) {
+            uiMsg.content = `Error: ${e}`
+            uiMsg.toolStatus = 'error'
+          }
+        }
+        options?.onToolStatusUpdate?.()
+      }
       finalContent += `\n\n[工具执行失败: ${e}]`
       break
     }
