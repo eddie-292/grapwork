@@ -30,6 +30,20 @@
   --color-bg-primary: #ffffff;
   --color-bg-secondary: #fafafa;
   --color-bg-tertiary: #f9fafb;
+  --color-bg-hover: #f0f0f0;
+  --color-bg-success: #dcfce7;
+  --color-bg-warning: #fef3c7;
+  --color-bg-info: #dbeafe;
+
+  /* Status Colors */
+  --color-status-working: #4a90d9;
+  --color-status-working-bg: #e8f4fd;
+  --color-status-completed: #16a34a;
+  --color-status-completed-bg: #dcfce7;
+  --color-status-failed: #dc2626;
+  --color-status-failed-bg: #fee2e2;
+  --color-status-idle: #6b7280;
+  --color-status-idle-bg: #f3f4f6;
 
   /* Font Sizes - Standard */
   --font-size-panel-title: 14px;
@@ -705,6 +719,20 @@ button:disabled {
     --color-bg-primary: #292a2d;
     --color-bg-secondary: #202124;
     --color-bg-tertiary: #202124;
+    --color-bg-hover: rgba(255, 255, 255, 0.08);
+    --color-bg-success: rgba(34, 197, 94, 0.2);
+    --color-bg-warning: rgba(251, 191, 36, 0.2);
+    --color-bg-info: rgba(96, 165, 250, 0.2);
+
+    /* Status Colors */
+    --color-status-working: #60a5fa;
+    --color-status-working-bg: rgba(96, 165, 250, 0.2);
+    --color-status-completed: #4ade80;
+    --color-status-completed-bg: rgba(74, 222, 128, 0.2);
+    --color-status-failed: #f87171;
+    --color-status-failed-bg: rgba(248, 113, 113, 0.2);
+    --color-status-idle: #9ca3af;
+    --color-status-idle-bg: rgba(156, 163, 175, 0.2);
   }
 
   /* Update base styles for dark mode */
@@ -743,6 +771,20 @@ button:disabled {
   --color-bg-primary: #292a2d;
   --color-bg-secondary: #202124;
   --color-bg-tertiary: #202124;
+  --color-bg-hover: rgba(255, 255, 255, 0.08);
+  --color-bg-success: rgba(34, 197, 94, 0.2);
+  --color-bg-warning: rgba(251, 191, 36, 0.2);
+  --color-bg-info: rgba(96, 165, 250, 0.2);
+
+  /* Status Colors */
+  --color-status-working: #60a5fa;
+  --color-status-working-bg: rgba(96, 165, 250, 0.2);
+  --color-status-completed: #4ade80;
+  --color-status-completed-bg: rgba(74, 222, 128, 0.2);
+  --color-status-failed: #f87171;
+  --color-status-failed-bg: rgba(248, 113, 113, 0.2);
+  --color-status-idle: #9ca3af;
+  --color-status-idle-bg: rgba(156, 163, 175, 0.2);
 }
 
 .dark-mode body {

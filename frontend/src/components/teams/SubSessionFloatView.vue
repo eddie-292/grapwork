@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import MarkdownIt from 'markdown-it'
 import type { SubSession } from '@/types/agentTeam'
+
+// Markdown renderer
+const md: MarkdownIt = new MarkdownIt({
+  html: false,
+  linkify: true,
+})
 
 const props = defineProps<{
   session: SubSession
@@ -41,6 +48,15 @@ const duration = computed(() => {
   return `${minutes}m ${remainingSeconds}s`
 })
 
+const latestMessage = computed(() => {
+  if (props.session.messages.length === 0) return null
+  const lastMsg = props.session.messages[props.session.messages.length - 1]
+  return {
+    role: lastMsg.role,
+    preview: getMessagePreview(lastMsg)
+  }
+})
+
 // Watch messages to auto-scroll
 watch(() => props.session.messages.length, () => {
   if (autoScrollEnabled.value && messageContainer.value) {
@@ -79,6 +95,10 @@ function getMessagePreview(message: any): string {
   }
   return '[工具调用]'
 }
+
+function render(content: string): string {
+  return md.render(content)
+}
 </script>
 
 <template>
@@ -95,6 +115,12 @@ function getMessagePreview(message: any): string {
         <button class="close-btn" @click.stop="handleClose">×</button>
       </div>
     </header>
+
+    <!-- Current Work Preview -->
+    <div v-if="latestMessage && session.status === 'working'" class="current-work">
+      <div class="work-label">当前工作</div>
+      <div class="work-content">{{ latestMessage.preview }}</div>
+    </div>
 
     <!-- Content -->
     <div class="window-content" v-show="!isMinimized" ref="messageContainer">
@@ -122,7 +148,7 @@ function getMessagePreview(message: any): string {
       <!-- Result summary -->
       <div v-if="session.result && session.status === 'completed'" class="result-summary">
         <div class="result-label">执行结果</div>
-        <div class="result-content">{{ session.result }}</div>
+        <div class="result-content" v-html="render(session.result)"></div>
       </div>
     </div>
   </div>
@@ -131,8 +157,8 @@ function getMessagePreview(message: any): string {
 <style scoped>
 .float-window {
   width: 320px;
-  background: var(--color-bg-primary, #fff);
-  border: 1px solid var(--color-border, #e0e0e0);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   overflow: hidden;
@@ -148,14 +174,14 @@ function getMessagePreview(message: any): string {
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  background: var(--color-bg-secondary, #f5f5f5);
-  border-bottom: 1px solid var(--color-border, #e0e0e0);
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
   cursor: pointer;
   user-select: none;
 }
 
 .window-header:hover {
-  background: var(--color-bg-hover, #eee);
+  background: var(--color-bg-hover);
 }
 
 .header-left {
@@ -168,12 +194,12 @@ function getMessagePreview(message: any): string {
 .worker-name {
   font-weight: 600;
   font-size: 13px;
-  color: var(--color-text-primary, #333);
+  color: var(--color-text-primary);
 }
 
 .task-title {
   font-size: 11px;
-  color: var(--color-text-secondary, #666);
+  color: var(--color-text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -192,14 +218,14 @@ function getMessagePreview(message: any): string {
   font-weight: 500;
 }
 
-.status-idle { background: #f5f5f5; color: #666; }
-.status-working { background: #e8f4fd; color: #4a90d9; }
-.status-completed { background: #dcfce7; color: #166534; }
-.status-failed { background: #fee2e2; color: #dc2626; }
+.status-idle { background: var(--color-status-idle-bg); color: var(--color-status-idle); }
+.status-working { background: var(--color-status-working-bg); color: var(--color-status-working); }
+.status-completed { background: var(--color-status-completed-bg); color: var(--color-status-completed); }
+.status-failed { background: var(--color-status-failed-bg); color: var(--color-status-failed); }
 
 .duration {
   font-size: 10px;
-  color: var(--color-text-secondary, #888);
+  color: var(--color-text-secondary);
 }
 
 .close-btn {
@@ -207,7 +233,7 @@ function getMessagePreview(message: any): string {
   height: 20px;
   border: none;
   background: transparent;
-  color: var(--color-text-secondary, #888);
+  color: var(--color-text-secondary);
   font-size: 16px;
   cursor: pointer;
   display: flex;
@@ -217,8 +243,31 @@ function getMessagePreview(message: any): string {
 }
 
 .close-btn:hover {
-  background: var(--color-bg-hover, #e0e0e0);
-  color: var(--color-text-primary, #333);
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.current-work {
+  padding: 8px 12px;
+  background: var(--color-bg-tertiary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.work-label {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.work-content {
+  font-size: 12px;
+  color: var(--color-text-primary);
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 60px;
+  overflow: hidden;
 }
 
 .window-content {
@@ -240,21 +289,21 @@ function getMessagePreview(message: any): string {
 }
 
 .message-item.user {
-  background: var(--color-bg-secondary, #f5f5f5);
+  background: var(--color-bg-secondary);
 }
 
 .message-item.assistant {
-  background: var(--color-bg-hover, #e8f4fd);
+  background: var(--color-bg-info);
 }
 
 .message-role {
   font-size: 10px;
-  color: var(--color-text-secondary, #888);
+  color: var(--color-text-secondary);
   margin-bottom: 2px;
 }
 
 .message-content {
-  color: var(--color-text-primary, #333);
+  color: var(--color-text-primary);
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.4;
@@ -262,7 +311,7 @@ function getMessagePreview(message: any): string {
 
 .empty-state {
   text-align: center;
-  color: var(--color-text-secondary, #888);
+  color: var(--color-text-secondary);
   padding: 20px;
   font-size: 12px;
 }
@@ -270,20 +319,52 @@ function getMessagePreview(message: any): string {
 .result-summary {
   margin-top: 8px;
   padding: 8px;
-  background: var(--color-bg-success, #dcfce7);
+  background: var(--color-status-completed-bg);
   border-radius: 6px;
 }
 
 .result-label {
   font-size: 10px;
-  color: #166534;
+  color: var(--color-status-completed);
   margin-bottom: 4px;
 }
 
 .result-content {
   font-size: 11px;
-  color: #166534;
-  white-space: pre-wrap;
+  color: var(--color-status-completed);
   word-break: break-word;
+}
+
+.result-content :deep(p) {
+  margin: 0 0 4px 0;
+}
+
+.result-content :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.result-content :deep(code) {
+  background: rgba(0, 0, 0, 0.1);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 10px;
+}
+
+.result-content :deep(pre) {
+  background: rgba(0, 0, 0, 0.1);
+  padding: 8px;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 4px 0;
+}
+
+.result-content :deep(ul),
+.result-content :deep(ol) {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+.result-content :deep(li) {
+  margin: 2px 0;
 }
 </style>

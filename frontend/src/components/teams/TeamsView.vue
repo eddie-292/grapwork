@@ -351,8 +351,8 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   padding: 20px;
-  background: #fafafa;
-  color: #333;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
@@ -368,17 +368,17 @@ onMounted(() => {
 
 .view-header .description {
   margin: 0;
-  color: #666;
+  color: var(--color-text-secondary);
   font-size: 14px;
 }
 
 .error-message {
-  background: #fee;
-  color: #c00;
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
   padding: 12px;
   border-radius: 8px;
   margin-bottom: 16px;
-  border: 1px solid #fcc;
+  border: 1px solid var(--color-danger);
 }
 
 .teams-container {
@@ -390,11 +390,11 @@ onMounted(() => {
 
 .team-list-panel,
 .team-details-panel {
-  background: #fff;
+  background: var(--color-bg-primary);
   border-radius: 8px;
   padding: 16px;
   overflow-y: auto;
-  border: 1px solid #eee;
+  border: 1px solid var(--color-border);
 }
 
 .team-list-panel {
@@ -417,12 +417,12 @@ onMounted(() => {
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: #333;
+  color: var(--color-text-primary);
 }
 
 .add-btn {
-  background: #333;
-  color: #fff;
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
   border: none;
   padding: 8px 16px;
   border-radius: 8px;
@@ -432,11 +432,11 @@ onMounted(() => {
 }
 
 .add-btn:hover {
-  background: #555;
+  background: var(--color-primary-hover);
 }
 
 .add-btn:disabled {
-  background: #ccc;
+  background: var(--color-button-disabled);
   cursor: not-allowed;
 }
 
@@ -446,11 +446,11 @@ onMounted(() => {
 }
 
 .create-form {
-  background: #f5f5f5;
+  background: var(--color-bg-tertiary);
   padding: 12px;
   border-radius: 8px;
   margin-bottom: 12px;
-  border: 1px solid #eee;
+  border: 1px solid var(--color-border);
 }
 
 .form-group {
@@ -461,15 +461,15 @@ onMounted(() => {
   display: block;
   font-size: 12px;
   font-weight: 600;
-  color: #999;
+  color: var(--color-text-tertiary);
   margin-bottom: 4px;
 }
 
 .input-field {
   width: 100%;
-  background: #fff;
-  border: 1px solid #eee;
-  color: #333;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
   padding: 10px 12px;
   border-radius: 8px;
   font-size: 13px;
@@ -479,7 +479,7 @@ onMounted(() => {
 
 .input-field:focus {
   outline: none;
-  border-color: #ccc;
+  border-color: var(--color-border-hover);
 }
 
 textarea.input-field {
@@ -496,31 +496,31 @@ textarea.input-field {
 .btn {
   padding: 8px 16px;
   border-radius: 8px;
-  border: 1px solid #eee;
+  border: 1px solid var(--color-border);
   cursor: pointer;
   font-size: 13px;
   transition: all 0.2s;
 }
 
 .btn.primary {
-  background: #333;
-  color: #fff;
-  border-color: #333;
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  border-color: var(--color-primary);
 }
 
 .btn.primary:disabled {
-  background: #ccc;
-  border-color: #ccc;
+  background: var(--color-button-disabled);
+  border-color: var(--color-button-disabled);
   cursor: not-allowed;
 }
 
 .btn.secondary {
-  background: #f5f5f5;
-  color: #333;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
 }
 
 .btn.secondary:hover {
-  background: #eee;
+  background: var(--color-bg-hover);
 }
 
 .team-list {
@@ -533,14 +533,14 @@ textarea.input-field {
 .empty-state {
   text-align: center;
   padding: 40px 20px;
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 14px;
 }
 
 .empty-state .hint {
   font-size: 12px;
   margin-top: 8px;
-  color: #bbb;
+  color: var(--color-text-tertiary);
 }
 
 .team-card {
@@ -548,7 +548,7 @@ textarea.input-field {
   justify-content: space-between;
   align-items: center;
   padding: 12px;
-  background: #f5f5f5;
+  background: var(--color-bg-tertiary);
   border-radius: 8px;
   cursor: pointer;
   border: 2px solid transparent;
@@ -556,16 +556,16 @@ textarea.input-field {
 }
 
 .team-card:hover {
-  background: #eee;
+  background: var(--color-bg-hover);
 }
 
 .team-card.selected {
-  border-color: #333;
-  background: #e8f4fd;
+  border-color: var(--color-primary);
+  background: var(--color-bg-hover);
 }
 
 .team-card.active {
-  border-color: #22c55e;
+  border-color: var(--color-status-completed);
 }
 
 .team-info {
@@ -584,8 +584,8 @@ textarea.input-field {
 
 .active-badge {
   font-size: 10px;
-  background: #22c55e;
-  color: #fff;
+  background: var(--color-status-completed);
+  color: var(--color-text-on-primary);
   padding: 2px 6px;
   border-radius: 4px;
 }
@@ -594,25 +594,25 @@ textarea.input-field {
   display: flex;
   gap: 8px;
   font-size: 12px;
-  color: #666;
+  color: var(--color-text-secondary);
 }
 
 .pattern-badge {
-  background: #fff;
+  background: var(--color-bg-primary);
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 11px;
-  border: 1px solid #eee;
+  border: 1px solid var(--color-border);
 }
 
 .agent-count {
   font-size: 11px;
-  color: #888;
+  color: var(--color-text-tertiary);
 }
 
 .team-description {
   font-size: 12px;
-  color: #666;
+  color: var(--color-text-secondary);
   margin-top: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -644,11 +644,11 @@ textarea.input-field {
 
 .action-btn:hover {
   opacity: 1;
-  background: #ddd;
+  background: var(--color-bg-hover);
 }
 
 .action-btn.danger:hover {
-  background: #fee;
+  background: var(--color-danger-bg);
 }
 
 .empty-details {
@@ -656,7 +656,7 @@ textarea.input-field {
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 14px;
 }
 
@@ -676,12 +676,12 @@ textarea.input-field {
   margin: 0;
   font-size: 12px;
   font-weight: 600;
-  color: #999;
+  color: var(--color-text-tertiary);
   text-transform: uppercase;
 }
 
 .team-full-description {
-  color: #666;
+  color: var(--color-text-secondary);
   font-size: 14px;
   margin: 0;
   line-height: 1.5;
@@ -694,10 +694,10 @@ textarea.input-field {
 }
 
 .orchestrator-card {
-  background: #f5f5f5;
+  background: var(--color-bg-tertiary);
   padding: 12px;
   border-radius: 8px;
-  border: 1px solid #eee;
+  border: 1px solid var(--color-border);
 }
 
 .orchestrator-header {
@@ -710,12 +710,12 @@ textarea.input-field {
 .orchestrator-name {
   font-weight: 600;
   font-size: 14px;
-  color: #333;
+  color: var(--color-text-primary);
 }
 
 .orchestrator-description {
   font-size: 13px;
-  color: #666;
+  color: var(--color-text-secondary);
   margin-bottom: 8px;
   line-height: 1.4;
 }
@@ -733,8 +733,8 @@ textarea.input-field {
 }
 
 .role-badge.orchestrator {
-  background: #e8f4fd;
-  color: #4a90d9;
+  background: var(--color-status-working-bg);
+  color: var(--color-status-working);
 }
 
 .capability {
@@ -742,11 +742,11 @@ textarea.input-field {
   align-items: center;
   gap: 4px;
   font-size: 11px;
-  background: #fff;
+  background: var(--color-bg-primary);
   padding: 2px 8px;
   border-radius: 4px;
-  border: 1px solid #eee;
-  color: #666;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
 }
 
 .capability svg {
@@ -755,7 +755,7 @@ textarea.input-field {
 
 .info-text {
   font-size: 13px;
-  color: #666;
+  color: var(--color-text-secondary);
   font-style: italic;
   margin: 8px 0;
 }
@@ -767,36 +767,36 @@ textarea.input-field {
 }
 
 .config-item {
-  background: #f5f5f5;
+  background: var(--color-bg-tertiary);
   padding: 12px;
   border-radius: 8px;
-  border: 1px solid #eee;
+  border: 1px solid var(--color-border);
 }
 
 .config-item label {
   display: block;
   font-size: 12px;
-  color: #666;
+  color: var(--color-text-secondary);
   margin-bottom: 4px;
 }
 
 .config-item span {
   font-size: 16px;
   font-weight: 600;
-  color: #333;
+  color: var(--color-text-primary);
 }
 
 .worker-info {
   font-size: 11px;
-  color: #888;
+  color: var(--color-text-tertiary);
 }
 
 /* Session Info */
 .session-info {
-  background: #f5f5f5;
+  background: var(--color-bg-tertiary);
   padding: 12px;
   border-radius: 8px;
-  border: 1px solid #eee;
+  border: 1px solid var(--color-border);
 }
 
 .session-status {
@@ -811,34 +811,34 @@ textarea.input-field {
 }
 
 .status-badge.planning {
-  background: #e8f4fd;
-  color: #4a90d9;
+  background: var(--color-status-working-bg);
+  color: var(--color-status-working);
 }
 
 .status-badge.executing {
-  background: #f0fdf4;
-  color: #166534;
+  background: var(--color-status-completed-bg);
+  color: var(--color-status-completed);
 }
 
 .status-badge.integrating {
-  background: #fef9c3;
-  color: #854d0e;
+  background: var(--color-bg-warning);
+  color: var(--color-text-primary);
 }
 
 .status-badge.completed {
-  background: #f0fdf4;
-  color: #166534;
+  background: var(--color-status-completed-bg);
+  color: var(--color-status-completed);
 }
 
 .status-badge.failed {
-  background: #fee;
-  color: #c00;
+  background: var(--color-status-failed-bg);
+  color: var(--color-status-failed);
 }
 
 .session-metrics {
   display: flex;
   gap: 16px;
   font-size: 12px;
-  color: #666;
+  color: var(--color-text-secondary);
 }
 </style>

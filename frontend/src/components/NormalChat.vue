@@ -149,6 +149,7 @@ const messagesRef = ref<HTMLDivElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const inputbarRef = ref<HTMLFormElement | null>(null)
 const autoScrollEnabled = ref(true)
+const showNavList = ref(false)
 
 // 动态计算 messages 区域高度
 function updateMessagesHeight() {
@@ -362,6 +363,41 @@ async function copyMarkdown(content: string) {
 function toggleReasoning(index: number) {
   reasoningExpanded.value[index] = !reasoningExpanded.value[index]
   emit('toggle-reasoning', index)
+}
+
+// Navigation list computed
+const navItems = computed(() => {
+  return props.messages
+    .map((m, originalIndex) => ({ m, originalIndex }))
+    .filter(({ m }) => m.visible !== false && m.role !== 'tool')
+    .map(({ m, originalIndex }) => {
+      const content = typeof m.content === 'string' ? m.content : ''
+      const preview = content.slice(0, 50) + (content.length > 50 ? '...' : '')
+      return {
+        index: originalIndex,
+        role: m.role,
+        preview,
+        workerName: m.workerName
+      }
+    })
+})
+
+function scrollToMessage(index: number) {
+  const el = messagesRef.value
+  if (!el) return
+
+  const messageEl = el.querySelector(`#msg-${index}`)
+  if (messageEl) {
+    messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    showNavList.value = false
+  }
+}
+
+function getMessagePreview(content: string, maxLength: number = 50): string {
+  const text = typeof content === 'string' ? content : ''
+  // Strip markdown for preview
+  const stripped = text.replace(/[#*`_\[\]]/g, '').replace(/\n/g, ' ')
+  return stripped.slice(0, maxLength) + (stripped.length > maxLength ? '...' : '')
 }
 
 function handleSend(e: Event) {
@@ -730,6 +766,7 @@ defineExpose({
         <!-- 普通消息 -->
         <div
           v-else-if="m.visible !== false"
+          :id="`msg-${i}`"
           :class="['msg-row', m.role, { 'error-message': isErrorMessage(m) }, getWorkerColorClass(m.workerName)]"
         >
           <div class="msg-content">
@@ -879,7 +916,7 @@ defineExpose({
               </svg>
             </button>
 
-            <!-- 参数设置 -->
+            <!-- 参数设置按钮 -->
             <button
               type="button"
               class="icon-btn"
@@ -889,6 +926,47 @@ defineExpose({
             >
               <SettingsIcon :size="16" />
             </button>
+
+            <!-- 对话导航按钮 -->
+            <div class="nav-dropdown-wrapper" v-if="messages.length > 0">
+              <button
+                type="button"
+                class="icon-btn"
+                @click="showNavList = !showNavList"
+                title="对话导航"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+                  <line x1="8" y1="6" x2="21" y2="6"></line>
+                  <line x1="8" y1="12" x2="21" y2="12"></line>
+                  <line x1="8" y1="18" x2="21" y2="18"></line>
+                  <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                  <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                  <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                </svg>
+              </button>
+              <Transition name="dropdown">
+                <div v-if="showNavList" class="nav-dropdown">
+                  <div class="nav-dropdown-header">
+                    <span>对话导航</span>
+                    <span class="nav-count">{{ navItems.length }} 条消息</span>
+                  </div>
+                  <div class="nav-dropdown-list">
+                    <button
+                      v-for="(item, idx) in navItems"
+                      :key="idx"
+                      class="nav-item"
+                      :class="item.role"
+                      @click="scrollToMessage(item.index)"
+                    >
+                      <span class="nav-role">{{ item.role === 'user' ? '我' : item.workerName || 'AI' }}</span>
+                      <span class="nav-preview">{{ getMessagePreview(item.preview) }}</span>
+                    </button>
+                  </div>
+                </div>
+              </Transition>
+              <!-- 点击外部关闭 -->
+              <div v-if="showNavList" class="nav-backdrop" @click="showNavList = false"></div>
+            </div>
 
             <!-- 取消按钮（发送中显示） -->
             <button
@@ -2238,6 +2316,121 @@ defineExpose({
   gap: 10px;
   justify-content: center;
   padding-top: 8px;
+}
+
+/* Navigation Dropdown */
+.nav-dropdown-wrapper {
+  position: relative;
+}
+
+.nav-dropdown {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  margin-bottom: 8px;
+  width: 280px;
+  max-height: 320px;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-dropdown-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
+}
+
+.nav-count {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--color-text-tertiary);
+}
+
+.nav-dropdown-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.nav-item:hover {
+  background: var(--color-bg-hover);
+}
+
+.nav-role {
+  flex-shrink: 0;
+  width: 32px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.nav-item.user .nav-role {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+}
+
+.nav-item.assistant .nav-role {
+  background: var(--color-bg-info);
+  color: var(--color-status-working);
+}
+
+.nav-preview {
+  flex: 1;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 99;
+}
+
+/* Dropdown transition */
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: all 0.2s ease;
+}
+
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
 }
 
 /* dialog-btn styles moved to global style.css */

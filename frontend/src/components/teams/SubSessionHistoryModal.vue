@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import MarkdownIt from 'markdown-it'
 import { storage } from '@/services/StorageService'
 import type { SubSession } from '@/types/agentTeam'
+
+// Markdown renderer
+const md: MarkdownIt = new MarkdownIt({
+  html: false,
+  linkify: true,
+})
 
 const props = defineProps<{
   visible: boolean
@@ -94,6 +101,10 @@ function getStatusLabel(status: string): string {
 
 function getStatusClass(status: string): string {
   return `status-${status}`
+}
+
+function render(content: string): string {
+  return md.render(content)
 }
 </script>
 
@@ -191,7 +202,7 @@ function getStatusClass(status: string): string {
           <!-- Result -->
           <div v-if="selectedSession.result" class="result-section">
             <div class="result-label">执行结果</div>
-            <div class="result-content">{{ selectedSession.result }}</div>
+            <div class="result-content" v-html="render(selectedSession.result)"></div>
           </div>
         </div>
       </div>
@@ -409,19 +420,51 @@ function getStatusClass(status: string): string {
 .result-section {
   margin-top: 12px;
   padding: 10px;
-  background: var(--color-bg-success, #dcfce7);
+  background: var(--color-status-completed-bg);
   border-radius: 6px;
 }
 
 .result-label {
   font-size: 10px;
-  color: #166534;
+  color: var(--color-status-completed);
   margin-bottom: 4px;
 }
 
 .result-content {
   font-size: 12px;
-  color: #166534;
-  white-space: pre-wrap;
+  color: var(--color-status-completed);
+}
+
+.result-content :deep(p) {
+  margin: 0 0 4px 0;
+}
+
+.result-content :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.result-content :deep(code) {
+  background: rgba(0, 0, 0, 0.1);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+.result-content :deep(pre) {
+  background: rgba(0, 0, 0, 0.1);
+  padding: 8px;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 4px 0;
+}
+
+.result-content :deep(ul),
+.result-content :deep(ol) {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+.result-content :deep(li) {
+  margin: 2px 0;
 }
 </style>
