@@ -1101,7 +1101,7 @@ defineExpose({
 }
 
 .file-node.is-folder:hover {
-  background: var(--color-primary);
+  /* background: var(--color-primary); */
 }
 
 .node-icon {

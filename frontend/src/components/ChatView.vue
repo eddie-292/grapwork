@@ -565,81 +565,6 @@ function parseQwenToolCalls(content: string): { toolCalls: any[]; cleanedContent
   return { toolCalls, cleanedContent }
 }
 
-// 发送消息到 LLM（支持流式响应）- 保留用于 Team Mode
-async function sendMessageToLLM(messages: { role: string; content: string }[]): Promise<string> {
-  if (!activeConfig.value?.apiKey) {
-    throw new Error('请先配置并启用一个 LLM 接口')
-  }
-
-  // 解析 extra_body 参数
-  let extraBodyParams: Record<string, any> = {}
-  if (activeConfig.value?.extra_body && activeConfig.value.extra_body.trim()) {
-    try {
-      extraBodyParams = JSON.parse(activeConfig.value.extra_body)
-    } catch (e) {
-      console.error('Failed to parse extra_body:', e)
-    }
-  }
-
-  // 处理 enable_thinking 参数
-  // 无论 true/false 都发送，确保与配置同步
-  const enableThinking = activeConfig.value?.enable_thinking ?? false
-  // 同步到 extraBodyParams 中
-  extraBodyParams = { ...extraBodyParams, enable_thinking: enableThinking }
-
-  let resp: Response
-
-  // 浏览器开发环境始终走代理，Electron 环境直接请求
-  const useProxy = import.meta.env.DEV && !isElectronEnv
-  if (!useProxy && window.electronAPI && activeConfig.value) {
-    const apiBase = normalizeApiUrl(activeConfig.value.apiUrl)
-    resp = await fetch(`${apiBase}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${activeConfig.value.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: activeConfig.value.model,
-        messages: messages,
-        stream: false,
-        enable_thinking: enableThinking,  // 外层 enable_thinking，与 messages 同级
-        extra_body: extraBodyParams,      // extra_body 中也有 enable_thinking
-      }),
-    })
-
-  } else {
-    resp = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: messages
-      }),
-    })
-  }
-
-  if (!resp.ok) {
-    // 尝试读取响应体中的错误详情
-    let errorMessage = `API request failed: ${resp.statusText}`
-    try {
-      const errorData = await resp.json()
-      if (errorData.error?.message) {
-        errorMessage = errorData.error.message
-      }
-    } catch {
-      // 如果无法解析 JSON，使用默认错误消息
-    }
-    throw new Error(errorMessage)
-  }
-
-  const data = await resp.json()
-  let content = data.choices?.[0]?.message?.content || ''
-  
-  // Qwen 模型在非流式输出中会携带 <think></think> 标签，需要移除
-  content = content.replace(/<think[\s\S]*?<\/think>/g, '').trim()
-
-  return content
-}
 // ============ TASK MODE - DISABLED ============
 // // 任务规划：获取任务列表
 // async function planTasks(userInput: string): Promise<{ id: number; description: string }[]> {
@@ -1553,8 +1478,21 @@ async function executeTeamMode(text: string) {
       currentSessionState.status = iteration === 1 ? 'planning' : 'executing'
       await teamManager.updateSession(currentSessionState)
 
-      // 调用 LLM（带 MCP 工具）
-      const response = await sendMessageToLLMWithTools(messagesToSend, mcpTools)
+      // 调用 LLM（带 MCP 工具 + 流式输出）
+      const response = await sendMessageToLLMWithTools(messagesToSend, mcpTools, {
+        onStream: (content, reasoning) => {
+          // 实时更新 UI
+          if (currentChat.value?.messages[assistantIndex]) {
+            let displayText = content
+            if (reasoning) {
+              displayText = `[思考中...]\n${reasoning}\n\n---\n\n${content}`
+            }
+            currentChat.value.messages[assistantIndex].content = displayText
+            currentChat.value.messages[assistantIndex].reasoning = reasoning
+            scrollToBottom()
+          }
+        }
+      })
 
       // 解析并执行决策
       const result = await teamManager.executeOrchestratorDecisions(session.id, response)
@@ -1654,7 +1592,7 @@ async function executePendingTasksParallel(
   await teamManager.updateSession(session)
 
   // 并行执行所有任务
-  const taskPromises = pendingTasks.map(task => executeSingleTask(task, session, context))
+  const taskPromises = pendingTasks.map(task => executeSingleTask(task, session, context, messageIndex))
 
   // 等待所有任务完成
   const results = await Promise.allSettled(taskPromises)
@@ -1718,7 +1656,8 @@ async function executeSingleTask(
     skillsContext: string
     mcpTools: any[]
     workspacePath: string
-  }
+  },
+  messageIndex: number
 ): Promise<string> {
   const worker = Object.values(session.dynamicWorkers).find(
     (w: any) => w.name === task.assignedTo || w.id === task.assignedTo
@@ -1751,21 +1690,242 @@ async function executeSingleTask(
     { role: 'user', content: `## 你的任务\n${task.description}\n\n请开始执行。` }
   ]
 
-  // 调用 LLM 执行任务（带工具）
-  return await sendMessageToLLMWithTools(workerMessages, context.mcpTools)
+  // 调用 LLM 执行任务（带工具 + 流式输出）
+  return await sendMessageToLLMWithTools(workerMessages, context.mcpTools, {
+    onStream: (content, _reasoning) => {
+      // 更新 Worker 任务状态到 UI
+      if (currentChat.value?.messages[messageIndex]) {
+        const baseContent = currentChat.value.messages[messageIndex].content
+        // 在消息中追加 Worker 执行进度
+        const workerProgress = `\n\n### 🔄 ${worker.name} 执行中...\n\`\`\`\n${content.slice(-500)}${content.length > 500 ? '...' : ''}\n\`\`\``
+        // 只在最后一行添加进度，避免重复
+        if (!baseContent.includes(`### 🔄 ${worker.name} 执行中...`)) {
+          currentChat.value.messages[messageIndex].content = baseContent + workerProgress
+        } else {
+          // 更新已有进度
+          const progressStart = baseContent.indexOf(`### 🔄 ${worker.name} 执行中...`)
+          const beforeProgress = baseContent.slice(0, progressStart)
+          currentChat.value.messages[messageIndex].content = beforeProgress +
+            `\n\n### 🔄 ${worker.name} 执行中...\n\`\`\`\n${content.slice(-500)}${content.length > 500 ? '...' : ''}\n\`\`\``
+        }
+        scrollToBottom()
+      }
+    }
+  })
 }
 
 /**
- * 调用 LLM（带 MCP 工具支持）
- * TODO: 实现完整的工具调用循环
+ * 调用 LLM（带 MCP 工具支持 + 流式输出）
+ * 支持流式响应和完整的工具调用循环
  */
 async function sendMessageToLLMWithTools(
   messages: Array<{ role: string; content: string }>,
-  _tools?: any[]
+  tools?: any[],
+  options?: {
+    onStream?: (content: string, reasoning: string) => void
+    maxToolRounds?: number
+  }
 ): Promise<string> {
-  // TODO: 如果有工具，应该实现工具调用循环
-  // 目前简化处理，直接调用 sendMessageToLLM
-  return await sendMessageToLLM(messages)
+  if (!activeConfig.value?.apiKey) {
+    throw new Error('请先配置并启用一个 LLM 接口')
+  }
+
+  const maxToolRounds = options?.maxToolRounds ?? 5
+  let currentMessages = [...messages]
+  let finalContent = ''
+
+  // 工具调用循环
+  for (let round = 0; round < maxToolRounds; round++) {
+    // 解析 extra_body 参数
+    let extraBodyParams: Record<string, any> = {}
+    if (activeConfig.value?.extra_body && activeConfig.value.extra_body.trim()) {
+      try {
+        extraBodyParams = JSON.parse(activeConfig.value.extra_body)
+      } catch (e) {
+        console.error('Failed to parse extra_body:', e)
+      }
+    }
+
+    const enableThinking = activeConfig.value?.enable_thinking ?? false
+    extraBodyParams = { ...extraBodyParams, enable_thinking: enableThinking }
+
+    // 构建 API 请求
+    const useProxy = import.meta.env.DEV && !isElectronEnv
+    let resp: Response
+
+    if (!useProxy && window.electronAPI && activeConfig.value) {
+      const apiBase = normalizeApiUrl(activeConfig.value.apiUrl)
+      resp = await fetch(`${apiBase}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${activeConfig.value.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: activeConfig.value.model,
+          messages: currentMessages,
+          stream: true,
+          stream_options: { include_usage: true },
+          ...(tools && tools.length > 0 ? { tools } : {}),
+          enable_thinking: enableThinking,
+          extra_body: extraBodyParams,
+        }),
+      })
+    } else {
+      resp = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: currentMessages }),
+      })
+    }
+
+    if (!resp.ok) {
+      let errorMessage = `API request failed (${resp.status}): ${resp.statusText}`
+      try {
+        const errorData = await resp.json()
+        if (errorData.error?.message) {
+          errorMessage = errorData.error.message
+        }
+      } catch {}
+      throw new Error(errorMessage)
+    }
+
+    if (!resp.body) {
+      throw new Error('No response body')
+    }
+
+    // 流式读取响应
+    const reader = resp.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let content = ''
+    let reasoning = ''
+    const qwenParser = createQwenStreamParser()
+    const currentToolCallsMap: Map<number, any> = new Map()
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const parts = buffer.split('\n\n')
+      buffer = parts.pop() || ''
+
+      for (const part of parts) {
+        const line = part.trim()
+        if (!line.startsWith('data:')) continue
+        const data = line.slice(5).trim()
+        if (data === '[DONE]') break
+
+        try {
+          const json = JSON.parse(data)
+
+          // 处理 reasoning
+          let reasoning_delta = json?.choices?.[0]?.delta?.reasoning_content ?? ''
+          if (!reasoning_delta) {
+            reasoning_delta = json?.choices?.[0]?.delta?.reasoning ?? ''
+          }
+
+          // 处理 content
+          let delta = json?.choices?.[0]?.delta?.content ?? ''
+          if (delta && !reasoning_delta) {
+            const parsed = parseQwenStreamDelta(qwenParser, delta)
+            if (parsed.reasoning) reasoning_delta = parsed.reasoning
+            delta = parsed.content
+          }
+
+          if (reasoning_delta) {
+            reasoning += reasoning_delta
+          }
+
+          if (delta) {
+            content += delta
+            // 调用流式回调更新 UI
+            if (options?.onStream) {
+              options.onStream(content, reasoning)
+            }
+          }
+
+          // 处理 tool_calls
+          const deltaToolCalls = json?.choices?.[0]?.delta?.tool_calls
+          if (deltaToolCalls && Array.isArray(deltaToolCalls)) {
+            for (const toolCall of deltaToolCalls) {
+              const index = toolCall.index
+              if (index !== undefined) {
+                if (!currentToolCallsMap.has(index)) {
+                  currentToolCallsMap.set(index, {
+                    id: toolCall.id || '',
+                    type: toolCall.type || 'function',
+                    function: {
+                      name: toolCall.function?.name || '',
+                      arguments: toolCall.function?.arguments || ''
+                    }
+                  })
+                } else {
+                  const existing = currentToolCallsMap.get(index)!
+                  if (toolCall.id) existing.id = toolCall.id
+                  if (toolCall.function?.name) existing.function.name = toolCall.function.name
+                  if (toolCall.function?.arguments) {
+                    existing.function.arguments += toolCall.function.arguments
+                  }
+                }
+              }
+            }
+          }
+        } catch {}
+      }
+    }
+
+    finalContent = content
+
+    // 检查是否有工具调用
+    let finalToolCalls = Array.from(currentToolCallsMap.values())
+
+    // Qwen 格式工具调用检测
+    if (finalToolCalls.length === 0 && tools && tools.length > 0) {
+      const { toolCalls: qwenToolCalls, cleanedContent } = parseQwenToolCalls(content)
+      if (qwenToolCalls.length > 0) {
+        finalToolCalls = qwenToolCalls
+        finalContent = cleanedContent
+      }
+    }
+
+    // 如果没有工具调用或没有可用工具，返回结果
+    if (finalToolCalls.length === 0 || !tools || tools.length === 0) {
+      break
+    }
+
+    console.log('[Team Mode] Tool calls detected:', finalToolCalls)
+
+    // 执行工具调用
+    try {
+      const toolResults = await mcpManager.executeToolCalls(finalToolCalls)
+
+      // 添加 assistant 消息（包含 tool_calls）
+      currentMessages.push({
+        role: 'assistant',
+        content: finalContent,
+        tool_calls: finalToolCalls
+      } as any)
+
+      // 添加工具结果消息
+      for (const result of toolResults) {
+        currentMessages.push({
+          role: 'tool',
+          content: result.content,
+          tool_call_id: result.tool_call_id
+        } as any)
+      }
+
+      console.log('[Team Mode] Tool results:', toolResults)
+      // 继续下一轮循环，让 LLM 处理工具结果
+    } catch (e) {
+      console.error('[Team Mode] Tool execution failed:', e)
+      finalContent += `\n\n[工具执行失败: ${e}]`
+      break
+    }
+  }
+
+  return finalContent
 }
 
 // ==================== End Team Mode Functions ====================
