@@ -125,7 +125,6 @@ function handleViewSubSession(sessionId: string, workerId: string) {
         <span class="session-progress">{{ progress }}%</span>
       </div>
       <button class="history-btn" @click="openHistoryModal">
-        <span class="btn-icon">📋</span>
         <span>历史记录</span>
       </button>
     </div>
