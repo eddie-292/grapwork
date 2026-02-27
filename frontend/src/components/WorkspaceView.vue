@@ -1452,7 +1452,6 @@ defineExpose({
   gap: 8px;
   margin-top: 8px;
   padding: 10px 20px;
-  background: var(--color-primary);
   color: var(--color-text-primary);
   border: none;
   border-radius: 8px;

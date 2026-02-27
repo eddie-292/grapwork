@@ -858,6 +858,237 @@ class MCPClientManager {
 
 const mcpManager = new MCPClientManager()
 
+// ============================================================================
+// Agent Teams Executor
+// ============================================================================
+
+/**
+ * Agent 执行器 - 管理并行 Agent 执行
+ * 每个 Worker 运行在独立的进程中以实现真正的并行
+ */
+class AgentExecutor {
+  private activeWorkers: Map<string, ChildProcess> = new Map()
+  private teamsDir: string
+
+  constructor() {
+    this.teamsDir = path.join(app.getPath('userData'), 'teams')
+    this.ensureTeamsDir()
+  }
+
+  private ensureTeamsDir(): void {
+    if (!fs.existsSync(this.teamsDir)) {
+      fs.mkdirSync(this.teamsDir, { recursive: true })
+    }
+  }
+
+  /**
+   * 获取团队工作空间路径
+   */
+  getTeamWorkspace(teamId: string): string {
+    return path.join(this.teamsDir, teamId)
+  }
+
+  /**
+   * 初始化团队工作空间
+   */
+  async initTeamWorkspace(teamId: string, sessionId: string): Promise<string> {
+    const workspacePath = this.getTeamWorkspace(teamId)
+
+    // 创建目录结构
+    const dirs = [
+      workspacePath,
+      path.join(workspacePath, '.team'),
+      path.join(workspacePath, 'tasks', 'pending'),
+      path.join(workspacePath, 'tasks', 'in_progress'),
+      path.join(workspacePath, 'tasks', 'completed'),
+      path.join(workspacePath, 'mailbox'),
+      path.join(workspacePath, 'shared', 'outputs')
+    ]
+
+    for (const dir of dirs) {
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true })
+      }
+    }
+
+    return workspacePath
+  }
+
+  /**
+   * 写入任务文件
+   */
+  writeTask(workspacePath: string, task: any): void {
+    const taskPath = path.join(
+      workspacePath,
+      'tasks',
+      task.status === 'pending' ? 'pending' :
+        task.status === 'in_progress' ? 'in_progress' : 'completed',
+      `task_${task.id}.json`
+    )
+    fs.writeFileSync(taskPath, JSON.stringify(task, null, 2), 'utf-8')
+  }
+
+  /**
+   * 读取任务文件
+   */
+  readTask(workspacePath: string, taskId: string, status: string): any | null {
+    const statusDir = status === 'pending' ? 'pending' :
+                      status === 'in_progress' ? 'in_progress' : 'completed'
+    const taskPath = path.join(workspacePath, 'tasks', statusDir, `task_${taskId}.json`)
+    if (fs.existsSync(taskPath)) {
+      const content = fs.readFileSync(taskPath, 'utf-8')
+      return JSON.parse(content)
+    }
+    return null
+  }
+
+  /**
+   * 移动任务文件（状态变更）
+   */
+  moveTask(workspacePath: string, taskId: string, fromStatus: string, toStatus: string): boolean {
+    const fromDir = fromStatus === 'pending' ? 'pending' :
+                    fromStatus === 'in_progress' ? 'in_progress' : 'completed'
+    const toDir = toStatus === 'pending' ? 'pending' :
+                  toStatus === 'in_progress' ? 'in_progress' : 'completed'
+
+    const fromPath = path.join(workspacePath, 'tasks', fromDir, `task_${taskId}.json`)
+    const toPath = path.join(workspacePath, 'tasks', toDir, `task_${taskId}.json`)
+
+    if (fs.existsSync(fromPath)) {
+      // 确保目标目录存在
+      const toDirPath = path.dirname(toPath)
+      if (!fs.existsSync(toDirPath)) {
+        fs.mkdirSync(toDirPath, { recursive: true })
+      }
+      fs.renameSync(fromPath, toPath)
+      return true
+    }
+    return false
+  }
+
+  /**
+   * 写入消息到邮箱
+   */
+  appendMessage(workspacePath: string, agentId: string, message: any): void {
+    const mailboxPath = path.join(workspacePath, 'mailbox', `${agentId}_inbox.jsonl`)
+    const line = JSON.stringify(message) + '\n'
+    fs.appendFileSync(mailboxPath, line, 'utf-8')
+  }
+
+  /**
+   * 读取邮箱消息
+   */
+  readMessages(workspacePath: string, agentId: string): any[] {
+    const mailboxPath = path.join(workspacePath, 'mailbox', `${agentId}_inbox.jsonl`)
+    if (!fs.existsSync(mailboxPath)) {
+      return []
+    }
+    const content = fs.readFileSync(mailboxPath, 'utf-8')
+    return content.trim().split('\n').filter(line => line).map(line => JSON.parse(line))
+  }
+
+  /**
+   * 写入项目状态
+   */
+  writeProjectState(workspacePath: string, state: any): void {
+    const statePath = path.join(workspacePath, 'shared', 'project_state.json')
+    fs.writeFileSync(statePath, JSON.stringify(state, null, 2), 'utf-8')
+  }
+
+  /**
+   * 读取项目状态
+   */
+  readProjectState(workspacePath: string): any | null {
+    const statePath = path.join(workspacePath, 'shared', 'project_state.json')
+    if (fs.existsSync(statePath)) {
+      const content = fs.readFileSync(statePath, 'utf-8')
+      return JSON.parse(content)
+    }
+    return null
+  }
+
+  /**
+   * 写入任务结果
+   */
+  writeTaskResult(workspacePath: string, taskId: string, result: string): string {
+    const resultPath = path.join(workspacePath, 'shared', 'outputs', `task_${taskId}_result.md`)
+    fs.writeFileSync(resultPath, result, 'utf-8')
+    return resultPath
+  }
+
+  /**
+   * 取消正在执行的任务
+   */
+  cancelTask(taskId: string): void {
+    const worker = this.activeWorkers.get(taskId)
+    if (worker) {
+      worker.kill()
+      this.activeWorkers.delete(taskId)
+    }
+  }
+
+  /**
+   * 取消所有任务
+   */
+  cancelAll(): void {
+    for (const worker of this.activeWorkers.values()) {
+      worker.kill()
+    }
+    this.activeWorkers.clear()
+  }
+
+  /**
+   * 清理团队工作空间
+   */
+  cleanupWorkspace(teamId: string): void {
+    const workspacePath = this.getTeamWorkspace(teamId)
+    if (fs.existsSync(workspacePath)) {
+      fs.rmSync(workspacePath, { recursive: true, force: true })
+    }
+  }
+
+  /**
+   * 获取工作空间路径（用于 IPC）
+   */
+  getWorkspacePath(teamId: string): string {
+    return this.getTeamWorkspace(teamId)
+  }
+
+  /**
+   * 获取活跃 Worker 数量
+   */
+  getActiveWorkerCount(): number {
+    return this.activeWorkers.size
+  }
+
+  /**
+   * 检查 Worker 是否活跃
+   */
+  isWorkerActive(workerId: string): boolean {
+    return this.activeWorkers.has(workerId)
+  }
+
+  /**
+   * 获取所有活跃 Worker IDs
+   */
+  getActiveWorkerIds(): string[] {
+    return Array.from(this.activeWorkers.keys())
+  }
+
+  /**
+   * 清理已完成的 Worker（释放资源）
+   */
+  cleanupCompletedWorkers(): void {
+    for (const [workerId, process] of this.activeWorkers.entries()) {
+      if (process.killed) {
+        this.activeWorkers.delete(workerId)
+      }
+    }
+  }
+}
+
+const agentExecutor = new AgentExecutor()
+
 // 清理资源
 app.on('before-quit', () => {
   mcpManager.cleanup()
@@ -1239,6 +1470,187 @@ ipcMain.handle('mcp-list-tools', async (_event, serverConfig: MCPServerConfig) =
 ipcMain.handle('mcp-cleanup', () => {
   mcpManager.cleanup()
   return { success: true }
+})
+
+// ============================================================================
+// Agent Teams IPC Handlers
+// ============================================================================
+
+// 初始化团队工作空间
+ipcMain.handle('team-init-workspace', async (_event, teamId: string, sessionId: string) => {
+  try {
+    const workspacePath = await agentExecutor.initTeamWorkspace(teamId, sessionId)
+    return { success: true, workspacePath }
+  } catch (error) {
+    console.error('[AgentTeams] Failed to init workspace:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+})
+
+// 写入任务
+ipcMain.handle('team-write-task', async (_event, workspacePath: string, task: any) => {
+  try {
+    agentExecutor.writeTask(workspacePath, task)
+    return { success: true }
+  } catch (error) {
+    console.error('[AgentTeams] Failed to write task:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+})
+
+// 读取任务
+ipcMain.handle('team-read-task', async (_event, workspacePath: string, taskId: string, status: string) => {
+  try {
+    const task = agentExecutor.readTask(workspacePath, taskId, status)
+    return { success: true, task }
+  } catch (error) {
+    console.error('[AgentTeams] Failed to read task:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+})
+
+// 移动任务（状态变更）
+ipcMain.handle('team-move-task', async (_event, workspacePath: string, taskId: string, fromStatus: string, toStatus: string) => {
+  try {
+    const success = agentExecutor.moveTask(workspacePath, taskId, fromStatus, toStatus)
+    return { success }
+  } catch (error) {
+    console.error('[AgentTeams] Failed to move task:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+})
+
+// 写入消息
+ipcMain.handle('team-write-message', async (_event, workspacePath: string, agentId: string, message: any) => {
+  try {
+    agentExecutor.appendMessage(workspacePath, agentId, message)
+    return { success: true }
+  } catch (error) {
+    console.error('[AgentTeams] Failed to write message:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+})
+
+// 读取消息
+ipcMain.handle('team-read-messages', async (_event, workspacePath: string, agentId: string) => {
+  try {
+    const messages = agentExecutor.readMessages(workspacePath, agentId)
+    return { success: true, messages }
+  } catch (error) {
+    console.error('[AgentTeams] Failed to read messages:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+})
+
+// 写入项目状态
+ipcMain.handle('team-write-state', async (_event, workspacePath: string, state: any) => {
+  try {
+    agentExecutor.writeProjectState(workspacePath, state)
+    return { success: true }
+  } catch (error) {
+    console.error('[AgentTeams] Failed to write state:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+})
+
+// 读取项目状态
+ipcMain.handle('team-read-state', async (_event, workspacePath: string) => {
+  try {
+    const state = agentExecutor.readProjectState(workspacePath)
+    return { success: true, state }
+  } catch (error) {
+    console.error('[AgentTeams] Failed to read state:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+})
+
+// 写入任务结果
+ipcMain.handle('team-write-result', async (_event, workspacePath: string, taskId: string, result: string) => {
+  try {
+    const resultPath = agentExecutor.writeTaskResult(workspacePath, taskId, result)
+    return { success: true, resultPath }
+  } catch (error) {
+    console.error('[AgentTeams] Failed to write result:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+})
+
+// 取消任务
+ipcMain.handle('team-cancel-task', async (_event, taskId: string) => {
+  try {
+    agentExecutor.cancelTask(taskId)
+    return { success: true }
+  } catch (error) {
+    console.error('[AgentTeams] Failed to cancel task:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+})
+
+// 取消所有任务
+ipcMain.handle('team-cancel-all', async () => {
+  try {
+    agentExecutor.cancelAll()
+    return { success: true }
+  } catch (error) {
+    console.error('[AgentTeams] Failed to cancel all:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+})
+
+// 清理团队工作空间
+ipcMain.handle('team-cleanup-workspace', async (_event, teamId: string) => {
+  try {
+    agentExecutor.cleanupWorkspace(teamId)
+    return { success: true }
+  } catch (error) {
+    console.error('[AgentTeams] Failed to cleanup workspace:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+})
+
+// 获取团队工作空间路径
+ipcMain.handle('team-get-workspace-path', async (_event, teamId: string) => {
+  try {
+    const workspacePath = agentExecutor.getTeamWorkspace(teamId)
+    return { success: true, workspacePath }
+  } catch (error) {
+    console.error('[AgentTeams] Failed to get workspace path:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+})
+
+// 获取活跃 Worker 状态
+ipcMain.handle('team-get-active-workers', async () => {
+  try {
+    const workerIds = agentExecutor.getActiveWorkerIds()
+    const count = agentExecutor.getActiveWorkerCount()
+    return { success: true, workerIds, count }
+  } catch (error) {
+    console.error('[AgentTeams] Failed to get active workers:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+})
+
+// 检查 Worker 是否活跃
+ipcMain.handle('team-is-worker-active', async (_event, workerId: string) => {
+  try {
+    const isActive = agentExecutor.isWorkerActive(workerId)
+    return { success: true, isActive }
+  } catch (error) {
+    console.error('[AgentTeams] Failed to check worker status:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+})
+
+// 清理已完成的 Workers
+ipcMain.handle('team-cleanup-workers', async () => {
+  try {
+    agentExecutor.cleanupCompletedWorkers()
+    return { success: true }
+  } catch (error) {
+    console.error('[AgentTeams] Failed to cleanup workers:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
 })
 
 // MCP 安装依赖

@@ -22,6 +22,7 @@ import type { Chat } from '@/types/chat';
 import type { WorkingMemory } from '@/types/task';
 import type { MCPServerList } from '@/types/mcp';
 import type { SkillRegistry } from '@/types/skill';
+import type { TeamRegistry, SessionRegistry, TeamSession } from '@/types/agentTeam';
 
 /**
  * 默认内置助理的System Prompt
@@ -868,6 +869,138 @@ export class StorageService {
   async clearSelectedFolder(): Promise<boolean> {
     const result = await this.delete(StorageKey.SELECTED_FOLDER);
     return result.success;
+  }
+
+  // ==================== Agent Teams 多智能体协作系统 ====================
+
+  /**
+   * 获取团队注册表
+   */
+  async getTeamRegistry(): Promise<TeamRegistry> {
+    const result = await this.get<TeamRegistry>(StorageKey.TEAM_REGISTRY);
+    return result.data ?? {
+      teams: [],
+      activeTeamId: undefined,
+      version: 1,
+      lastUpdated: Date.now()
+    };
+  }
+
+  /**
+   * 保存团队注册表
+   */
+  async saveTeamRegistry(registry: TeamRegistry): Promise<boolean> {
+    registry.lastUpdated = Date.now();
+    const result = await this.set(StorageKey.TEAM_REGISTRY, registry);
+    return result.success;
+  }
+
+  /**
+   * 获取指定团队
+   */
+  async getTeam(teamId: string): Promise<TeamRegistry['teams'][0] | null> {
+    const registry = await this.getTeamRegistry();
+    return registry.teams.find(t => t.id === teamId) ?? null;
+  }
+
+  /**
+   * 保存团队
+   */
+  async saveTeam(team: TeamRegistry['teams'][0]): Promise<boolean> {
+    const registry = await this.getTeamRegistry();
+    const index = registry.teams.findIndex(t => t.id === team.id);
+    if (index >= 0) {
+      registry.teams[index] = team;
+    } else {
+      registry.teams.push(team);
+    }
+    return this.saveTeamRegistry(registry);
+  }
+
+  /**
+   * 删除团队
+   */
+  async deleteTeam(teamId: string): Promise<boolean> {
+    const registry = await this.getTeamRegistry();
+    registry.teams = registry.teams.filter(t => t.id !== teamId);
+    if (registry.activeTeamId === teamId) {
+      registry.activeTeamId = undefined;
+    }
+    return this.saveTeamRegistry(registry);
+  }
+
+  /**
+   * 设置激活的团队
+   */
+  async setActiveTeam(teamId: string | undefined): Promise<boolean> {
+    const registry = await this.getTeamRegistry();
+    registry.activeTeamId = teamId;
+    return this.saveTeamRegistry(registry);
+  }
+
+  /**
+   * 获取会话注册表
+   */
+  async getSessionRegistry(): Promise<SessionRegistry> {
+    const result = await this.get<SessionRegistry>(StorageKey.TEAM_SESSION_REGISTRY);
+    return result.data ?? {
+      sessions: [],
+      activeSessionId: undefined,
+      version: 1,
+      lastUpdated: Date.now()
+    };
+  }
+
+  /**
+   * 保存会话注册表
+   */
+  async saveSessionRegistry(registry: SessionRegistry): Promise<boolean> {
+    registry.lastUpdated = Date.now();
+    const result = await this.set(StorageKey.TEAM_SESSION_REGISTRY, registry);
+    return result.success;
+  }
+
+  /**
+   * 获取指定会话
+   */
+  async getTeamSession(sessionId: string): Promise<TeamSession | null> {
+    const registry = await this.getSessionRegistry();
+    return registry.sessions.find(s => s.id === sessionId) ?? null;
+  }
+
+  /**
+   * 保存会话
+   */
+  async saveTeamSession(session: TeamSession): Promise<boolean> {
+    const registry = await this.getSessionRegistry();
+    const index = registry.sessions.findIndex(s => s.id === session.id);
+    if (index >= 0) {
+      registry.sessions[index] = session;
+    } else {
+      registry.sessions.push(session);
+    }
+    return this.saveSessionRegistry(registry);
+  }
+
+  /**
+   * 删除会话
+   */
+  async deleteTeamSession(sessionId: string): Promise<boolean> {
+    const registry = await this.getSessionRegistry();
+    registry.sessions = registry.sessions.filter(s => s.id !== sessionId);
+    if (registry.activeSessionId === sessionId) {
+      registry.activeSessionId = undefined;
+    }
+    return this.saveSessionRegistry(registry);
+  }
+
+  /**
+   * 设置激活的会话
+   */
+  async setActiveSession(sessionId: string | undefined): Promise<boolean> {
+    const registry = await this.getSessionRegistry();
+    registry.activeSessionId = sessionId;
+    return this.saveSessionRegistry(registry);
   }
 }
 

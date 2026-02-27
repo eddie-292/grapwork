@@ -224,6 +224,24 @@ interface ElectronAPI {
   skillsCreate: (name: string, description: string) => Promise<SkillLoadResult>
   skillsUpdate: (skillId: string, body: string) => Promise<{ success: boolean; error?: string }>
   skillsDelete: (skillId: string) => Promise<{ success: boolean; error?: string }>
+  // Agent Teams 多智能体协作系统
+  teamInitWorkspace: (teamId: string, sessionId: string) => Promise<{ success: boolean; workspacePath?: string; error?: string }>
+  teamWriteTask: (workspacePath: string, task: any) => Promise<{ success: boolean; error?: string }>
+  teamReadTask: (workspacePath: string, taskId: string, status: string) => Promise<{ success: boolean; task?: any; error?: string }>
+  teamMoveTask: (workspacePath: string, taskId: string, fromStatus: string, toStatus: string) => Promise<{ success: boolean; error?: string }>
+  teamWriteMessage: (workspacePath: string, agentId: string, message: any) => Promise<{ success: boolean; error?: string }>
+  teamReadMessages: (workspacePath: string, agentId: string) => Promise<{ success: boolean; messages?: any[]; error?: string }>
+  teamWriteState: (workspacePath: string, state: any) => Promise<{ success: boolean; error?: string }>
+  teamReadState: (workspacePath: string) => Promise<{ success: boolean; state?: any; error?: string }>
+  teamWriteResult: (workspacePath: string, taskId: string, result: string) => Promise<{ success: boolean; resultPath?: string; error?: string }>
+  teamCancelTask: (taskId: string) => Promise<{ success: boolean; error?: string }>
+  teamCancelAll: () => Promise<{ success: boolean; error?: string }>
+  teamCleanupWorkspace: (teamId: string) => Promise<{ success: boolean; error?: string }>
+  teamGetWorkspacePath: (teamId: string) => Promise<{ success: boolean; workspacePath?: string; error?: string }>
+  // 动态 Worker 管理
+  teamGetActiveWorkers: () => Promise<{ success: boolean; workerIds?: string[]; count?: number; error?: string }>
+  teamIsWorkerActive: (workerId: string) => Promise<{ success: boolean; isActive?: boolean; error?: string }>
+  teamCleanupWorkers: () => Promise<{ success: boolean; error?: string }>
   // 窗口控制
   windowMinimize: () => Promise<void>
   windowMaximize: () => Promise<boolean> // 返回当前是否最大化

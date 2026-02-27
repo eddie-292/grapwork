@@ -36,6 +36,10 @@ export const StorageKey = {
 
   // Skills 技能系统
   SKILL_REGISTRY: 'skill-registry',
+
+  // Agent Teams 多智能体协作系统
+  TEAM_REGISTRY: 'team-registry',
+  TEAM_SESSION_REGISTRY: 'team-session-registry',
 } as const
 
 export type StorageKey = typeof StorageKey[keyof typeof StorageKey]

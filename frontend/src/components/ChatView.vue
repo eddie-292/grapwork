@@ -19,7 +19,10 @@ import type { ConfigList, AssistantList } from '../types/electron'
 import { useGlobalMemory } from '../composables/useGlobalMemory'
 import { useMCP } from '../composables/useMCP'
 import { useSkills } from '../composables/useSkills'
+import { useAgentTeam } from '../composables/useAgentTeam'
+import { createDefaultExecutionConfig, createDefaultOrchestrator } from '../types/agentTeam'
 import NormalChat from './NormalChat.vue'
+import TeamExecutionView from './teams/TeamExecutionView.vue'
 import WorkspaceView from './WorkspaceView.vue'
 import ChatTabBar from './ChatTabBar.vue'
 import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
@@ -45,6 +48,40 @@ const mcpManager = useMCP()
 
 // Skills 管理器
 const skillsManager = useSkills()
+
+// Agent Teams 管理器
+const teamManager = useAgentTeam()
+
+// Team Mode 状态
+const isTeamMode = ref(false)
+const selectedTeamId = ref<string | null>(null)
+const teamSessionId = ref<string | null>(null)
+
+// Team Mode 向后兼容辅助函数
+function getTeamOrchestrator(team: any) {
+  if (team.orchestrator) return team.orchestrator
+  // Legacy: 从 agents 数组中查找
+  if (team.agents && team.agents.length > 0) {
+    const orchestrator = team.agents.find((a: any) => a.role === 'orchestrator')
+    if (orchestrator) return orchestrator
+    return team.agents[0]
+  }
+  return createDefaultOrchestrator()
+}
+
+function getTeamExecutionConfig(team: any) {
+  if (team.executionConfig) return team.executionConfig
+  // Legacy: 从 sharedConfig 转换
+  if (team.sharedConfig) {
+    return {
+      maxParallelWorkers: team.sharedConfig.parallelWorkers || 3,
+      taskTimeout: team.sharedConfig.taskTimeout || 300000,
+      maxRetries: team.sharedConfig.maxRetries || 3,
+      workerIdleTimeout: 60000
+    }
+  }
+  return createDefaultExecutionConfig()
+}
 
 // 快速保存到全局记忆对话框状态
 const showSaveToGlobalMemoryDialog = ref(false)
@@ -334,6 +371,15 @@ const activeAssistant = computed(() => {
   if (!chat?.assistantId) return null
   return assistantList.value.assistants.find(a => a.id === chat.assistantId) || null
 })
+// Team Mode computed properties
+const activeTeam = computed(() => {
+  if (!selectedTeamId.value) return null
+  return teamManager.teams.value.find(t => t.id === selectedTeamId.value) || null
+})
+const activeTeamSession = computed(() => {
+  if (!teamSessionId.value) return null
+  return teamManager.sessions.value.find(s => s.id === teamSessionId.value) || null
+})
 const messages = computed(() => currentChat.value?.messages || [])
 
 // messagesRef, textareaRef, autoScrollEnabled 已移至 NormalChat 组件
@@ -353,8 +399,6 @@ const isElectronEnv =
 const reasoningExpanded = ref<Record<number, boolean>>({})
 // 推理开始时间映射（按消息索引）
 const reasoningStartTime = ref<Record<number, number>>({})
-// 归档历史展开状态（按归档索引）
-const archivedExpanded = ref<Record<number, boolean>>({})
 
 function normalizeApiUrl(url: string) {
   return url.replace(/\/+$/, '')
@@ -522,8 +566,7 @@ function parseQwenToolCalls(content: string): { toolCalls: any[]; cleanedContent
   return { toolCalls, cleanedContent }
 }
 
-// 发送消息到 LLM（支持流式响应）- 保留用于任务模式
-// @ts-expect-error 保留用于未来任务模式功能
+// 发送消息到 LLM（支持流式响应）- 保留用于 Team Mode
 async function sendMessageToLLM(messages: { role: string; content: string }[]): Promise<string> {
   if (!activeConfig.value?.apiKey) {
     throw new Error('请先配置并启用一个 LLM 接口')
@@ -1310,6 +1353,194 @@ async function loadAssistants() {
   }
 }
 
+// ==================== Team Mode Functions ====================
+
+/**
+ * 切换 Team Mode
+ * Team Lead 会动态创建 Workers，无需预先配置
+ */
+async function toggleTeamMode() {
+  if (isTeamMode.value) {
+    // 退出 Team Mode
+    isTeamMode.value = false
+    selectedTeamId.value = null
+    if (teamSessionId.value) {
+      teamManager.cancelSession(teamSessionId.value)
+      teamSessionId.value = null
+    }
+  } else {
+    // 进入 Team Mode
+    // 如果没有团队，自动创建一个默认团队
+    if (teamManager.teams.value.length === 0) {
+      const team = await teamManager.createTeam('Default Team', '自动创建的默认团队 - Team Lead 会根据任务动态创建 Workers')
+      if (team) {
+        selectedTeamId.value = team.id
+        isTeamMode.value = true
+      }
+      return
+    }
+
+    // 优先使用已激活的团队，否则使用第一个团队
+    const activeTeam = teamManager.activeTeam.value
+    if (activeTeam) {
+      selectedTeamId.value = activeTeam.id
+      isTeamMode.value = true
+      return
+    }
+
+    // 使用第一个团队（不检查 enabled，因为 Team Lead 会动态创建 Workers）
+    const firstTeam = teamManager.teams.value[0]
+    if (firstTeam) {
+      selectedTeamId.value = firstTeam.id
+      isTeamMode.value = true
+    }
+  }
+}
+
+/**
+ * 取消团队执行
+ */
+async function cancelTeamExecution() {
+  if (teamSessionId.value) {
+    await teamManager.cancelSession(teamSessionId.value)
+    teamSessionId.value = null
+  }
+}
+
+/**
+ * 执行 Team Mode
+ * 使用动态 Worker 架构 - Team Lead 根据任务需求创建 Workers
+ */
+async function executeTeamMode(text: string) {
+  if (!selectedTeamId.value || !currentChat.value) return
+
+  const team = activeTeam.value
+  if (!team) {
+    alert('选择的团队不存在')
+    isTeamMode.value = false
+    return
+  }
+
+  // 创建会话
+  const session = await teamManager.startSession(selectedTeamId.value, text)
+  if (!session) {
+    alert('创建团队会话失败')
+    return
+  }
+
+  teamSessionId.value = session.id
+
+  // 更新聊天标题
+  if (currentChat.value.messages.length === 0) {
+    updateChatTitle(currentChat.value.id, `[Team] ${text.slice(0, 30)}...`)
+  }
+
+  // 添加用户消息
+  currentChat.value.messages.push({
+    role: 'user',
+    content: text,
+    reasoning: ''
+  })
+
+  // 添加占位的 assistant 消息
+  const assistantIndex = currentChat.value.messages.length
+  currentChat.value.messages.push({
+    role: 'assistant',
+    content: '🔄 Team Lead 正在分析任务并创建 Workers...',
+    reasoning: ''
+  })
+
+  currentChat.value.sending = true
+
+  try {
+    // 初始化工作空间
+    if (window.electronAPI) {
+      await window.electronAPI.teamInitWorkspace(team.id, session.id)
+    }
+
+    // 获取 Orchestrator 配置（使用向后兼容辅助函数）
+    const orchestrator = getTeamOrchestrator(team)
+    let systemPrompt = orchestrator.systemPrompt || ''
+
+    // 注入团队上下文
+    const teamContext = teamManager.buildTeamContext(session.id)
+    systemPrompt = systemPrompt.replace('{{teamContext}}', teamContext)
+
+    // 添加执行配置信息
+    const execConfig = getTeamExecutionConfig(team)
+    systemPrompt += `\n\n## 执行配置\n`
+    systemPrompt += `- 最大并行 Workers: ${execConfig.maxParallelWorkers}\n`
+    systemPrompt += `- 任务超时: ${execConfig.taskTimeout / 1000}s\n`
+    systemPrompt += `\n注意: Workers 由你按需创建，按技能类型复用。每个 Worker 可以处理多个相关任务。\n`
+
+    // 构建消息
+    const messagesToSend = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: text }
+    ]
+
+    // 调用 LLM（Orchestrator 思考）
+    session.status = 'planning'
+    await teamManager.updateSession(session)
+
+    const response = await sendMessageToLLM(messagesToSend)
+
+    // 解析 Orchestrator 输出中的决策
+    const { hasCompleteAction } = await teamManager.executeOrchestratorDecisions(
+      session.id,
+      response
+    )
+
+    // 构建响应内容
+    let finalContent = response
+
+    // 如果创建了 Workers，显示统计信息
+    const sessionUpdated = teamManager.sessions.value.find(s => s.id === session.id)
+    if (sessionUpdated && Object.keys(sessionUpdated.dynamicWorkers).length > 0) {
+      const workerNames = Object.values(sessionUpdated.dynamicWorkers).map(w => w.name).join(', ')
+      finalContent += `\n\n---\n**创建的 Workers**: ${workerNames}`
+    }
+
+    // 如果有任务，显示任务统计
+    if (sessionUpdated && sessionUpdated.taskQueue.pending.length > 0) {
+      finalContent += `\n**待处理任务**: ${sessionUpdated.taskQueue.pending.length}`
+    }
+
+    // 更新消息
+    if (currentChat.value?.messages[assistantIndex]) {
+      currentChat.value.messages[assistantIndex].content = finalContent
+    }
+
+    // 更新会话状态
+    session.status = hasCompleteAction ? 'completed' : 'executing'
+    session.finalOutput = finalContent
+    if (hasCompleteAction) {
+      session.completedAt = Date.now()
+    }
+    await teamManager.updateSession(session)
+
+  } catch (err) {
+    console.error('[Team Mode] Execution failed:', err)
+    if (currentChat.value?.messages[assistantIndex]) {
+      currentChat.value.messages[assistantIndex].content =
+        `❌ 团队执行失败: ${err instanceof Error ? err.message : '未知错误'}`
+    }
+    session.status = 'failed'
+    await teamManager.updateSession(session)
+  } finally {
+    if (currentChat.value) {
+      currentChat.value.sending = false
+    }
+    // 如果已完成，清除会话 ID
+    const finalSession = teamManager.sessions.value.find(s => s.id === session.id)
+    if (finalSession?.status === 'completed' || finalSession?.status === 'failed') {
+      teamSessionId.value = null
+    }
+  }
+}
+
+// ==================== End Team Mode Functions ====================
+
 async function send() {
   const text = input.value.trim()
   if (!text || (currentChat.value?.sending)) return
@@ -1326,6 +1557,13 @@ async function send() {
 
   input.value = ''
   scrollToBottom()
+
+  // ============ Team Mode ============
+  if (isTeamMode.value && selectedTeamId.value) {
+    await executeTeamMode(text)
+    return
+  }
+  // ================================
 
   // ============ TASK MODE - DISABLED ============
   // // 任务模式流程
@@ -2451,11 +2689,6 @@ function toggleReasoning(index: number) {
   reasoningExpanded.value[index] = !reasoningExpanded.value[index]
 }
 
-// @ts-expect-error 保留用于未来功能
-function toggleArchived(index: number) {
-  archivedExpanded.value[index] = !archivedExpanded.value[index]
-}
-
 function scrollToBottom() {
   // ============ TASK MODE - DISABLED ============
   // // 普通会话模式使用 NormalChat 组件的方法
@@ -2724,6 +2957,8 @@ onMounted(async () => {
   await loadAssistants()
   await loadHighlightTheme()
   await mcpManager.loadServers()
+  await teamManager.loadTeams()
+  await teamManager.loadSessions()
   // 加载用户名
   const savedUsername = await storage.getUsername()
   if (savedUsername) {
@@ -2807,6 +3042,14 @@ function handleFolderChanged(path: string) {
           @delete-chat="deleteChat"
           @create-chat="createNewChat"
         />
+
+        <!-- Team Execution View -->
+        <TeamExecutionView
+          v-if="activeTeamSession"
+          :session="activeTeamSession"
+          @cancel="cancelTeamExecution"
+        />
+
       <!-- ============================================= -->
       <!-- 普通会话模式 -->
       <NormalChat
@@ -2820,6 +3063,7 @@ function handleFolderChanged(path: string) {
         :config-list="configList"
         :usage="currentChat?.usage"
         :enable-thinking="activeConfig?.enable_thinking ?? false"
+        :is-team-mode="isTeamMode"
         @send="send"
         @cancel="cancel"
         @update:input="input = $event"
@@ -2830,6 +3074,7 @@ function handleFolderChanged(path: string) {
         @clear-assistant="changeAssistant('')"
         @folder-changed="handleFolderChanged"
         @update:enable-thinking="handleUpdateEnableThinking"
+        @toggle-team-mode="toggleTeamMode"
         ref="normalChatRef"
       />
 

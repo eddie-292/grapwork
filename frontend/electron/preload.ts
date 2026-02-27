@@ -142,6 +142,40 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('skills-update', skillId, body),
   skillsDelete: (skillId: string) =>
     ipcRenderer.invoke('skills-delete', skillId),
+  // Agent Teams 多智能体协作系统
+  teamInitWorkspace: (teamId: string, sessionId: string) =>
+    ipcRenderer.invoke('team-init-workspace', teamId, sessionId),
+  teamWriteTask: (workspacePath: string, task: any) =>
+    ipcRenderer.invoke('team-write-task', workspacePath, task),
+  teamReadTask: (workspacePath: string, taskId: string, status: string) =>
+    ipcRenderer.invoke('team-read-task', workspacePath, taskId, status),
+  teamMoveTask: (workspacePath: string, taskId: string, fromStatus: string, toStatus: string) =>
+    ipcRenderer.invoke('team-move-task', workspacePath, taskId, fromStatus, toStatus),
+  teamWriteMessage: (workspacePath: string, agentId: string, message: any) =>
+    ipcRenderer.invoke('team-write-message', workspacePath, agentId, message),
+  teamReadMessages: (workspacePath: string, agentId: string) =>
+    ipcRenderer.invoke('team-read-messages', workspacePath, agentId),
+  teamWriteState: (workspacePath: string, state: any) =>
+    ipcRenderer.invoke('team-write-state', workspacePath, state),
+  teamReadState: (workspacePath: string) =>
+    ipcRenderer.invoke('team-read-state', workspacePath),
+  teamWriteResult: (workspacePath: string, taskId: string, result: string) =>
+    ipcRenderer.invoke('team-write-result', workspacePath, taskId, result),
+  teamCancelTask: (taskId: string) =>
+    ipcRenderer.invoke('team-cancel-task', taskId),
+  teamCancelAll: () =>
+    ipcRenderer.invoke('team-cancel-all'),
+  teamCleanupWorkspace: (teamId: string) =>
+    ipcRenderer.invoke('team-cleanup-workspace', teamId),
+  teamGetWorkspacePath: (teamId: string) =>
+    ipcRenderer.invoke('team-get-workspace-path', teamId),
+  // 动态 Worker 管理
+  teamGetActiveWorkers: () =>
+    ipcRenderer.invoke('team-get-active-workers'),
+  teamIsWorkerActive: (workerId: string) =>
+    ipcRenderer.invoke('team-is-worker-active', workerId),
+  teamCleanupWorkers: () =>
+    ipcRenderer.invoke('team-cleanup-workers'),
   // 窗口控制
   windowMinimize: () =>
     ipcRenderer.invoke('window-minimize'),

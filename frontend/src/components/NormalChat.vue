@@ -51,6 +51,7 @@ interface Props {
   configList: any
   usage?: TokenUsage  // 添加 token 使用统计
   enableThinking?: boolean  // 启用思考模式
+  isTeamMode?: boolean  // Team Mode 状态
 }
 
 const props = defineProps<Props>()
@@ -68,12 +69,19 @@ const emit = defineEmits<{
   'clear-assistant': []
   'folder-changed': [path: string]
   'update:enable-thinking': [value: boolean]  // 更新思考模式
+  'toggle-team-mode': []  // 切换 Team Mode
 }>()
 
 // 思考模式
 const enableThinking = computed(() => props.enableThinking ?? false)
 function handleThinkingToggle() {
   emit('update:enable-thinking', !enableThinking.value)
+}
+
+// Team Mode
+const isTeamMode = computed(() => props.isTeamMode ?? false)
+function handleTeamModeToggle() {
+  emit('toggle-team-mode')
 }
 
 // 全局记忆对话框状态
@@ -774,6 +782,22 @@ defineExpose({
                 <path d="M9 18h6" />
                 <path d="M10 22h4" />
                 <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14" />
+              </svg>
+            </button>
+
+            <!-- Team Mode 按钮 -->
+            <button
+              type="button"
+              class="team-mode-btn"
+              :class="{ active: isTeamMode }"
+              @click="handleTeamModeToggle"
+              :title="isTeamMode ? '退出 Team Mode' : '进入 Team Mode'"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
               </svg>
             </button>
 
@@ -1646,6 +1670,45 @@ defineExpose({
 }
 
 .thinking-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Team Mode 按钮样式 */
+.team-mode-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.team-mode-btn:hover {
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border-hover);
+  color: var(--color-text-secondary);
+}
+
+.team-mode-btn.active {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(16, 185, 129, 0.1) 100%);
+  border-color: #22c55e;
+  color: #22c55e;
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.3);
+}
+
+.team-mode-btn.active:hover {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.25) 0%, rgba(16, 185, 129, 0.15) 100%);
+  color: #16a34a;
+  box-shadow: 0 0 16px rgba(34, 197, 94, 0.4);
+}
+
+.team-mode-btn svg {
   width: 18px;
   height: 18px;
 }
