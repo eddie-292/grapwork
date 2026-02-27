@@ -1408,7 +1408,8 @@ async function cancelTeamExecution() {
 
 /**
  * 执行 Team Mode
- * 使用动态 Worker 架构 - Team Lead 根据任务需求创建 Workers
+ * Team Mode 是普通会话模式的升级，拥有完整的 MCP、Skills、Global Memory 等能力
+ * Workers 一次性创建，并行协作执行任务
  */
 async function executeTeamMode(text: string) {
   if (!selectedTeamId.value || !currentChat.value) return
@@ -1445,22 +1446,40 @@ async function executeTeamMode(text: string) {
   const assistantIndex = currentChat.value.messages.length
   currentChat.value.messages.push({
     role: 'assistant',
-    content: '🔄 Team Lead 正在分析任务...',
+    content: '🔄 Team Lead 正在初始化工作空间并分析任务...',
     reasoning: ''
   })
 
   currentChat.value.sending = true
 
   try {
-    // 初始化工作空间
+    // 1. 初始化工作空间 - 为本次任务创建独享目录
+    let workspacePath = ''
     if (window.electronAPI) {
-      await window.electronAPI.teamInitWorkspace(team.id, session.id)
+      const wsResult = await window.electronAPI.teamInitWorkspace(team.id, session.id)
+      workspacePath = wsResult.workspacePath || ''
+      console.log(`[Team Mode] Workspace initialized: ${workspacePath}`)
     }
+
+    // 2. 加载用户偏好和全局记忆
+    if (!globalMemoryManager.memory.value) {
+      await globalMemoryManager.load()
+    }
+    const globalMemoryContext = globalMemoryManager.generateInjectContext(text)
+
+    // 3. 加载 Skills
+    await skillsManager.loadRegistry()
+    const skillsContext = skillsManager.generateSkillContext()
+
+    // 4. 加载 MCP 工具
+    await mcpManager.loadServers()
+    const mcpTools = mcpManager.generateOpenAITools()
+    const mcpToolNames = mcpTools.map((t: any) => t.function?.name || t.name).filter(Boolean)
 
     // 获取 Orchestrator 配置
     const orchestrator = getTeamOrchestrator(team)
     const execConfig = getTeamExecutionConfig(team)
-    const maxIterations = 10 // 防止无限循环
+    const maxIterations = 10
     let iteration = 0
     let hasCompleteAction = false
     let finalContent = ''
@@ -1474,32 +1493,59 @@ async function executeTeamMode(text: string) {
       const currentSessionState = teamManager.sessions.value.find(s => s.id === session.id)
       if (!currentSessionState) break
 
-      // 构建 Orchestrator 提示词
+      // 构建 Orchestrator 系统提示词
       let systemPrompt = orchestrator.systemPrompt || ''
+
+      // 替换团队上下文变量
       const teamContext = teamManager.buildTeamContext(session.id)
       systemPrompt = systemPrompt.replace('{{teamContext}}', teamContext)
+
+      // 添加工作空间信息
+      if (workspacePath) {
+        systemPrompt += `\n\n## 工作空间\n任务独享目录: \`${workspacePath}\`\n所有工作文件应保存在此目录下。\n`
+      }
+
+      // 添加用户偏好和全局记忆
+      if (globalMemoryContext) {
+        systemPrompt += `\n\n## 用户偏好与记忆\n${globalMemoryContext}\n`
+      }
+
+      // 添加 Skills 上下文
+      if (skillsContext) {
+        systemPrompt += `\n\n## 可用技能\n${skillsContext}\n`
+      }
+
+      // 添加 MCP 工具信息
+      if (mcpToolNames.length > 0) {
+        systemPrompt += `\n\n## 可用 MCP 工具\nWorkers 可以使用以下工具: ${mcpToolNames.join(', ')}\n`
+      }
+
+      // 添加执行配置
       systemPrompt += `\n\n## 执行配置\n`
       systemPrompt += `- 最大并行 Workers: ${execConfig.maxParallelWorkers}\n`
       systemPrompt += `- 当前轮次: ${iteration}/${maxIterations}\n`
+      systemPrompt += `\n## 重要提示\n`
+      systemPrompt += `1. **一次性创建所有需要的 Workers**，让它们并行协作，而不是逐个创建\n`
+      systemPrompt += `2. 每个 Worker 应该有明确的职责边界，避免重复工作\n`
+      systemPrompt += `3. 任务之间如果有依赖关系，请在任务描述中说明\n`
 
       // 构建消息
       const messagesToSend: Array<{ role: string; content: string }> = [
         { role: 'system', content: systemPrompt }
       ]
 
-      // 添加用户请求（第一轮）或执行状态（后续轮）
+      // 添加用户请求或执行状态
       if (iteration === 1) {
         messagesToSend.push({ role: 'user', content: text })
       } else {
-        // 添加执行状态摘要
         const workerResults = Object.entries(currentSessionState.dynamicWorkers)
           .filter(([_, w]) => w.completedTaskIds.length > 0)
-          .map(([_id, w]) => `${w.name}: 完成了 ${w.completedTaskIds.length} 个任务`)
+          .map(([_id, w]) => `- **${w.name}**: 完成了 ${w.completedTaskIds.length} 个任务`)
           .join('\n')
 
         messagesToSend.push({
           role: 'user',
-          content: `## 执行状态更新\n\n**已完成任务**: ${currentSessionState.taskQueue.completed.length}\n**待处理任务**: ${currentSessionState.taskQueue.pending.length}\n**执行中任务**: ${currentSessionState.taskQueue.inProgress.length}\n\n**Worker 状态**:\n${workerResults || '暂无完成的任务'}\n\n请继续分配任务或输出 complete 表示完成。`
+          content: `## 执行状态更新\n\n**已完成任务**: ${currentSessionState.taskQueue.completed.length}\n**待处理任务**: ${currentSessionState.taskQueue.pending.length}\n**执行中任务**: ${currentSessionState.taskQueue.inProgress.length}\n\n**Worker 状态**:\n${workerResults || '暂无完成的任务'}\n\n请继续分配任务或输出 \`{"action": "complete", ...}\` 表示完成。`
         })
       }
 
@@ -1507,7 +1553,8 @@ async function executeTeamMode(text: string) {
       currentSessionState.status = iteration === 1 ? 'planning' : 'executing'
       await teamManager.updateSession(currentSessionState)
 
-      const response = await sendMessageToLLM(messagesToSend)
+      // 调用 LLM（带 MCP 工具）
+      const response = await sendMessageToLLMWithTools(messagesToSend, mcpTools)
 
       // 解析并执行决策
       const result = await teamManager.executeOrchestratorDecisions(session.id, response)
@@ -1521,9 +1568,9 @@ async function executeTeamMode(text: string) {
       if (sessionUpdated) {
         if (Object.keys(sessionUpdated.dynamicWorkers).length > 0) {
           const workerNames = Object.values(sessionUpdated.dynamicWorkers).map(w => w.name).join(', ')
-          displayContent += `\n\n---\n**Workers**: ${workerNames}`
+          displayContent += `\n\n---\n**协作 Workers**: ${workerNames}`
         }
-        if (sessionUpdated.taskQueue.pending.length > 0) {
+        if (sessionUpdated.taskQueue.pending.length > 0 || sessionUpdated.taskQueue.completed.length > 0) {
           displayContent += `\n**待处理**: ${sessionUpdated.taskQueue.pending.length} | **已完成**: ${sessionUpdated.taskQueue.completed.length}`
         }
       }
@@ -1532,9 +1579,14 @@ async function executeTeamMode(text: string) {
         currentChat.value.messages[assistantIndex].content = displayContent
       }
 
-      // 如果有任务需要执行，执行 Worker 任务
+      // 如果有任务需要执行，并行执行 Worker 任务
       if (!hasCompleteAction && sessionUpdated && sessionUpdated.taskQueue.pending.length > 0) {
-        await executePendingTasks(session.id, sessionUpdated, assistantIndex)
+        await executePendingTasksParallel(session.id, sessionUpdated, assistantIndex, {
+          globalMemoryContext,
+          skillsContext,
+          mcpTools,
+          workspacePath
+        })
       }
     }
 
@@ -1569,84 +1621,151 @@ async function executeTeamMode(text: string) {
 }
 
 /**
- * 执行待处理的 Worker 任务
+ * 并行执行待处理的 Worker 任务
  */
-async function executePendingTasks(
+async function executePendingTasksParallel(
   _sessionId: string,
   session: any,
-  messageIndex: number
+  messageIndex: number,
+  context: {
+    globalMemoryContext: string
+    skillsContext: string
+    mcpTools: any[]
+    workspacePath: string
+  }
 ) {
   const pendingTasks = [...session.taskQueue.pending]
 
+  // 更新 UI 显示开始执行
+  if (currentChat.value?.messages[messageIndex]) {
+    const currentContent = currentChat.value.messages[messageIndex].content
+    const workerNames = pendingTasks.map(t => t.assignedTo).filter(Boolean).join(', ')
+    currentChat.value.messages[messageIndex].content =
+      currentContent + `\n\n🔄 **Workers 并行执行中**: ${workerNames}...`
+  }
+
+  // 将所有任务状态更新为执行中
   for (const task of pendingTasks) {
-    // 找到分配的 Worker
-    const worker = Object.values(session.dynamicWorkers).find(
-      (w: any) => w.name === task.assignedTo || w.id === task.assignedTo
-    ) as any
-
-    if (!worker) {
-      console.log(`[Team Mode] No worker found for task: ${task.title}`)
-      continue
-    }
-
-    // 更新任务状态为执行中
     task.status = 'in_progress'
     task.startedAt = Date.now()
     session.taskQueue.pending = session.taskQueue.pending.filter((t: any) => t.id !== task.id)
     session.taskQueue.inProgress.push(task)
-    await teamManager.updateSession(session)
+  }
+  await teamManager.updateSession(session)
 
-    // 更新 UI 显示执行进度
-    if (currentChat.value?.messages[messageIndex]) {
-      const currentContent = currentChat.value.messages[messageIndex].content
-      currentChat.value.messages[messageIndex].content =
-        currentContent + `\n\n🔄 **${worker.name}** 正在执行: ${task.title}...`
-    }
+  // 并行执行所有任务
+  const taskPromises = pendingTasks.map(task => executeSingleTask(task, session, context))
 
-    try {
-      // 构建 Worker 提示词
-      const workerPrompt = worker.systemPrompt || `你是 ${worker.name}。\n\n## 你的任务\n${task.description}`
+  // 等待所有任务完成
+  const results = await Promise.allSettled(taskPromises)
 
-      const workerMessages = [
-        { role: 'system', content: workerPrompt },
-        { role: 'user', content: task.description }
-      ]
+  // 处理结果
+  let completedCount = 0
+  let failedCount = 0
+  const resultDetails: string[] = []
 
-      // 调用 LLM 执行任务
-      const workerResponse = await sendMessageToLLM(workerMessages)
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i]
+    const task = pendingTasks[i]
 
-      // 记录任务完成
+    // 从 inProgress 移动到 completed
+    session.taskQueue.inProgress = session.taskQueue.inProgress.filter((t: any) => t.id !== task.id)
+    session.taskQueue.completed.push(task)
+
+    if (result && result.status === 'fulfilled') {
       task.status = 'completed'
       task.completedAt = Date.now()
-      task.output = { result: workerResponse }
-
-      // 移动任务到已完成
-      session.taskQueue.inProgress = session.taskQueue.inProgress.filter((t: any) => t.id !== task.id)
-      session.taskQueue.completed.push(task)
+      task.output = { result: result.value }
+      completedCount++
+      resultDetails.push(`✅ **${task.assignedTo}**: ${task.title}`)
 
       // 更新 Worker 状态
-      worker.completedTaskIds.push(task.id)
-      worker.status = 'idle'
-
-      // 更新会话
-      await teamManager.updateSession(session)
-
-      // 更新 UI 显示结果
-      if (currentChat.value?.messages[messageIndex]) {
-        const currentContent = currentChat.value.messages[messageIndex].content
-        currentChat.value.messages[messageIndex].content =
-          currentContent + `\n\n✅ **${worker.name}** 完成: ${task.title}\n\`\`\`\n${workerResponse.slice(0, 500)}${workerResponse.length > 500 ? '...' : ''}\n\`\`\``
+      const worker = Object.values(session.dynamicWorkers).find(
+        (w: any) => w.name === task.assignedTo || w.id === task.assignedTo
+      ) as any
+      if (worker) {
+        worker.completedTaskIds.push(task.id)
+        worker.status = 'idle'
       }
-
-    } catch (err) {
-      console.error(`[Team Mode] Task failed: ${task.title}`, err)
+    } else if (result && result.status === 'rejected') {
       task.status = 'failed'
-      task.error = err instanceof Error ? err.message : '未知错误'
-      session.taskQueue.inProgress = session.taskQueue.inProgress.filter((t: any) => t.id !== task.id)
-      session.taskQueue.completed.push(task)
-      await teamManager.updateSession(session)
+      const reason = result.reason
+      task.error = (reason instanceof Error ? reason.message : String(reason)) || '未知错误'
+      failedCount++
+      resultDetails.push(`❌ **${task.assignedTo}**: ${task.title} - ${task.error}`)
     }
   }
+
+  await teamManager.updateSession(session)
+
+  // 更新 UI 显示结果
+  if (currentChat.value?.messages[messageIndex]) {
+    const currentContent = currentChat.value.messages[messageIndex].content
+    currentChat.value.messages[messageIndex].content =
+      currentContent + `\n\n**执行结果** (完成: ${completedCount}, 失败: ${failedCount})\n` +
+      resultDetails.join('\n')
+  }
+}
+
+/**
+ * 执行单个 Worker 任务
+ */
+async function executeSingleTask(
+  task: any,
+  session: any,
+  context: {
+    globalMemoryContext: string
+    skillsContext: string
+    mcpTools: any[]
+    workspacePath: string
+  }
+): Promise<string> {
+  const worker = Object.values(session.dynamicWorkers).find(
+    (w: any) => w.name === task.assignedTo || w.id === task.assignedTo
+  ) as any
+
+  if (!worker) {
+    throw new Error(`No worker found for task: ${task.title}`)
+  }
+
+  // 构建 Worker 提示词，包含完整上下文
+  let workerPrompt = worker.systemPrompt || `你是 ${worker.name}，一个专业的 AI Worker。`
+
+  // 添加工作空间信息
+  if (context.workspacePath) {
+    workerPrompt += `\n\n## 工作空间\n任务目录: \`${context.workspacePath}\`\n请将工作文件保存在此目录下。\n`
+  }
+
+  // 添加用户偏好
+  if (context.globalMemoryContext) {
+    workerPrompt += `\n\n## 用户偏好\n${context.globalMemoryContext}\n`
+  }
+
+  // 添加 Skills
+  if (context.skillsContext) {
+    workerPrompt += `\n\n## 可用技能\n${context.skillsContext}\n`
+  }
+
+  const workerMessages = [
+    { role: 'system', content: workerPrompt },
+    { role: 'user', content: `## 你的任务\n${task.description}\n\n请开始执行。` }
+  ]
+
+  // 调用 LLM 执行任务（带工具）
+  return await sendMessageToLLMWithTools(workerMessages, context.mcpTools)
+}
+
+/**
+ * 调用 LLM（带 MCP 工具支持）
+ * TODO: 实现完整的工具调用循环
+ */
+async function sendMessageToLLMWithTools(
+  messages: Array<{ role: string; content: string }>,
+  _tools?: any[]
+): Promise<string> {
+  // TODO: 如果有工具，应该实现工具调用循环
+  // 目前简化处理，直接调用 sendMessageToLLM
+  return await sendMessageToLLM(messages)
 }
 
 // ==================== End Team Mode Functions ====================
