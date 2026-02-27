@@ -1384,12 +1384,17 @@ async function executeTeamMode(text: string) {
   currentChat.value.sending = true
 
   try {
-    // 1. 初始化工作空间 - 为本次任务创建独享目录
+    // 1. 确定工作空间路径 - 优先使用用户选择的工作空间
     let workspacePath = ''
-    if (window.electronAPI) {
+    if (currentFolder.value) {
+      // 使用用户选择的工作空间
+      workspacePath = currentFolder.value
+      console.log(`[Team Mode] Using user-selected workspace: ${workspacePath}`)
+    } else if (window.electronAPI) {
+      // 如果用户未选择，则使用自动生成的路径
       const wsResult = await window.electronAPI.teamInitWorkspace(team.id, session.id)
       workspacePath = wsResult.workspacePath || ''
-      console.log(`[Team Mode] Workspace initialized: ${workspacePath}`)
+      console.log(`[Team Mode] Using auto-generated workspace: ${workspacePath}`)
     }
 
     // 2. 加载用户偏好和全局记忆
@@ -1573,7 +1578,8 @@ async function executeTeamMode(text: string) {
       // 保存会话状态到工作空间
       if (workspacePath && window.electronAPI?.teamWriteState) {
         try {
-          await window.electronAPI.teamWriteState(workspacePath, {
+          // 使用 JSON 序列化确保数据可克隆
+          const serializableState = JSON.parse(JSON.stringify({
             status: finalSession.status,
             taskQueue: {
               pending: finalSession.taskQueue.pending.length,
@@ -1583,7 +1589,8 @@ async function executeTeamMode(text: string) {
             orchestratorDecisions: finalSession.orchestratorDecisions,
             finalOutput: finalSession.finalOutput,
             updatedAt: Date.now()
-          })
+          }))
+          await window.electronAPI.teamWriteState(workspacePath, serializableState)
         } catch (err) {
           console.error('[Team Mode] Failed to write session state:', err)
         }

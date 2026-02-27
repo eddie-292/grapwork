@@ -48,11 +48,6 @@ function formatTime(timestamp: number): string {
 
 <template>
   <div class="execution-view">
-    <!-- Progress bar -->
-    <div class="progress-bar">
-      <div class="progress-fill" :style="{ width: `${progress}%` }"></div>
-    </div>
-
     <!-- User request -->
     <div class="request-section">
       <div class="section-label">用户请求</div>
