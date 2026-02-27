@@ -32,6 +32,8 @@ export type Message = {
   toolStatus?: 'pending' | 'running' | 'success' | 'error'
   // 错误消息标识
   isError?: boolean
+  // Team Mode Worker 名称
+  workerName?: string
 }
 
 // Token 使用统计类型
@@ -689,6 +691,11 @@ defineExpose({
               </button>
               <div v-show="reasoningExpanded[i]" class="msg-reasoning-bubble" v-html="render(m.reasoning || '')" />
             </div>
+            <!-- Worker 名称标签 -->
+            <div v-if="m.workerName" class="worker-name-tag">
+              <span class="worker-icon">🤖</span>
+              <span>{{ m.workerName }}</span>
+            </div>
             <div class="msg-bubble-wrapper">
               <!-- 渲染输出内容 -->
               <div class="msg-bubble" v-html="render(m.content)" />
@@ -1189,6 +1196,23 @@ defineExpose({
 
 .reasoning-section {
   margin-bottom: 12px;
+}
+
+.worker-name-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.worker-icon {
+  font-size: 12px;
 }
 
 .reasoning-toggle {

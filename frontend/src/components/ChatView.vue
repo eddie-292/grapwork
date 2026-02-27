@@ -149,6 +149,8 @@ type Message = {
   tool_call_id?: string
   // 工具执行状态
   toolStatus?: 'pending' | 'running' | 'success' | 'error'
+  // Team Mode Worker 名称
+  workerName?: string
 }
 
 // OpenAI 兼容的对话参数配置
@@ -1483,11 +1485,23 @@ async function executeTeamMode(text: string) {
         onStream: (content, reasoning) => {
           // 实时更新 UI
           if (currentChat.value?.messages[assistantIndex]) {
-            let displayText = content
-            if (reasoning) {
-              displayText = `[思考中...]\n${reasoning}\n\n---\n\n${content}`
+            // 自动展开思考区域
+            if (reasoning && !reasoningStartTime.value[assistantIndex]) {
+              reasoningStartTime.value[assistantIndex] = Date.now()
+              reasoningExpanded.value[assistantIndex] = true
+              if (normalChatRef.value) {
+                normalChatRef.value.setReasoningExpanded(assistantIndex, true)
+                normalChatRef.value.setReasoningStartTime(assistantIndex, Date.now())
+              }
             }
-            currentChat.value.messages[assistantIndex].content = displayText
+
+            // 更新思考时长
+            if (reasoning && reasoningStartTime.value[assistantIndex]) {
+              currentChat.value.messages[assistantIndex].reasoningDuration =
+                Math.floor((Date.now() - reasoningStartTime.value[assistantIndex]) / 1000)
+            }
+
+            currentChat.value.messages[assistantIndex].content = content
             currentChat.value.messages[assistantIndex].reasoning = reasoning
             scrollToBottom()
           }
@@ -1560,11 +1574,12 @@ async function executeTeamMode(text: string) {
 
 /**
  * 并行执行待处理的 Worker 任务
+ * 每个 Worker 创建独立的消息，实时显示思考和输出
  */
 async function executePendingTasksParallel(
   _sessionId: string,
   session: any,
-  messageIndex: number,
+  _messageIndex: number,
   context: {
     globalMemoryContext: string
     skillsContext: string
@@ -1574,25 +1589,49 @@ async function executePendingTasksParallel(
 ) {
   const pendingTasks = [...session.taskQueue.pending]
 
-  // 更新 UI 显示开始执行
-  if (currentChat.value?.messages[messageIndex]) {
-    const currentContent = currentChat.value.messages[messageIndex].content
-    const workerNames = pendingTasks.map(t => t.assignedTo).filter(Boolean).join(', ')
-    currentChat.value.messages[messageIndex].content =
-      currentContent + `\n\n🔄 **Workers 并行执行中**: ${workerNames}...`
-  }
+  // 为每个 Worker 创建独立的消息索引映射
+  const workerMessageIndices: Record<string, number> = {}
 
-  // 将所有任务状态更新为执行中
+  // 将所有任务状态更新为执行中，并为每个 Worker 创建消息
   for (const task of pendingTasks) {
     task.status = 'in_progress'
     task.startedAt = Date.now()
     session.taskQueue.pending = session.taskQueue.pending.filter((t: any) => t.id !== task.id)
     session.taskQueue.inProgress.push(task)
+
+    // 为每个 Worker 创建独立消息
+    if (currentChat.value) {
+      const msgIndex = currentChat.value.messages.length
+      workerMessageIndices[task.id] = msgIndex
+
+      // 查找 Worker 信息
+      const worker = Object.values(session.dynamicWorkers).find(
+        (w: any) => w.name === task.assignedTo || w.id === task.assignedTo
+      ) as any
+
+      currentChat.value.messages.push({
+        role: 'assistant',
+        content: `🔄 **${worker?.name || task.assignedTo}** 开始执行: ${task.title}`,
+        reasoning: '',
+        workerName: worker?.name || task.assignedTo
+      })
+
+      // 自动展开这个新消息的思考区域
+      reasoningExpanded.value[msgIndex] = true
+      reasoningStartTime.value[msgIndex] = Date.now()
+      if (normalChatRef.value) {
+        normalChatRef.value.setReasoningExpanded(msgIndex, true)
+        normalChatRef.value.setReasoningStartTime(msgIndex, Date.now())
+      }
+    }
   }
   await teamManager.updateSession(session)
 
-  // 并行执行所有任务
-  const taskPromises = pendingTasks.map(task => executeSingleTask(task, session, context, messageIndex))
+  // 并行执行所有任务（每个任务有自己的消息索引）
+  const taskPromises = pendingTasks.map(task => {
+    const workerMsgIndex = workerMessageIndices[task.id] ?? 0
+    return executeSingleTask(task, session, context, workerMsgIndex)
+  })
 
   // 等待所有任务完成
   const results = await Promise.allSettled(taskPromises)
@@ -1605,43 +1644,64 @@ async function executePendingTasksParallel(
   for (let i = 0; i < results.length; i++) {
     const result = results[i]
     const task = pendingTasks[i]
+    const workerMsgIndex = workerMessageIndices[task.id] ?? 0
 
     // 从 inProgress 移动到 completed
     session.taskQueue.inProgress = session.taskQueue.inProgress.filter((t: any) => t.id !== task.id)
     session.taskQueue.completed.push(task)
+
+    // 查找 Worker
+    const worker = Object.values(session.dynamicWorkers).find(
+      (w: any) => w.name === task.assignedTo || w.id === task.assignedTo
+    ) as any
 
     if (result && result.status === 'fulfilled') {
       task.status = 'completed'
       task.completedAt = Date.now()
       task.output = { result: result.value }
       completedCount++
-      resultDetails.push(`✅ **${task.assignedTo}**: ${task.title}`)
+      resultDetails.push(`✅ **${worker?.name || task.assignedTo}**: ${task.title}`)
 
       // 更新 Worker 状态
-      const worker = Object.values(session.dynamicWorkers).find(
-        (w: any) => w.name === task.assignedTo || w.id === task.assignedTo
-      ) as any
       if (worker) {
         worker.completedTaskIds.push(task.id)
         worker.status = 'idle'
+      }
+
+      // 更新 Worker 消息为完成状态
+      if (currentChat.value?.messages[workerMsgIndex]) {
+        const currentContent = currentChat.value.messages[workerMsgIndex].content
+        if (!currentContent.includes('✅ 完成')) {
+          currentChat.value.messages[workerMsgIndex].content =
+            currentContent + `\n\n✅ **任务完成**`
+        }
       }
     } else if (result && result.status === 'rejected') {
       task.status = 'failed'
       const reason = result.reason
       task.error = (reason instanceof Error ? reason.message : String(reason)) || '未知错误'
       failedCount++
-      resultDetails.push(`❌ **${task.assignedTo}**: ${task.title} - ${task.error}`)
+      resultDetails.push(`❌ **${worker?.name || task.assignedTo}**: ${task.title} - ${task.error}`)
+
+      // 更新 Worker 消息为失败状态
+      if (currentChat.value?.messages[workerMsgIndex]) {
+        currentChat.value.messages[workerMsgIndex].content +=
+          `\n\n❌ **任务失败**: ${task.error}`
+      }
     }
   }
 
   await teamManager.updateSession(session)
 
-  // 更新 UI 显示结果
-  if (currentChat.value?.messages[messageIndex]) {
-    const currentContent = currentChat.value.messages[messageIndex].content
-    currentChat.value.messages[messageIndex].content =
-      currentContent + `\n\n**执行结果** (完成: ${completedCount}, 失败: ${failedCount})\n` +
-      resultDetails.join('\n')
+  // 添加汇总消息
+  if (currentChat.value) {
+    currentChat.value.messages.push({
+      role: 'assistant',
+      content: `## 📊 Worker 执行汇总\n\n**完成**: ${completedCount} | **失败**: ${failedCount}\n\n` +
+        resultDetails.join('\n'),
+      reasoning: ''
+    })
+    scrollToBottom()
   }
 }
 
@@ -1692,22 +1752,28 @@ async function executeSingleTask(
 
   // 调用 LLM 执行任务（带工具 + 流式输出）
   return await sendMessageToLLMWithTools(workerMessages, context.mcpTools, {
-    onStream: (content, _reasoning) => {
-      // 更新 Worker 任务状态到 UI
+    onStream: (content, reasoning) => {
+      // 更新 Worker 消息
       if (currentChat.value?.messages[messageIndex]) {
-        const baseContent = currentChat.value.messages[messageIndex].content
-        // 在消息中追加 Worker 执行进度
-        const workerProgress = `\n\n### 🔄 ${worker.name} 执行中...\n\`\`\`\n${content.slice(-500)}${content.length > 500 ? '...' : ''}\n\`\`\``
-        // 只在最后一行添加进度，避免重复
-        if (!baseContent.includes(`### 🔄 ${worker.name} 执行中...`)) {
-          currentChat.value.messages[messageIndex].content = baseContent + workerProgress
-        } else {
-          // 更新已有进度
-          const progressStart = baseContent.indexOf(`### 🔄 ${worker.name} 执行中...`)
-          const beforeProgress = baseContent.slice(0, progressStart)
-          currentChat.value.messages[messageIndex].content = beforeProgress +
-            `\n\n### 🔄 ${worker.name} 执行中...\n\`\`\`\n${content.slice(-500)}${content.length > 500 ? '...' : ''}\n\`\`\``
+        // 自动展开思考区域
+        if (reasoning && !reasoningStartTime.value[messageIndex]) {
+          reasoningStartTime.value[messageIndex] = Date.now()
+          reasoningExpanded.value[messageIndex] = true
+          if (normalChatRef.value) {
+            normalChatRef.value.setReasoningExpanded(messageIndex, true)
+            normalChatRef.value.setReasoningStartTime(messageIndex, Date.now())
+          }
         }
+
+        // 更新思考时长
+        if (reasoning && reasoningStartTime.value[messageIndex]) {
+          currentChat.value.messages[messageIndex].reasoningDuration =
+            Math.floor((Date.now() - reasoningStartTime.value[messageIndex]) / 1000)
+        }
+
+        // 更新内容和思考
+        currentChat.value.messages[messageIndex].content = content
+        currentChat.value.messages[messageIndex].reasoning = reasoning
         scrollToBottom()
       }
     }

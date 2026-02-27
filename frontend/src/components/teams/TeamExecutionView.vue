@@ -20,22 +20,6 @@ const progress = computed(() => {
   return Math.round(((completed + failed) / total) * 100)
 })
 
-const statusLabel = computed(() => {
-  switch (props.session.status) {
-    case 'planning': return '规划中'
-    case 'executing': return '执行中'
-    case 'integrating': return '整合中'
-    case 'completed': return '已完成'
-    case 'failed': return '失败'
-    case 'cancelled': return '已取消'
-    default: return props.session.status
-  }
-})
-
-const statusClass = computed(() => {
-  return `status-${props.session.status}`
-})
-
 const pendingTasks = computed(() => props.session.taskQueue.pending)
 const inProgressTasks = computed(() => props.session.taskQueue.inProgress)
 const completedTasks = computed(() => props.session.taskQueue.completed)
@@ -60,38 +44,10 @@ function getStatusClass(status: TaskStatus): string {
 function formatTime(timestamp: number): string {
   return new Date(timestamp).toLocaleTimeString()
 }
-
-function formatDuration(ms: number): string {
-  const seconds = Math.floor(ms / 1000)
-  if (seconds < 60) return `${seconds}s`
-  const minutes = Math.floor(seconds / 60)
-  const remainingSeconds = seconds % 60
-  return `${minutes}m ${remainingSeconds}s`
-}
 </script>
 
 <template>
   <div class="execution-view">
-    <!-- Header -->
-    <div class="execution-header">
-      <div class="status-section">
-        <span class="status-badge" :class="statusClass">{{ statusLabel }}</span>
-        <span class="progress-text">{{ progress }}%</span>
-      </div>
-      <div class="metrics">
-        <span>tokens: {{ session.metrics.totalTokensUsed }}</span>
-        <span>tools: {{ session.metrics.totalToolCalls }}</span>
-        <span>time: {{ formatDuration(session.metrics.totalDuration) }}</span>
-      </div>
-      <button
-        v-if="session.status === 'executing' || session.status === 'planning'"
-        class="cancel-btn"
-        @click="emit('cancel')"
-      >
-        取消
-      </button>
-    </div>
-
     <!-- Progress bar -->
     <div class="progress-bar">
       <div class="progress-fill" :style="{ width: `${progress}%` }"></div>
@@ -200,62 +156,6 @@ function formatDuration(ms: number): string {
   max-height: 250px;
   overflow-y: auto;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-.execution-header {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 12px;
-}
-
-.status-section {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.status-badge {
-  padding: 4px 12px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.status-planning { background: #e8f4fd; color: #4a90d9; }
-.status-executing { background: #f0fdf4; color: #166534; }
-.status-integrating { background: #fef9c3; color: #854d0e; }
-.status-completed { background: #f0fdf4; color: #166534; }
-.status-failed { background: #fee; color: #c00; }
-.status-cancelled { background: #f5f5f5; color: #666; }
-
-.progress-text {
-  font-size: 14px;
-  font-weight: 600;
-  color: #666;
-}
-
-.metrics {
-  display: flex;
-  gap: 12px;
-  font-size: 12px;
-  color: #666;
-}
-
-.cancel-btn {
-  margin-left: auto;
-  padding: 6px 16px;
-  background: #fee;
-  color: #c00;
-  border: 1px solid #fcc;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 12px;
-  transition: all 0.2s;
-}
-
-.cancel-btn:hover {
-  background: #fdd;
 }
 
 .progress-bar {
