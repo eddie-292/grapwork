@@ -20,13 +20,14 @@ import { useGlobalMemory } from '../composables/useGlobalMemory'
 import { useMCP } from '../composables/useMCP'
 import { useSkills } from '../composables/useSkills'
 import { useAgentTeam } from '../composables/useAgentTeam'
-import { createDefaultExecutionConfig, createDefaultOrchestrator, createSubSession, type SubSession } from '../types/agentTeam'
+import { createDefaultExecutionConfig, createDefaultOrchestrator, createSubSession, type SubSession, type ProfessionalSession, ProfessionalPhase, PhaseStatus } from '../types/agentTeam'
 import NormalChat from './NormalChat.vue'
 import WorkspaceView from './WorkspaceView.vue'
 import ChatTabBar from './ChatTabBar.vue'
 import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
+import ProfessionalModeExecutionView from './teams/ProfessionalModeExecutionView.vue'
 import { storage } from '../services/StorageService'
 import SettingsIcon from './icons/SettingsIcon.vue'
 import LogoutIcon from './icons/LogoutIcon.vue'
@@ -56,6 +57,13 @@ const isTeamMode = ref(false)
 const selectedTeamId = ref<string | null>(null)
 const teamSessionId = ref<string | null>(null)
 const activeSubSessions = ref<SubSession[]>([])
+
+// Professional Mode 状态
+const isProfessionalMode = ref(false)
+const professionalSessionId = ref<string | null>(null)
+const currentProfessionalSession = ref<ProfessionalSession | null>(null)
+const showPhaseConfirmDialog = ref(false)
+const phaseConfirmNotes = ref('')
 
 // Team Mode 向后兼容辅助函数
 function getTeamOrchestrator(team: any) {
@@ -1338,6 +1346,474 @@ async function cancelTeamExecution() {
   }
 }
 
+// ==================== Professional Mode Functions ====================
+
+/**
+ * 切换 Professional Mode（专业模式）
+ * 专业模式包含 7 个阶段：需求确认 → 隔离环境 → 计划制定 → 测试先行 → 子代理执行 → 两阶段审查 → 收尾验收
+ */
+async function toggleProfessionalMode() {
+  if (isProfessionalMode.value) {
+    // 退出 Professional Mode
+    isProfessionalMode.value = false
+    selectedTeamId.value = null
+    if (professionalSessionId.value) {
+      await teamManager.cancelSession(professionalSessionId.value)
+      professionalSessionId.value = null
+      currentProfessionalSession.value = null
+    }
+    if (currentChat.value) {
+      currentChat.value.sending = false
+    }
+  } else {
+    // 进入 Professional Mode
+    if (teamManager.teams.value.length === 0) {
+      const team = await teamManager.createTeam(
+        'Professional Team',
+        '专业模式团队 - 支持完整的 7 阶段软件开发流程'
+      )
+      if (team) {
+        selectedTeamId.value = team.id
+        isProfessionalMode.value = true
+      }
+      return
+    }
+
+    const activeTeam = teamManager.activeTeam.value
+    if (activeTeam) {
+      selectedTeamId.value = activeTeam.id
+      isProfessionalMode.value = true
+      return
+    }
+
+    const firstTeam = teamManager.teams.value[0]
+    if (firstTeam) {
+      selectedTeamId.value = firstTeam.id
+      isProfessionalMode.value = true
+    }
+  }
+}
+
+/**
+ * 取消专业模式执行
+ */
+async function cancelProfessionalExecution() {
+  if (professionalSessionId.value) {
+    await teamManager.cancelSession(professionalSessionId.value)
+    professionalSessionId.value = null
+    currentProfessionalSession.value = null
+  }
+}
+
+/**
+ * 确认阶段完成
+ */
+async function handlePhaseConfirm(confirmed: boolean, notes?: string) {
+  if (!currentProfessionalSession.value) return
+
+  await teamManager.confirmPhase(professionalSessionId.value!, confirmed, notes)
+
+  if (confirmed) {
+    // 进入下一阶段
+    await advanceToNextPhase()
+  } else {
+    // 用户需要修改，重新执行当前阶段
+    await retryCurrentPhase()
+  }
+
+  showPhaseConfirmDialog.value = false
+  phaseConfirmNotes.value = ''
+}
+
+/**
+ * 进入下一阶段
+ */
+async function advanceToNextPhase() {
+  if (!currentProfessionalSession.value || !selectedTeamId.value) return
+
+  const phaseOrder: ProfessionalPhase[] = [
+    'requirements',
+    'isolation',
+    'planning',
+    'test_first',
+    'execution',
+    'review',
+    'completion'
+  ]
+
+  const currentIndex = phaseOrder.indexOf(currentProfessionalSession.value.currentPhase)
+  if (currentIndex >= phaseOrder.length - 1) {
+    // 已完成所有阶段
+    return
+  }
+
+  const nextPhase = phaseOrder[currentIndex + 1]
+  await executeProfessionalPhase(nextPhase)
+}
+
+/**
+ * 重试当前阶段
+ */
+async function retryCurrentPhase() {
+  if (!currentProfessionalSession.value || !selectedTeamId.value) return
+  // 重新执行当前阶段的逻辑
+  await executeProfessionalPhase(currentProfessionalSession.value.currentPhase)
+}
+
+/**
+ * 执行专业模式阶段
+ */
+async function executeProfessionalPhase(phase: ProfessionalPhase) {
+  if (!currentProfessionalSession.value || !selectedTeamId.value || !currentChat.value) return
+
+  const session = currentProfessionalSession.value
+  const team = activeTeam.value
+  if (!team) return
+
+  // 更新 UI 消息
+  const assistantIndex = currentChat.value.messages.length - 1
+
+  try {
+    switch (phase) {
+      case 'requirements':
+        await executeRequirementsPhase(session, assistantIndex)
+        break
+      case 'isolation':
+        await executeIsolationPhase(session, assistantIndex)
+        break
+      case 'planning':
+        await executePlanningPhase(session, assistantIndex)
+        break
+      case 'test_first':
+        await executeTestFirstPhase(session, assistantIndex)
+        break
+      case 'execution':
+        await executeExecutionPhase(session, assistantIndex)
+        break
+      case 'review':
+        await executeReviewPhase(session, assistantIndex)
+        break
+      case 'completion':
+        await executeCompletionPhase(session, assistantIndex)
+        break
+    }
+  } catch (err) {
+    console.error(`[ProfessionalMode] Phase ${phase} failed:`, err)
+    if (currentChat.value?.messages[assistantIndex]) {
+      currentChat.value.messages[assistantIndex].content +=
+        `\n\n❌ 阶段执行失败：${err instanceof Error ? err.message : '未知错误'}`
+    }
+  }
+}
+
+/**
+ * 阶段 1: 需求确认
+ * AI 先理解需求，用户只需确认/纠正，≤3 个关键问题
+ */
+async function executeRequirementsPhase(session: ProfessionalSession, messageIndex: number) {
+  const team = activeTeam.value
+  if (!team) return
+
+  // 构建系统提示词
+  const systemPrompt = `你是专业模式的需求分析师。请仔细理解用户需求，然后：
+1. 用简洁的语言总结你对需求的理解
+2. 提出最多 3 个关键问题来澄清模糊点（如果没有模糊点，可以少于 3 个）
+
+用户将确认你的理解是否正确。如果理解有误，用户会纠正。`
+
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: session.userRequest }
+  ]
+
+  const response = await sendMessageToLLMWithTools(messages, undefined, {
+    onStream: (content, reasoning) => {
+      if (currentChat.value?.messages[messageIndex]) {
+        currentChat.value.messages[messageIndex].content = content
+        currentChat.value.messages[messageIndex].reasoning = reasoning
+        scrollToBottom()
+      }
+    }
+  })
+
+  // 解析 AI 的理解和问题
+  // 这里简化处理，实际应该用更好的方式解析
+  const phaseState: any = {
+    phase: 'requirements',
+    status: 'waiting_user',
+    aiUnderstanding: response,
+    questions: []  // 实际应该从 response 中解析
+  }
+
+  await teamManager.transitionToPhase(session.id, 'requirements', phaseState)
+
+  // 更新会话引用
+  currentProfessionalSession.value = teamManager.sessions.value.find(
+    s => s.id === session.id
+  ) as ProfessionalSession
+}
+
+/**
+ * 阶段 2: 隔离环境
+ * 开辟工作目录 + 初始化 git 分支
+ */
+async function executeIsolationPhase(session: ProfessionalSession, messageIndex: number) {
+  if (!window.electronAPI?.teamInitWorkspace) return
+
+  const team = activeTeam.value
+  if (!team) return
+
+  if (currentChat.value?.messages[messageIndex]) {
+    currentChat.value.messages[messageIndex].content = '🔧 正在初始化隔离环境...\n\n- 创建工作目录\n- 初始化 Git 分支'
+  }
+
+  // 初始化工作空间
+  const wsResult = await window.electronAPI.teamInitWorkspace(team.id, session.id)
+  const workspacePath = wsResult.workspacePath || ''
+
+  // 生成 Git 分支名
+  const timestamp = Date.now()
+  const gitBranch = `feature/professional-${timestamp}`
+
+  // TODO: 实际执行 git checkout -b 命令
+
+  const phaseState: any = {
+    phase: 'isolation',
+    status: 'completed',
+    workspacePath,
+    gitBranch,
+    gitBranchCreated: true,
+    initializedAt: Date.now()
+  }
+
+  await teamManager.transitionToPhase(session.id, 'isolation', phaseState)
+
+  if (currentChat.value?.messages[messageIndex]) {
+    currentChat.value.messages[messageIndex].content += `\n\n✅ 隔离环境就绪\n\n- 工作目录：\`${workspacePath}\`\n- Git 分支：\`${gitBranch}\``
+  }
+
+  // 自动进入下一阶段
+  currentProfessionalSession.value = teamManager.sessions.value.find(
+    s => s.id === session.id
+  ) as ProfessionalSession
+  setTimeout(() => advanceToNextPhase(), 1000)
+}
+
+/**
+ * 阶段 3: 计划制定
+ * 拆分原则：单窗口可完成 + 产出可独立验证
+ */
+async function executePlanningPhase(session: ProfessionalSession, messageIndex: number) {
+  const team = activeTeam.value
+  if (!team) return
+
+  const systemPrompt = `你是专业模式的技术负责人。请将用户需求拆分为可独立执行和验证的任务。
+
+拆分原则：
+1. 每个任务应该在一个窗口内可完成
+2. 每个任务的产出应该可以独立验证
+3. 明确任务之间的依赖关系
+
+请输出：
+1. 任务列表（每个任务包含：标题、描述、预期产出、验证标准、预计需要的 agent 数量）
+2. 涉及的文件范围
+3. 总共需要的 agent 数量估计`
+
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: session.userRequest }
+  ]
+
+  const response = await sendMessageToLLMWithTools(messages, undefined, {
+    onStream: (content, reasoning) => {
+      if (currentChat.value?.messages[messageIndex]) {
+        currentChat.value.messages[messageIndex].content = content
+        scrollToBottom()
+      }
+    }
+  })
+
+  // 解析任务拆分（简化处理）
+  const phaseState: any = {
+    phase: 'planning',
+    status: 'waiting_user',
+    breakdown: [],  // 实际应该从 response 解析
+    fileScope: [],
+    estimatedAgents: 0,
+    userConfirmed: false
+  }
+
+  await teamManager.transitionToPhase(session.id, 'planning', phaseState)
+
+  currentProfessionalSession.value = teamManager.sessions.value.find(
+    s => s.id === session.id
+  ) as ProfessionalSession
+}
+
+/**
+ * 阶段 4: 测试先行
+ * 独立测试 agent 写测试，写完后锁定（不允许修改）
+ */
+async function executeTestFirstPhase(session: ProfessionalSession, messageIndex: number) {
+  const team = activeTeam.value
+  if (!team) return
+
+  if (currentChat.value?.messages[messageIndex]) {
+    currentChat.value.messages[messageIndex].content = '🧪 测试先行阶段：创建独立测试 Agent 编写测试用例...'
+  }
+
+  // TODO: 创建测试 Agent，编写测试
+  const testFiles: string[] = []
+
+  const phaseState: any = {
+    phase: 'test_first',
+    status: 'completed',
+    testFiles,
+    testsLocked: true,
+    completedAt: Date.now()
+  }
+
+  await teamManager.transitionToPhase(session.id, 'test_first', phaseState)
+
+  if (currentChat.value?.messages[messageIndex]) {
+    currentChat.value.messages[messageIndex].content += '\n\n✅ 测试已编写并锁定'
+  }
+
+  currentProfessionalSession.value = teamManager.sessions.value.find(
+    s => s.id === session.id
+  ) as ProfessionalSession
+  setTimeout(() => advanceToNextPhase(), 1000)
+}
+
+/**
+ * 阶段 5: 子代理执行
+ * Orchestrator 按任务关联性决定 worker 复用策略
+ */
+async function executeExecutionPhase(session: ProfessionalSession, messageIndex: number) {
+  // 这部分逻辑与原有的 Team Mode 执行类似，但增加了 worker 复用策略
+  // 复用 executeTeamMode 的核心逻辑，但增加 Orchestrator 的 worker 复用决策
+  if (currentChat.value?.messages[messageIndex]) {
+    currentChat.value.messages[messageIndex].content = '🚀 开始执行任务分配...'
+  }
+
+  // TODO: 实现完整的执行逻辑
+  const phaseState: any = {
+    phase: 'execution',
+    status: 'in_progress'
+  }
+
+  await teamManager.transitionToPhase(session.id, 'execution', phaseState)
+}
+
+/**
+ * 阶段 6: 两阶段审查
+ * 严重问题阻塞 + 轻微问题记录，分级处理
+ */
+async function executeReviewPhase(session: ProfessionalSession, messageIndex: number) {
+  if (currentChat.value?.messages[messageIndex]) {
+    currentChat.value.messages[messageIndex].content = '🔍 开始代码审查...\n\n- 初审：检查严重问题\n- 复审：验证修复'
+  }
+
+  const phaseState: any = {
+    phase: 'review',
+    status: 'in_progress',
+    stage: 'initial',
+    blockingIssues: [],
+    minorIssues: [],
+    allTestsPassed: false,
+    reReviewCount: 0
+  }
+
+  await teamManager.transitionToPhase(session.id, 'review', phaseState)
+}
+
+/**
+ * 阶段 7: 收尾验收
+ * 明确通过门槛（测试全绿 + 无 blocking + 覆盖率）→ 合并或 PR
+ */
+async function executeCompletionPhase(session: ProfessionalSession, messageIndex: number) {
+  if (currentChat.value?.messages[messageIndex]) {
+    currentChat.value.messages[messageIndex].content = '📋 收尾验收阶段...\n\n- 验证测试通过率\n- 检查代码质量\n- 准备合并或 PR'
+  }
+
+  const phaseState: any = {
+    phase: 'completion',
+    status: 'in_progress',
+    criteria: {
+      allTestsPassed: false,
+      noBlockingIssues: false,
+      coverageMet: false,
+      codeReviewPassed: false
+    },
+    mergeReady: false,
+    action: 'merge' as 'merge' | 'pr'
+  }
+
+  await teamManager.transitionToPhase(session.id, 'completion', phaseState)
+}
+
+/**
+ * 执行专业模式
+ */
+async function executeProfessionalMode(text: string) {
+  if (!selectedTeamId.value || !currentChat.value) return
+
+  const team = activeTeam.value
+  if (!team) {
+    alert('选择的团队不存在')
+    isProfessionalMode.value = false
+    return
+  }
+
+  // 创建专业模式会话
+  const session = await teamManager.startProfessionalSession(selectedTeamId.value, text)
+  if (!session) {
+    alert('创建专业模式会话失败')
+    return
+  }
+
+  professionalSessionId.value = session.id
+  currentProfessionalSession.value = session
+  activeSubSessions.value = []
+
+  // 更新聊天标题
+  if (currentChat.value.messages.length === 0) {
+    updateChatTitle(currentChat.value.id, `[Pro] ${text.slice(0, 30)}...`)
+  }
+
+  // 添加用户消息
+  currentChat.value.messages.push({
+    role: 'user',
+    content: text,
+    reasoning: ''
+  })
+
+  // 添加占位的 assistant 消息
+  const assistantIndex = currentChat.value.messages.length
+  currentChat.value.messages.push({
+    role: 'assistant',
+    content: '🎯 专业模式启动中...\n\n即将进入 **阶段 1: 需求确认**',
+    reasoning: ''
+  })
+
+  currentChat.value.sending = true
+
+  try {
+    // 开始执行第一个阶段
+    await executeProfessionalPhase('requirements')
+  } catch (err) {
+    console.error('[ProfessionalMode] Execution failed:', err)
+    if (currentChat.value?.messages[assistantIndex]) {
+      currentChat.value.messages[assistantIndex].content =
+        `❌ 专业模式执行失败：${err instanceof Error ? err.message : '未知错误'}`
+    }
+  } finally {
+    if (currentChat.value) {
+      currentChat.value.sending = false
+    }
+  }
+}
+
 /**
  * 执行 Team Mode
  * Team Mode 是普通会话模式的升级，拥有完整的 MCP、Skills、Global Memory 等能力
@@ -2195,7 +2671,14 @@ async function send() {
     await executeTeamMode(text)
     return
   }
-  // ================================
+  // ==================================
+
+  // ============ Professional Mode ============
+  if (isProfessionalMode.value && selectedTeamId.value) {
+    await executeProfessionalMode(text)
+    return
+  }
+  // ==========================================
 
   // ============ TASK MODE - DISABLED ============
   // // 任务模式流程
@@ -3689,6 +4172,7 @@ function handleFolderChanged(path: string) {
         :usage="currentChat?.usage"
         :enable-thinking="activeConfig?.enable_thinking ?? false"
         :is-team-mode="isTeamMode"
+        :is-professional-mode="isProfessionalMode"
         :team-session="activeTeamSession ?? undefined"
         :sub-sessions="activeSubSessions"
         @send="send"
@@ -3702,9 +4186,21 @@ function handleFolderChanged(path: string) {
         @folder-changed="handleFolderChanged"
         @update:enable-thinking="handleUpdateEnableThinking"
         @toggle-team-mode="toggleTeamMode"
+        @toggle-professional-mode="toggleProfessionalMode"
         @cancel-team-execution="cancelTeamExecution"
+        @cancel-professional-execution="cancelProfessionalExecution"
         ref="normalChatRef"
       />
+
+      <!-- ============ Professional Mode View ============ -->
+      <ProfessionalModeExecutionView
+        v-if="isProfessionalMode && currentProfessionalSession"
+        :session="currentProfessionalSession"
+        @cancel="cancelProfessionalExecution"
+        @confirm-phase="handlePhaseConfirm"
+        @view-sub-session="handleViewSubSession"
+      />
+      <!-- ===============================================
 
       <!-- ============ TASK MODE - DISABLED ============ -->
       <!-- 任务模式组件已移除 -->

@@ -14,7 +14,11 @@ import type {
   AgentMessage,
   WorkerSession,
   DynamicWorker,
-  AgentCapabilities
+  AgentCapabilities,
+  ProfessionalSession,
+  ProfessionalPhase,
+  ProfessionalPhaseState,
+  PhaseStatus
 } from '@/types/agentTeam'
 import {
   generateTaskId,
@@ -26,6 +30,8 @@ import {
   createInitialProjectState,
   createDefaultTeamRegistry,
   createDefaultSessionRegistry,
+  createProfessionalSession,
+  isProfessionalSession,
   TaskStatus,
   TaskPriority,
   AgentMessageType,
@@ -1089,7 +1095,143 @@ ${Object.keys(session.projectState.context).length > 0
 
     // Utility
     getWorkerSession,
-    getOrCreateWorkerSession
+    getOrCreateWorkerSession,
+
+    // Professional Mode Management (专业模式)
+    startProfessionalSession,
+    transitionToPhase,
+    confirmPhase,
+    recordCheckpoint
+  }
+
+  // ==================== Professional Mode Functions ====================
+
+  /**
+   * 启动专业模式会话
+   */
+  async function startProfessionalSession(
+    teamId: string,
+    userRequest: string
+  ): Promise<ProfessionalSession | null> {
+    const session = createProfessionalSession(teamId, userRequest)
+
+    sessionRegistry.value.sessions.push(session)
+    sessionRegistry.value.activeSessionId = session.id
+    sessionRegistry.value.version++
+    sessionRegistry.value.lastUpdated = Date.now()
+
+    try {
+      await storage.saveSessionRegistry(sessionRegistry.value)
+      return session
+    } catch (e) {
+      console.error('[ProfessionalMode] Failed to save session:', e)
+      error.value = 'Failed to start professional session'
+      return null
+    }
+  }
+
+  /**
+   * 阶段转换
+   */
+  async function transitionToPhase(
+    sessionId: string,
+    newPhase: ProfessionalPhase,
+    phaseState: ProfessionalPhaseState
+  ): Promise<boolean> {
+    const session = sessionRegistry.value.sessions.find(s => s.id === sessionId)
+    if (!session || !isProfessionalSession(session)) {
+      return false
+    }
+
+    // 完成当前阶段
+    const currentHistory = session.phaseHistory.find(
+      h => h.phase === session.currentPhase && !h.completedAt
+    )
+    if (currentHistory) {
+      currentHistory.completedAt = Date.now()
+      currentHistory.status = phaseState.status
+    }
+
+    // 进入新阶段
+    session.currentPhase = newPhase
+    session.phaseState = phaseState
+    session.phaseHistory.push({
+      phase: newPhase,
+      status: phaseState.status,
+      enteredAt: Date.now()
+    })
+    session.status = newPhase === 'execution' ? 'executing' :
+                     newPhase === 'review' ? 'integrating' :
+                     newPhase === 'completion' ? 'completed' : 'planning'
+
+    sessionRegistry.value.version++
+    sessionRegistry.value.lastUpdated = Date.now()
+
+    return storage.saveSessionRegistry(sessionRegistry.value)
+  }
+
+  /**
+   * 用户确认阶段
+   */
+  async function confirmPhase(
+    sessionId: string,
+    confirmed: boolean,
+    notes?: string
+  ): Promise<boolean> {
+    const session = sessionRegistry.value.sessions.find(s => s.id === sessionId)
+    if (!session || !isProfessionalSession(session)) {
+      return false
+    }
+
+    // 记录检查点
+    session.userCheckpoints.push({
+      phase: session.currentPhase,
+      confirmed,
+      confirmedAt: Date.now(),
+      notes
+    })
+
+    // 更新阶段状态
+    const phaseState = session.phaseState
+    if (confirmed) {
+      phaseState.status = 'completed'
+      ;(phaseState as any).confirmedAt = Date.now()
+      ;(phaseState as any).userConfirmed = true
+    } else {
+      phaseState.status = 'blocked'
+    }
+
+    sessionRegistry.value.version++
+    sessionRegistry.value.lastUpdated = Date.now()
+
+    return storage.saveSessionRegistry(sessionRegistry.value)
+  }
+
+  /**
+   * 记录检查点
+   */
+  async function recordCheckpoint(
+    sessionId: string,
+    phase: ProfessionalPhase,
+    confirmed: boolean,
+    notes?: string
+  ): Promise<boolean> {
+    const session = sessionRegistry.value.sessions.find(s => s.id === sessionId)
+    if (!session || !isProfessionalSession(session)) {
+      return false
+    }
+
+    session.userCheckpoints.push({
+      phase,
+      confirmed,
+      confirmedAt: Date.now(),
+      notes
+    })
+
+    sessionRegistry.value.version++
+    sessionRegistry.value.lastUpdated = Date.now()
+
+    return storage.saveSessionRegistry(sessionRegistry.value)
   }
 }
 

@@ -58,6 +58,7 @@ interface Props {
   usage?: TokenUsage  // 添加 token 使用统计
   enableThinking?: boolean  // 启用思考模式
   isTeamMode?: boolean  // Team Mode 状态
+  isProfessionalMode?: boolean  // Professional Mode 状态
   teamSession?: TeamSession  // Team 会话数据
   subSessions?: SubSession[]  // 活跃的子会话列表（用于悬浮窗口）
 }
@@ -78,7 +79,9 @@ const emit = defineEmits<{
   'folder-changed': [path: string]
   'update:enable-thinking': [value: boolean]  // 更新思考模式
   'toggle-team-mode': []  // 切换 Team Mode
+  'toggle-professional-mode': []  // 切换 Professional Mode
   'cancel-team-execution': []  // 取消团队执行
+  'cancel-professional-execution': []  // 取消专业模式执行
 }>()
 
 // 思考模式
@@ -91,6 +94,12 @@ function handleThinkingToggle() {
 const isTeamMode = computed(() => props.isTeamMode ?? false)
 function handleTeamModeToggle() {
   emit('toggle-team-mode')
+}
+
+// Professional Mode
+const isProfessionalMode = computed(() => props.isProfessionalMode ?? false)
+function handleProfessionalModeToggle() {
+  emit('toggle-professional-mode')
 }
 
 // 处理子会话关闭
@@ -913,6 +922,22 @@ defineExpose({
                 <circle cx="9" cy="7" r="4"></circle>
                 <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
                 <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+            </button>
+
+            <!-- Professional Mode 按钮 -->
+            <button
+              type="button"
+              class="professional-mode-btn"
+              :class="{ active: isProfessionalMode }"
+              @click="handleProfessionalModeToggle"
+              :disabled="isProfessionalMode && ((currentChat?.messages?.length ?? 0) > 0 || sending)"
+              :title="isProfessionalMode ? '专业模式已激活（对话开始后无法切换）' : '进入专业模式'"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                <path d="M2 17l10 5 10-5"/>
+                <path d="M2 12l10 5 10-5"/>
               </svg>
             </button>
 
@@ -1945,6 +1970,45 @@ defineExpose({
 }
 
 .team-mode-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Professional Mode 按钮样式 */
+.professional-mode-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.professional-mode-btn:hover {
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border-hover);
+  color: var(--color-text-secondary);
+}
+
+.professional-mode-btn.active {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(37, 99, 235, 0.1) 100%);
+  border-color: #3b82f6;
+  color: #3b82f6;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+}
+
+.professional-mode-btn.active:hover {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(37, 99, 235, 0.15) 100%);
+  color: #2563eb;
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.4);
+}
+
+.professional-mode-btn svg {
   width: 18px;
   height: 18px;
 }

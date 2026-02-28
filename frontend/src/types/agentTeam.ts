@@ -879,3 +879,288 @@ export function createDefaultSubSessionRegistry(): SubSessionRegistry {
     lastCleanupTime: Date.now()
   }
 }
+
+// ==================== Professional Mode (专业模式) ====================
+
+/**
+ * 专业模式 7 个阶段
+ */
+export const ProfessionalPhase = {
+  REQUIREMENTS: 'requirements',        // 阶段 1: 需求确认
+  ISOLATION: 'isolation',              // 阶段 2: 隔离环境
+  PLANNING: 'planning',                // 阶段 3: 计划制定
+  TEST_FIRST: 'test_first',            // 阶段 4: 测试先行
+  EXECUTION: 'execution',              // 阶段 5: 子代理执行
+  REVIEW: 'review',                    // 阶段 6: 两阶段审查
+  COMPLETION: 'completion'             // 阶段 7: 收尾验收
+} as const
+export type ProfessionalPhase = typeof ProfessionalPhase[keyof typeof ProfessionalPhase]
+
+/**
+ * 阶段状态
+ */
+export const PhaseStatus = {
+  PENDING: 'pending',      // 等待进入
+  IN_PROGRESS: 'in_progress',  // 进行中
+  WAITING_USER: 'waiting_user',  // 等待用户确认
+  COMPLETED: 'completed',  // 已完成
+  BLOCKED: 'blocked'       // 被阻塞（审查发现问题）
+} as const
+export type PhaseStatus = typeof PhaseStatus[keyof typeof PhaseStatus]
+
+/**
+ * 需求确认阶段 - 关键问题
+ */
+export interface RequirementQuestion {
+  id: string
+  question: string         // AI 提出的问题
+  userAnswer?: string      // 用户回答
+  confirmed: boolean       // 用户是否确认理解正确
+}
+
+/**
+ * 需求确认阶段状态
+ */
+export interface RequirementsPhaseState {
+  phase: 'requirements'
+  status: PhaseStatus
+  aiUnderstanding: string  // AI 对需求的理解
+  questions: RequirementQuestion[]  // ≤3 个关键问题
+  confirmedAt?: number
+}
+
+/**
+ * 隔离环境阶段状态
+ */
+export interface IsolationPhaseState {
+  phase: 'isolation'
+  status: PhaseStatus
+  workspacePath: string    // 工作目录
+  gitBranch?: string       // Git 分支名
+  gitBranchCreated?: boolean
+  initializedAt?: number
+}
+
+/**
+ * 计划制定阶段 - 任务拆分
+ */
+export interface TaskBreakdown {
+  id: string
+  title: string
+  description: string
+  expectedOutput: string   // 预期产出
+  verificationCriteria: string  // 验证标准
+  estimatedAgents: number  // 预计需要的 agent 数量
+  dependencies?: string[]  // 依赖的其他任务
+}
+
+/**
+ * 计划制定阶段状态
+ */
+export interface PlanningPhaseState {
+  phase: 'planning'
+  status: PhaseStatus
+  breakdown: TaskBreakdown[]  // 任务拆分结果
+  fileScope: string[]         // 涉及的文件范围
+  estimatedAgents: number     // 预计 agent 总数
+  userConfirmed: boolean      // 用户是否确认
+  confirmedAt?: number
+}
+
+/**
+ * 测试先行阶段状态
+ */
+export interface TestFirstPhaseState {
+  phase: 'test_first'
+  status: PhaseStatus
+  testFiles: string[]      // 生成的测试文件
+  testsLocked: boolean     // 测试是否已锁定（不允许修改）
+  testAgentId?: string     // 测试 agent ID
+  completedAt?: number
+}
+
+/**
+ * 审查问题级别
+ */
+export const ReviewSeverity = {
+  BLOCKING: 'blocking',    // 严重问题，必须修复
+  MAJOR: 'major',          // 重要问题，建议修复
+  MINOR: 'minor'           // 轻微问题，可记录不阻塞
+} as const
+export type ReviewSeverity = typeof ReviewSeverity[keyof typeof ReviewSeverity]
+
+/**
+ * 审查问题
+ */
+export interface ReviewIssue {
+  id: string
+  severity: ReviewSeverity
+  file?: string            // 相关文件
+  description: string      // 问题描述
+  suggestion?: string      // 修复建议
+  fixed: boolean           // 是否已修复
+}
+
+/**
+ * 两阶段审查状态
+ */
+export interface ReviewPhaseState {
+  phase: 'review'
+  status: PhaseStatus
+  stage: 'initial' | 're_review'  // 初审 / 复审
+  blockingIssues: ReviewIssue[]   // 严重问题（阻塞）
+  minorIssues: ReviewIssue[]      // 轻微问题（记录）
+  allTestsPassed: boolean         // 测试是否全绿
+  reReviewCount: number           // 复审次数
+  completedAt?: number
+}
+
+/**
+ * 收尾验收标准
+ */
+export interface AcceptanceCriteria {
+  allTestsPassed: boolean      // 测试全绿
+  noBlockingIssues: boolean    // 无 blocking 问题
+  coverageMet: boolean         // 覆盖率达标
+  codeReviewPassed: boolean    // 代码审查通过
+}
+
+/**
+ * 收尾验收阶段状态
+ */
+export interface CompletionPhaseState {
+  phase: 'completion'
+  status: PhaseStatus
+  criteria: AcceptanceCriteria
+  mergeReady: boolean        // 是否可合并
+  action: 'merge' | 'pr'     // 合并或创建 PR
+  prUrl?: string             // PR 链接
+  mergedAt?: number
+  completedAt?: number
+}
+
+/**
+ * 专业模式会话状态
+ */
+export type ProfessionalPhaseState =
+  | RequirementsPhaseState
+  | IsolationPhaseState
+  | PlanningPhaseState
+  | TestFirstPhaseState
+  | ReviewPhaseState
+  | CompletionPhaseState
+
+/**
+ * 专业模式会话 - 扩展 TeamSession
+ */
+export interface ProfessionalSession extends TeamSession {
+  mode: 'professional'
+  currentPhase: ProfessionalPhase
+  phaseState: ProfessionalPhaseState
+  phaseHistory: Array<{
+    phase: ProfessionalPhase
+    status: PhaseStatus
+    enteredAt: number
+    completedAt?: number
+  }>
+  userCheckpoints: Array<{
+    phase: ProfessionalPhase
+    confirmed: boolean
+    confirmedAt: number
+    notes?: string
+  }>
+}
+
+/**
+ * 判断是否为专业模式会话
+ */
+export function isProfessionalSession(session: TeamSession | ProfessionalSession): session is ProfessionalSession {
+  return 'mode' in session && session.mode === 'professional'
+}
+
+/**
+ * 创建团队会话
+ */
+export function createTeamSession(
+  teamId: string,
+  userRequest: string
+): TeamSession {
+  const sessionId = generateSessionId()
+  const now = Date.now()
+  return {
+    id: sessionId,
+    teamId,
+    userRequest,
+    status: 'planning',
+    taskQueue: createEmptyTaskQueue(teamId, sessionId),
+    dynamicWorkers: {},
+    workerSessions: {},
+    orchestratorDecisions: [],
+    projectState: createInitialProjectState(teamId, sessionId),
+    metrics: {
+      totalTokensUsed: 0,
+      totalToolCalls: 0,
+      totalDuration: 0,
+      orchestratorTurns: 0,
+      workersCreated: 0
+    },
+    startedAt: now
+  }
+}
+
+/**
+ * 创建专业模式会话
+ */
+export function createProfessionalSession(
+  teamId: string,
+  userRequest: string
+): ProfessionalSession {
+  const baseSession = createTeamSession(teamId, userRequest)
+  return {
+    ...baseSession,
+    mode: 'professional',
+    currentPhase: 'requirements',
+    phaseState: {
+      phase: 'requirements',
+      status: 'pending',
+      aiUnderstanding: '',
+      questions: []
+    },
+    phaseHistory: [{
+      phase: 'requirements',
+      status: 'pending',
+      enteredAt: Date.now()
+    }],
+    userCheckpoints: []
+  }
+}
+
+/**
+ * 获取当前阶段的显示名称
+ */
+export function getPhaseDisplayName(phase: ProfessionalPhase): string {
+  const names: Record<ProfessionalPhase, string> = {
+    requirements: '需求确认',
+    isolation: '隔离环境',
+    planning: '计划制定',
+    test_first: '测试先行',
+    execution: '子代理执行',
+    review: '两阶段审查',
+    completion: '收尾验收'
+  }
+  return names[phase]
+}
+
+/**
+ * 获取阶段状态的显示颜色类
+ */
+export function getPhaseStatusClass(status: PhaseStatus): string {
+  const classes: Record<PhaseStatus, string> = {
+    pending: 'phase-pending',
+    in_progress: 'phase-in-progress',
+    waiting_user: 'phase-waiting',
+    completed: 'phase-completed',
+    blocked: 'phase-blocked'
+  }
+  return classes[status]
+}

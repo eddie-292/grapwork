@@ -1,15 +1,10 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import SubSessionFloatView from './SubSessionFloatView.vue'
 import type { SubSession } from '@/types/agentTeam'
 
 const props = defineProps<{
   sessions: SubSession[]
   visible?: boolean
-}>()
-
-const emit = defineEmits<{
-  close: [sessionId: string]
 }>()
 
 // Local state for minimized sessions
@@ -25,18 +20,6 @@ const completedSessions = computed(() => {
 })
 
 // Methods
-function handleMinimize(sessionId: string) {
-  minimizedIds.value.add(sessionId)
-}
-
-function handleExpand(sessionId: string) {
-  minimizedIds.value.delete(sessionId)
-}
-
-function handleClose(sessionId: string) {
-  emit('close', sessionId)
-}
-
 function minimizeAll() {
   visibleSessions.value.forEach(s => minimizedIds.value.add(s.id))
 }
@@ -53,19 +36,6 @@ function expandAll() {
       <div class="controls-bar" v-if="visibleSessions.length > 1">
         <button class="control-btn" @click="expandAll">全部展开</button>
         <button class="control-btn" @click="minimizeAll">全部最小化</button>
-      </div>
-
-      <!-- Active sessions container -->
-      <div class="sessions-container">
-        <SubSessionFloatView
-          v-for="session in visibleSessions"
-          :key="session.id"
-          :session="session"
-          :class="{ minimized: minimizedIds.has(session.id) }"
-          @minimize="handleMinimize"
-          @expand="handleExpand"
-          @close="handleClose"
-        />
       </div>
 
       <!-- Completed sessions indicator -->
@@ -114,28 +84,6 @@ function expandAll() {
 .control-btn:hover {
   background: var(--color-bg-hover, #eee);
   border-color: var(--color-primary, #4a90d9);
-}
-
-.sessions-container {
-  display: flex;
-  flex-direction: column-reverse;
-  gap: 10px;
-  max-height: 60vh;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.sessions-container::-webkit-scrollbar {
-  width: 4px;
-}
-
-.sessions-container::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.sessions-container::-webkit-scrollbar-thumb {
-  background: var(--color-border, #ccc);
-  border-radius: 2px;
 }
 
 .completed-indicator {
