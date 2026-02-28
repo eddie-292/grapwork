@@ -20,14 +20,14 @@ import { useGlobalMemory } from '../composables/useGlobalMemory'
 import { useMCP } from '../composables/useMCP'
 import { useSkills } from '../composables/useSkills'
 import { useAgentTeam } from '../composables/useAgentTeam'
-import { createDefaultExecutionConfig, createDefaultOrchestrator, createSubSession, type SubSession, type ProfessionalSession, ProfessionalPhase, PhaseStatus } from '../types/agentTeam'
+import { createDefaultExecutionConfig, createDefaultOrchestrator, type ProfessionalSession, ProfessionalPhase } from '../types/agentTeam'
 import NormalChat from './NormalChat.vue'
 import WorkspaceView from './WorkspaceView.vue'
 import ChatTabBar from './ChatTabBar.vue'
 import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
-import ProfessionalModeExecutionView from './teams/ProfessionalModeExecutionView.vue'
+import ProfessionalModeTodoList from './teams/ProfessionalModeTodoList.vue'
 import { storage } from '../services/StorageService'
 import SettingsIcon from './icons/SettingsIcon.vue'
 import LogoutIcon from './icons/LogoutIcon.vue'
@@ -52,44 +52,10 @@ const skillsManager = useSkills()
 // Agent Teams 管理器
 const teamManager = useAgentTeam()
 
-// Team Mode 状态
-const isTeamMode = ref(false)
-const selectedTeamId = ref<string | null>(null)
-const teamSessionId = ref<string | null>(null)
-const activeSubSessions = ref<SubSession[]>([])
-
 // Professional Mode 状态
 const isProfessionalMode = ref(false)
 const professionalSessionId = ref<string | null>(null)
 const currentProfessionalSession = ref<ProfessionalSession | null>(null)
-const showPhaseConfirmDialog = ref(false)
-const phaseConfirmNotes = ref('')
-
-// Team Mode 向后兼容辅助函数
-function getTeamOrchestrator(team: any) {
-  if (team.orchestrator) return team.orchestrator
-  // Legacy: 从 agents 数组中查找
-  if (team.agents && team.agents.length > 0) {
-    const orchestrator = team.agents.find((a: any) => a.role === 'orchestrator')
-    if (orchestrator) return orchestrator
-    return team.agents[0]
-  }
-  return createDefaultOrchestrator()
-}
-
-function getTeamExecutionConfig(team: any) {
-  if (team.executionConfig) return team.executionConfig
-  // Legacy: 从 sharedConfig 转换
-  if (team.sharedConfig) {
-    return {
-      maxParallelWorkers: team.sharedConfig.parallelWorkers || 3,
-      taskTimeout: team.sharedConfig.taskTimeout || 300000,
-      maxRetries: team.sharedConfig.maxRetries || 3,
-      workerIdleTimeout: 60000
-    }
-  }
-  return createDefaultExecutionConfig()
-}
 
 // 快速保存到全局记忆对话框状态
 const showSaveToGlobalMemoryDialog = ref(false)
@@ -196,6 +162,8 @@ type Chat = {
   assistantId?: string
   configId?: number
   sending?: boolean  // 当前会话的发送状态
+  isProfessionalMode?: boolean  // 专业模式状态
+  professionalSessionId?: string  // 专业模式会话 ID
   params?: ChatParams  // 对话级别的参数配置
   usage?: TokenUsage   // 累计的 token 使用统计
   // ============ TASK MODE - DISABLED ============
@@ -381,14 +349,10 @@ const activeAssistant = computed(() => {
   if (!chat?.assistantId) return null
   return assistantList.value.assistants.find(a => a.id === chat.assistantId) || null
 })
-// Team Mode computed properties
+// Professional Mode computed properties
 const activeTeam = computed(() => {
-  if (!selectedTeamId.value) return null
-  return teamManager.teams.value.find(t => t.id === selectedTeamId.value) || null
-})
-const activeTeamSession = computed(() => {
-  if (!teamSessionId.value) return null
-  return teamManager.sessions.value.find(s => s.id === teamSessionId.value) || null
+  const teams = teamManager.teams.value
+  return teams.length > 0 ? teams[0] : null
 })
 const messages = computed(() => currentChat.value?.messages || [])
 
@@ -1288,64 +1252,6 @@ async function loadAssistants() {
   }
 }
 
-// ==================== Team Mode Functions ====================
-
-/**
- * 切换 Team Mode
- * Team Lead 会动态创建 Workers，无需预先配置
- */
-async function toggleTeamMode() {
-  if (isTeamMode.value) {
-    // 退出 Team Mode
-    isTeamMode.value = false
-    selectedTeamId.value = null
-    if (teamSessionId.value) {
-      await teamManager.cancelSession(teamSessionId.value)
-      teamSessionId.value = null
-    }
-    // 清理发送状态
-    if (currentChat.value) {
-      currentChat.value.sending = false
-    }
-  } else {
-    // 进入 Team Mode
-    // 如果没有团队，自动创建一个默认团队
-    if (teamManager.teams.value.length === 0) {
-      const team = await teamManager.createTeam('Default Team', '自动创建的默认团队 - Team Lead 会根据任务动态创建 Workers')
-      if (team) {
-        selectedTeamId.value = team.id
-        isTeamMode.value = true
-      }
-      return
-    }
-
-    // 优先使用已激活的团队，否则使用第一个团队
-    const activeTeam = teamManager.activeTeam.value
-    if (activeTeam) {
-      selectedTeamId.value = activeTeam.id
-      isTeamMode.value = true
-      return
-    }
-
-    // 使用第一个团队（不检查 enabled，因为 Team Lead 会动态创建 Workers）
-    const firstTeam = teamManager.teams.value[0]
-    if (firstTeam) {
-      selectedTeamId.value = firstTeam.id
-      isTeamMode.value = true
-    }
-  }
-}
-
-/**
- * 取消团队执行
- */
-async function cancelTeamExecution() {
-  if (teamSessionId.value) {
-    await teamManager.cancelSession(teamSessionId.value)
-    teamSessionId.value = null
-  }
-}
-
 // ==================== Professional Mode Functions ====================
 
 /**
@@ -1356,7 +1262,6 @@ async function toggleProfessionalMode() {
   if (isProfessionalMode.value) {
     // 退出 Professional Mode
     isProfessionalMode.value = false
-    selectedTeamId.value = null
     if (professionalSessionId.value) {
       await teamManager.cancelSession(professionalSessionId.value)
       professionalSessionId.value = null
@@ -1364,6 +1269,8 @@ async function toggleProfessionalMode() {
     }
     if (currentChat.value) {
       currentChat.value.sending = false
+      currentChat.value.isProfessionalMode = false
+      currentChat.value.professionalSessionId = undefined
     }
   } else {
     // 进入 Professional Mode
@@ -1373,23 +1280,29 @@ async function toggleProfessionalMode() {
         '专业模式团队 - 支持完整的 7 阶段软件开发流程'
       )
       if (team) {
-        selectedTeamId.value = team.id
         isProfessionalMode.value = true
+        if (currentChat.value) {
+          currentChat.value.isProfessionalMode = true
+        }
       }
       return
     }
 
     const activeTeam = teamManager.activeTeam.value
     if (activeTeam) {
-      selectedTeamId.value = activeTeam.id
       isProfessionalMode.value = true
+      if (currentChat.value) {
+        currentChat.value.isProfessionalMode = true
+      }
       return
     }
 
     const firstTeam = teamManager.teams.value[0]
     if (firstTeam) {
-      selectedTeamId.value = firstTeam.id
       isProfessionalMode.value = true
+      if (currentChat.value) {
+        currentChat.value.isProfessionalMode = true
+      }
     }
   }
 }
@@ -1403,33 +1316,21 @@ async function cancelProfessionalExecution() {
     professionalSessionId.value = null
     currentProfessionalSession.value = null
   }
-}
-
-/**
- * 确认阶段完成
- */
-async function handlePhaseConfirm(confirmed: boolean, notes?: string) {
-  if (!currentProfessionalSession.value) return
-
-  await teamManager.confirmPhase(professionalSessionId.value!, confirmed, notes)
-
-  if (confirmed) {
-    // 进入下一阶段
-    await advanceToNextPhase()
-  } else {
-    // 用户需要修改，重新执行当前阶段
-    await retryCurrentPhase()
+  if (currentChat.value) {
+    currentChat.value.isProfessionalMode = false
+    currentChat.value.professionalSessionId = undefined
   }
-
-  showPhaseConfirmDialog.value = false
-  phaseConfirmNotes.value = ''
+  isProfessionalMode.value = false
 }
 
 /**
  * 进入下一阶段
  */
 async function advanceToNextPhase() {
-  if (!currentProfessionalSession.value || !selectedTeamId.value) return
+  if (!currentProfessionalSession.value) return
+
+  const currentPhase = currentProfessionalSession.value.currentPhase
+  if (!currentPhase) return
 
   const phaseOrder: ProfessionalPhase[] = [
     'requirements',
@@ -1441,30 +1342,23 @@ async function advanceToNextPhase() {
     'completion'
   ]
 
-  const currentIndex = phaseOrder.indexOf(currentProfessionalSession.value.currentPhase)
+  const currentIndex = phaseOrder.indexOf(currentPhase)
   if (currentIndex >= phaseOrder.length - 1) {
     // 已完成所有阶段
     return
   }
 
   const nextPhase = phaseOrder[currentIndex + 1]
+  if (!nextPhase) return
+  
   await executeProfessionalPhase(nextPhase)
-}
-
-/**
- * 重试当前阶段
- */
-async function retryCurrentPhase() {
-  if (!currentProfessionalSession.value || !selectedTeamId.value) return
-  // 重新执行当前阶段的逻辑
-  await executeProfessionalPhase(currentProfessionalSession.value.currentPhase)
 }
 
 /**
  * 执行专业模式阶段
  */
 async function executeProfessionalPhase(phase: ProfessionalPhase) {
-  if (!currentProfessionalSession.value || !selectedTeamId.value || !currentChat.value) return
+  if (!currentProfessionalSession.value || !currentChat.value) return
 
   const session = currentProfessionalSession.value
   const team = activeTeam.value
@@ -1529,6 +1423,22 @@ async function executeRequirementsPhase(session: ProfessionalSession, messageInd
   const response = await sendMessageToLLMWithTools(messages, undefined, {
     onStream: (content, reasoning) => {
       if (currentChat.value?.messages[messageIndex]) {
+        // 自动展开思考区域
+        if (reasoning && !reasoningStartTime.value[messageIndex]) {
+          reasoningStartTime.value[messageIndex] = Date.now()
+          reasoningExpanded.value[messageIndex] = true
+          if (normalChatRef.value) {
+            normalChatRef.value.setReasoningExpanded(messageIndex, true)
+            normalChatRef.value.setReasoningStartTime(messageIndex, Date.now())
+          }
+        }
+
+        // 更新思考时长
+        if (reasoning && reasoningStartTime.value[messageIndex]) {
+          currentChat.value.messages[messageIndex].reasoningDuration =
+            Math.floor((Date.now() - reasoningStartTime.value[messageIndex]) / 1000)
+        }
+
         currentChat.value.messages[messageIndex].content = content
         currentChat.value.messages[messageIndex].reasoning = reasoning
         scrollToBottom()
@@ -1624,10 +1534,27 @@ async function executePlanningPhase(session: ProfessionalSession, messageIndex: 
     { role: 'user', content: session.userRequest }
   ]
 
-  const response = await sendMessageToLLMWithTools(messages, undefined, {
+  await sendMessageToLLMWithTools(messages, undefined, {
     onStream: (content, reasoning) => {
       if (currentChat.value?.messages[messageIndex]) {
+        // 自动展开思考区域
+        if (reasoning && !reasoningStartTime.value[messageIndex]) {
+          reasoningStartTime.value[messageIndex] = Date.now()
+          reasoningExpanded.value[messageIndex] = true
+          if (normalChatRef.value) {
+            normalChatRef.value.setReasoningExpanded(messageIndex, true)
+            normalChatRef.value.setReasoningStartTime(messageIndex, Date.now())
+          }
+        }
+
+        // 更新思考时长
+        if (reasoning && reasoningStartTime.value[messageIndex]) {
+          currentChat.value.messages[messageIndex].reasoningDuration =
+            Math.floor((Date.now() - reasoningStartTime.value[messageIndex]) / 1000)
+        }
+
         currentChat.value.messages[messageIndex].content = content
+        currentChat.value.messages[messageIndex].reasoning = reasoning
         scrollToBottom()
       }
     }
@@ -1690,19 +1617,239 @@ async function executeTestFirstPhase(session: ProfessionalSession, messageIndex:
  * Orchestrator 按任务关联性决定 worker 复用策略
  */
 async function executeExecutionPhase(session: ProfessionalSession, messageIndex: number) {
-  // 这部分逻辑与原有的 Team Mode 执行类似，但增加了 worker 复用策略
-  // 复用 executeTeamMode 的核心逻辑，但增加 Orchestrator 的 worker 复用决策
-  if (currentChat.value?.messages[messageIndex]) {
+  if (!currentChat.value || !activeTeam.value) return
+
+  const team = activeTeam.value
+  if (!team) return
+
+  // 保存当前会话 ID，用于检查是否切换了会话
+  const initialChatId = currentChatId.value
+
+  if (currentChat.value.messages[messageIndex]) {
     currentChat.value.messages[messageIndex].content = '🚀 开始执行任务分配...'
   }
 
-  // TODO: 实现完整的执行逻辑
   const phaseState: any = {
     phase: 'execution',
     status: 'in_progress'
   }
 
   await teamManager.transitionToPhase(session.id, 'execution', phaseState)
+
+  // 获取用户选择的工作空间
+  let workspacePath = ''
+  if (currentFolder.value) {
+    workspacePath = currentFolder.value
+  } else if (window.electronAPI) {
+    const wsResult = await window.electronAPI.teamInitWorkspace(team.id, session.id)
+    workspacePath = wsResult.workspacePath || ''
+  }
+
+  // 加载全局记忆
+  if (!globalMemoryManager.memory.value) {
+    await globalMemoryManager.load()
+  }
+  const globalMemoryContext = globalMemoryManager.generateInjectContext(session.userRequest)
+
+  // 加载 Skills
+  await skillsManager.loadRegistry()
+  const skillsContext = skillsManager.generateSkillContext()
+
+  // 加载 MCP 工具
+  await mcpManager.loadServers()
+  const mcpTools = mcpManager.generateOpenAITools()
+  const mcpToolNames = mcpTools.map((t: any) => t.function?.name || t.name).filter(Boolean)
+
+  // 获取 Orchestrator 配置
+  const orchestrator = team.orchestrator || createDefaultOrchestrator()
+  const execConfig = team.executionConfig || createDefaultExecutionConfig()
+  const maxIterations = 15
+  let iteration = 0
+  let hasCompleteAction = false
+
+  // 执行循环
+  while (!hasCompleteAction && iteration < maxIterations) {
+    iteration++
+    console.log(`[ProfessionalMode Execution] Iteration ${iteration}`)
+
+    // 检查是否切换了会话
+    if (currentChatId.value !== initialChatId) {
+      console.log('[ProfessionalMode] Chat switched, stopping execution')
+      break
+    }
+
+    // 获取当前会话状态
+    const currentSessionState = teamManager.sessions.value.find(s => s.id === session.id)
+    if (!currentSessionState) break
+
+    // 构建 Orchestrator 系统提示词
+    let systemPrompt = orchestrator.systemPrompt || ''
+
+    // 替换团队上下文变量
+    const teamContext = teamManager.buildTeamContext(session.id)
+    systemPrompt = systemPrompt.replace('{{teamContext}}', teamContext)
+
+    // 添加工作空间信息
+    if (workspacePath) {
+      systemPrompt += `\n\n## 工作空间\n任务独享目录：\`${workspacePath}\`\n所有工作文件应保存在此目录下。\n`
+    }
+
+    // 添加用户偏好和全局记忆
+    if (globalMemoryContext) {
+      systemPrompt += `\n\n## 用户偏好与记忆\n${globalMemoryContext}\n`
+    }
+
+    // 添加 Skills 上下文
+    if (skillsContext) {
+      systemPrompt += `\n\n## 可用技能\n${skillsContext}\n`
+    }
+
+    // 添加 MCP 工具信息
+    if (mcpToolNames.length > 0) {
+      systemPrompt += `\n\n## 可用 MCP 工具\nWorkers 可以使用以下工具：${mcpToolNames.join(', ')}\n`
+    }
+
+    // 添加执行配置
+    systemPrompt += `\n\n## 执行配置\n`
+    systemPrompt += `- 最大并行 Workers: ${execConfig.maxParallelWorkers}\n`
+    systemPrompt += `- 当前轮次���${iteration}/${maxIterations}\n`
+    systemPrompt += `\n## 重要提示\n`
+    systemPrompt += `1. **一次性创建所有需要的 Workers**，让它们并行协作，而不是逐个创建\n`
+    systemPrompt += `2. 每个 Worker 应该有明确的职责边界，避免重复工作\n`
+    systemPrompt += `3. 任务之间如果有依赖关系，请在任务描述中说明\n`
+    systemPrompt += `4. **Workers 应该主动使用 MCP 工具完成任务**，而不是只描述\n`
+
+    // 构建消息
+    const messagesToSend: Array<{ role: string; content: string }> = [
+      { role: 'system', content: systemPrompt }
+    ]
+
+    // 添加用户请求或执行状态
+    if (iteration === 1) {
+      messagesToSend.push({ role: 'user', content: session.userRequest })
+    } else {
+      const workerResults = Object.entries(currentSessionState.dynamicWorkers)
+        .filter(([_, w]) => w.completedTaskIds.length > 0)
+        .map(([_id, w]) => `- **${w.name}**: 完成了 ${w.completedTaskIds.length} 个任务`)
+        .join('\n')
+
+      messagesToSend.push({
+        role: 'user',
+        content: `## 执行状态更新\n\n**已完成任务**: ${currentSessionState.taskQueue.completed.length}\n**待处理任务**: ${currentSessionState.taskQueue.pending.length}\n**执行中任务**: ${currentSessionState.taskQueue.inProgress.length}\n\n**Worker 状态**:\n${workerResults || '暂无完成的任务'}\n\n请继续分配任务或输出 \`{"action": "complete", ...}\` 表示完成。`
+      })
+    }
+
+    // 更新会话状态
+    currentSessionState.status = iteration === 1 ? 'planning' : 'executing'
+    await teamManager.updateSession(currentSessionState)
+
+    // 调用 LLM（Orchestrator 不使用 MCP 工具，只输出 JSON 决策）
+    const response = await sendMessageToLLMWithTools(messagesToSend, undefined, {
+      onStream: (content, reasoning) => {
+        // 检查是否切��了会话
+        if (currentChatId.value !== initialChatId) return
+
+        // 实时更新 UI
+        if (currentChat.value?.messages[messageIndex]) {
+          if (reasoning && !reasoningStartTime.value[messageIndex]) {
+            reasoningStartTime.value[messageIndex] = Date.now()
+            reasoningExpanded.value[messageIndex] = true
+            if (normalChatRef.value) {
+              normalChatRef.value.setReasoningExpanded(messageIndex, true)
+              normalChatRef.value.setReasoningStartTime(messageIndex, Date.now())
+            }
+          }
+
+          if (reasoning && reasoningStartTime.value[messageIndex]) {
+            currentChat.value.messages[messageIndex].reasoningDuration =
+              Math.floor((Date.now() - reasoningStartTime.value[messageIndex]) / 1000)
+          }
+
+          currentChat.value.messages[messageIndex].content = content
+          currentChat.value.messages[messageIndex].reasoning = reasoning
+          scrollToBottom()
+        }
+      }
+    })
+
+    // 解析并执行决策
+    const result = await teamManager.executeOrchestratorDecisions(session.id, response)
+    hasCompleteAction = result.hasCompleteAction
+
+    // 保存 Orchestrator 决策到工作空间
+    if (workspacePath && window.electronAPI?.teamWriteMessage) {
+      try {
+        await window.electronAPI.teamWriteMessage(workspacePath, 'orchestrator', {
+          timestamp: Date.now(),
+          iteration,
+          content: response,
+          decisions: result.results
+        })
+      } catch (err) {
+        console.error('[ProfessionalMode] Failed to write orchestrator message:', err)
+      }
+    }
+
+    // 检查是否切换了会话
+    if (currentChatId.value !== initialChatId) {
+      console.log('[ProfessionalMode] Chat switched during execution, stopping')
+      break
+    }
+
+    // 更新 UI
+    let displayContent = response
+    const sessionUpdated = teamManager.sessions.value.find(s => s.id === session.id)
+
+    if (sessionUpdated) {
+      if (Object.keys(sessionUpdated.dynamicWorkers).length > 0) {
+        const workerNames = Object.values(sessionUpdated.dynamicWorkers).map(w => w.name).join(', ')
+        displayContent += `\n\n---\n**协作 Workers**: ${workerNames}`
+      }
+      if (sessionUpdated.taskQueue.pending.length > 0 || sessionUpdated.taskQueue.completed.length > 0) {
+        displayContent += `\n**待处理**: ${sessionUpdated.taskQueue.pending.length} | **已完成**: ${sessionUpdated.taskQueue.completed.length}`
+      }
+    }
+
+    if (currentChat.value?.messages[messageIndex]) {
+      currentChat.value.messages[messageIndex].content = displayContent
+    }
+
+    // 如果有任务需要执行，并行执行 Worker 任务
+    if (!hasCompleteAction && sessionUpdated && sessionUpdated.taskQueue.pending.length > 0) {
+      await executePendingTasksParallel(session.id, sessionUpdated, messageIndex, {
+        globalMemoryContext,
+        skillsContext,
+        mcpTools,
+        workspacePath
+      })
+    }
+  }
+
+  // 检查是否切换了会话
+  if (currentChatId.value !== initialChatId) {
+    console.log('[ProfessionalMode] Chat switched, not updating phase state')
+    return
+  }
+
+  // 更新阶段状态
+  const finalPhaseState: any = {
+    phase: 'execution',
+    status: hasCompleteAction ? 'completed' : 'in_progress',
+    iterationsCompleted: iteration,
+    workersCreated: Object.keys(teamManager.sessions.value.find(s => s.id === session.id)?.dynamicWorkers || {}).length
+  }
+
+  await teamManager.transitionToPhase(session.id, 'execution', finalPhaseState)
+
+  // 更新当前会话引用
+  currentProfessionalSession.value = teamManager.sessions.value.find(
+    s => s.id === session.id
+  ) as ProfessionalSession
+
+  // 如果完成，自动进入下一阶段
+  if (hasCompleteAction) {
+    setTimeout(() => advanceToNextPhase(), 1500)
+  }
 }
 
 /**
@@ -1756,7 +1903,7 @@ async function executeCompletionPhase(session: ProfessionalSession, messageIndex
  * 执行专业模式
  */
 async function executeProfessionalMode(text: string) {
-  if (!selectedTeamId.value || !currentChat.value) return
+  if (!currentChat.value) return
 
   const team = activeTeam.value
   if (!team) {
@@ -1766,7 +1913,7 @@ async function executeProfessionalMode(text: string) {
   }
 
   // 创建专业模式会话
-  const session = await teamManager.startProfessionalSession(selectedTeamId.value, text)
+  const session = await teamManager.startProfessionalSession(team.id, text)
   if (!session) {
     alert('创建专业模式会话失败')
     return
@@ -1774,7 +1921,9 @@ async function executeProfessionalMode(text: string) {
 
   professionalSessionId.value = session.id
   currentProfessionalSession.value = session
-  activeSubSessions.value = []
+
+  // 保存专业模式会话 ID 到当前会话
+  currentChat.value.professionalSessionId = session.id
 
   // 更新聊天标题
   if (currentChat.value.messages.length === 0) {
@@ -1891,8 +2040,8 @@ async function executeTeamMode(text: string) {
     const mcpToolNames = mcpTools.map((t: any) => t.function?.name || t.name).filter(Boolean)
 
     // 获取 Orchestrator 配置
-    const orchestrator = getTeamOrchestrator(team)
-    const execConfig = getTeamExecutionConfig(team)
+    const orchestrator = team.orchestrator || createDefaultOrchestrator()
+    const execConfig = team.executionConfig || createDefaultExecutionConfig()
     const maxIterations = 10
     let iteration = 0
     let hasCompleteAction = false
@@ -2274,7 +2423,6 @@ async function executeSingleTask(
     taskId: task.id
   })
   subSession.status = 'working'
-  activeSubSessions.value.push(subSession)
 
   // 构建 Worker 提示词，包含完整上下文
   let workerPrompt = worker.systemPrompt || `你是 ${worker.name}，一个专业的 AI Worker。`
@@ -2376,14 +2524,6 @@ async function executeSingleTask(
   } catch (err) {
     console.error('[Team Mode] Failed to save subSession:', err)
   }
-
-  // 从活跃列表移除（延迟移除，让用户看到完成状态）
-  setTimeout(() => {
-    const index = activeSubSessions.value.findIndex(s => s.id === subSession.id)
-    if (index >= 0) {
-      activeSubSessions.value.splice(index, 1)
-    }
-  }, 3000)
 
   return result
 }
@@ -2666,29 +2806,12 @@ async function send() {
   input.value = ''
   scrollToBottom()
 
-  // ============ Team Mode ============
-  if (isTeamMode.value && selectedTeamId.value) {
-    await executeTeamMode(text)
-    return
-  }
-  // ==================================
-
   // ============ Professional Mode ============
-  if (isProfessionalMode.value && selectedTeamId.value) {
+  if (isProfessionalMode.value) {
     await executeProfessionalMode(text)
     return
   }
   // ==========================================
-
-  // ============ TASK MODE - DISABLED ============
-  // // 任务模式流程
-  // if (taskMode.value) {
-  //   await executeTaskMode(text)
-  // } else {
-  //   // 普通对话流程
-  //   await executeNormalChat(text)
-  // }
-  // =============================================
 
   // 普通对话流程（默认）
   await executeNormalChat(text)
@@ -3312,7 +3435,7 @@ async function continueChatAfterToolCalls(messages: any[], mcpTools: any[]) {
           resultIndex++
         }
 
-        // 递归调用继续对话
+        // ���归调用继续对话
         await continueChatAfterToolCalls(messages, mcpTools)
       }
     }
@@ -3509,7 +3632,7 @@ async function continueChatAfterToolCalls(messages: any[], mcpTools: any[]) {
 //         task.description,
 //         i === 0 ? undefined : previousResult,
 //         mergedContext,
-//         chat.messages.slice(0, -1), // 传递当前聊天历史的所有消息
+//         chat.messages.slice(0, -1), // 传递���前聊天历史的所有消息
 //         workingMemoryContext || undefined, // 新增：工作记忆上下文
 //         (delta) => {
 //           msg.content += delta
@@ -3531,7 +3654,7 @@ async function continueChatAfterToolCalls(messages: any[], mcpTools: any[]) {
 // 
 //         // 执行工具调用
 //         try {
-//           // 先添加执行中的工具消息
+//           // 先添加执行�������的工具消息
 //           const toolCallIds = result.toolCalls.map((tc: any) => tc.id)
 //           for (const toolCallId of toolCallIds) {
 //             chat.messages.push({
@@ -3851,15 +3974,35 @@ function createNewChat() {
     createdAt: Date.now(),
     assistantId: lastAssistantId || currentAssistantId,
     configId: lastConfigId ?? currentConfigId,
-    params: newParams
+    params: newParams,
+    isProfessionalMode: false,
+    professionalSessionId: undefined
   }
   chatList.value.unshift(newChat)
   currentChatId.value = newChat.id
+  // 重置专业模式状态
+  isProfessionalMode.value = false
+  professionalSessionId.value = null
+  currentProfessionalSession.value = null
   saveChatHistory()
 }
 
 function switchChat(chatId: string) {
   currentChatId.value = chatId
+  // 恢复当前会话的专业模式状态
+  const chat = chatList.value.find(c => c.id === chatId)
+  if (chat) {
+    isProfessionalMode.value = chat.isProfessionalMode ?? false
+    professionalSessionId.value = chat.professionalSessionId || null
+    if (professionalSessionId.value) {
+      const session = teamManager.sessions.value.find(
+        s => s.id === professionalSessionId.value
+      )
+      currentProfessionalSession.value = session as ProfessionalSession | null
+    } else {
+      currentProfessionalSession.value = null
+    }
+  }
 }
 
 // ============ TASK MODE - DISABLED ============
@@ -3902,7 +4045,16 @@ function deleteChat(chatId: string, event: Event) {
 
   chatList.value = chatList.value.filter(c => c.id !== chatId)
   if (currentChatId.value === chatId) {
+    // 如果删除的是当前会话，切换到第一个会话并恢复其专业模式状态
     currentChatId.value = chatList.value.length > 0 ? chatList.value[0]?.id ?? null : null
+    if (currentChatId.value) {
+      switchChat(currentChatId.value)
+    } else {
+      // 如果没有会话了，重置专业模式状态
+      isProfessionalMode.value = false
+      professionalSessionId.value = null
+      currentProfessionalSession.value = null
+    }
   }
   saveChatHistory()
 }
@@ -4171,10 +4323,8 @@ function handleFolderChanged(path: string) {
         :config-list="configList"
         :usage="currentChat?.usage"
         :enable-thinking="activeConfig?.enable_thinking ?? false"
-        :is-team-mode="isTeamMode"
         :is-professional-mode="isProfessionalMode"
-        :team-session="activeTeamSession ?? undefined"
-        :sub-sessions="activeSubSessions"
+        :sub-sessions="[]"
         @send="send"
         @cancel="cancel"
         @update:input="input = $event"
@@ -4185,22 +4335,10 @@ function handleFolderChanged(path: string) {
         @clear-assistant="changeAssistant('')"
         @folder-changed="handleFolderChanged"
         @update:enable-thinking="handleUpdateEnableThinking"
-        @toggle-team-mode="toggleTeamMode"
         @toggle-professional-mode="toggleProfessionalMode"
-        @cancel-team-execution="cancelTeamExecution"
         @cancel-professional-execution="cancelProfessionalExecution"
         ref="normalChatRef"
       />
-
-      <!-- ============ Professional Mode View ============ -->
-      <ProfessionalModeExecutionView
-        v-if="isProfessionalMode && currentProfessionalSession"
-        :session="currentProfessionalSession"
-        @cancel="cancelProfessionalExecution"
-        @confirm-phase="handlePhaseConfirm"
-        @view-sub-session="handleViewSubSession"
-      />
-      <!-- ===============================================
 
       <!-- ============ TASK MODE - DISABLED ============ -->
       <!-- 任务模式组件已移除 -->
@@ -4208,7 +4346,15 @@ function handleFolderChanged(path: string) {
       <!-- <TaskModePanel ... /> -->
       <!-- ============================================ -->
     </div>
-    </div>  <!-- content-area 结束 -->
+
+    <!-- 专业模式 TODO 列表侧边栏（仅在专业模式激活时显示） -->
+    <div
+      v-if="isProfessionalMode && currentProfessionalSession"
+      class="professional-todo-sidebar"
+    >
+      <ProfessionalModeTodoList :session="currentProfessionalSession" />
+    </div>
+    </div>  <!-- content-wrapper 结束 -->
 
     <!-- 参数配置对话框 -->
     <Teleport to="body">
@@ -5232,6 +5378,23 @@ function handleFolderChanged(path: string) {
 .dialog-body {
   padding: 20px 24px;
   overflow-y: auto;
+}
+
+/* 专业模式 TODO 列表 */
+.professional-todo-sidebar {
+  width: 280px;
+  background: var(--color-bg-secondary);
+  border-left: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.professional-todo-sidebar.hidden {
+  width: 0;
+  overflow: hidden;
+  border: none;
 }
 
 .param-group {

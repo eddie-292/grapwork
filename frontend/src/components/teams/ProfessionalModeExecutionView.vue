@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import MarkdownIt from 'markdown-it'
-import type { ProfessionalSession, ProfessionalPhase, PhaseStatus, TaskBreakdown, ReviewIssue } from '@/types/agentTeam'
+import type { ProfessionalSession, ProfessionalPhase } from '@/types/agentTeam'
 import {
   ProfessionalPhase as PhaseEnum,
-  PhaseStatus as PhaseStatusEnum,
-  ReviewSeverity,
   getPhaseDisplayName,
   getPhaseStatusClass,
   TaskStatus
@@ -48,10 +46,12 @@ const completedTasks = computed(() => props.session.taskQueue.completed)
 
 const workersList = computed(() => Object.values(props.session.dynamicWorkers))
 const activeWorkers = computed(() => workersList.value.filter(w => w.status === 'busy'))
-const completedWorkers = computed(() => workersList.value.filter(w => w.status === 'completed'))
 
 const isWaitingUser = computed(() => phaseState.value.status === 'waiting_user')
 const isPhaseBlocked = computed(() => phaseState.value.status === 'blocked')
+
+// Type guard for execution phase state
+const isExecutionPhase = computed(() => (phaseState.value as any).phase === 'execution')
 
 const phaseProgress = computed(() => {
   const phases: ProfessionalPhase[] = [
@@ -73,36 +73,8 @@ const phaseProgress = computed(() => {
 })
 
 // Methods
-function getStatusLabel(status: TaskStatus): string {
-  switch (status) {
-    case TaskStatus.PENDING: return '等待'
-    case TaskStatus.CLAIMED: return '已认领'
-    case TaskStatus.IN_PROGRESS: return '执行中'
-    case TaskStatus.COMPLETED: return '完成'
-    case TaskStatus.FAILED: return '失败'
-    case TaskStatus.CANCELLED: return '取消'
-    default: return status
-  }
-}
-
-function getStatusClass(status: TaskStatus): string {
-  return `task-status-${status}`
-}
-
-function formatTime(timestamp: number): string {
-  return new Date(timestamp).toLocaleTimeString()
-}
-
 function toggleSection(section: string) {
   expandedSections.value[section] = !expandedSections.value[section]
-}
-
-function openHistoryModal() {
-  showHistoryModal.value = true
-}
-
-function handleViewSubSession(sessionId: string, workerId: string) {
-  emit('viewSubSession', sessionId, workerId)
 }
 
 function render(content: string): string {
@@ -115,17 +87,8 @@ function handleConfirmPhase(confirmed: boolean) {
   confirmNotes.value = ''
 }
 
-function getSeverityClass(severity: string): string {
-  return `severity-${severity}`
-}
-
-function getSeverityLabel(severity: string): string {
-  const labels: Record<string, string> = {
-    blocking: '严重',
-    major: '重要',
-    minor: '轻微'
-  }
-  return labels[severity] || severity
+function handleViewSubSession(sessionId: string, workerId: string) {
+  emit('viewSubSession', sessionId, workerId)
 }
 </script>
 
@@ -166,6 +129,13 @@ function getSeverityLabel(severity: string): string {
       <span class="phase-status">{{ phaseState.status }}</span>
       <span v-if="isWaitingUser" class="waiting-badge">等待用户确认</span>
       <span v-if="isPhaseBlocked" class="blocked-badge">已阻塞</span>
+      <button v-if="!isWaitingUser && phaseState.status !== 'completed'" class="btn-cancel-execution" @click="emit('cancel')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+        取消执行
+      </button>
     </div>
 
     <!-- Phase 1: Requirements -->
@@ -290,7 +260,7 @@ function getSeverityLabel(severity: string): string {
     </div>
 
     <!-- Phase 5: Execution -->
-    <div v-if="phaseState.phase === 'execution'" class="phase-section execution-phase">
+    <div v-if="isExecutionPhase" class="phase-section execution-phase">
       <div class="section-header" @click="toggleSection('workers')">
         <span class="section-label">阶段 5: 子代理执行 ({{ activeWorkers.length }}/{{ workersList.length }} 活跃)</span>
         <span class="toggle-icon">{{ expandedSections.workers ? '▼' : '▶' }}</span>
@@ -438,9 +408,8 @@ function getSeverityLabel(severity: string): string {
   padding: 16px;
   border: 1px solid var(--color-border);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  max-height: 500px;
+  max-height: 600px;
   overflow-y: auto;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 /* Phase Progress */
@@ -471,7 +440,7 @@ function getSeverityLabel(severity: string): string {
 
 .progress-bar {
   height: 6px;
-  background: rgba(0, 0, 0, 0.1);
+  background: var(--color-border);
   border-radius: 3px;
   overflow: hidden;
   margin-bottom: 12px;
@@ -479,7 +448,7 @@ function getSeverityLabel(severity: string): string {
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--color-primary), var(--color-primary-light));
+  background: var(--color-primary);
   transition: width 0.3s ease;
 }
 
@@ -507,7 +476,7 @@ function getSeverityLabel(severity: string): string {
 }
 
 .phase-indicator.completed {
-  color: var(--color-success);
+  color: var(--color-status-completed);
 }
 
 .indicator-dot {
@@ -551,6 +520,12 @@ function getSeverityLabel(severity: string): string {
 .waiting-badge {
   background: var(--color-bg-warning);
   color: #92400e;
+}
+
+@media (prefers-color-scheme: dark) {
+  .waiting-badge {
+    color: #fcd34d;
+  }
 }
 
 .blocked-badge {
@@ -619,7 +594,7 @@ function getSeverityLabel(severity: string): string {
   background: var(--color-bg-secondary);
   padding: 10px;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.5;
 }
 
@@ -636,7 +611,7 @@ function getSeverityLabel(severity: string): string {
 }
 
 .user-answer {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-text-secondary);
   margin-bottom: 4px;
 }
@@ -651,7 +626,7 @@ function getSeverityLabel(severity: string): string {
 }
 
 .question-status.confirmed {
-  color: var(--color-success);
+  color: var(--color-status-completed);
 }
 
 /* Planning Phase */
@@ -698,7 +673,7 @@ function getSeverityLabel(severity: string): string {
 }
 
 .task-desc {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-text-secondary);
   margin-bottom: 6px;
 }
@@ -845,7 +820,7 @@ function getSeverityLabel(severity: string): string {
 }
 
 .issue-item.blocking {
-  border-left: 3px solid var(--color-danger);
+  border-left: 3px solid var(--color-status-failed);
 }
 
 .issue-item.minor {
@@ -884,7 +859,7 @@ function getSeverityLabel(severity: string): string {
 }
 
 .issue-status.fixed {
-  color: var(--color-success);
+  color: var(--color-status-completed);
 }
 
 /* Completion Phase */
@@ -934,7 +909,7 @@ function getSeverityLabel(severity: string): string {
   font-size: 13px;
 }
 
-.action-merge { color: var(--color-success); }
+.action-merge { color: var(--color-status-completed); }
 .action-pr { color: var(--color-primary); }
 
 .pr-link {
@@ -988,6 +963,10 @@ function getSeverityLabel(severity: string): string {
   margin-bottom: 8px;
 }
 
+.notes-input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
 .btn-confirm,
 .btn-correct {
   padding: 8px 16px;
@@ -1001,12 +980,12 @@ function getSeverityLabel(severity: string): string {
 }
 
 .btn-confirm {
-  background: var(--color-success);
+  background: var(--color-status-completed);
   color: white;
 }
 
 .btn-confirm:hover {
-  background: #059669;
+  opacity: 0.9;
 }
 
 .btn-correct {
@@ -1056,6 +1035,8 @@ function getSeverityLabel(severity: string): string {
   font-family: inherit;
   resize: vertical;
   margin-bottom: 16px;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
 }
 
 .dialog-actions {
@@ -1071,9 +1052,35 @@ function getSeverityLabel(severity: string): string {
   border-radius: 6px;
   font-size: 13px;
   cursor: pointer;
+  color: var(--color-text-primary);
 }
 
 .btn-cancel:hover {
   background: var(--color-bg-hover);
+}
+
+/* Cancel Execution Button */
+.btn-cancel-execution {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--color-status-failed-bg);
+  color: var(--color-status-failed);
+  border: 1px solid var(--color-status-failed-bg);
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-cancel-execution:hover {
+  opacity: 0.8;
+}
+
+.btn-cancel-execution svg {
+  width: 14px;
+  height: 14px;
 }
 </style>

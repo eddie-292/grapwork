@@ -699,11 +699,11 @@ export function createDefaultOrchestrator(): AgentDefinition {
     description: '负责分析用户请求、规划任务、分配给 Workers 并整合结果',
     systemPrompt: buildDefaultOrchestratorPrompt(),
     capabilities: {
-      canUseMCP: false,
+      canUseMCP: true,  // 允许使用 MCP 工具
       canReadFiles: true,
       canWriteFiles: true,
       canExecuteCommands: false,
-      maxToolCallsPerTurn: 5
+      maxToolCallsPerTurn: 10
     },
     createdAt: Date.now(),
     updatedAt: Date.now()

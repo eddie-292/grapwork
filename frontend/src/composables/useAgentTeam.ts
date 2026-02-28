@@ -17,8 +17,7 @@ import type {
   AgentCapabilities,
   ProfessionalSession,
   ProfessionalPhase,
-  ProfessionalPhaseState,
-  PhaseStatus
+  ProfessionalPhaseState
 } from '@/types/agentTeam'
 import {
   generateTaskId,

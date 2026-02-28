@@ -9,7 +9,6 @@ import MCPView from './MCPView.vue'
 import ChangelogView from './ChangelogView.vue'
 import SkillsPanel from './settings/SkillsPanel.vue'
 import EnvironmentCheckPanel from './settings/EnvironmentCheckPanel.vue'
-import TeamsView from './teams/TeamsView.vue'
 import { storage } from '../services/StorageService'
 import PlugIcon from './icons/PlugIcon.vue'
 import PaletteIcon from './icons/PaletteIcon.vue'
@@ -45,7 +44,6 @@ const navItems = computed(() => [
   { id: 'memory' as SettingsTab, label: '全局记忆', icon: 'brain' },
   { id: 'mcp' as SettingsTab, label: 'MCP 服务器', icon: 'zap' },
   { id: 'skills' as SettingsTab, label: '技能管理', icon: 'book-open' },
-  { id: 'teams' as SettingsTab, label: 'Agent Teams', icon: 'users' },
   { id: 'environment' as SettingsTab, label: '环境检测', icon: 'search' },
   { id: 'changelog' as SettingsTab, label: '更新日志', icon: 'scroll' },
 ])
@@ -141,9 +139,6 @@ async function clearChatHistory() {
 
             <!-- 技能管理 -->
             <SkillsPanel v-else-if="activeTab === 'skills'" />
-
-            <!-- Agent Teams -->
-            <TeamsView v-else-if="activeTab === 'teams'" />
 
             <!-- 环境检测 -->
             <div v-else-if="activeTab === 'environment'" class="env-panel">

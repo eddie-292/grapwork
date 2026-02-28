@@ -28,6 +28,8 @@ export interface Chat {
   assistantId?: string;
   configId?: number;
   sending?: boolean;
+  isProfessionalMode?: boolean;  // 专业模式状态
+  professionalSessionId?: string;  // 专业模式会话 ID
   params?: {
     temperature?: number;
     top_p?: number;
