@@ -1402,18 +1402,49 @@ async function executeProfessionalPhase(phase: ProfessionalPhase) {
 
 /**
  * 阶段 1: 需求确认
- * AI 先理解需求，用户只需确认/纠正，≤3 个关键问题
+ * AI 先理解需求，用户通过 ABCD 多选题形式确认
  */
 async function executeRequirementsPhase(session: ProfessionalSession, messageIndex: number) {
   const team = activeTeam.value
   if (!team) return
 
   // 构建系统提示词
-  const systemPrompt = `你是专业模式的需求分析师。请仔细理解用户需求，然后：
+  const systemPrompt = `你是专业模式的需求分析师。请仔细理解用户需求。
+
+你的任务：
 1. 用简洁的语言总结你对需求的理解
 2. 提出最多 3 个关键问题来澄清模糊点（如果没有模糊点，可以少于 3 个）
 
-用户将确认你的理解是否正确。如果理解有误，用户会纠正。`
+输出格式（严格按照）：
+## 需求理解
+[你的理解]
+
+## 需要确认的问题
+### 问题 1
+[问题描述]
+A. [选项 A]
+B. [选项 B]
+C. [选项 C]
+D. [选项 D]
+E. 其他：_______
+
+### 问题 2
+[问题描述]
+A. [选项 A]
+B. [选项 B]
+C. [选项 C]
+D. [选项 D]
+E. 其他：_______
+
+### 问题 3
+[问题描述]
+A. [选项 A]
+B. [选项 B]
+C. [选项 C]
+D. [选项 D]
+E. 其他：_______
+
+请直接输出，用户会回复选项（如 A、B、C、D 或 E+ 自定义内容）来确认或纠正。`
 
   const messages = [
     { role: 'system', content: systemPrompt },
@@ -1446,13 +1477,11 @@ async function executeRequirementsPhase(session: ProfessionalSession, messageInd
     }
   })
 
-  // 解析 AI 的理解和问题
-  // 这里简化处理，实际应该用更好的方式解析
   const phaseState: any = {
     phase: 'requirements',
     status: 'waiting_user',
     aiUnderstanding: response,
-    questions: []  // 实际应该从 response 中解析
+    questions: []
   }
 
   await teamManager.transitionToPhase(session.id, 'requirements', phaseState)
@@ -1502,11 +1531,10 @@ async function executeIsolationPhase(session: ProfessionalSession, messageIndex:
     currentChat.value.messages[messageIndex].content += `\n\n✅ 隔离环境就绪\n\n- 工作目录：\`${workspacePath}\`\n- Git 分支：\`${gitBranch}\``
   }
 
-  // 自动进入下一阶段
+  // 等待用户确认后进入下一阶段（由用户确认触发）
   currentProfessionalSession.value = teamManager.sessions.value.find(
     s => s.id === session.id
   ) as ProfessionalSession
-  setTimeout(() => advanceToNextPhase(), 1000)
 }
 
 /**
@@ -1606,10 +1634,10 @@ async function executeTestFirstPhase(session: ProfessionalSession, messageIndex:
     currentChat.value.messages[messageIndex].content += '\n\n✅ 测试已编写并锁定'
   }
 
+  // 等待用户确认后进入下一阶段（由用户确认触发）
   currentProfessionalSession.value = teamManager.sessions.value.find(
     s => s.id === session.id
   ) as ProfessionalSession
-  setTimeout(() => advanceToNextPhase(), 1000)
 }
 
 /**
@@ -1691,7 +1719,7 @@ async function executeExecutionPhase(session: ProfessionalSession, messageIndex:
 
     // 添加工作空间信息
     if (workspacePath) {
-      systemPrompt += `\n\n## 工作空间\n任务独享目录：\`${workspacePath}\`\n所有工作文件应保存在此目录下。\n`
+      systemPrompt += `\n\n## 工作空间\n任务独享目录：\`${workspacePath}\`\n所有工作文件应保���在此目录下。\n`
     }
 
     // 添加用户偏好和全局记忆
@@ -1701,7 +1729,7 @@ async function executeExecutionPhase(session: ProfessionalSession, messageIndex:
 
     // 添加 Skills 上下文
     if (skillsContext) {
-      systemPrompt += `\n\n## 可用技能\n${skillsContext}\n`
+      systemPrompt += `\n\n## 可用技��\n${skillsContext}\n`
     }
 
     // 添加 MCP 工具信息
@@ -1717,7 +1745,7 @@ async function executeExecutionPhase(session: ProfessionalSession, messageIndex:
     systemPrompt += `1. **一次性创建所有需要的 Workers**，让它们并行协作，而不是逐个创建\n`
     systemPrompt += `2. 每个 Worker 应该有明确的职责边界，避免重复工作\n`
     systemPrompt += `3. 任务之间如果有依赖关系，请在任务描述中说明\n`
-    systemPrompt += `4. **Workers 应该主动使用 MCP 工具完成任务**，而不是只描述\n`
+    systemPrompt += `4. **Workers 应该���动使用 MCP 工�����完��任务**，而不是只描述\n`
 
     // 构建消息
     const messagesToSend: Array<{ role: string; content: string }> = [
@@ -1846,10 +1874,7 @@ async function executeExecutionPhase(session: ProfessionalSession, messageIndex:
     s => s.id === session.id
   ) as ProfessionalSession
 
-  // 如果完成，自动进入下一阶段
-  if (hasCompleteAction) {
-    setTimeout(() => advanceToNextPhase(), 1500)
-  }
+  // 等待用户确认后进入下一阶段（由用户确认触发）
 }
 
 /**
@@ -1912,23 +1937,70 @@ async function executeProfessionalMode(text: string) {
     return
   }
 
-  // 创建专业模式会话
-  const session = await teamManager.startProfessionalSession(team.id, text)
-  if (!session) {
-    alert('创建专业模式会话失败')
-    return
+  // 检查是否已有专业模式会话
+  const existingSession = currentProfessionalSession.value
+  
+  if (!existingSession) {
+    // 创建专业模式会话
+    const session = await teamManager.startProfessionalSession(team.id, text)
+    if (!session) {
+      alert('创建专业模式会话失败')
+      return
+    }
+
+    professionalSessionId.value = session.id
+    currentProfessionalSession.value = session
+
+    // 保存专业模式会话 ID 到当前会话
+    currentChat.value.professionalSessionId = session.id
+
+    // 更新聊天标题
+    if (currentChat.value.messages.length === 0) {
+      updateChatTitle(currentChat.value.id, `[Pro] ${text.slice(0, 30)}...`)
+    }
+
+    // 添加用户消息
+    currentChat.value.messages.push({
+      role: 'user',
+      content: text,
+      reasoning: ''
+    })
+
+    // 添加占位的 assistant 消息
+    const assistantIndex = currentChat.value.messages.length
+    currentChat.value.messages.push({
+      role: 'assistant',
+      content: '',
+      reasoning: ''
+    })
+
+    currentChat.value.sending = true
+
+    try {
+      // 开始执行第一个阶段
+      await executeProfessionalPhase('requirements')
+    } catch (err) {
+      console.error('[ProfessionalMode] Execution failed:', err)
+      if (currentChat.value?.messages[assistantIndex]) {
+        currentChat.value.messages[assistantIndex].content =
+          `❌ 专业模式执行失败：${err instanceof Error ? err.message : '未知错误'}`
+      }
+    } finally {
+      if (currentChat.value) {
+        currentChat.value.sending = false
+      }
+    }
+  } else {
+    // 已有会话，处理用户回复
+    await handleProfessionalModeUserReply(text, existingSession)
   }
+}
 
-  professionalSessionId.value = session.id
-  currentProfessionalSession.value = session
-
-  // 保存专业模式会话 ID 到当前会话
-  currentChat.value.professionalSessionId = session.id
-
-  // 更新聊天标题
-  if (currentChat.value.messages.length === 0) {
-    updateChatTitle(currentChat.value.id, `[Pro] ${text.slice(0, 30)}...`)
-  }
+/**
+ * 处理专业模式下的用户回复
+ */
+async function handleProfessionalModeUserReply(text: string, session: ProfessionalSession) {
+  if (!currentChat.value) return
 
   // 添加用户消息
   currentChat.value.messages.push({
@@ -1937,29 +2009,121 @@ async function executeProfessionalMode(text: string) {
     reasoning: ''
   })
 
-  // 添加占位的 assistant 消息
   const assistantIndex = currentChat.value.messages.length
   currentChat.value.messages.push({
     role: 'assistant',
-    content: '🎯 专业模式启动中...\n\n即将进入 **阶段 1: 需求确认**',
+    content: '',
     reasoning: ''
   })
 
   currentChat.value.sending = true
 
   try {
-    // 开始执行第一个阶段
-    await executeProfessionalPhase('requirements')
+    const currentPhase = session.currentPhase
+    
+    if (currentPhase === 'requirements' && session.phaseState?.status === 'waiting_user') {
+      // 需求确认阶段，处理用户回复
+      await handleRequirementsPhaseUserReply(text, session, assistantIndex)
+    } else {
+      // 其他阶段，将用户消息添加到上下文
+      await handleProfessionalModeContextUpdate(text, session, assistantIndex)
+    }
   } catch (err) {
-    console.error('[ProfessionalMode] Execution failed:', err)
+    console.error('[ProfessionalMode] User reply failed:', err)
     if (currentChat.value?.messages[assistantIndex]) {
       currentChat.value.messages[assistantIndex].content =
-        `❌ 专业模式执行失败：${err instanceof Error ? err.message : '未知错误'}`
+        `❌ 处理失败：${err instanceof Error ? err.message : '未知错误'}`
     }
   } finally {
     if (currentChat.value) {
       currentChat.value.sending = false
     }
+  }
+}
+
+/**
+ * 处理需求确认阶段的用户回复
+ */
+async function handleRequirementsPhaseUserReply(
+  text: string,
+  session: ProfessionalSession,
+  messageIndex: number
+) {
+  const team = activeTeam.value
+  if (!team) return
+
+  // 构建系统提示词，让 AI 根据用户回复判断是否可以进入下一阶段
+  const systemPrompt = `你是专业模式的需求分析师。用户对你的需求理解进行了回复。
+
+用户会回复选项（如 A、B、C、D 或 E+ 自定义内容）来确认或纠正你的理解。
+
+请判断：
+1. 用户是否确认了你的需求理解？
+2. 还是需要进一步澄清？
+
+如果用户确认了（选择了选项或提供了明确信息），请输出"✅ 需求已确认"，然后自动进入下一阶段。
+如果用户选择"其他"或有疑问，请根据用户的输入更新你的理解。`
+
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: `AI 的理解：\n${(session.phaseState as any)?.aiUnderstanding || ''}\n\n用户回复：\n${text}` }
+  ]
+
+  const response = await sendMessageToLLMWithTools(messages, undefined, {
+    onStream: (content, reasoning) => {
+      if (currentChat.value?.messages[messageIndex]) {
+        if (reasoning && !reasoningStartTime.value[messageIndex]) {
+          reasoningStartTime.value[messageIndex] = Date.now()
+          reasoningExpanded.value[messageIndex] = true
+          if (normalChatRef.value) {
+            normalChatRef.value.setReasoningExpanded(messageIndex, true)
+            normalChatRef.value.setReasoningStartTime(messageIndex, Date.now())
+          }
+        }
+
+        if (reasoning && reasoningStartTime.value[messageIndex]) {
+          currentChat.value.messages[messageIndex].reasoningDuration =
+            Math.floor((Date.now() - reasoningStartTime.value[messageIndex]) / 1000)
+        }
+
+        currentChat.value.messages[messageIndex].content = content
+        currentChat.value.messages[messageIndex].reasoning = reasoning
+        scrollToBottom()
+      }
+    }
+  })
+
+  // 检查是否确认了需求
+  if (response.includes('✅') || response.includes('需求已确认')) {
+    // 更新阶段状态为已完成
+    const phaseState = session.phaseState
+    phaseState.status = 'completed'
+    ;(phaseState as any).confirmedAt = Date.now()
+    await teamManager.transitionToPhase(session.id, 'requirements', phaseState)
+    
+    // 更新当前会话引用
+    currentProfessionalSession.value = teamManager.sessions.value.find(
+      s => s.id === session.id
+    ) as ProfessionalSession
+    
+    // 自动进入下一阶段
+    setTimeout(() => advanceToNextPhase(), 1000)
+  }
+}
+
+/**
+ * 处理专业模式上下文更新
+ */
+async function handleProfessionalModeContextUpdate(
+  _text: string,
+  session: ProfessionalSession,
+  messageIndex: number
+) {
+  // TODO: 实现将用户消息添加到专业模式上下文
+  // 目前简单回复
+  if (currentChat.value?.messages[messageIndex]) {
+    currentChat.value.messages[messageIndex].content = 
+      `当前阶段：**${session.currentPhase}**\n\n你的消息已收到，但此阶段暂不支持交互式对话。等待阶段完成...`
   }
 }
 
@@ -3409,7 +3573,7 @@ async function continueChatAfterToolCalls(messages: any[], mcpTools: any[]) {
             preparingMsg.content = '执行中...'
             preparingMsg.toolStatus = 'running'
           } else {
-            // 如果没有找到准备中的消息（可能流式解析时未检测到），则添加新消息
+            // 如��没有找到准备中的消息（可能流式解析时未检测到），则添加新消息
             messages.push({
               role: 'tool' as any,
               content: '执行中...',
@@ -3478,7 +3642,7 @@ async function continueChatAfterToolCalls(messages: any[], mcpTools: any[]) {
 //   // 添加任务模式开始的系统消息
 //   const planMsgIndex = chat.messages.length
 //   chat.messages.push({ role: 'assistant', content: '', reasoning: '' })
-//   // 清除该消息索引的推理开始时间，确保新的推理从 0 开始计时
+//   // ���除该消息索引的推理开始时间，确保新的推理从 0 开始计时
 //   delete reasoningStartTime.value[planMsgIndex]
 // 
 //   if (currentChat.value) {

@@ -909,12 +909,22 @@ export const PhaseStatus = {
 export type PhaseStatus = typeof PhaseStatus[keyof typeof PhaseStatus]
 
 /**
- * 需求确认阶段 - 关键问题
+ * 需求确认阶段 - 多选题选项
+ */
+export interface RequirementOption {
+  key: 'A' | 'B' | 'C' | 'D' | 'other'  // 选项标识
+  text: string  // 选项内容
+}
+
+/**
+ * 需求确认阶段 - 关键问题（多选题形式）
  */
 export interface RequirementQuestion {
   id: string
-  question: string         // AI 提出的问题
-  userAnswer?: string      // 用户回答
+  question: string         // AI 提出的问题/需要确认的要点
+  options: RequirementOption[]  // ABCD + Other 选项
+  selectedOption?: 'A' | 'B' | 'C' | 'D' | 'other'  // 用户选择的选项
+  otherInput?: string      // 选择 "Other" 时的自定义输入
   confirmed: boolean       // 用户是否确认理解正确
 }
 

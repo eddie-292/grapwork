@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import MarkdownIt from 'markdown-it'
-import type { ProfessionalSession, ProfessionalPhase } from '@/types/agentTeam'
+import type { 
+  ProfessionalSession, 
+  ProfessionalPhase,
+  RequirementQuestion
+} from '@/types/agentTeam'
 import {
   ProfessionalPhase as PhaseEnum,
   getPhaseDisplayName,
@@ -72,6 +76,12 @@ const phaseProgress = computed(() => {
   }
 })
 
+// Check if all questions have been answered
+const allQuestionsAnswered = computed(() => {
+  const questions = (phaseState.value as any).questions as RequirementQuestion[] || []
+  return questions.every(q => q.selectedOption !== undefined)
+})
+
 // Methods
 function toggleSection(section: string) {
   expandedSections.value[section] = !expandedSections.value[section]
@@ -79,6 +89,31 @@ function toggleSection(section: string) {
 
 function render(content: string): string {
   return md.render(content)
+}
+
+function handleSelectOption(question: RequirementQuestion, optionKey: 'A' | 'B' | 'C' | 'D' | 'other') {
+  if (question.confirmed) return
+  question.selectedOption = optionKey
+  // 如果选择非 Other 选项，清空 otherInput
+  if (optionKey !== 'other') {
+    question.otherInput = undefined
+  }
+}
+
+function handleConfirmRequirements() {
+  const questions = (phaseState.value as any).questions as RequirementQuestion[] || []
+  
+  // 构建确认备注
+  const notes = questions.map(q => {
+    const selectedOption = q.options.find(opt => opt.key === q.selectedOption)
+    let answer = selectedOption ? selectedOption.text : '未选择'
+    if (q.selectedOption === 'other' && q.otherInput) {
+      answer = q.otherInput
+    }
+    return `${q.question}: ${answer}`
+  }).join('\n')
+  
+  emit('confirmPhase', true, notes)
 }
 
 function handleConfirmPhase(confirmed: boolean) {
@@ -153,18 +188,50 @@ function handleViewSubSession(sessionId: string, workerId: string) {
           <div class="subsection-label">关键问题 ({{ (phaseState as any).questions.length }}/3)</div>
           <div v-for="q in (phaseState as any).questions" :key="q.id" class="question-item">
             <div class="question-text">{{ q.question }}</div>
-            <div v-if="q.userAnswer" class="user-answer">
-              <span class="label">用户回答:</span> {{ q.userAnswer }}
+            
+            <!-- Multiple Choice Options -->
+            <div class="multiple-choice-options">
+              <button
+                v-for="option in q.options"
+                :key="option.key"
+                class="choice-option"
+                :class="{
+                  selected: q.selectedOption === option.key,
+                  confirmed: q.confirmed && q.selectedOption === option.key
+                }"
+                @click="handleSelectOption(q, option.key)"
+                :disabled="q.confirmed"
+              >
+                <span class="option-key">{{ option.key.toUpperCase() }}</span>
+                <span class="option-text">{{ option.text }}</span>
+              </button>
             </div>
+            
+            <!-- Other option input -->
+            <div v-if="q.selectedOption === 'other'" class="other-input-section">
+              <textarea
+                v-model="q.otherInput"
+                class="other-input"
+                placeholder="请输入您的具体要求..."
+                :disabled="q.confirmed"
+                rows="3"
+              ></textarea>
+            </div>
+            
             <div class="question-status" :class="{ confirmed: q.confirmed }">
               {{ q.confirmed ? '✓ 已确认' : '等待确认' }}
             </div>
           </div>
         </div>
         <div v-if="isWaitingUser" class="user-action-panel">
-          <p>请确认 AI 是否正确理解了需求，或回答问题</p>
-          <button class="btn-confirm" @click="showConfirmDialog = true">确认理解正确</button>
-          <button class="btn-correct" @click="showConfirmDialog = true">需要纠正</button>
+          <p>请选择最符合您需求的选项，然后确认</p>
+          <button 
+            class="btn-confirm" 
+            @click="handleConfirmRequirements"
+            :disabled="!allQuestionsAnswered"
+          >
+            确认选择
+          </button>
         </div>
       </div>
     </div>
@@ -608,6 +675,104 @@ function handleViewSubSession(sessionId: string, workerId: string) {
 .question-text {
   font-weight: 500;
   margin-bottom: 6px;
+}
+
+/* Multiple Choice Options */
+.multiple-choice-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.choice-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  font-size: 13px;
+  color: var(--color-text-primary);
+}
+
+.choice-option:hover:not(:disabled) {
+  background: var(--color-bg-hover);
+  border-color: var(--color-primary);
+}
+
+.choice-option.selected {
+  background: var(--color-bg-info);
+  border-color: var(--color-primary);
+}
+
+.choice-option.confirmed {
+  background: var(--color-status-completed-bg);
+  border-color: var(--color-status-completed);
+  cursor: default;
+}
+
+.choice-option:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.option-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  background: var(--color-bg-secondary);
+  font-weight: 600;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.choice-option.selected .option-key,
+.choice-option.confirmed .option-key {
+  background: var(--color-primary);
+  color: white;
+}
+
+.option-text {
+  flex: 1;
+  line-height: 1.4;
+}
+
+/* Other Input Section */
+.other-input-section {
+  margin-top: 8px;
+  padding: 8px;
+  background: var(--color-bg-primary);
+  border-radius: 6px;
+}
+
+.other-input {
+  width: 100%;
+  padding: 8px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  resize: vertical;
+}
+
+.other-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.other-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .user-answer {
