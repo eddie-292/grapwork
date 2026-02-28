@@ -468,6 +468,12 @@ async function send() {
   await executeNormalChat(text)
 }
 
+function cancel() {
+  if (currentChat.value?.id && controllers.value[currentChat.value.id]) {
+    controllers.value[currentChat.value.id].abort()
+  }
+}
+
 // 执行普通对话
 async function executeNormalChat(text: string) {
   if (currentChat.value) {
