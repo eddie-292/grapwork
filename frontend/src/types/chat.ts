@@ -28,8 +28,6 @@ export interface Chat {
   assistantId?: string;
   configId?: number;
   sending?: boolean;
-  isProfessionalMode?: boolean;  // 专业模式状态
-  professionalSessionId?: string;  // 专业模式会话 ID
   params?: {
     temperature?: number;
     top_p?: number;
@@ -42,18 +40,5 @@ export interface Chat {
     promptTokens: number;
     completionTokens: number;
     totalTokens: number;
-  };
-}
-
-export interface TaskModeOptions {
-  enabled: boolean;
-  tokenThreshold: number;
-  autoExecute: boolean;
-  maxRetries: number;
-  skipOnError: boolean;
-  workingMemory: {
-    enabled: boolean;
-    autoSave: boolean;
-    maxEntriesPerType: number;
   };
 }

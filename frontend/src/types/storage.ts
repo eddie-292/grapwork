@@ -23,9 +23,6 @@ export const StorageKey = {
   // 聊天历史
   CHAT_HISTORY: 'chat-history',
 
-  // 工作记忆（动态键：task-working-memory-${chatId}）
-  WORKING_MEMORY_PREFIX: 'task-working-memory-',
-
   // MCP (Model Context Protocol) 服务器配置
   MCP_SERVER_LIST: 'mcp-server-list',
   BUILTIN_MCP_TOOLS: 'builtin-mcp-tools',  // 内置服务器的工具列表
@@ -36,13 +33,6 @@ export const StorageKey = {
 
   // Skills 技能系统
   SKILL_REGISTRY: 'skill-registry',
-
-  // Agent Teams 多智能体协作系统
-  TEAM_REGISTRY: 'team-registry',
-  TEAM_SESSION_REGISTRY: 'team-session-registry',
-
-  // 子会话（Worker 执行历史）
-  SUB_SESSION_REGISTRY: 'sub-session-registry',
 } as const
 
 export type StorageKey = typeof StorageKey[keyof typeof StorageKey]
@@ -137,9 +127,4 @@ export interface StorageEvent {
   backend: StorageBackendType;
   timestamp: number;
   error?: string;
-}
-
-// 工作记忆键生成器
-export function generateWorkingMemoryKey(chatId: string): string {
-  return `${StorageKey.WORKING_MEMORY_PREFIX}${chatId}`;
 }

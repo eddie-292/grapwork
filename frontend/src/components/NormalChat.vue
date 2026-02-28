@@ -4,8 +4,6 @@ import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
 import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
-import SubSessionManager from './teams/SubSessionManager.vue'
-import type { SubSession } from '@/types/agentTeam'
 import { storage } from '@/services/StorageService'
 import CopyIcon from './icons/CopyIcon.vue'
 import ChevronDownIcon from './icons/ChevronDownIcon.vue'
@@ -32,8 +30,6 @@ export type Message = {
   toolStatus?: 'pending' | 'running' | 'success' | 'error'
   // 错误消息标识
   isError?: boolean
-  // Team Mode Worker 名称
-  workerName?: string
 }
 
 // Token 使用统计类型
@@ -55,8 +51,6 @@ interface Props {
   configList: any
   usage?: TokenUsage  // 添加 token 使用统计
   enableThinking?: boolean  // 启用思考模式
-  isProfessionalMode?: boolean  // Professional Mode 状态
-  subSessions?: SubSession[]  // 活跃的子会话列表（用于悬浮窗口）
 }
 
 const props = defineProps<Props>()
@@ -70,33 +64,15 @@ const emit = defineEmits<{
   'open-params-dialog': []
   'change-assistant': [id: string]
   'change-config': [index: string]
-  'update:is-task-mode': [value: boolean]
   'clear-assistant': []
   'folder-changed': [path: string]
   'update:enable-thinking': [value: boolean]  // 更新思考模式
-  'toggle-professional-mode': []  // 切换 Professional Mode
-  'cancel-professional-execution': []  // 取消专业模式执行
 }>()
 
 // 思考模式
 const enableThinking = computed(() => props.enableThinking ?? false)
 function handleThinkingToggle() {
   emit('update:enable-thinking', !enableThinking.value)
-}
-
-// Professional Mode
-const isProfessionalMode = computed(() => props.isProfessionalMode ?? false)
-function handleProfessionalModeToggle() {
-  emit('toggle-professional-mode')
-}
-
-// 处理子会话关闭
-function handleSubSessionClose(sessionId: string) {
-  // 从列表中移除（仅影响 UI 显示，不影响存储）
-  const index = props.subSessions?.findIndex(s => s.id === sessionId) ?? -1
-  if (index >= 0 && props.subSessions) {
-    props.subSessions.splice(index, 1)
-  }
 }
 
 // 全局记忆对话框状态
@@ -190,33 +166,6 @@ function getToolName(message: Message, messages: Message[]): string {
   }
 
   return 'Tool'
-}
-
-// Worker 颜色数组（用于区分不同 Worker 的输出）
-const WORKER_COLORS = [
-  'blue', 'green', 'purple', 'orange', 'pink', 'teal', 'indigo', 'amber'
-]
-
-// 获取 Worker 颜色类名（基于消息列表中的 Worker 名称分配颜色）
-function getWorkerColorClass(workerName: string | undefined): string {
-  if (!workerName) return ''
-
-  // 从当前消息列表中获取所有唯一的 Worker 名称
-  const workerNames = new Set<string>()
-  for (const msg of props.messages) {
-    if (msg.workerName) {
-      workerNames.add(msg.workerName)
-    }
-  }
-
-  // 将 Set 转为数组并排序，确保颜色分配一致
-  const sortedNames = Array.from(workerNames).sort()
-  const index = sortedNames.indexOf(workerName)
-
-  if (index === -1) return ''
-
-  const color = WORKER_COLORS[index % WORKER_COLORS.length]
-  return `worker-color-${color}`
 }
 
 // 切换工具结果展开状态
@@ -373,8 +322,7 @@ const navItems = computed(() => {
       return {
         index: originalIndex,
         role: m.role,
-        preview,
-        workerName: m.workerName
+        preview
       }
     })
 })
@@ -452,11 +400,6 @@ const currentConfigName = computed(() => {
   return config?.name || config?.model || '默认'
 })
 
-// ============ TASK MODE - DISABLED ============
-// function toggleTaskMode(e: Event) {
-//   const target = e.target as HTMLInputElement
-//   emit('update:is-task-mode', target.checked)
-// }
 // =============================================
 
 // HTML预览功能
@@ -606,13 +549,6 @@ defineExpose({
 <template>
   <main class="main">
     <div id="messages_dev" class="messages" ref="messagesRef" @scroll="handleMessagesScroll" @click="handleLinkClick">
-      <!-- Sub Session Manager - 悬浮窗口容器 -->
-      <SubSessionManager
-        v-if="subSessions && subSessions.length > 0"
-        :sessions="subSessions"
-        @close="handleSubSessionClose"
-      />
-
       <div v-if="messages.length === 0" class="welcome">
         <div class="welcome-hero">
           <h2 class="welcome-title">PrismChat</h2>
@@ -755,7 +691,7 @@ defineExpose({
         <div
           v-else-if="m.visible !== false"
           :id="`msg-${i}`"
-          :class="['msg-row', m.role, { 'error-message': isErrorMessage(m) }, getWorkerColorClass(m.workerName)]"
+          :class="['msg-row', m.role, { 'error-message': isErrorMessage(m) }]"
         >
           <div class="msg-content">
             <div v-if="m.reasoning || (sending && i === messages.length - 1 && m.role === 'assistant')" class="reasoning-section">
@@ -767,17 +703,6 @@ defineExpose({
                 <span v-if="m.reasoningDuration">{{ m.reasoningDuration }}s</span>
               </button>
               <div v-show="reasoningExpanded[i]" class="msg-reasoning-bubble" v-html="render(m.reasoning || '')" />
-            </div>
-            <!-- Worker 名称标签 -->
-            <div v-if="m.workerName" class="worker-name-tag">
-              <svg class="worker-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="11" width="18" height="10" rx="2"/>
-                <circle cx="8.5" cy="16" r="1.5"/>
-                <circle cx="15.5" cy="16" r="1.5"/>
-                <path d="M12 2v4"/>
-                <path d="M8 6h8"/>
-              </svg>
-              <span>{{ m.workerName }}</span>
             </div>
             <div class="msg-bubble-wrapper">
               <!-- 渲染输出内容 -->
@@ -887,22 +812,6 @@ defineExpose({
               </svg>
             </button>
 
-            <!-- Professional Mode 按钮 -->
-            <button
-              type="button"
-              class="professional-mode-btn"
-              :class="{ active: isProfessionalMode }"
-              @click="handleProfessionalModeToggle"
-              :disabled="isProfessionalMode && ((currentChat?.messages?.length ?? 0) > 0 || sending)"
-              :title="isProfessionalMode ? '专业模式已激活（对话开始后无法切换）' : '进入专业模式'"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                <path d="M2 17l10 5 10-5"/>
-                <path d="M2 12l10 5 10-5"/>
-              </svg>
-            </button>
-
             <!-- 参数设置按钮 -->
             <button
               type="button"
@@ -945,7 +854,7 @@ defineExpose({
                       :class="item.role"
                       @click="scrollToMessage(item.index)"
                     >
-                      <span class="nav-role">{{ item.role === 'user' ? '我' : item.workerName || 'AI' }}</span>
+                      <span class="nav-role">{{ item.role === 'user' ? '我' : 'AI' }}</span>
                       <span class="nav-preview">{{ getMessagePreview(item.preview) }}</span>
                     </button>
                   </div>
@@ -1309,7 +1218,7 @@ defineExpose({
 .msg-reasoning-bubble {
   font-size: 14px;
   line-height: 1.6;
-  color: var(--color-text-secondary);
+  color: var(--color-text-tertiary);
   max-width: 720px;
   word-break: break-word;
   background: var(--color-bg-tertiary);
@@ -1322,86 +1231,6 @@ defineExpose({
   margin-bottom: 12px;
 }
 
-.worker-name-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--color-bg-tertiary, #f5f5f5);
-  border: 1px solid var(--color-border, #eee);
-  color: var(--color-text-secondary, #666);
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  margin-bottom: 8px;
-}
-
-.worker-icon {
-  width: 12px;
-  height: 12px;
-  color: var(--color-text-secondary, #666);
-}
-
-/* Worker 颜色区分样式 - 为不同 Worker 的消息添加左边框（使用 box-shadow 避免 overflow 裁剪） */
-.msg-row.worker-color-blue {
-  box-shadow: inset 4px 0 0 #3b82f6;
-}
-.msg-row.worker-color-green {
-  box-shadow: inset 4px 0 0 #22c55e;
-}
-.msg-row.worker-color-purple {
-  box-shadow: inset 4px 0 0 #a855f7;
-}
-.msg-row.worker-color-orange {
-  box-shadow: inset 4px 0 0 #f97316;
-}
-.msg-row.worker-color-pink {
-  box-shadow: inset 4px 0 0 #ec4899;
-}
-.msg-row.worker-color-teal {
-  box-shadow: inset 4px 0 0 #14b8a6;
-}
-.msg-row.worker-color-indigo {
-  box-shadow: inset 4px 0 0 #6366f1;
-}
-.msg-row.worker-color-amber {
-  box-shadow: inset 4px 0 0 #f59e0b;
-}
-
-/* Worker 标签颜色与左边框一致 */
-.msg-row.worker-color-blue .worker-name-tag {
-  border-color: #3b82f6;
-  color: #1d4ed8;
-}
-.msg-row.worker-color-green .worker-name-tag {
-  border-color: #22c55e;
-  color: #16a34a;
-}
-.msg-row.worker-color-purple .worker-name-tag {
-  border-color: #a855f7;
-  color: #9333ea;
-}
-.msg-row.worker-color-orange .worker-name-tag {
-  border-color: #f97316;
-  color: #ea580c;
-}
-.msg-row.worker-color-pink .worker-name-tag {
-  border-color: #ec4899;
-  color: #db2777;
-}
-.msg-row.worker-color-teal .worker-name-tag {
-  border-color: #14b8a6;
-  color: #0d9488;
-}
-.msg-row.worker-color-indigo .worker-name-tag {
-  border-color: #6366f1;
-  color: #4f46e5;
-}
-.msg-row.worker-color-amber .worker-name-tag {
-  border-color: #f59e0b;
-  color: #d97706;
-}
-
 .reasoning-toggle {
   display: inline-flex;
   align-items: center;
@@ -1411,12 +1240,12 @@ defineExpose({
   padding: 6px 12px;
   cursor: pointer;
   font-size: 13px;
-  color: var(--color-text-secondary);
+  color: var(--color-text-tertiary);
   transition: color 0.2s;
 }
 
 .reasoning-toggle:hover {
-  color: var(--color-text-primary);
+  color: var(--color-text-secondary);
 }
 
 .reasoning-toggle span:first-child {
@@ -1897,115 +1726,8 @@ defineExpose({
   height: 18px;
 }
 
-/* Professional Mode 按钮样式 */
-.professional-mode-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  color: var(--color-text-tertiary);
-  cursor: pointer;
-  transition: all 0.25s ease;
-}
-
-.professional-mode-btn:hover {
-  background: var(--color-bg-tertiary);
-  border-color: var(--color-border-hover);
-  color: var(--color-text-secondary);
-}
-
-.professional-mode-btn.active {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(37, 99, 235, 0.1) 100%);
-  border-color: #3b82f6;
-  color: #3b82f6;
-  box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
-}
-
-.professional-mode-btn.active:hover {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(37, 99, 235, 0.15) 100%);
-  color: #2563eb;
-  box-shadow: 0 0 16px rgba(59, 130, 246, 0.4);
-}
-
-.professional-mode-btn svg {
-  width: 18px;
-  height: 18px;
-}
-
-/* Team Execution Overlay */
-.team-execution-overlay {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  margin-bottom: 12px;
-}
-
 :deep(hr) {
   border-color: rgba(255, 255, 255, 0);
-}
-
-/* 任务模式样式 */
-.task-mode-toggle {
-  /* display: flex;
-  align-items: center;
-  margin-left: auto; */
-}
-
-.toggle-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  user-select: none;
-}
-
-.toggle-label input[type="checkbox"] {
-  display: none;
-}
-
-.toggle-switch {
-  width: 44px;
-  height: 24px;
-  background: #d1d5db;
-  border-radius: 12px;
-  position: relative;
-  transition: background 0.2s;
-}
-
-.toggle-switch::after {
-  content: '';
-  position: absolute;
-  width: 20px;
-  height: 20px;
-  background: white;
-  border-radius: 50%;
-  top: 2px;
-  left: 2px;
-  transition: transform 0.2s;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-}
-
-.toggle-label input:checked + .toggle-switch {
-  background: var(--color-primary);
-}
-
-.toggle-label input:checked + .toggle-switch::after {
-  transform: translateX(20px);
-}
-
-.toggle-label input:disabled + .toggle-switch {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.toggle-text {
-  font-size: 14px;
-  color: var(--color-text-primary);
-  font-weight: 500;
 }
 
 /* 工具结果样式 */
