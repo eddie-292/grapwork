@@ -672,10 +672,10 @@ function updateHtmlPreviewIframe() {
       </style>
     </head>
     <body>
-      ${previewContent.value}
+      \${previewContent.value}
     </body>
     </html>
-  `)
+  `.replace('\\${previewContent.value}', previewContent.value))
   doc.close()
 }
 
