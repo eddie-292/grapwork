@@ -804,6 +804,16 @@ async function executeNormalChat(text: string) {
       }
     }
 
+    // 为 tool_calls 添加 alias 字段（从 mcpTools 中查找）
+    if (finalToolCalls.length > 0 && mcpTools.length > 0) {
+      for (const toolCall of finalToolCalls) {
+        const toolDef = mcpTools.find(t => t.function?.name === toolCall.function?.name)
+        if (toolDef?.function?.alias) {
+          toolCall.function.alias = toolDef.function.alias
+        }
+      }
+    }
+
     if (finalToolCalls.length > 0 && mcpTools.length > 0) {
       const msg = currentMessages[assistantIndex]
       if (msg) {
@@ -1060,6 +1070,16 @@ async function continueChatAfterToolCalls(messages: any[], mcpTools: any[]) {
           finalToolCalls = qwenToolCalls
           // 清理内容中的工具调用标签
           msg.content = cleanedContent
+        }
+      }
+    }
+
+    // 为 tool_calls 添加 alias 字段（从 mcpTools 中查找）
+    if (finalToolCalls.length > 0 && mcpTools.length > 0) {
+      for (const toolCall of finalToolCalls) {
+        const toolDef = mcpTools.find(t => t.function?.name === toolCall.function?.name)
+        if (toolDef?.function?.alias) {
+          toolCall.function.alias = toolDef.function.alias
         }
       }
     }
