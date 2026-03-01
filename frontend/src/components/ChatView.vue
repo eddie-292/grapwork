@@ -1150,10 +1150,16 @@ function deleteChat(chatId: string, event: Event) {
   chatList.value = chatList.value.filter(c => c.id !== chatId)
   if (currentChatId.value === chatId) {
     // 如果删除的是当前会话，切换到第一个会话
-    currentChatId.value = chatList.value.length > 0 ? chatList.value[0]?.id ?? null : null
-    if (currentChatId.value) {
+    if (chatList.value.length > 0) {
+      currentChatId.value = chatList.value[0]?.id ?? null
       switchChat(currentChatId.value)
+    } else {
+      // 如果没有会话了，自动创建一个新会话
+      createNewChat()
     }
+  } else if (chatList.value.length === 0) {
+    // 如果删除后没有会话了（批量删除场景），自动创建一个新会话
+    createNewChat()
   }
   saveChatHistory()
 }
