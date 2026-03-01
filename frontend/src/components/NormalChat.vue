@@ -28,6 +28,8 @@ export type Message = {
   tool_calls?: any[]
   // 工具执行状态
   toolStatus?: 'pending' | 'running' | 'success' | 'error'
+  // 动态状态短语（参考 Claude Code）
+  runningPhrase?: string
   // 错误消息标识
   isError?: boolean
 }
@@ -149,7 +151,7 @@ const copyStatus = ref<Record<number, { text?: boolean; md?: boolean }>>({})
 
 // 获取工具名称（优先使用 toolName 字段，否则从 tool_calls 中查找）
 function getToolName(message: Message, messages: Message[]): string {
-  if (!message.tool_call_id) return 'Tool'
+  if (!message.tool_call_id) return ''
 
   // 优先使用消息中的 toolName 字段（Team Mode 中直接设置）
   if ((message as any).toolName) {
@@ -163,12 +165,12 @@ function getToolName(message: Message, messages: Message[]): string {
       const toolCall = msg.tool_calls.find((tc: any) => tc.id === message.tool_call_id)
       if (toolCall) {
         // 优先使用别名（alias），其次使用工具名称
-        return toolCall.function?.alias || toolCall.function?.name || 'Tool'
+        return toolCall.function?.alias || toolCall.function?.name || ''
       }
     }
   }
 
-  return 'Tool'
+  return ''
 }
 
 // 切换工具结果展开状态
@@ -716,10 +718,10 @@ function scrollToBottom() {
               <div class="tool-result-header" @click="toggleToolResult(i)">
                 <div class="tool-result-title">
                   <span class="tool-result-name">{{ getToolName(m, messages) }}</span>
-                  <!-- 执行中状态 -->
+                  <!-- 执行中状态（动态短语） -->
                   <span v-if="m.toolStatus === 'running'" class="tool-result-status status-running">
                     <span class="status-spinner"></span>
-                    <span class="status-text">执行中</span>
+                    <span class="status-text">{{ m.runningPhrase || '正在处理' }}</span>
                   </span>
                   <!-- 成功状态 -->
                   <span v-else-if="m.toolStatus === 'success'" class="tool-result-status status-success">
@@ -730,11 +732,6 @@ function scrollToBottom() {
                   <span v-else-if="m.toolStatus === 'error'" class="tool-result-status status-error">
                     <span class="status-icon status-icon-error"><XIcon :size="12" /></span>
                     <span class="status-text">执行失败</span>
-                  </span>
-                  <!-- 准备中状态 -->
-                  <span v-else-if="m.toolStatus === 'pending'" class="tool-result-status status-pending">
-                    <span class="status-spinner"></span>
-                    <span class="status-text">准备中</span>
                   </span>
                   <!-- 默认成功状态（向后兼容） -->
                   <span v-else class="tool-result-status status-success">

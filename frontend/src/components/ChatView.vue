@@ -48,6 +48,23 @@ const pendingCommandReason = ref('')
 const commandAutoAllow = ref(false)
 let commandConfirmResolve: ((confirmed: boolean) => void) | null = null
 
+// 有趣的动态状态短语（参考 Claude Code）
+const runningPhrases = [
+  '正在处理',
+  '努力执行中',
+  '飞速运行中',
+  '思考中',
+  '构建中',
+  '读取中',
+  '编写中',
+  '搜索中',
+]
+
+function getRandomRunningPhrase(): string {
+  const index = Math.floor(Math.random() * runningPhrases.length)
+  return runningPhrases[index] ?? '正在处理'
+}
+
 // 命令确认回调函数
 async function handleCommandConfirm(command: string, reason: string): Promise<boolean> {
   return new Promise((resolve) => {
@@ -107,6 +124,8 @@ type Message = {
   tool_call_id?: string
   // 工具执行状态
   toolStatus?: 'pending' | 'running' | 'success' | 'error'
+  // 动态状态短语（参考 Claude Code）
+  runningPhrase?: string
 }
 
 // OpenAI 兼容的对话参数配置
@@ -738,15 +757,17 @@ async function executeNormalChat(text: string) {
                       arguments: toolCall.function?.arguments || ''
                     }
                   })
-                  // 首次检测到 tool_call 时，立即显示"准备中..."
+                  // 首次检测到 tool_call 时，立即显示"正在处理..."
                   if (!preparingToolCallIndexes.has(index)) {
                     preparingToolCallIndexes.add(index)
+                    const runningPhrase = getRandomRunningPhrase()
                     currentMessages.push({
                       role: 'tool' as any,
-                      content: '准备中...',
+                      content: '正在处理...',
                       reasoning: '',
                       tool_call_id: `preparing_${index}`,
-                      toolStatus: 'pending'
+                      toolStatus: 'running',
+                      runningPhrase
                     })
                     scrollToBottom()
                   }
@@ -822,40 +843,48 @@ async function executeNormalChat(text: string) {
 
         // 执行工具调用
         try {
-          // 更新"准备中..."消息为"执行中..."，并设置实际的 tool_call_id
-          finalToolCalls.forEach((toolCall, index) => {
+          // 更新工具调用消息，设置实际的 tool_call_id
+          // 如果是 OpenAI 格式，使用 currentToolCallsMap 的 key（原始 index）来匹配
+          // 如果是 Qwen 格式，currentToolCallsMap 为空，使用数组索引
+          const toolCallEntries = currentToolCallsMap.size > 0
+            ? Array.from(currentToolCallsMap.entries())
+            : finalToolCalls.map((tc, i) => [i, tc])
+          
+          for (const [index, toolCall] of toolCallEntries) {
             const preparingMsg = currentMessages.find(
               m => m.role === 'tool' && m.tool_call_id === `preparing_${index}`
             )
             if (preparingMsg) {
               preparingMsg.tool_call_id = toolCall.id
-              preparingMsg.content = '执行中...'
+              // 保持原有的 runningPhrase 不变
               preparingMsg.toolStatus = 'running'
             } else {
               // 如果没有找到准备中的消息（可能流式解析时未检测到），则添加新消息
+              const runningPhrase = getRandomRunningPhrase()
               currentMessages.push({
                 role: 'tool' as any,
-                content: '执行中...',
+                content: '正在处理...',
                 reasoning: '',
                 tool_call_id: toolCall.id,
-                toolStatus: 'running'
+                toolStatus: 'running',
+                runningPhrase
               })
             }
-          })
+          }
           scrollToBottom()
 
           const toolResults = await mcpManager.executeToolCalls(finalToolCalls)
 
-          // 更新工具结果消息
-          let resultIndex = currentMessages.length - toolResults.length
+          // 更新工具结果消息（通过 tool_call_id 匹配）
           for (const resultMsg of toolResults) {
-            const targetMsg = currentMessages[resultIndex]
-            if (targetMsg && targetMsg.tool_call_id === resultMsg.tool_call_id) {
+            const targetMsg = currentMessages.find(
+              m => m.role === 'tool' && m.tool_call_id === resultMsg.tool_call_id
+            )
+            if (targetMsg) {
               targetMsg.content = resultMsg.content
               // 根据内容判断是否成功
               targetMsg.toolStatus = resultMsg.content.startsWith('Error:') ? 'error' : 'success'
             }
-            resultIndex++
           }
 
           // 继续对话，发送包含工具结果的请求
@@ -1029,15 +1058,17 @@ async function continueChatAfterToolCalls(messages: any[], mcpTools: any[]) {
                       arguments: toolCall.function?.arguments || ''
                     }
                   })
-                  // 首次检测到 tool_call 时，立即显示"准备中..."
+                  // 首次检测到 tool_call 时，立即显示"正在处理..."
                   if (!preparingToolCallIndexes.has(index)) {
                     preparingToolCallIndexes.add(index)
+                    const runningPhrase = getRandomRunningPhrase()
                     messages.push({
                       role: 'tool' as any,
-                      content: '准备中...',
+                      content: '正在处理...',
                       reasoning: '',
                       tool_call_id: `preparing_${index}`,
-                      toolStatus: 'pending'
+                      toolStatus: 'running',
+                      runningPhrase
                     })
                     scrollToBottom()
                   }
@@ -1089,43 +1120,48 @@ async function continueChatAfterToolCalls(messages: any[], mcpTools: any[]) {
       if (msg) {
         msg.tool_calls = finalToolCalls
 
-        // 更新"准备中..."消息为"执行中..."，并设置实际的 tool_call_id
-        finalToolCalls.forEach((toolCall, index) => {
+        // 更新工具调用消息，设置实际的 tool_call_id
+        // 如果是 OpenAI 格式，使用 currentToolCallsMap 的 key（原始 index）来匹配
+        // 如果是 Qwen 格式，currentToolCallsMap 为空，使用数组索引
+        const toolCallEntries = currentToolCallsMap.size > 0
+          ? Array.from(currentToolCallsMap.entries())
+          : finalToolCalls.map((tc, i) => [i, tc])
+        
+        for (const [index, toolCall] of toolCallEntries) {
           const preparingMsg = messages.find(
             m => m.role === 'tool' && m.tool_call_id === `preparing_${index}`
           )
           if (preparingMsg) {
             preparingMsg.tool_call_id = toolCall.id
-            preparingMsg.content = '执行中...'
+            // 保持原有的 runningPhrase 不变
             preparingMsg.toolStatus = 'running'
           } else {
-            // 如��没有找到准备中的消息（可能流式解析时未检测到），则添加新消息
+            // 如果没有找到准备中的消息（可能流式解析时未检测到），则添加新消息
+            const runningPhrase = getRandomRunningPhrase()
             messages.push({
               role: 'tool' as any,
-              content: '执行中...',
+              content: '正在处理...',
               reasoning: '',
               tool_call_id: toolCall.id,
-              toolStatus: 'running'
+              toolStatus: 'running',
+              runningPhrase
             })
           }
-        })
+        }
         scrollToBottom()
 
         const toolResults = await mcpManager.executeToolCalls(finalToolCalls as any)
-
-        // 更新工具结果消息
-        let resultIndex = messages.length - toolResults.length
+        // 更新工具结果消息（通过 tool_call_id 匹配）
         for (const resultMsg of toolResults) {
-          const targetMsg = messages[resultIndex]
-          if (targetMsg && targetMsg.tool_call_id === resultMsg.tool_call_id) {
+          const targetMsg = messages.find(
+            m => m.role === 'tool' && m.tool_call_id === resultMsg.tool_call_id
+          )
+          if (targetMsg) {
             targetMsg.content = resultMsg.content
             // 根据内容判断是否成功
             targetMsg.toolStatus = resultMsg.content.startsWith('Error:') ? 'error' : 'success'
           }
-          resultIndex++
         }
-
-        // ���归调用继续对话
         await continueChatAfterToolCalls(messages, mcpTools)
       }
     }
