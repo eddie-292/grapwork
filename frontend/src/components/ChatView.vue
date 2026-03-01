@@ -1354,6 +1354,18 @@ onMounted(async () => {
 onUnmounted(() => {
   // 清理命令确认回调
   mcpManager.setCommandConfirmCallback(null)
+  // 中止所有正在进行的流式请求
+  for (const id in controllers.value) {
+    if (controllers.value[id]) {
+      controllers.value[id].abort()
+    }
+  }
+  // 重置所有会话的发送状态
+  chatList.value.forEach(chat => {
+    chat.sending = false
+  })
+  // 保存对话历史，防止页面切换时数据丢失
+  saveChatHistory()
 })
 
 // 处理文件夹变化

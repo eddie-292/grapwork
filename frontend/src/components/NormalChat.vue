@@ -348,13 +348,20 @@ const navItems = computed(() => {
     .filter(({ m }) => m.visible !== false && m.role !== 'tool')
     .map(({ m, originalIndex }) => {
       const content = typeof m.content === 'string' ? m.content : ''
-      const preview = content.slice(0, 50) + (content.length > 50 ? '...' : '')
+      // 对于 AI 消息，如果 content 为空则使用 reasoning 内容
+      let previewContent = content
+      if (m.role === 'assistant' && !content.trim()) {
+        previewContent = (m.reasoning || '').trim()
+      }
+      const preview = previewContent.slice(0, 50) + (previewContent.length > 50 ? '...' : '')
       return {
         index: originalIndex,
         role: m.role,
         preview
       }
     })
+    // 如果 preview 为空（content 和 reasoning 都为空），则不显示在导航中
+    .filter(({ preview }) => preview.trim())
 })
 
 function scrollToMessage(index: number) {
@@ -1833,8 +1840,6 @@ defineExpose({
   background: rgba(247, 247, 248, 0.7);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
   overflow: hidden;
   margin-bottom: 8px;
   max-width: 900px;
