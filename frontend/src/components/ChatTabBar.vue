@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 
 interface Message {
   content: string
@@ -29,6 +29,31 @@ const emit = defineEmits<{
   'delete-chat': [chatId: string, event: Event]
   'create-chat': []
 }>()
+
+// 右键菜单相关状态
+const contextMenuVisible = ref(false)
+const contextMenuPosition = ref({ x: 0, y: 0 })
+const contextMenuTargetChatId = ref<string | null>(null)
+
+// 获取当前选中的标签在列表中的索引
+const targetChatIndex = computed(() => {
+  if (!contextMenuTargetChatId.value) return -1
+  return props.chatList.findIndex(chat => chat.id === contextMenuTargetChatId.value)
+})
+
+// 是否显示"删除左边标签"选项
+const showDeleteLeft = computed(() => targetChatIndex.value > 0)
+
+// 是否显示"删除右边标签"选项
+const showDeleteRight = computed(() => {
+  return targetChatIndex.value >= 0 && targetChatIndex.value < props.chatList.length - 1
+})
+
+// 是否显示"删除其他标签"选项
+const showDeleteOthers = computed(() => props.chatList.length > 1)
+
+// 是否显示"删除全部标签"选项
+const showDeleteAll = computed(() => props.chatList.length > 0)
 
 // 搜索相关状态
 const showSearch = ref(false)
@@ -123,6 +148,79 @@ async function handleDoubleClick() {
     isMaximized.value = await window.electronAPI.windowMaximize()
   }
 }
+
+// 右键菜单相关函数
+function showContextMenu(event: MouseEvent, chatId: string) {
+  event.preventDefault()
+  event.stopPropagation()
+  
+  contextMenuTargetChatId.value = chatId
+  contextMenuPosition.value = { x: event.clientX, y: event.clientY }
+  contextMenuVisible.value = true
+}
+
+function hideContextMenu() {
+  contextMenuVisible.value = false
+  contextMenuTargetChatId.value = null
+}
+
+// 删除当前标签右边的所有标签
+function deleteRightTabs() {
+  const index = targetChatIndex.value
+  if (index < 0 || index >= props.chatList.length - 1) return
+  
+  const tabsToDelete = props.chatList.slice(index + 1)
+  tabsToDelete.forEach(chat => {
+    emit('delete-chat', chat.id, new Event('delete-right'))
+  })
+  hideContextMenu()
+}
+
+// 删除当前标签左边的所有标签
+function deleteLeftTabs() {
+  const index = targetChatIndex.value
+  if (index <= 0) return
+  
+  const tabsToDelete = props.chatList.slice(0, index)
+  tabsToDelete.forEach(chat => {
+    emit('delete-chat', chat.id, new Event('delete-left'))
+  })
+  hideContextMenu()
+}
+
+// 删除除当前标签外的所有标签
+function deleteOtherTabs() {
+  if (props.chatList.length <= 1) return
+  
+  const currentTargetId = contextMenuTargetChatId.value
+  if (!currentTargetId) return
+  
+  props.chatList.forEach(chat => {
+    if (chat.id !== currentTargetId) {
+      emit('delete-chat', chat.id, new Event('delete-others'))
+    }
+  })
+  hideContextMenu()
+}
+
+// 删除所有标签
+function deleteAllTabs() {
+  props.chatList.forEach(chat => {
+    emit('delete-chat', chat.id, new Event('delete-all'))
+  })
+  hideContextMenu()
+}
+
+// 监听全局点击以关闭菜单
+onMounted(() => {
+  document.addEventListener('click', hideContextMenu)
+  document.addEventListener('contextmenu', hideContextMenu)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', hideContextMenu)
+  document.removeEventListener('contextmenu', hideContextMenu)
+})
 </script>
 
 <template>
@@ -133,6 +231,7 @@ async function handleDoubleClick() {
         :key="chat.id"
         :class="['chat-tab', { active: chat.id === currentChatId, 'search-highlight': isSearching }]"
         @click="isSearching ? switchToResult(chat.id) : emit('switch-chat', chat.id)"
+        @contextmenu.prevent="showContextMenu($event, chat.id)"
       >
         <span
           class="tab-indicator"
@@ -178,6 +277,42 @@ async function handleDoubleClick() {
         <path d="M21 21l-4.35-4.35"/>
       </svg>
     </button>
+
+    <!-- 右键菜单 -->
+    <div
+      v-if="contextMenuVisible"
+      class="context-menu"
+      :style="{ left: contextMenuPosition.x + 'px', top: contextMenuPosition.y + 'px' }"
+    >
+      <div
+        v-if="showDeleteLeft"
+        class="context-menu-item"
+        @click="deleteLeftTabs"
+      >
+        删除左边标签
+      </div>
+      <div
+        v-if="showDeleteRight"
+        class="context-menu-item"
+        @click="deleteRightTabs"
+      >
+        删除右边标签
+      </div>
+      <div
+        v-if="showDeleteOthers"
+        class="context-menu-item"
+        @click="deleteOtherTabs"
+      >
+        删除其他标签
+      </div>
+      <div
+        v-if="showDeleteAll"
+        class="context-menu-item context-menu-item-danger"
+        @click="deleteAllTabs"
+      >
+        删除全部标签
+      </div>
+    </div>
   </div>
 </template>
 
@@ -526,5 +661,63 @@ async function handleDoubleClick() {
   border-color: var(--color-primary, #666);
   color: var(--color-primary, #666);
   background: var(--color-bg-tertiary, #252525);
+}
+
+/* 右键菜单样式 */
+.context-menu {
+  position: fixed;
+  background: var(--color-bg-primary, #ffffff);
+  border: 1px solid var(--color-border, #e5e5e5);
+  border-radius: 8px;
+  padding: 4px;
+  min-width: 120px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 9999;
+  -webkit-app-region: no-drag;
+}
+
+.context-menu-item {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--color-text-primary, #1a1a1a);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  white-space: nowrap;
+}
+
+.context-menu-item:hover {
+  background: var(--color-bg-tertiary, #f0f0f0);
+}
+
+.context-menu-item-danger {
+  color: var(--color-danger, #ef4444);
+}
+
+.context-menu-item-danger:hover {
+  background: var(--color-danger-bg, #fee2e2);
+}
+
+/* 深色模式下的右键菜单 */
+:global(.dark-mode) .context-menu {
+  background: var(--color-bg-primary, #0d0d0d);
+  border-color: var(--color-border, #333);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+:global(.dark-mode) .context-menu-item {
+  color: var(--color-text-primary, #e5e5e5);
+}
+
+:global(.dark-mode) .context-menu-item:hover {
+  background: var(--color-bg-tertiary, #252525);
+}
+
+:global(.dark-mode) .context-menu-item-danger {
+  color: #f87171;
+}
+
+:global(.dark-mode) .context-menu-item-danger:hover {
+  background: rgba(248, 113, 113, 0.15);
 }
 </style>

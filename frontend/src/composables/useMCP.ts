@@ -588,6 +588,7 @@ export function useMCP() {
         type: 'function',
         function: {
           name: 'list_directory',
+          alias: '列出目录',
           description: `${workDirContext} 列出指定目录中的文件和子目录。在执行其他文件操作前，建议先使用此工具了解目录结构。可以递归查看子目录内容。`,
           parameters: {
             type: 'object',
@@ -604,6 +605,7 @@ export function useMCP() {
         type: 'function',
         function: {
           name: 'create_directory',
+          alias: '创建文件夹',
           description: '在指定路径创建新文件夹。',
           parameters: {
             type: 'object',
@@ -625,6 +627,7 @@ export function useMCP() {
         type: 'function',
         function: {
           name: 'move_file',
+          alias: '移动文件',
           description: '移动文件或文件夹到新位置。',
           parameters: {
             type: 'object',
@@ -646,6 +649,7 @@ export function useMCP() {
         type: 'function',
         function: {
           name: 'copy_file',
+          alias: '复制文件',
           description: '复制文件或文件夹到新位置。',
           parameters: {
             type: 'object',
@@ -667,6 +671,7 @@ export function useMCP() {
         type: 'function',
         function: {
           name: 'rename_item',
+          alias: '重命名',
           description: '重命名文件或文件夹（保持在同一目录下）。',
           parameters: {
             type: 'object',
@@ -688,6 +693,7 @@ export function useMCP() {
         type: 'function',
         function: {
           name: 'glob',
+          alias: '文件匹配',
           description: `${workDirContext} 快速进行文件模式匹配（支持 glob 通配符）。用于查找特定文件或列出目录内容。例如：pattern="*.html" 查找所有 HTML 文件。`,
           parameters: {
             type: 'object',
@@ -709,6 +715,7 @@ export function useMCP() {
         type: 'function',
         function: {
           name: 'grep',
+          alias: '内容搜索',
           description: `${workDirContext} 在文件内容中搜索指定正则表达式。使用前建议先用 list_directory 查看目录结构。如果不知道目标文件位置，可以搜索整个工作目录（path="."）并使用 include 参数限制文件类型。`,
           parameters: {
             type: 'object',
@@ -734,6 +741,7 @@ export function useMCP() {
         type: 'function',
         function: {
           name: 'read_file',
+          alias: '读取文件',
           description: '从本地文件系统读取文件内容。',
           parameters: {
             type: 'object',
@@ -759,6 +767,7 @@ export function useMCP() {
         type: 'function',
         function: {
           name: 'write_file',
+          alias: '写入文件',
           description: '将内容写入本地文件系统。',
           parameters: {
             type: 'object',
@@ -780,6 +789,7 @@ export function useMCP() {
         type: 'function',
         function: {
           name: 'edit_file',
+          alias: '编辑文件',
           description: '在文件中执行精确的字符串替换。',
           parameters: {
             type: 'object',
@@ -809,6 +819,7 @@ export function useMCP() {
         type: 'function',
         function: {
           name: 'execute_command',
+          alias: '执行命令',
           description: `${workDirContext} 执行系统命令。可以执行任意命令，但风险命令（如删除、格式化、sudo等）需要用户确认后才会执行。`,
           parameters: {
             type: 'object',

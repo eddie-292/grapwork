@@ -589,6 +589,12 @@ async function importMCPConfig() {
               </div>
 
               <div class="form-group">
+              <div class="form-group">
+                <label>工具别名（可选）</label>
+                <input v-model="tool.function.alias" type="text" placeholder="例如：读取文件（用于美化显示）" class="input" />
+                <small>可选，用于在前端美化显示，留空则显示工具名称</small>
+              </div>
+
                 <label>工具描述 *</label>
                 <textarea v-model="tool.function.description" placeholder="描述这个工具的功能..." class="input textarea" rows="2" />
               </div>
@@ -726,6 +732,12 @@ async function importMCPConfig() {
                 <label>工具名称 *</label>
                 <input v-model="tool.function.name" type="text" placeholder="例如: read_file" class="input" />
               </div>
+              <div class="form-group">
+                <label>工具别名（可选）</label>
+                <input v-model="tool.function.alias" type="text" placeholder="例如：读取文件（用于美化显示）" class="input" />
+                <small>可选，用于在前端美化显示，留空则显示工具名称</small>
+              </div>
+
 
               <div class="form-group">
                 <label>工具描述 *</label>

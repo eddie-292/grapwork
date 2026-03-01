@@ -489,6 +489,8 @@ async function executeNormalChat(text: string) {
     reasoningExpanded.value[assistantIndex] = true
     if (normalChatRef.value) {
       normalChatRef.value.setReasoningExpanded(assistantIndex, true)
+      // 重置用户滚动状态，允许新的 AI 响应自动滚动
+      ;(normalChatRef.value as any).resetUserScroll?.()
     }
   }
 
@@ -1115,9 +1117,9 @@ async function continueChatAfterToolCalls(messages: any[], mcpTools: any[]) {
 
 function createNewChat() {
   const lastAssistantId = localStorage.getItem('last-assistant-id')
-  const currentAssistantId = activeAssistant.value?.id ?? ''
+  const currentAssistantId = currentChat.value?.assistantId ?? ''
   const lastConfigId = localStorage.getItem('last-config-id')
-  const currentConfigId = activeConfig.value?.id ?? 0
+  const currentConfigId = currentChat.value?.configId
 
   const newParams: ChatParams = { ...DEFAULT_CHAT_PARAMS }
 
@@ -1126,8 +1128,11 @@ function createNewChat() {
     title: '新对话',
     messages: [],
     createdAt: Date.now(),
-    assistantId: lastAssistantId || currentAssistantId,
-    configId: lastConfigId ?? currentConfigId,
+    // 优先使用当前聊天的助手和模型配置，如果没有则使用 localStorage 的备份
+    assistantId: currentAssistantId || lastAssistantId || undefined,
+    configId: currentConfigId !== undefined && currentConfigId !== null && currentConfigId !== '' 
+      ? currentConfigId 
+      : (lastConfigId ? Number(lastConfigId) : undefined),
     params: newParams
   }
   chatList.value.unshift(newChat)

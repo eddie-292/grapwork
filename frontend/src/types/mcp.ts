@@ -51,6 +51,7 @@ export interface MCPToolDefinition {
   function: {
     name: string                // 工具名称
     description?: string        // 工具描述
+    alias?: string              // 工具别名（用于美化显示）
     parameters?: {              // JSON Schema 格式的参数定义
       type: 'object'
       properties: Record<string, {

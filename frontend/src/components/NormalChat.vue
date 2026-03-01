@@ -122,6 +122,7 @@ const messagesRef = ref<HTMLDivElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const inputbarRef = ref<HTMLFormElement | null>(null)
 const autoScrollEnabled = ref(true)
+const userHasScrolledUp = ref(false)  // 用户是否主动向上滚动
 const showNavList = ref(false)
 
 // 动态计算 messages 区域高度
@@ -160,7 +161,8 @@ function getToolName(message: Message, messages: Message[]): string {
     if (msg?.tool_calls && msg.tool_calls.length > 0) {
       const toolCall = msg.tool_calls.find((tc: any) => tc.id === message.tool_call_id)
       if (toolCall) {
-        return toolCall.function.name
+        // 优先使用别名（alias），其次使用工具名称
+        return toolCall.function?.alias || toolCall.function?.name || 'Tool'
       }
     }
   }
@@ -266,7 +268,10 @@ function handleMessagesScroll() {
   const el = messagesRef.value
   if (!el) return
   const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight
-  autoScrollEnabled.value = distanceToBottom <= 80
+  // 当用户手动滚动到距离底部 > 80px 时，认为用户主动向上滚动
+  const wasAtBottom = distanceToBottom <= 80
+  userHasScrolledUp.value = !wasAtBottom
+  autoScrollEnabled.value = wasAtBottom
 }
 
 function autoResizeTextarea() {
@@ -527,12 +532,18 @@ function formatTokenCount(count: number): string {
 // Expose functions for parent component
 defineExpose({
   scrollToBottom: () => {
-    if (!autoScrollEnabled.value) return
+    // 如果用户主动向上滚动，则停止自动跟随
+    if (userHasScrolledUp.value) return
     const el = messagesRef.value
     if (!el) return
     requestAnimationFrame(() => {
       el.scrollTop = el.scrollHeight
     })
+  },
+  resetUserScroll: () => {
+    // 重置用户滚动状态，允许新的 AI 响应自动滚动
+    userHasScrolledUp.value = false
+    autoScrollEnabled.value = true
   },
   autoResizeTextarea,
   setReasoningExpanded: (index: number, value: boolean) => {
