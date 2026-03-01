@@ -587,10 +587,36 @@ defineExpose({
   getReasoningExpanded: (index: number) => reasoningExpanded.value[index],
   getReasoningStartTime: (index: number) => reasoningStartTime.value[index],
 })
+
+// Scroll to bottom button handler
+function scrollToBottom() {
+  const el = messagesRef.value
+  if (!el) return
+  requestAnimationFrame(() => {
+    el.scrollTop = el.scrollHeight
+  })
+  // 重置用户滚动状态
+  userHasScrolledUp.value = false
+  autoScrollEnabled.value = true
+}
 </script>
 
 <template>
   <main class="main">
+    <!-- Scroll to bottom button -->
+    <Transition name="fade">
+      <button
+        v-if="userHasScrolledUp"
+        class="scroll-to-bottom-btn"
+        @click="scrollToBottom"
+        title="滚动到底部"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <polyline points="19 12 12 19 5 12"></polyline>
+        </svg>
+      </button>
+    </Transition>
     <div id="messages_dev" class="messages" ref="messagesRef" @scroll="handleMessagesScroll" @click="handleLinkClick">
       <div v-if="messages.length === 0" class="welcome">
         <div class="welcome-hero">
@@ -2242,4 +2268,43 @@ defineExpose({
 }
 
 /* dialog-btn styles moved to global style.css */
+
+/* Scroll to bottom button */
+.scroll-to-bottom-btn {
+  position: fixed;
+  bottom: 145px;
+  right: 24px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--color-primary, #10a37f);
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  z-index: 100;
+}
+
+.scroll-to-bottom-btn:hover {
+  transform: translateY(-2px);
+}
+
+.scroll-to-bottom-btn:active {
+  transform: translateY(0);
+}
+
+/* Fade transition for scroll button */
+.fade-enter-active,
+.fade-leave-active {
+  transition: all 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
+}
 </style>
