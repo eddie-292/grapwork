@@ -145,6 +145,7 @@ let resizeObserver: ResizeObserver | null = null
 const reasoningExpanded = ref<Record<number, boolean>>({})
 const reasoningStartTime = ref<Record<number, number>>({})
 const toolResultExpanded = ref<Record<number, boolean>>({})
+const copyStatus = ref<Record<number, { text?: boolean; md?: boolean }>>({})
 
 // 获取工具名称（优先使用 toolName 字段，否则从 tool_calls 中查找）
 function getToolName(message: Message, messages: Message[]): string {
@@ -296,19 +297,43 @@ function stripHtml(html: string): string {
 async function copyText(content: string) {
   try {
     await navigator.clipboard.writeText(content)
+    return true
   } catch (err) {
     console.error('Failed to copy:', err)
     alert('复制失败')
+    return false
   }
 }
 
 async function copyRenderedText(content: string) {
   const rendered = render(content)
-  copyText(stripHtml(rendered))
+  return copyText(stripHtml(rendered))
 }
 
 async function copyMarkdown(content: string) {
-  copyText(content)
+  return copyText(content)
+}
+
+function handleCopyText(m: any, i: number) {
+  copyRenderedText(m.content).then((success) => {
+    if (success) {
+      copyStatus.value[i] = { ...copyStatus.value[i], text: true }
+      setTimeout(() => {
+        copyStatus.value[i] = { ...copyStatus.value[i], text: false }
+      }, 2000)
+    }
+  })
+}
+
+function handleCopyMarkdown(m: any, i: number) {
+  copyMarkdown(m.content).then((success) => {
+    if (success) {
+      copyStatus.value[i] = { ...copyStatus.value[i], md: true }
+      setTimeout(() => {
+        copyStatus.value[i] = { ...copyStatus.value[i], md: false }
+      }, 2000)
+    }
+  })
 }
 
 function toggleReasoning(index: number) {
@@ -719,11 +744,13 @@ defineExpose({
               <!-- 渲染输出内容 -->
               <div class="msg-bubble" v-html="render(m.content)" />
               <div class="msg-actions" v-if="m.copyable !== false">
-                <button class="copy-btn" @click="copyRenderedText(m.content)" title="复制文本">
-                  Copy Text
+                <button class="copy-btn" :class="{ 'copy-success': copyStatus[i]?.text }" @click="handleCopyText(m, i)" title="复制文本">
+                  <span v-if="copyStatus[i]?.text" class="success-icon">✓</span>
+                  <span v-else>Copy Text</span>
                 </button>
-                <button class="copy-btn" @click="copyMarkdown(m.content)" title="复制 Markdown">
-                  Copy Markdown
+                <button class="copy-btn" :class="{ 'copy-success': copyStatus[i]?.md }" @click="handleCopyMarkdown(m, i)" title="复制 Markdown">
+                  <span v-if="copyStatus[i]?.md" class="success-icon">✓</span>
+                  <span v-else>Copy Markdown</span>
                 </button>
                 <button class="copy-btn" @click="openSaveToGlobalMemoryDialog(m.content)" title="保存为全局记忆">
                   + Global Memory
@@ -1279,28 +1306,84 @@ defineExpose({
   position: relative;
 }
 
+.msg-row:hover .msg-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .msg-actions {
+  opacity: 0;
+  pointer-events: none;
   display: flex;
-  gap: 6px;
-  margin-top: 8px;
+  flex-direction: row;
+  gap: 8px;
+  margin-top: 10px;
   justify-content: flex-end;
+  transition: opacity 0.2s ease;
 }
 
 .copy-btn {
-  background: var(--color-bg-tertiary);
+  background: linear-gradient(135deg, var(--color-bg-primary) 0%, var(--color-bg-tertiary) 100%);
   border: 1px solid var(--color-border);
-  border-radius: 3px;
-  padding: 4px 8px;
+  border-radius: 6px;
+  padding: 6px 12px;
   font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 4px;
-  transition: all 0.15s;
+  gap: 6px;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .copy-btn:hover {
-  background: var(--color-bg-secondary);
+  background: linear-gradient(135deg, var(--color-bg-tertiary) 0%, var(--color-bg-hover) 100%);
+  border-color: var(--color-border-hover);
+  color: var(--color-text-primary);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+.copy-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.copy-btn.copy-success {
+  background: linear-gradient(135deg, var(--color-bg-success) 0%, rgba(34, 197, 94, 0.15) 100%);
+  border-color: #22c55e;
+  color: #16a34a;
+}
+
+.dark-mode .copy-btn.copy-success {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.25) 0%, rgba(34, 197, 94, 0.15) 100%);
+  border-color: #4ade80;
+  color: #4ade80;
+}
+
+.copy-btn .success-icon {
+  font-weight: bold;
+  animation: success-pop 0.3s ease-out;
+}
+
+.copy-btn.copy-success .success-icon {
+  animation: success-pop 0.3s ease-out;
+}
+
+@keyframes success-pop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .msg-bubble :deep(p) {
