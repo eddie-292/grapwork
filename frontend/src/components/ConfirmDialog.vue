@@ -10,19 +10,18 @@ interface Props {
   confirmText?: string
   cancelText?: string
   type?: 'danger' | 'warning' | 'info'
+  showAutoAllow?: boolean
+  autoAllowChecked?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   title: '确认',
   confirmText: '确认',
   cancelText: '取消',
-  type: 'warning'
+  type: 'warning',
+  showAutoAllow: false,
+  autoAllowChecked: false
 })
-
-const emit = defineEmits<{
-  (e: 'confirm'): void
-  (e: 'cancel'): void
-}>()
 
 const iconComponent = computed(() => {
   switch (props.type) {
@@ -47,6 +46,16 @@ const iconComponent = computed(() => {
         </div>
         <h3>{{ title }}</h3>
         <p>{{ message }}</p>
+        <div v-if="showAutoAllow" class="auto-allow-checkbox">
+          <label>
+            <input 
+              type="checkbox" 
+              :checked="autoAllowChecked" 
+              @change="$emit('update:autoAllowChecked', ($event.target as HTMLInputElement).checked)"
+            />
+            <span>当前会话自动允许</span>
+          </label>
+        </div>
         <div class="modal-footer">
           <button class="btn secondary" @click="$emit('cancel')">
             {{ cancelText }}
@@ -118,6 +127,26 @@ const iconComponent = computed(() => {
   display: flex;
   gap: 12px;
   justify-content: center;
+}
+
+.auto-allow-checkbox {
+  margin-bottom: 16px;
+}
+
+.auto-allow-checkbox label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.auto-allow-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--color-primary);
 }
 
 /* Button styles moved to global style.css */

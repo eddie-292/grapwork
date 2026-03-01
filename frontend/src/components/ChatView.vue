@@ -45,11 +45,17 @@ const showLogoutConfirmDialog = ref(false)
 const showCommandConfirmDialog = ref(false)
 const pendingCommand = ref('')
 const pendingCommandReason = ref('')
+const commandAutoAllow = ref(false)
 let commandConfirmResolve: ((confirmed: boolean) => void) | null = null
 
 // 命令确认回调函数
 async function handleCommandConfirm(command: string, reason: string): Promise<boolean> {
   return new Promise((resolve) => {
+    // 如果已启用自动允许，直接确认
+    if (commandAutoAllow.value) {
+      resolve(true)
+      return
+    }
     pendingCommand.value = command
     pendingCommandReason.value = reason
     commandConfirmResolve = resolve
@@ -64,6 +70,11 @@ function onCommandConfirm() {
     commandConfirmResolve(true)
     commandConfirmResolve = null
   }
+}
+
+// 用户更新自动允许状态
+function onCommandAutoAllowUpdate(checked: boolean) {
+  commandAutoAllow.value = checked
 }
 
 // 用户取消执行命令
@@ -1593,8 +1604,11 @@ function handleFolderChanged(path: string) {
       confirm-text="确认执行"
       cancel-text="取消"
       type="danger"
+      :show-auto-allow="true"
+      :auto-allow-checked="commandAutoAllow"
       @confirm="onCommandConfirm"
       @cancel="onCommandCancel"
+      @update:auto-allow-checked="onCommandAutoAllowUpdate"
     />
   </div>
 </template>
