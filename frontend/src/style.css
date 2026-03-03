@@ -1489,7 +1489,7 @@ button:disabled {
 .dark-mode [class*="content"],
 .dark-mode [class*="container"],
 .dark-mode [class*="wrapper"] {
-  background: #202124 !important;
+  /* background: #202124 !important; */
 }
 
 .dark-mode [class*="card"],
