@@ -438,9 +438,9 @@ function handleConfigChange(e: Event) {
 // 计算当前助手名称
 const currentAssistantName = computed(() => {
   const assistantId = props.currentChat?.assistantId
-  if (!assistantId) return 'EddieLab-Agent'
+  if (!assistantId) return '默认助手'
   const assistant = props.assistantList.assistants.find((a: any) => a.id === assistantId)
-  return assistant?.name || 'EddieLab-Agent'
+  return assistant?.name || '默认助手'
 })
 
 // 计算当前模型名称
@@ -871,7 +871,7 @@ function scrollToBottom() {
                   @change="handleAssistantChange"
                   class="popover-select"
                 >
-                  <option value="">EddieLab-Agent</option>
+                  <option value="">默认</option>
                   <option v-for="assistant in assistantList.assistants" :key="assistant.id" :value="assistant.id">
                     {{ assistant.name }}
                   </option>
@@ -1912,7 +1912,7 @@ function scrollToBottom() {
 }
 
 .tool-result-card {
-  background: rgba(247, 247, 248, 0.7);
+  /* background: rgba(247, 247, 248, 0.7); */
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   overflow: hidden;

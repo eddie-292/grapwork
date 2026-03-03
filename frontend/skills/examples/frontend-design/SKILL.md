@@ -1,5 +1,5 @@
 ---
-name: frontend design
+name: frontend-design
 description: Apply the dual-theme UI design system when building any HTML page, dashboard, diagram, report, or web component. Use this skill whenever the user asks to create or style a page/component in the "dark theme", "light theme", "深色风格", "浅色风格", "工业风", "科技感", or when they say "用我们的风格" / "保持一致的风格" / "沿用之前的设计". Also trigger when generating any new HTML artifact that should match the existing design visual language. Do NOT use generic Inter/system-font aesthetics — always apply this design system.
 ---
 

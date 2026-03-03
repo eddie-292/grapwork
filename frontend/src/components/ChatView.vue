@@ -342,9 +342,11 @@ async function scanDirectoryStructure(
     for (const item of displayItems) {
       if (item.type === 'directory') {
         structure += `${indent}📁 ${item.name}/\n`
-        // 递归扫描子目录
-        const subPath = currentPath ? `${currentPath}/${item.name}` : item.name
-        structure += await scanDirectoryStructure(basePath, subPath, depth + 1, maxDepth)
+        // 只有当未达到最大深度时才递归扫描子目录
+        if (depth < maxDepth) {
+          const subPath = currentPath ? `${currentPath}/${item.name}` : item.name
+          structure += await scanDirectoryStructure(basePath, subPath, depth + 1, maxDepth)
+        }
       } else {
         // 显示文件，带扩展名图标
         const ext = item.name.split('.').pop()?.toLowerCase() || ''
@@ -411,8 +413,8 @@ async function getWorkspaceContext(): Promise<string> {
     // 获取目录名称
     const folderName = currentFolder.value.split('/').pop() || currentFolder.value.split('\\').pop() || 'workspace'
 
-    // 扫描目录结构
-    const structure = await scanDirectoryStructure(currentFolder.value, '', 0, 3)
+    // 扫描目录结构（只展示当前目录，不递归子文件夹）
+    const structure = await scanDirectoryStructure(currentFolder.value, '', 0, 0)
 
     if (!structure.trim()) {
       return ''
@@ -817,6 +819,16 @@ async function executeNormalChat(text: string) {
         }
       }
 
+      // 打印最终的 system 提示词到控制台
+      const systemMsg = messagesToSend.find((m: any) => m.role === 'system')
+      if (systemMsg) {
+        console.log('\n' + '='.repeat(60))
+        console.log('[SYSTEM PROMPT]')
+        console.log('='.repeat(60))
+        console.log(systemMsg.content)
+        console.log('='.repeat(60) + '\n')
+      }
+
       resp = await fetch(`${apiBase}/chat/completions`, {
         method: 'POST',
         headers: {
@@ -1149,6 +1161,16 @@ async function continueChatAfterToolCalls(messages: any[], mcpTools: any[]) {
       }
       return msg
     })
+
+    // 打印最终的 system 提示词到控制台
+    const systemMsg = messagesToSend.find((m: any) => m.role === 'system')
+    if (systemMsg) {
+      console.log('\n' + '='.repeat(60))
+      console.log('[SYSTEM PROMPT] (MCP Tool Call)')
+      console.log('='.repeat(60))
+      console.log(systemMsg.content)
+      console.log('='.repeat(60) + '\n')
+    }
 
     const resp = await fetch(`${apiBase}/chat/completions`, {
       method: 'POST',

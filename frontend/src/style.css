@@ -1,4 +1,7 @@
 :root {
+  /* Force light mode - ignore system dark mode preference */
+  color-scheme: light only;
+
   /* Theme Colors - Light Mode */
   --color-primary: #333;
   --color-primary-hover: #555;
@@ -686,13 +689,13 @@ button:disabled {
 }
 
 /* ============================================
-   DARK MODE THEME
+   DARK MODE THEME (DISABLED - LIGHT MODE ONLY)
    ============================================ */
 
-/* System-level dark mode support */
+/* System-level dark mode support - DISABLED */
+/*
 @media (prefers-color-scheme: dark) {
   :root {
-    /* Theme Colors - Dark Mode */
     --color-primary: #666;
     --color-primary-hover: #777;
     --color-secondary: #3c4043;
@@ -705,17 +708,14 @@ button:disabled {
     --color-danger-bg: rgba(242, 139, 130, 0.2);
     --color-button-disabled: #444;
 
-    /* Text Colors */
     --color-text-primary: #e8eaed;
     --color-text-secondary: #9aa0a6;
     --color-text-tertiary: #5f6368;
     --color-text-on-primary: #e8eaed;
 
-    /* Border Colors */
     --color-border: #3c4043;
     --color-border-hover: #5f6368;
 
-    /* Background Colors */
     --color-bg-primary: #292a2d;
     --color-bg-secondary: #202124;
     --color-bg-tertiary: #202124;
@@ -724,7 +724,6 @@ button:disabled {
     --color-bg-warning: rgba(251, 191, 36, 0.2);
     --color-bg-info: rgba(96, 165, 250, 0.2);
 
-    /* Status Colors */
     --color-status-working: #60a5fa;
     --color-status-working-bg: rgba(96, 165, 250, 0.2);
     --color-status-completed: #4ade80;
@@ -735,16 +734,16 @@ button:disabled {
     --color-status-idle-bg: rgba(156, 163, 175, 0.2);
   }
 
-  /* Update base styles for dark mode */
   body {
     color: #e8eaed;
     background-color: #202124;
   }
 }
+*/
 
-/* Manual dark mode toggle (add class 'dark-mode' to html or body) */
+/* Manual dark mode toggle - DISABLED */
+/*
 .dark-mode {
-  /* Theme Colors - Dark Mode */
   --color-primary: #666;
   --color-primary-hover: #777;
   --color-secondary: #3c4043;
@@ -757,17 +756,14 @@ button:disabled {
   --color-danger-bg: rgba(242, 139, 130, 0.2);
   --color-button-disabled: #444;
 
-  /* Text Colors */
   --color-text-primary: #e8eaed;
   --color-text-secondary: #9aa0a6;
   --color-text-tertiary: #5f6368;
   --color-text-on-primary: #e8eaed;
 
-  /* Border Colors */
   --color-border: #3c4043;
   --color-border-hover: #5f6368;
 
-  /* Background Colors */
   --color-bg-primary: #292a2d;
   --color-bg-secondary: #202124;
   --color-bg-tertiary: #202124;
@@ -776,7 +772,6 @@ button:disabled {
   --color-bg-warning: rgba(251, 191, 36, 0.2);
   --color-bg-info: rgba(96, 165, 250, 0.2);
 
-  /* Status Colors */
   --color-status-working: #60a5fa;
   --color-status-working-bg: rgba(96, 165, 250, 0.2);
   --color-status-completed: #4ade80;
@@ -791,14 +786,14 @@ button:disabled {
   color: #e8eaed;
   background-color: #202124;
 }
+*/
 
 /* ============================================
-   DARK MODE GLOBAL OVERRIDES
-   处理组件中的硬编码颜色
+   DARK MODE GLOBAL OVERRIDES (DISABLED)
    ============================================ */
 
+/*
 @media (prefers-color-scheme: dark) {
-  /* 覆盖硬编码的背景色 */
   .global-memory-view,
   .assistant-page,
   .mcp-page,
@@ -820,11 +815,8 @@ button:disabled {
   .assistant-header,
   .mcp-header,
   .settings-header {
-    /* background: #292a2d;
-    border-color: #3c4043; */
   }
 
-  /* 覆盖硬编码的文字颜色 */
   .header h1,
   .assistant-header h1,
   .mcp-header h1,
@@ -840,7 +832,6 @@ button:disabled {
     color: #e8eaed !important;
   }
 
-  /* 覆盖卡片背景 */
   .entry-card,
   .assistant-card,
   .server-card,
@@ -852,7 +843,6 @@ button:disabled {
     border-color: #3c4043;
   }
 
-  /* 覆盖输入框样式 */
   .form-control,
   .input,
   .textarea,
@@ -873,7 +863,6 @@ button:disabled {
     border-color: #81c995;
   }
 
-  /* 覆盖标签/徽章背景 */
   .entry-type,
   .entry-category,
   .transport-badge,
@@ -890,14 +879,12 @@ button:disabled {
     color: #81c995;
   }
 
-  /* 覆盖空状态 */
   .empty-state,
   .loading-state {
     background: #292a2d;
     color: #9aa0a6;
   }
 
-  /* 覆盖侧边栏 */
   .settings-sidebar {
     background: #292a2d;
     border-color: #3c4043;
@@ -908,7 +895,6 @@ button:disabled {
     border-color: #3c4043;
   }
 
-  /* 覆盖标签页 */
   .sidebar-tab,
   .wm-tab {
     color: #9aa0a6;
@@ -925,12 +911,10 @@ button:disabled {
     color: #202124;
   }
 
-  /* 覆盖消息区域 */
   .msg-row.assistant {
     background: #202124;
   }
 
-  /* 覆盖工作记忆区域 */
   .working-memory-section,
   .task-list-section {
     background: #202124;
@@ -943,12 +927,10 @@ button:disabled {
     border-color: #3c4043;
   }
 
-  /* 覆盖对话框 */
   .dialog-overlay {
     background: rgba(0, 0, 0, 0.7);
   }
 
-  /* 覆盖错误消息 */
   .msg-row.error-message {
     background: #292a2d;
   }
@@ -959,34 +941,31 @@ button:disabled {
     border-color: #f28b82;
   }
 
-  /* 覆盖表单区域 */
   .edit-form {
     background: #292a2d;
   }
 
-  /* 覆盖面包屑 */
   .breadcrumb-nav {
     background: #292a2d;
   }
 
-  /* 覆盖文件列表 */
   .file-list {
     background: #202124;
   }
 
-  /* 覆盖统计卡片 */
   .stats {
     background: #292a2d;
     border-color: #3c4043;
   }
 
-  /* 覆盖过滤器区域 */
   .filters {
     background: transparent;
   }
 }
+*/
 
-/* 手动深色模式覆盖 */
+/* Manual dark mode overrides - DISABLED */
+/*
 .dark-mode .global-memory-view,
 .dark-mode .assistant-page,
 .dark-mode .mcp-page,
@@ -1156,10 +1135,11 @@ button:disabled {
 .dark-mode .filters {
   background: transparent;
 }
+*/
 
-/* 额外的深色模式覆盖 */
+/* Extra dark mode overrides - DISABLED */
+/*
 @media (prefers-color-scheme: dark) {
-  /* 导航项 */
   .nav-item {
     color: #9aa0a6;
   }
@@ -1174,7 +1154,6 @@ button:disabled {
     color: #202124;
   }
 
-  /* 消息气泡 */
   .msg-bubble,
   .msg-reasoning-bubble {
     color: #e8eaed;
@@ -1186,7 +1165,6 @@ button:disabled {
     color: #81c995;
   }
 
-  /* 标题样式 */
   h1, h2, h3, h4, h5, h6 {
     color: #e8eaed;
   }
@@ -1195,7 +1173,6 @@ button:disabled {
     color: #e8eaed;
   }
 
-  /* 特定组件文字颜色 */
   .config-header h3,
   .entry-meta,
   .empty-state p,
@@ -1210,12 +1187,10 @@ button:disabled {
     color: #9aa0a6;
   }
 
-  /* 预览区域 */
   .theme-preview {
     background: #202124;
   }
 
-  /* 下拉菜单 */
   .custom-dropdown {
     background: #292a2d;
     border-color: #3c4043;
@@ -1234,13 +1209,11 @@ button:disabled {
     border-left-color: #81c995;
   }
 
-  /* 模态框页脚 */
   .modal-footer,
   .dialog-footer {
     border-top-color: #3c4043;
   }
 
-  /* 滚动条样式 */
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -1358,20 +1331,19 @@ button:disabled {
 .dark-mode ::-webkit-scrollbar-thumb:hover {
   background: #9aa0a6;
 }
+*/
 
 /* ============================================
-   COMPREHENSIVE DARK MODE OVERRIDES
-   更全面的深色模式样式覆盖
+   COMPREHENSIVE DARK MODE OVERRIDES (DISABLED)
    ============================================ */
 
+/*
 @media (prefers-color-scheme: dark) {
-  /* 所有页面的根元素 */
   #app {
     background: #202124;
     color: #e8eaed;
   }
 
-  /* 通用背景覆盖 */
   .view,
   .page,
   [class*="-view"],
@@ -1380,14 +1352,11 @@ button:disabled {
     color: #e8eaed;
   }
 
-  /* 通用容器覆盖 */
   [class*="content"],
   [class*="container"],
   [class*="wrapper"] {
-    /* background: #202124 !important; */
   }
 
-  /* 所有卡片样式 */
   [class*="card"],
   [class*="item"],
   [class*="box"] {
@@ -1395,29 +1364,22 @@ button:disabled {
     border-color: #3c4043 !important;
   }
 
-  /* 所有头部 */
   [class*="header"] {
-    /* background: #292a2d !important;
-    border-color: #3c4043 !important; */
   }
 
-  /* 所有标题 */
   h1, h2, h3, h4, h5, h6,
   .title, .label, .name {
     color: #e8eaed !important;
   }
 
-  /* 所有文本 */
   p, span, div, li, td, th, a {
     color: #e8eaed;
   }
 
-  /* 次要文本 */
   small, .meta, .secondary, .hint, .description {
     color: #9aa0a6;
   }
 
-  /* 输入框覆盖 */
   input,
   textarea,
   select,
@@ -1433,7 +1395,6 @@ button:disabled {
     color: #5f6368;
   }
 
-  /* 模态框 */
   .modal,
   .dialog,
   .overlay {
@@ -1445,7 +1406,6 @@ button:disabled {
     background: #292a2d !important;
   }
 
-  /* 列表 */
   ul, ol {
     background: transparent;
   }
@@ -1454,7 +1414,6 @@ button:disabled {
     color: #e8eaed;
   }
 
-  /* 表格 */
   table {
     background: #292a2d;
   }
@@ -1464,7 +1423,6 @@ button:disabled {
     color: #e8eaed;
   }
 
-  /* 分割线 */
   hr,
   [class*="separator"],
   [class*="divider"] {
@@ -1472,7 +1430,6 @@ button:disabled {
   }
 }
 
-/* 手动深色模式 - 同样的覆盖 */
 .dark-mode #app {
   background: #202124;
   color: #e8eaed;
@@ -1489,7 +1446,6 @@ button:disabled {
 .dark-mode [class*="content"],
 .dark-mode [class*="container"],
 .dark-mode [class*="wrapper"] {
-  /* background: #202124 !important; */
 }
 
 .dark-mode [class*="card"],
@@ -1585,7 +1541,6 @@ button:disabled {
   border-color: #3c4043;
 }
 
-/* 特别覆盖：Vue 组件常见类名 */
 @media (prefers-color-scheme: dark) {
   .vue-component,
   [class^="v-"],
@@ -1599,6 +1554,7 @@ button:disabled {
 .dark-mode [id^="v-"] {
   background: transparent !important;
 }
+*/
 
 /* 深空繁星星空设计*/
 .deep-space-header {
@@ -1649,9 +1605,10 @@ button:disabled {
 /* 深空繁星星空设计*/
 
 /* ============================================
-   ENVIRONMENT CHECK VIEW - DARK MODE
+   ENVIRONMENT CHECK VIEW - DARK MODE (DISABLED)
    ============================================ */
 
+/*
 @media (prefers-color-scheme: dark) {
   .env-check-container {
     background: #202124;
@@ -1797,6 +1754,7 @@ button:disabled {
 .dark-mode .fix-content {
   color: #9ca3af !important;
 }
+*/
 
 /* ============================================
    TRANSITION ANIMATIONS

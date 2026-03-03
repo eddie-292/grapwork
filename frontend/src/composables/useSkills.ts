@@ -307,15 +307,15 @@ function createSkillsManager() {
 
     const skillList = active
       .map((skill, index) => {
-        const locationLabel = skill.location === 'user' ? '用户' : skill.location === 'installed' ? '安装' : skill.location === 'public' ? '系统' : '示例'
+        //const locationLabel = skill.location === 'user' ? '用户' : skill.location === 'installed' ? '安装' : skill.location === 'public' ? '系统' : '内置'
         const skillMdPath = `${skill.path}/SKILL.md`
-        return `${index + 1}. **${skill.name}** (${locationLabel})
+        return `${index + 1}. **${skill.name}**
    描述: ${skill.description}
    路径: ${skillMdPath}`
       })
       .join('\n\n')
 
-    return `[可用技能列表]
+    return `## 可用技能列表
 
 以下技能可根据任务需求加载使用。当你认为当前任务需要某个技能时，请使用 read_file 工具读取对应路径的 SKILL.md 文件来获取完整的技能说明。
 

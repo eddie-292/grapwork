@@ -2626,6 +2626,16 @@ ipcMain.handle('chat-request', async (_event, { apiUrl, apiKey, model, messages,
       }
     }
 
+    // 打印最终的 system 提示词到控制台
+    const systemMessage = messages.find((m: any) => m.role === 'system')
+    if (systemMessage) {
+      console.log('\n' + '='.repeat(60))
+      console.log('[SYSTEM PROMPT]')
+      console.log('='.repeat(60))
+      console.log(systemMessage.content)
+      console.log('='.repeat(60) + '\n')
+    }
+
     const response = await fetch(`${apiUrl}/chat/completions`, {
       method: 'POST',
       headers: {
