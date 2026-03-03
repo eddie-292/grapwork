@@ -4,6 +4,7 @@ import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
 import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
+import MermaidDialog from './MermaidDialog.vue'
 import { storage } from '@/services/StorageService'
 import CopyIcon from './icons/CopyIcon.vue'
 import ChevronDownIcon from './icons/ChevronDownIcon.vue'
@@ -85,6 +86,10 @@ const saveToGlobalMemoryKeywords = ref<string[]>([])
 // HTML预览对话框状态
 const showHtmlPreview = ref(false)
 const htmlPreviewContent = ref('')
+
+// Mermaid预览对话框状态
+const showMermaidPreview = ref(false)
+const mermaidPreviewContent = ref('')
 
 // 选中的文件夹路径
 const selectedFolderPath = ref<string>('')
@@ -261,6 +266,13 @@ md.renderer.rules.fence = (tokens, idx) => {
     const utf8Bytes = encodeURIComponent(rawCode).replace(/%([0-9A-F]{2})/g, (_match, p1) => String.fromCharCode(parseInt(p1, 16)))
     const base64Code = btoa(utf8Bytes)
     previewBtn = `<button class="code-preview-btn" data-html-code="${base64Code}" onclick="window.previewHtml(this)" title="预览HTML">预览</button>`
+  }
+
+  // 为Mermaid代码块添加预览按钮
+  if (lang === 'mermaid') {
+    const utf8Bytes = encodeURIComponent(rawCode).replace(/%([0-9A-F]{2})/g, (_match, p1) => String.fromCharCode(parseInt(p1, 16)))
+    const base64Code = btoa(utf8Bytes)
+    previewBtn = `<button class="code-mermaid-btn" data-mermaid-code="${base64Code}" onclick="window.previewMermaid(this)" title="预览图表">图表</button>`
   }
 
   return `<pre><code class="hljs language-${lang}">${code}</code>${copyBtn}${previewBtn}</pre>`
@@ -450,6 +462,15 @@ function openHtmlPreview(base64Code: string) {
   showHtmlPreview.value = true
 }
 
+// Mermaid预览功能
+function openMermaidPreview(base64Code: string) {
+  // 使用UTF-8解码
+  const utf8Bytes = atob(base64Code)
+  const mermaidCode = decodeURIComponent(utf8Bytes.split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''))
+  mermaidPreviewContent.value = mermaidCode
+  showMermaidPreview.value = true
+}
+
 // 点击外部关闭设置弹出框
 function handleClickOutside(e: MouseEvent) {
   const target = e.target as HTMLElement
@@ -463,6 +484,10 @@ onMounted(async () => {
   ;(window as any).previewHtml = function (btn: HTMLElement) {
     const base64Code = btn.getAttribute('data-html-code') || ''
     openHtmlPreview(base64Code)
+  }
+  ;(window as any).previewMermaid = function (btn: HTMLElement) {
+    const base64Code = btn.getAttribute('data-mermaid-code') || ''
+    openMermaidPreview(base64Code)
   }
   // 加载已保存的文件夹路径
   const savedFolder = await storage.getSelectedFolder()
@@ -490,6 +515,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   delete (window as any).previewHtml
+  delete (window as any).previewMermaid
   // 移除事件监听
   document.removeEventListener('click', handleClickOutside)
   window.removeEventListener('resize', updateMessagesHeight)
@@ -971,6 +997,13 @@ function scrollToBottom() {
       :show="showHtmlPreview"
       :html-content="htmlPreviewContent"
       @close="showHtmlPreview = false"
+    />
+
+    <!-- Mermaid预览对话框 -->
+    <MermaidDialog
+      :show="showMermaidPreview"
+      :mermaid-content="mermaidPreviewContent"
+      @close="showMermaidPreview = false"
     />
 
     <!-- 文件夹选择对话框 -->
@@ -1468,6 +1501,25 @@ function scrollToBottom() {
 .msg-bubble :deep(.code-preview-btn:hover) {
   background: var(--color-primary-hover);
   border-color: var(--color-primary-hover);
+}
+
+.msg-bubble :deep(.code-mermaid-btn) {
+  position: absolute;
+  top: 8px;
+  right: 72px;
+  background: #8b5cf6;
+  border: 1px solid #8b5cf6;
+  border-radius: 3px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: #ffffff;
+}
+
+.msg-bubble :deep(.code-mermaid-btn:hover) {
+  background: #7c3aed;
+  border-color: #7c3aed;
 }
 
 .msg-bubble :deep(code) {

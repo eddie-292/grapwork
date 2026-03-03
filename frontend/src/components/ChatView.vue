@@ -13,6 +13,7 @@ import ChatTabBar from './ChatTabBar.vue'
 import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
+import MermaidDialog from './MermaidDialog.vue'
 import { storage } from '../services/StorageService'
 import SettingsIcon from './icons/SettingsIcon.vue'
 import LogoutIcon from './icons/LogoutIcon.vue'
@@ -37,6 +38,10 @@ const saveToGlobalMemoryKeywords = ref<string[]>([])
 // HTML预览对话框状态
 const showHtmlPreview = ref(false)
 const htmlPreviewContent = ref('')
+
+// Mermaid预览对话框状态
+const showMermaidPreview = ref(false)
+const mermaidPreviewContent = ref('')
 
 // 退出登录确认对话框状态
 const showLogoutConfirmDialog = ref(false)
@@ -216,6 +221,13 @@ md.renderer.rules.fence = (tokens, idx) => {
     previewBtn = `<button class="code-preview-btn" data-html-code="${base64Code}" onclick="window.previewHtml(this)" title="预览HTML">预览</button>`
   }
 
+  // 为Mermaid代码块添加预览按钮
+  if (lang === 'mermaid') {
+    const utf8Bytes = encodeURIComponent(rawCode).replace(/%([0-9A-F]{2})/g, (_match, p1) => String.fromCharCode(parseInt(p1, 16)))
+    const base64Code = btoa(utf8Bytes)
+    previewBtn = `<button class="code-mermaid-btn" data-mermaid-code="${base64Code}" onclick="window.previewMermaid(this)" title="预览图表">图表</button>`
+  }
+
   return `<pre><code class="hljs language-${lang}">${code}</code>${copyBtn}${previewBtn}</pre>`
 }
 
@@ -256,6 +268,178 @@ const username = ref('')
 
 // 当前选择的文件夹路径（用于工作空间）
 const currentFolder = ref<string>('')
+
+// 目录结构缓存
+const directoryStructureCache = ref<string>('')
+const directoryStructureCacheTime = ref<number>(0)
+const DIRECTORY_CACHE_TTL = 30000 // 缓存 30 秒
+
+/**
+ * 递归扫描目录结构，生成结构化的目录树
+ * @param basePath 基础路径
+ * @param currentPath 当前扫描路径（相对路径）
+ * @param depth 当前深度
+ * @param maxDepth 最大深度
+ * @returns 结构化的目录树字符串
+ */
+async function scanDirectoryStructure(
+  basePath: string,
+  currentPath: string = '',
+  depth: number = 0,
+  maxDepth: number = 3
+): Promise<string> {
+  if (!window.electronAPI?.fileOperation) {
+    return ''
+  }
+
+  if (depth > maxDepth) {
+    return '  '.repeat(depth) + '... (已达最大深度)\n'
+  }
+
+  try {
+    const result = await window.electronAPI.fileOperation('list_directory', {
+      basePath,
+      path: currentPath
+    })
+
+    if (!result.success || !result.content) {
+      return ''
+    }
+
+    const { items } = JSON.parse(result.content)
+    if (!items || items.length === 0) {
+      return ''
+    }
+
+    let structure = ''
+    const indent = '  '.repeat(depth)
+
+    // 排序：目录在前，文件在后，按名称排序
+    const sortedItems = items.sort((a: any, b: any) => {
+      if (a.type !== b.type) {
+        return a.type === 'directory' ? -1 : 1
+      }
+      return a.name.localeCompare(b.name)
+    })
+
+    // 过滤掉隐藏文件和常见的忽略目录
+    const ignorePatterns = [
+      'node_modules', '.git', '.svn', '.hg', '__pycache__', '.pytest_cache',
+      'dist', 'build', '.next', '.nuxt', 'coverage', '.cache', '.tmp',
+      '.DS_Store', 'Thumbs.db', '*.log'
+    ]
+
+    const filteredItems = sortedItems.filter((item: any) => {
+      if (item.name.startsWith('.')) return false
+      return !ignorePatterns.includes(item.name)
+    })
+
+    // 限制显示的条目数量
+    const maxItems = depth === 0 ? 50 : 20
+    const displayItems = filteredItems.slice(0, maxItems)
+    const hasMore = filteredItems.length > maxItems
+
+    for (const item of displayItems) {
+      if (item.type === 'directory') {
+        structure += `${indent}📁 ${item.name}/\n`
+        // 递归扫描子目录
+        const subPath = currentPath ? `${currentPath}/${item.name}` : item.name
+        structure += await scanDirectoryStructure(basePath, subPath, depth + 1, maxDepth)
+      } else {
+        // 显示文件，带扩展名图标
+        const ext = item.name.split('.').pop()?.toLowerCase() || ''
+        const icon = getFileIcon(ext)
+        structure += `${indent}${icon} ${item.name}\n`
+      }
+    }
+
+    if (hasMore) {
+      structure += `${indent}... 还有 ${filteredItems.length - maxItems} 个条目\n`
+    }
+
+    return structure
+  } catch (error) {
+    console.error('扫描目录结构失败:', error)
+    return ''
+  }
+}
+
+/**
+ * 根据文件扩展名获取图标
+ */
+function getFileIcon(ext: string): string {
+  const iconMap: Record<string, string> = {
+    'js': '📜', 'ts': '📜', 'jsx': '⚛️', 'tsx': '⚛️',
+    'vue': '💚', 'svelte': '🔶',
+    'py': '🐍', 'rb': '💎',
+    'java': '☕', 'kt': '☕', 'scala': '☕',
+    'go': '🔵', 'rs': '🦀',
+    'c': '🔵', 'cpp': '🔵', 'h': '📄',
+    'cs': '💜',
+    'php': '🐘',
+    'swift': '🍎', 'm': '🍎',
+    'json': '📋', 'yaml': '📋', 'yml': '📋', 'toml': '📋',
+    'xml': '📋', 'html': '🌐', 'css': '🎨', 'scss': '🎨', 'less': '🎨',
+    'md': '📝', 'txt': '📄', 'rst': '📝',
+    'sql': '🗃️', 'db': '🗃️', 'sqlite': '🗃️',
+    'sh': '💻', 'bash': '💻', 'zsh': '💻', 'ps1': '💻', 'bat': '💻',
+    'env': '🔐', 'gitignore': '🔐', 'dockerignore': '🔐',
+    'dockerfile': '🐳',
+    'png': '🖼️', 'jpg': '🖼️', 'jpeg': '🖼️', 'gif': '🖼️', 'svg': '🖼️', 'ico': '🖼️',
+    'pdf': '📕', 'doc': '📘', 'docx': '📘',
+    'zip': '📦', 'tar': '📦', 'gz': '📦', 'rar': '📦',
+    'mp3': '🎵', 'wav': '🎵', 'mp4': '🎬', 'avi': '🎬',
+  }
+  return iconMap[ext] || '📄'
+}
+
+/**
+ * 获取工作目录结构上下文（带缓存）
+ */
+async function getWorkspaceContext(): Promise<string> {
+  if (!currentFolder.value) {
+    return ''
+  }
+
+  // 检查缓存是否有效
+  const now = Date.now()
+  if (directoryStructureCache.value && (now - directoryStructureCacheTime.value) < DIRECTORY_CACHE_TTL) {
+    return directoryStructureCache.value
+  }
+
+  try {
+    // 获取目录名称
+    const folderName = currentFolder.value.split('/').pop() || currentFolder.value.split('\\').pop() || 'workspace'
+
+    // 扫描目录结构
+    const structure = await scanDirectoryStructure(currentFolder.value, '', 0, 3)
+
+    if (!structure.trim()) {
+      return ''
+    }
+
+    const context = `
+## 当前工作目录结构
+
+工作目录: \`${currentFolder.value}\`
+
+\`\`\`
+📁 ${folderName}/
+${structure}\`\`\`
+
+> 注：这是当前工作目录的结构概览。你可以使用 \`list_directory\` 等工具查看更详细的内容。
+`
+
+    // 更新缓存
+    directoryStructureCache.value = context
+    directoryStructureCacheTime.value = now
+
+    return context
+  } catch (error) {
+    console.error('获取工作目录上下文失败:', error)
+    return ''
+  }
+}
 
 // 发送状态 - 基于当前会话的 computed 属性 (保留给普通模式)
 const sending = computed(() => currentChat.value?.sending ?? false)
@@ -582,6 +766,12 @@ async function executeNormalChat(text: string) {
     const skillsContext = skillsManager.generateSkillContext()
     if (skillsContext) {
       systemPrompt += '\n\n' + skillsContext
+    }
+
+    // 注入当前工作目录结构（如果有选择工作目录）
+    const workspaceContext = await getWorkspaceContext()
+    if (workspaceContext) {
+      systemPrompt += '\n\n' + workspaceContext
     }
 
     // 添加合并后的 system prompt 到消息开头
@@ -1428,6 +1618,9 @@ onUnmounted(() => {
 function handleFolderChanged(path: string) {
   mcpManager.setSelectedFolder(path)
   currentFolder.value = path
+  // 清除目录结构缓存，下次发送消息时会重新扫描
+  directoryStructureCache.value = ''
+  directoryStructureCacheTime.value = 0
 }
 </script>
 
@@ -1650,6 +1843,13 @@ function handleFolderChanged(path: string) {
       :show="showHtmlPreview"
       :html-content="htmlPreviewContent"
       @close="showHtmlPreview = false"
+    />
+
+    <!-- Mermaid预览对话框 -->
+    <MermaidDialog
+      :show="showMermaidPreview"
+      :mermaid-content="mermaidPreviewContent"
+      @close="showMermaidPreview = false"
     />
 
     <!-- 退出登录确认对话框 -->
@@ -2217,6 +2417,25 @@ function handleFolderChanged(path: string) {
 .msg-bubble :deep(.code-preview-btn:hover) {
   background: #0d8a6c;
   border-color: #0d8a6c;
+}
+
+.msg-bubble :deep(.code-mermaid-btn) {
+  position: absolute;
+  top: 8px;
+  right: 72px;
+  background: #8b5cf6;
+  border: 1px solid #8b5cf6;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: #ffffff;
+}
+
+.msg-bubble :deep(.code-mermaid-btn:hover) {
+  background: #7c3aed;
+  border-color: #7c3aed;
 }
 
 .msg-bubble :deep(code) {
