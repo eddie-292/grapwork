@@ -3275,15 +3275,9 @@ ipcMain.handle('preview-file', async (_event, filePath: string, limit: number = 
     const lines = content.split('\n')
     const limitedLines = lines.slice(0, limit)
 
-    // 添加行号
-    const numberedLines = limitedLines.map((line, idx) => {
-      const lineNum = idx + 1
-      return `${String(lineNum).padStart(4, ' ')}\t${line}`
-    })
-
     return {
       success: true,
-      content: numberedLines.join('\n'),
+      content: limitedLines.join('\n'),
       totalLines: lines.length,
       linesShown: limitedLines.length
     }
