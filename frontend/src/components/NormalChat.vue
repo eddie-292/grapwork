@@ -620,8 +620,9 @@ defineExpose({
 function scrollToBottom() {
   const el = messagesRef.value
   if (!el) return
-  requestAnimationFrame(() => {
-    el.scrollTop = el.scrollHeight
+  el.scrollTo({
+    top: el.scrollHeight,
+    behavior: 'smooth'
   })
   // 重置用户滚动状态
   userHasScrolledUp.value = false

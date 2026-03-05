@@ -1447,7 +1447,10 @@ function scrollToBottom() {
   nextTick(() => {
     const container = document.querySelector('.chat-container')
     if (container) {
-      container.scrollTop = container.scrollHeight
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: 'smooth'
+      })
     }
   })
 }
