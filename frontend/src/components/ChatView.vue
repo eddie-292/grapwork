@@ -1445,13 +1445,8 @@ function deleteChat(chatId: string, event: Event) {
 
 function scrollToBottom() {
   nextTick(() => {
-    const container = document.querySelector('.chat-container')
-    if (container) {
-      container.scrollTo({
-        top: container.scrollHeight,
-        behavior: 'smooth'
-      })
-    }
+    // 调用 NormalChat 组件暴露的 scrollToBottom 方法
+    normalChatRef.value?.scrollToBottom?.()
   })
 }
 
