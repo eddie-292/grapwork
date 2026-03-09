@@ -1,9 +1,98 @@
 import { app, BrowserWindow, ipcMain, shell, dialog, Menu, screen } from 'electron'
 import path from 'path'
 import fs from 'fs'
-import { spawn, ChildProcess, execSync } from 'child_process'
+import { spawn, ChildProcess } from 'child_process'
 
 const __dirname = path.dirname(__filename)
+
+// ============================================================================
+// 异步命令执行工具（避免阻塞主进程事件循环）
+// ============================================================================
+
+interface ExecResult {
+  stdout: string
+  stderr: string
+  exitCode: number | null
+  killed?: boolean
+  signal?: string | null
+}
+
+/**
+ * 异步执行 shell 命令，不阻塞 Electron 主进程事件循环
+ * @param command 要执行的命令
+ * @param options 执行选项
+ */
+function execAsync(
+  command: string,
+  options: {
+    cwd?: string
+    env?: NodeJS.ProcessEnv
+    timeout?: number
+    maxBuffer?: number
+  } = {}
+): Promise<ExecResult> {
+  const { cwd, env, timeout = 30000, maxBuffer = 10 * 1024 * 1024 } = options
+
+  return new Promise((resolve) => {
+    const child = spawn(command, [], {
+      shell: true,
+      cwd,
+      env: { ...process.env, ...env },
+      windowsHide: true
+    })
+
+    let stdout = ''
+    let stderr = ''
+    let killed = false
+    let bufferOverflow = false
+
+    const timeoutId = setTimeout(() => {
+      killed = true
+      child.kill('SIGKILL')
+    }, timeout)
+
+    child.stdout.on('data', (data: Buffer) => {
+      if (stdout.length < maxBuffer) {
+        stdout += data.toString()
+        if (stdout.length > maxBuffer) {
+          bufferOverflow = true
+          stdout = stdout.slice(0, maxBuffer) + '\n... [输出被截断，超出缓冲区限制]'
+        }
+      }
+    })
+
+    child.stderr.on('data', (data: Buffer) => {
+      if (stderr.length < maxBuffer) {
+        stderr += data.toString()
+        if (stderr.length > maxBuffer) {
+          bufferOverflow = true
+          stderr = stderr.slice(0, maxBuffer) + '\n... [输出被截断，超出缓冲区限制]'
+        }
+      }
+    })
+
+    child.on('error', (err: Error) => {
+      clearTimeout(timeoutId)
+      resolve({
+        stdout,
+        stderr: stderr + '\n' + err.message,
+        exitCode: 1,
+        killed: false
+      })
+    })
+
+    child.on('close', (code, signal) => {
+      clearTimeout(timeoutId)
+      resolve({
+        stdout,
+        stderr,
+        exitCode: code,
+        killed,
+        signal
+      })
+    })
+  })
+}
 
 // ============================================================================
 // MCP Client Implementation
@@ -369,11 +458,35 @@ class SimpleCommandExecutor {
 
       // 使用增强的环境变量
       const enhancedEnv = getEnhancedEnv()
-      const output = execSync(fullCommand, {
-        encoding: 'utf-8',
+
+      // 使用异步执行，避免阻塞主进程事件循环
+      const result = await execAsync(fullCommand, {
         env: { ...enhancedEnv, ...this.config.env },
         maxBuffer: 10 * 1024 * 1024 // 10MB buffer
       })
+
+      // 检查执行结果
+      const output = result.stdout + (result.stderr ? `\n${result.stderr}` : '')
+
+      if (result.killed) {
+        return {
+          content: [{
+            type: 'text',
+            text: `命令执行超时`
+          }],
+          isError: true
+        }
+      }
+
+      if (result.exitCode !== 0) {
+        return {
+          content: [{
+            type: 'text',
+            text: output.trim() || `命令执行失败，退出码: ${result.exitCode}`
+          }],
+          isError: true
+        }
+      }
 
       return {
         content: [{
@@ -387,7 +500,7 @@ class SimpleCommandExecutor {
       return {
         content: [{
           type: 'text',
-          text: error.stderr?.toString() || error.message || 'Command execution failed'
+          text: error.message || 'Command execution failed'
         }],
         isError: true
       }
@@ -2096,13 +2209,30 @@ ipcMain.handle('file-operation', async (_event, operation: string, args: Record<
         try {
           console.log('[execute_command] Executing:', { command, cwd: basePath, timeout })
 
-          const output = execSync(command, {
-            encoding: 'utf-8',
+          // 使用异步执行，避免阻塞主进程事件循环
+          const result = await execAsync(command, {
             cwd: basePath,
             timeout,
             maxBuffer: 10 * 1024 * 1024, // 10MB buffer
             env: { ...process.env }
           })
+
+          // 检查执行结果
+          if (result.killed) {
+            return {
+              success: false,
+              error: `命令执行超时（${timeout}ms）`
+            }
+          }
+
+          const output = result.stdout + (result.stderr ? `\n${result.stderr}` : '')
+
+          if (result.exitCode !== 0) {
+            return {
+              success: false,
+              error: `命令执行失败，退出码: ${result.exitCode}${output ? `\n${output.trim()}` : ''}`
+            }
+          }
 
           return {
             success: true,
@@ -2110,24 +2240,15 @@ ipcMain.handle('file-operation', async (_event, operation: string, args: Record<
               command,
               cwd: basePath,
               output: output.trim(),
-              exitCode: 0
+              exitCode: result.exitCode
             }, null, 2)
           }
         } catch (error: any) {
           console.error('[execute_command] Execution failed:', error)
 
-          // 处理不同类型的错误
-          let errorMessage = error.message
-          let stdout = error.stdout?.toString() || ''
-          let stderr = error.stderr?.toString() || ''
-
-          if (error.killed) {
-            errorMessage = `命令执行超时（${timeout}ms）`
-          }
-
           return {
             success: false,
-            error: `命令执行失败: ${errorMessage}${stderr ? `\nStderr: ${stderr}` : ''}${stdout ? `\nStdout: ${stdout}` : ''}`
+            error: `命令执行失败: ${error.message}`
           }
         }
       }
