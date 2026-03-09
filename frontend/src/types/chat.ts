@@ -16,7 +16,6 @@ export interface ChatMessage {
   visible?: boolean;
   copyable?: boolean;
   archived?: boolean;
-  reasoningDuration?: number;
 }
 
 export interface Chat {

@@ -21,7 +21,6 @@ export type Message = {
   role: Role
   content: string
   reasoning?: string
-  reasoningDuration?: number
   visible?: boolean
   copyable?: boolean
   archived?: boolean
@@ -793,7 +792,6 @@ function scrollToBottom() {
                 <ChevronRightIcon v-else :size="10" />
                 <span v-if="sending && i === messages.length - 1 && m.role === 'assistant'" class="reasoning-spinner"></span>
                 <span>思考</span>
-                <span v-if="m.reasoningDuration">{{ m.reasoningDuration }}s</span>
               </button>
               <div v-show="reasoningExpanded[i]" class="msg-reasoning-bubble" v-html="render(m.reasoning || '')" />
             </div>

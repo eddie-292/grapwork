@@ -120,7 +120,6 @@ type Message = {
   role: Role
   content: string
   reasoning?: string
-  reasoningDuration?: number
   visible?: boolean
   copyable?: boolean
   archived?: boolean
@@ -930,8 +929,6 @@ async function executeNormalChat(text: string) {
                   normalChatRef.value.setReasoningStartTime(assistantIndex, Date.now())
                 }
               }
-              // 实时更新消息的推理时长（秒）
-              msg.reasoningDuration = Math.floor((Date.now() - reasoningStartTime.value[assistantIndex]) / 1000)
               msg.reasoning += reasoning_delta
             }
             scrollToBottom()
@@ -1245,7 +1242,6 @@ async function continueChatAfterToolCalls(messages: any[], mcpTools: any[]) {
             if (!reasoningStartTime.value[assistantIndex]) {
               reasoningStartTime.value[assistantIndex] = Date.now()
             }
-            msg.reasoningDuration = Math.floor((Date.now() - reasoningStartTime.value[assistantIndex]) / 1000)
             msg.reasoning += reasoning_delta
             scrollToBottom()
           }
