@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed, nextTick } from 'vue'
+import MarkdownIt from 'markdown-it'
 
 // 文件/文件夹节点类型
 interface FileNode {
@@ -21,6 +22,13 @@ const PreviewType = {
 } as const
 
 type PreviewTypeValue = typeof PreviewType[keyof typeof PreviewType]
+
+// Markdown 渲染器
+const md = new MarkdownIt({
+  html: true,
+  linkify: true,
+  typographer: true
+})
 
 // Props
 interface Props {
@@ -49,6 +57,19 @@ const previewError = ref('')
 const previewType = ref<PreviewTypeValue>(PreviewType.TEXT)
 const previewBlobUrl = ref('') // 用于图片、PDF、音视频等 blob URL
 const htmlPreviewIframe = ref<HTMLIFrameElement | null>(null) // HTML 预览 iframe 引用
+const showMarkdownPreview = ref(false) // Markdown 预览模式开关
+
+// 计算当前预览文件是否为 Markdown 文件
+const isMarkdownFile = computed(() => {
+  const ext = previewFileName.value.split('.').pop()?.toLowerCase() || ''
+  return ext === 'md'
+})
+
+// 渲染 Markdown 内容
+const renderedMarkdown = computed(() => {
+  if (!previewContent.value || !showMarkdownPreview.value) return ''
+  return md.render(previewContent.value)
+})
 
 // 计算是否在根目录
 const isAtRoot = computed(() => {
@@ -298,11 +319,17 @@ function closePreview() {
   previewFileName.value = ''
   previewFilePath.value = ''
   previewError.value = ''
+  showMarkdownPreview.value = false // 重置 Markdown 预览状态
   // 释放 blob URL
   if (previewBlobUrl.value && previewBlobUrl.value.startsWith('blob:')) {
     URL.revokeObjectURL(previewBlobUrl.value)
   }
   previewBlobUrl.value = ''
+}
+
+// 切换 Markdown 预览模式
+function toggleMarkdownPreview() {
+  showMarkdownPreview.value = !showMarkdownPreview.value
 }
 
 // 在系统中打开文件
@@ -793,6 +820,27 @@ defineExpose({
               <span class="preview-path" :title="previewFilePath">{{ previewFilePath }}</span>
             </div>
             <div class="preview-header-actions">
+              <!-- Markdown 预览切换按钮 -->
+              <button
+                v-if="isMarkdownFile"
+                class="preview-action-btn"
+                @click="toggleMarkdownPreview"
+                :title="showMarkdownPreview ? '查看源码' : 'Markdown 预览'"
+                :class="{ 'active': showMarkdownPreview }"
+              >
+                <svg v-if="showMarkdownPreview" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <line x1="16" y1="13" x2="8" y2="13"/>
+                  <line x1="16" y1="17" x2="8" y2="17"/>
+                  <polyline points="10 9 9 9 8 9"/>
+                </svg>
+                <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <path d="M9 15l2 2 4-4"/>
+                </svg>
+              </button>
               <!-- 在系统打开按钮 -->
               <button class="preview-action-btn" @click="openInSystem" title="在系统中打开">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -893,6 +941,8 @@ defineExpose({
                 在系统中打开
               </button>
             </div>
+            <!-- Markdown 渲染预览 -->
+            <div v-else-if="isMarkdownFile && showMarkdownPreview" class="preview-markdown" v-html="renderedMarkdown"></div>
             <!-- 文本/代码内容 -->
             <pre v-else class="preview-code">{{ previewContent }}</pre>
           </div>
@@ -1463,5 +1513,146 @@ defineExpose({
 
 .preview-open-system-btn:hover {
   background: var(--color-primary-hover);
+}
+
+/* Markdown 预览按钮激活状态 */
+.preview-action-btn.active {
+  background: var(--color-primary);
+  color: white;
+}
+
+/* Markdown 预览内容样式 */
+.preview-markdown {
+  padding: 16px;
+  line-height: 1.8;
+  font-size: 14px;
+}
+
+.preview-markdown :deep(h1) {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0 0 16px 0;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--color-primary);
+}
+
+.preview-markdown :deep(h2) {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 20px 0 12px 0;
+  padding-left: 10px;
+  border-left: 3px solid var(--color-primary);
+}
+
+.preview-markdown :deep(h3) {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 16px 0 8px 0;
+}
+
+.preview-markdown :deep(h4) {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 12px 0 6px 0;
+}
+
+.preview-markdown :deep(p) {
+  margin: 8px 0;
+  color: var(--color-text-primary);
+}
+
+.preview-markdown :deep(ul),
+.preview-markdown :deep(ol) {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+
+.preview-markdown :deep(li) {
+  margin: 4px 0;
+  color: var(--color-text-primary);
+}
+
+.preview-markdown :deep(strong) {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.preview-markdown :deep(code) {
+  background: var(--color-bg-tertiary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: 'Fira Code', 'Consolas', monospace;
+  color: #e96900;
+}
+
+.preview-markdown :deep(pre) {
+  background: var(--color-bg-tertiary);
+  padding: 12px 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 12px 0;
+}
+
+.preview-markdown :deep(pre code) {
+  background: transparent;
+  padding: 0;
+  color: var(--color-text-primary);
+}
+
+.preview-markdown :deep(blockquote) {
+  margin: 12px 0;
+  padding: 8px 16px;
+  border-left: 4px solid var(--color-primary);
+  background: var(--color-bg-tertiary);
+  border-radius: 0 8px 8px 0;
+}
+
+.preview-markdown :deep(blockquote p) {
+  margin: 4px 0;
+  color: var(--color-text-secondary);
+}
+
+.preview-markdown :deep(a) {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.preview-markdown :deep(a:hover) {
+  text-decoration: underline;
+}
+
+.preview-markdown :deep(hr) {
+  border: none;
+  height: 1px;
+  background: var(--color-border);
+  margin: 20px 0;
+}
+
+.preview-markdown :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+}
+
+.preview-markdown :deep(th),
+.preview-markdown :deep(td) {
+  border: 1px solid var(--color-border);
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.preview-markdown :deep(th) {
+  background: var(--color-bg-tertiary);
+  font-weight: 600;
+}
+
+.preview-markdown :deep(img) {
+  max-width: 100%;
+  border-radius: 8px;
 }
 </style>

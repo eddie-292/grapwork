@@ -1,6 +1,6 @@
 {
-  "appId": "com.prismchat.desktop",
-  "productName": "PrismChat",
+  "appId": "com.mirrorgrap.work",
+  "productName": "MirrorGrap Work",
   "icon": "build/icons/icon.png",
   "directories": {
     "output": "release",

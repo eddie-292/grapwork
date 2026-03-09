@@ -1,6 +1,8 @@
 ---
 name: find-skills
+version: 1.0.2
 description: Helps users discover and install agent skills when they ask questions like "how do I do X", "find a skill for X", "is there a skill that can...", or express interest in extending capabilities. This skill should be used when the user is looking for functionality that might exist as an installable skill.
+description_zh: 当用户询问"如何做X"、"找一个做X的技能"或表达对扩展功能的兴趣时，帮助用户发现和安装代理技能。当用户寻找可能存在的可安装技能时使用此功能。
 ---
 
 # Find Skills
@@ -92,7 +94,55 @@ If the user wants to proceed, you can install the skill for them:
 npx skills add <owner/repo@skill> -g -y
 ```
 
-The `-g` flag installs globally (user-level) and `-y` skips confirmation prompts.
+The `-g` flag installs the skill globally to `~/.agents/skills` directory and `-y` skips confirmation prompts.
+
+After installation, create links to make it available in Qoder:
+
+**For regular environments:**
+```bash
+ln -sf ~/.agents/skills/<skill-name> ~/.qoderwork/skills/<skill-name>
+```
+
+**For virtual machine environments:**
+```bash
+cp -r ~/.agents/skills/<skill-name> ~/.qoderwork/skills/<skill-name>
+```
+
+## Installation and Usage
+
+### Global Installation Mode
+
+Use the `-g` flag to install skills to the global directory:
+
+```bash
+npx skills add <owner/repo@skill> -g -y
+```
+
+This installs the skill to the `~/.agents/skills` directory.
+
+### Create Links for Qoder Access
+
+After installation, create appropriate links to make skills available in Qoder:
+
+**For regular environments (symbolic links):**
+```bash
+ln -sf ~/.agents/skills/<skill-name> ~/.qoderwork/skills/<skill-name>
+```
+
+**For virtual machine environments (copy files):**
+```bash
+cp -r ~/.agents/skills/<skill-name> ~/.qoderwork/skills/<skill-name>
+```
+
+### Verify Installation
+
+Check if skills are properly linked:
+
+```bash
+ls -la ~/.qoderwork/skills/
+```
+
+You should see the skill files in the target directory.
 
 ## Common Skill Categories
 

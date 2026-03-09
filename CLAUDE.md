@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**PrismChat** - A cross-platform desktop AI Agent assistant (Electron + Vue 3 + TypeScript) that supports any OpenAI-compatible LLM API. Features:
+**MirrorGrap Work** - A cross-platform desktop AI Agent assistant (Electron + Vue 3 + TypeScript) that supports any OpenAI-compatible LLM API. Features:
 - **Global Memory**: Persistent knowledge storage for user preferences and custom context with smart keyword matching
 - **Assistant System**: Custom AI assistant/system prompt management with default "EddieLab-Agent (ELA)"
 - **MCP Support**: Model Context Protocol integration for extensible tool/function calling with STDIO/SSE transports
@@ -255,9 +255,9 @@ Renderer → Main process handlers:
 **Note**: Most storage uses the unified `StorageService` instead of direct IPC.
 
 Config storage location (platform-specific, when using Electron backend):
-- macOS: `~/Library/Application Support/prismchat/config.json`
-- Windows: `%APPDATA%/prismchat/config.json`
-- Linux: `~/.config/prismchat/config.json`
+- macOS: `~/Library/Application Support/mirrorgrap-work/config.json`
+- Windows: `%APPDATA%/mirrorgrap-work/config.json`
+- Linux: `~/.config/mirrorgrap-work/config.json`
 
 ### Built-in File Operations (Main Process)
 

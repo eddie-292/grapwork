@@ -1,5 +1,5 @@
 {
-  "name": "prismchat",
+  "name": "mirrorgrap-work",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -42,8 +42,8 @@
     "wait-on": "^7.2.0"
   },
   "build": {
-    "appId": "com.prismchat.desktop",
-    "productName": "PrismChat",
+    "appId": "com.mirrorgrap.work",
+    "productName": "MirrorGrap Work",
     "icon": "build/icons/icon.png",
     "directories": {
       "output": "release"

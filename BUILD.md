@@ -1,6 +1,6 @@
-# PrismChat 构建指南
+# MirrorGrap Work 构建指南
 
-本文档详细说明 PrismChat 项目的构建流程、环境要求和打包配置。
+本文档详细说明 MirrorGrap Work 项目的构建流程、环境要求和打包配置。
 
 ## 目录
 
@@ -70,7 +70,7 @@ frontend/
 
 ### 双构建流程
 
-PrismChat 采用双构建流程：
+MirrorGrap Work 采用双构建流程：
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -232,8 +232,8 @@ npx electron-builder --config electron-builder.json
 
 ```json
 {
-  "appId": "com.prismchat.desktop",
-  "productName": "PrismChat",
+  "appId": "com.mirrorgrap-work.desktop",
+  "productName": "MirrorGrap Work",
   "icon": "build/icons/icon.png",
   "directories": {
     "output": "release",
@@ -304,8 +304,8 @@ npm run electron:build:mac
 ```
 
 输出文件：
-- `release/PrismChat-{version}.dmg`
-- `release/PrismChat-{version}-mac.zip`
+- `release/MirrorGrap Work-{version}.dmg`
+- `release/MirrorGrap Work-{version}-mac.zip`
 
 **系统要求**: macOS 10.13+
 
@@ -319,8 +319,8 @@ npm run electron:build:win
 ```
 
 输出文件：
-- `release/PrismChat Setup {version}.exe`
-- `release/PrismChat-{version}-win.zip`
+- `release/MirrorGrap Work Setup {version}.exe`
+- `release/MirrorGrap Work-{version}-win.zip`
 
 **系统要求**: Windows 10+
 
@@ -336,8 +336,8 @@ npm run electron:build
 ```
 
 输出文件：
-- `release/PrismChat-{version}.AppImage`
-- `release/prismchat_{version}_amd64.deb`
+- `release/MirrorGrap Work-{version}.AppImage`
+- `release/mirrorgrap-work_{version}_amd64.deb`
 
 **系统要求**: glibc 2.17+
 

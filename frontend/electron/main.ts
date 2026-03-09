@@ -587,7 +587,7 @@ class MCPClient {
         protocolVersion: '2024-11-05',
         capabilities: {},
         clientInfo: {
-          name: 'prismchat',
+          name: 'mirrorgrap-work',
           version: '1.0.0'
         }
       }
