@@ -96,18 +96,6 @@ npx skills add <owner/repo@skill> -g -y
 
 The `-g` flag installs the skill globally to `~/.agents/skills` directory and `-y` skips confirmation prompts.
 
-After installation, create links to make it available in Qoder:
-
-**For regular environments:**
-```bash
-ln -sf ~/.agents/skills/<skill-name> ~/.qoderwork/skills/<skill-name>
-```
-
-**For virtual machine environments:**
-```bash
-cp -r ~/.agents/skills/<skill-name> ~/.qoderwork/skills/<skill-name>
-```
-
 ## Installation and Usage
 
 ### Global Installation Mode
@@ -119,30 +107,6 @@ npx skills add <owner/repo@skill> -g -y
 ```
 
 This installs the skill to the `~/.agents/skills` directory.
-
-### Create Links for Qoder Access
-
-After installation, create appropriate links to make skills available in Qoder:
-
-**For regular environments (symbolic links):**
-```bash
-ln -sf ~/.agents/skills/<skill-name> ~/.qoderwork/skills/<skill-name>
-```
-
-**For virtual machine environments (copy files):**
-```bash
-cp -r ~/.agents/skills/<skill-name> ~/.qoderwork/skills/<skill-name>
-```
-
-### Verify Installation
-
-Check if skills are properly linked:
-
-```bash
-ls -la ~/.qoderwork/skills/
-```
-
-You should see the skill files in the target directory.
 
 ## Common Skill Categories
 
