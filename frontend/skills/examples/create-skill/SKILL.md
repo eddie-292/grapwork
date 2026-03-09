@@ -58,14 +58,14 @@ Skills are stored as personal skills under the user's home directory. The exact 
 
 | Environment | Path |
 |-------------|------|
-| Host (macOS/Linux) | ~/.qoderwork/skills/skill-name/ |
-| Host (Windows) | %USERPROFILE%\\.qoderwork\skills\skill-name\ |
-| VM / Container | /root/.qoderwork/skills/skill-name/ |
+| Host (macOS/Linux) | ~/.agents/user/skills/skill-name/ |
+| Host (Windows) | %USERPROFILE%\\.agents\user\skills\skill-name\ |
+| VM / Container | /root/.agents/user/skills/skill-name/ |
 
 **Environment detection**: Use the `--resource-dir` value provided by the SDK at runtime, which resolves to the correct platform-specific path automatically. If you need to detect manually:
-- **Windows**: Check if `process.platform === "win32"` or if the path separator is `\`. The skills directory is `%USERPROFILE%\.qoderwork\skills\`.
-- **VM / Container**: Check whether `/root/.qoderwork` exists. If it does, use `/root/.qoderwork/skills/`.
-- **Otherwise** (macOS/Linux host): Use `~/.qoderwork/skills/`.
+- **Windows**: Check if `process.platform === "win32"` or if the path separator is `\`. The skills directory is `%USERPROFILE%\.agents\user\skills\`.
+- **VM / Container**: Check whether `/root/.agents/user` exists. If it does, use `/root/.agents/user/skills/`.
+- **Otherwise** (macOS/Linux host): Use `~/.agents/user/skills/`.
 
 ### SKILL.md Structure
 

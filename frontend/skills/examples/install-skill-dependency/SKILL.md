@@ -17,7 +17,7 @@ Follow these steps in order:
 
 1. **Detect OS type**: Determine macOS, Linux, or Windows.
 2. **Detect if running in a VM/sandbox**: Check indicators such as:
-   - Existence of `/root/.qoderwork` (common in containers/VMs)
+   - Existence of `/root/.mirrorgrap` (common in containers/VMs)
    - Environment variables like `CODESPACES`, `GITPOD_WORKSPACE_ID`, `REMOTE_CONTAINERS`
    - Running as root user in a Linux environment
 3. **Survey existing toolchains**: Check installation status and versions of common tools:
@@ -33,9 +33,9 @@ Present a summary table of the detected environment to the user.
 ### Step 2: Scan Skill Dependencies
 
 1. **Locate skills directory**: Check these paths in order:
-   - macOS / Linux: `~/.qoderwork/skills/`
-   - Linux VM / Container: `/root/.qoderwork/skills/`
-   - Windows: `%USERPROFILE%\.qoderwork\skills\`
+   - macOS / Linux: `~/.mirrorgrap/skills/`
+   - Linux VM / Container: `/root/.mirrorgrap/skills/`
+   - Windows: `%USERPROFILE%\.mirrorgrap\skills\`
 2. **Parse each skill**: For every subdirectory containing a `SKILL.md`:
    - Read the `SKILL.md` content
    - Extract dependency information from:
