@@ -17,9 +17,25 @@ import ArrowUpIcon from './icons/ArrowUpIcon.vue'
 import SettingsIcon from './icons/SettingsIcon.vue'
 
 type Role = 'user' | 'assistant' | 'system' | 'tool'
+
+// 图片内容类型
+export interface ImageContent {
+  type: 'image_url'
+  image_url: {
+    url: string
+  }
+}
+
+export interface TextContent {
+  type: 'text'
+  text: string
+}
+
+export type MessageContent = string | (TextContent | ImageContent)[]
+
 export type Message = {
   role: Role
-  content: string
+  content: MessageContent
   reasoning?: string
   visible?: boolean
   copyable?: boolean
@@ -32,6 +48,8 @@ export type Message = {
   runningPhrase?: string
   // 错误消息标识
   isError?: boolean
+  // 图片附件（用于UI显示）
+  images?: string[]
 }
 
 // Token 使用统计类型
@@ -59,7 +77,7 @@ const props = defineProps<Props>()
 
 // Emits
 const emit = defineEmits<{
-  send: []
+  send: [images: string[]]
   cancel: []
   'update:input': [value: string]
   'toggle-reasoning': [index: number]
@@ -97,6 +115,50 @@ const showFolderDialog = ref(false)
 // 设置弹出框状态
 const showSettingsPopover = ref(false)
 
+// 图片附件相关
+const attachedImages = ref<string[]>([])
+const fileInputRef = ref<HTMLInputElement | null>(null)
+
+// 选择图片
+function handleSelectImages() {
+  if (fileInputRef.value) {
+    fileInputRef.value.click()
+  }
+}
+
+// 处理图片选择
+function handleImageSelect(event: Event) {
+  const target = event.target as HTMLInputElement
+  const files = target.files
+  if (!files) return
+
+  for (const file of Array.from(files)) {
+    if (!file.type.startsWith('image/')) continue
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const result = e.target?.result as string
+      if (result && !attachedImages.value.includes(result)) {
+        attachedImages.value.push(result)
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+
+  // 清空 input 以便再次选择相同文件
+  target.value = ''
+}
+
+// 移除图片
+function removeImage(index: number) {
+  attachedImages.value.splice(index, 1)
+}
+
+// 清空所有图片
+function clearImages() {
+  attachedImages.value = []
+}
+
 // 提取关键词的简单函数
 function extractKeywords(content: string): string[] {
   // 简单分词（中英文混合）
@@ -108,18 +170,30 @@ function extractKeywords(content: string): string[] {
   return Array.from(new Set(words)).slice(0, 5)
 }
 
+// 获取消息内容的字符串形式
+function getContentAsString(content: MessageContent): string {
+  if (typeof content === 'string') return content
+  // 如果是数组，提取所有文本内容
+  return content
+    .filter((item): item is TextContent => item.type === 'text')
+    .map(item => item.text)
+    .join('')
+}
+
 // 检测消息是否为错误消息
 function isErrorMessage(message: Message): boolean {
   if (message.isError) return true
   // 检测内容是否包含错误标识
+  const contentStr = getContentAsString(message.content)
   const errorPrefixes = ['对话失败', '任务执行失败', 'API 请求失败', 'API request failed', 'Maximum context length', 'context length', 'tokens']
-  return errorPrefixes.some(prefix => message.content.includes(prefix))
+  return errorPrefixes.some(prefix => contentStr.includes(prefix))
 }
 
 // 打开保存到全局记忆对话框
-function openSaveToGlobalMemoryDialog(content: string) {
-  saveToGlobalMemoryContent.value = content
-  saveToGlobalMemoryKeywords.value = extractKeywords(content)
+function openSaveToGlobalMemoryDialog(content: MessageContent) {
+  const contentStr = getContentAsString(content)
+  saveToGlobalMemoryContent.value = contentStr
+  saveToGlobalMemoryKeywords.value = extractKeywords(contentStr)
   showSaveToGlobalMemoryDialog.value = true
 }
 
@@ -360,7 +434,7 @@ const navItems = computed(() => {
     .map((m, originalIndex) => ({ m, originalIndex }))
     .filter(({ m }) => m.visible !== false && m.role !== 'tool')
     .map(({ m, originalIndex }) => {
-      const content = typeof m.content === 'string' ? m.content : ''
+      const content = getContentAsString(m.content)
       // 对于 AI 消息，如果 content 为空则使用 reasoning 内容
       let previewContent = content
       if (m.role === 'assistant' && !content.trim()) {
@@ -397,7 +471,10 @@ function getMessagePreview(content: string, maxLength: number = 50): string {
 
 function handleSend(e: Event) {
   e.preventDefault()
-  emit('send')
+  const images = [...attachedImages.value]
+  emit('send', images)
+  // 发送后清空图片
+  clearImages()
 }
 
 function handleCancel() {
@@ -766,14 +843,14 @@ function scrollToBottom() {
                   </span>
                 </div>
                 <div class="tool-result-actions">
-                  <button class="tool-action-btn" title="复制结果" @click.stop="copyToolResult(m.content)">
+                  <button class="tool-action-btn" title="复制结果" @click.stop="copyToolResult(getContentAsString(m.content))">
                     <CopyIcon :size="14" />
                   </button>
                   <span class="expand-icon"><ChevronDownIcon v-if="toolResultExpanded[i]" :size="10" /><ChevronRightIcon v-else :size="10" /></span>
                 </div>
               </div>
               <div v-show="toolResultExpanded[i]" class="tool-result-body">
-                <pre class="tool-result-code"><code v-if="formatToolResult(m.content).html" v-html="formatToolResult(m.content).html"></code><code v-else>{{ formatToolResult(m.content).formatted }}</code></pre>
+                <pre class="tool-result-code"><code v-if="formatToolResult(getContentAsString(m.content)).html" v-html="formatToolResult(getContentAsString(m.content)).html"></code><code v-else>{{ formatToolResult(getContentAsString(m.content)).formatted }}</code></pre>
               </div>
             </div>
           </div>
@@ -796,8 +873,12 @@ function scrollToBottom() {
               <div v-show="reasoningExpanded[i]" class="msg-reasoning-bubble" v-html="render(m.reasoning || '')" />
             </div>
             <div class="msg-bubble-wrapper">
+              <!-- 用户消息图片预览 -->
+              <div v-if="m.role === 'user' && m.images && m.images.length > 0" class="message-images">
+                <img v-for="(img, imgIndex) in m.images" :key="imgIndex" :src="img" class="message-image" />
+              </div>
               <!-- 渲染输出内容 -->
-              <div class="msg-bubble" v-html="render(m.content)" />
+              <div class="msg-bubble" v-html="render(getContentAsString(m.content))" />
               <div class="msg-actions" v-if="m.copyable !== false">
                 <button class="copy-btn" :class="{ 'copy-success': copyStatus[i]?.text }" @click="handleCopyText(m, i)" title="复制文本">
                   <span v-if="copyStatus[i]?.text" class="success-icon">✓</span>
@@ -827,6 +908,15 @@ function scrollToBottom() {
       </div>
 
       <div class="composer">
+        <!-- 隐藏的文件选择输入框 -->
+        <input
+          type="file"
+          ref="fileInputRef"
+          accept="image/*"
+          multiple
+          style="display: none"
+          @change="handleImageSelect"
+        />
         <textarea
           :value="input"
           class="textarea"
@@ -835,6 +925,18 @@ function scrollToBottom() {
           @input="handleUpdateInput"
           ref="textareaRef"
         />
+        <!-- 图片预览区域 -->
+        <div v-if="attachedImages.length > 0" class="image-preview-container">
+          <div v-for="(img, index) in attachedImages" :key="index" class="image-preview-item">
+            <img :src="img" class="image-preview-thumb" />
+            <button type="button" class="image-remove-btn" @click="removeImage(index)" title="移除图片">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
         <!-- 操作栏 - 单行布局 -->
         <div class="action-bar">
           <!-- 左侧：工作空间选择 -->
@@ -890,6 +992,22 @@ function scrollToBottom() {
 
           <!-- 右侧：操作按钮组 -->
           <div class="action-buttons">
+            <!-- 图片上传按钮 -->
+            <button
+              type="button"
+              class="icon-btn image-upload-btn"
+              :class="{ active: attachedImages.length > 0 }"
+              @click="handleSelectImages"
+              :title="attachedImages.length > 0 ? `已选择 ${attachedImages.length} 张图片` : '上传图片'"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <polyline points="21 15 16 10 5 21"></polyline>
+              </svg>
+              <span v-if="attachedImages.length > 0" class="image-count">{{ attachedImages.length }}</span>
+            </button>
+
             <!-- 思考模式按钮 -->
             <button
               type="button"
@@ -2354,5 +2472,109 @@ function scrollToBottom() {
 .fade-leave-to {
   opacity: 0;
   transform: translateY(10px);
+}
+
+/* 图片上传按钮 */
+.image-upload-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.image-upload-btn:hover {
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border-hover);
+  color: var(--color-text-primary);
+}
+
+.image-upload-btn.active {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.image-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  background: var(--color-primary);
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+
+/* 图片预览容器 */
+.image-preview-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.image-preview-item {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+}
+
+.image-preview-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.image-remove-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  background: rgba(0, 0, 0, 0.6);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.image-remove-btn:hover {
+  background: rgba(239, 68, 68, 0.9);
+}
+
+/* 消息中的图片 */
+.message-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+  max-width: 400px;
+}
+
+.message-image {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 8px;
+  object-fit: contain;
 }
 </style>

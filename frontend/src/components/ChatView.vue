@@ -116,6 +116,7 @@ function onCommandCancel() {
 // }
 
 type Role = 'user' | 'assistant' | 'system' | 'tool'
+
 type Message = {
   role: Role
   content: string
@@ -130,6 +131,8 @@ type Message = {
   toolStatus?: 'pending' | 'running' | 'success' | 'error'
   // 动态状态短语（参考 Claude Code）
   runningPhrase?: string
+  // 图片附件（用于UI显示）
+  images?: string[]
 }
 
 // OpenAI 兼容的对话参数配置
@@ -662,9 +665,9 @@ async function loadAssistants() {
 }
 
 
-async function send() {
+async function send(images: string[] = []) {
   const text = input.value.trim()
-  if (!text || (currentChat.value?.sending)) return
+  if ((!text && images.length === 0) || (currentChat.value?.sending)) return
 
   if (!activeConfig.value?.apiKey) {
     alert('请先配置并启用一个 LLM 接口')
@@ -680,22 +683,30 @@ async function send() {
   scrollToBottom()
 
   // 普通对话流程（默认）
-  await executeNormalChat(text)
+  await executeNormalChat(text, images)
 }
 
 function cancel() {
-  if (currentChat.value?.id && controllers.value[currentChat.value.id]) {
-    controllers.value[currentChat.value.id].abort()
+  const chatId = currentChat.value?.id
+  if (chatId && controllers.value[chatId]) {
+    controllers.value[chatId].abort()
   }
 }
 
 // 执行普通对话
-async function executeNormalChat(text: string) {
+async function executeNormalChat(text: string, images: string[] = []) {
   if (currentChat.value) {
     if (currentChat.value.messages.length === 0) {
       updateChatTitle(currentChat.value.id, text)
     }
-    currentChat.value.messages.push({ role: 'user', content: text, reasoning: '' })
+    // 构建用户消息，如果有图片则使用数组格式
+    const userMessage: any = {
+      role: 'user',
+      content: text,
+      reasoning: '',
+      images: images.length > 0 ? images : undefined
+    }
+    currentChat.value.messages.push(userMessage)
     const assistantIndex = currentChat.value.messages.length
     currentChat.value.messages.push({ role: 'assistant', content: '',  reasoning: '' })
     // 清除该消息索引的推理开始时间，确保新的推理从 0 开始计时
@@ -718,7 +729,19 @@ async function executeNormalChat(text: string) {
     const currentMessages = currentChat.value?.messages || []
     // 构建消息数组，需要包含 tool_call_id 和 tool_calls 字段
     const messagesToSend = currentMessages.slice(0, -1).map(m => {
-      const msg: any = { role: m.role, content: m.content }
+      // 如果消息包含图片，使用 OpenAI Vision 格式
+      let content: any = m.content
+      if (m.role === 'user' && (m as any).images && (m as any).images.length > 0) {
+        content = [
+          { type: 'text', text: m.content || '' },
+          ...(m as any).images.map((img: string) => ({
+            type: 'image_url',
+            image_url: { url: img }
+          }))
+        ]
+      }
+
+      const msg: any = { role: m.role, content }
       if (m.tool_call_id) msg.tool_call_id = m.tool_call_id
       if (m.tool_calls) msg.tool_calls = m.tool_calls
       // DeepSeek 思考模型要求：如果历史消息中有 assistant 消息包含 reasoning_content，
@@ -1405,8 +1428,8 @@ function createNewChat() {
     createdAt: Date.now(),
     // 优先使用当前聊天的助手和模型配置，如果没有则使用 localStorage 的备份
     assistantId: currentAssistantId || lastAssistantId || undefined,
-    configId: currentConfigId !== undefined && currentConfigId !== null && currentConfigId !== '' 
-      ? currentConfigId 
+    configId: currentConfigId !== undefined && currentConfigId !== null
+      ? currentConfigId
       : (lastConfigId ? Number(lastConfigId) : undefined),
     params: newParams
   }
@@ -1427,7 +1450,9 @@ function deleteChat(chatId: string, event: Event) {
     // 如果删除的是当前会话，切换到第一个会话
     if (chatList.value.length > 0) {
       currentChatId.value = chatList.value[0]?.id ?? null
-      switchChat(currentChatId.value)
+      if (currentChatId.value) {
+        switchChat(currentChatId.value)
+      }
     } else {
       // 如果没有会话了，自动创建一个新会话
       createNewChat()
@@ -1452,6 +1477,10 @@ function updateChatTitle(chatId: string, firstMessage: string) {
     chat.title = firstMessage.slice(0, 20) + (firstMessage.length > 20 ? '...' : '')
     saveChatHistory()
   }
+}
+
+function toggleReasoning(index: number) {
+  reasoningExpanded.value[index] = !reasoningExpanded.value[index]
 }
 
 function changeAssistant(assistantId: string) {
@@ -1690,7 +1719,7 @@ function handleFolderChanged(path: string) {
         :config-list="configList"
         :usage="currentChat?.usage"
         :enable-thinking="activeConfig?.enable_thinking ?? false"
-        @send="send"
+        @send="(images) => send(images)"
         @cancel="cancel"
         @update:input="input = $event"
         @toggle-reasoning="toggleReasoning"

@@ -30,6 +30,11 @@ npm run build:electron
 # Full production build + packaging (creates installers in release/)
 npm run electron:build
 
+# Platform-specific builds
+npm run electron:build:mac    # macOS only (dmg, zip)
+npm run electron:build:win    # Windows only (nsis, zip)
+npm run electron:build:all    # Both macOS and Windows
+
 # Watch Electron build during development
 npm run build:electron:watch
 
@@ -197,6 +202,7 @@ Key types in `types/mcp.ts`:
 **Simple Command Whitelist** (in main.ts):
 - Safe commands: `date`, `ls`, `pwd`, `echo`, `cat`, `head`, `tail`, `wc`, `grep`, `whoami`, `hostname`, `uname`, `cal`, `uptime`, `df`, `du`, `ps`, `env`
 - Risk detection: delete, format, chmod, shutdown, network config, package managers, kill commands, sudo
+- **Command Confirmation**: Risky commands require user approval via dialog; user can enable "auto-allow" to bypass future confirmations
 
 ### Storage Service Architecture
 
@@ -239,18 +245,26 @@ Renderer → Main process handlers:
 - `mcp-list-tools`: List tools from MCP server
 - `mcp-call-tool`: Execute MCP tool
 - `mcp-cleanup`: Cleanup MCP clients
+- `mcp-install-dependencies`: Install MCP server dependencies (Python/Node packages)
+- `mcp-check-dependencies`: Check if MCP dependencies are installed
 
 **File Operations**:
 - `file-operation`: Unified handler for all file operations
 - `select-folder` / `read-directory`: Folder selection and browsing
+- `preview-file`: Read file for preview (with optional line limit)
+- `read-file-as-buffer`: Read binary files (images, PDFs) as Buffer
 
 **Skills**:
 - `skills-scan/load/create/update/delete`: Skills management
 
 **System**:
 - `open-external`: Open URL in default browser
+- `open-path`: Open path in system file manager
 - `check-environment`: Check system dependencies
-- `window-minimize/maximize/close`: Window controls
+- `install-environment`: Install missing dependencies with progress events
+- `detect-package-manager`: Detect available package managers
+- `get-changelog`: Read application changelog
+- `window-minimize/maximize/close/is-maximized`: Window controls
 
 **Note**: Most storage uses the unified `StorageService` instead of direct IPC.
 
@@ -282,7 +296,7 @@ All operations include path traversal protection (paths must stay within base di
 
 Supports multiple reasoning formats:
 - **DeepSeek**: `choices[0].delta.reasoning_content`
-- **Qwen**: `` tags parsed via state machine
+- **Qwen**: Thinking tags embedded in content field, parsed via state machine
 - **Standard**: `choices[0].delta.content`
 
 ## Configuration
