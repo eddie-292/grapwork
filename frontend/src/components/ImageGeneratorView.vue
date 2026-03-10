@@ -236,8 +236,16 @@ async function handleSaveToOutputs(message: { images?: string[], prompt?: string
 
   const config = activeConfig.value
   const sessionId = currentSession.value?.id
+  let hasNewOutput = false
 
   for (const imgUrl of message.images) {
+    // 检查图片是否已存在于产出物列表中
+    const existingOutput = outputs.value.find(o => o.originalUrl === imgUrl)
+    if (existingOutput) {
+      console.log('图片已存在于产出物中，跳过保存')
+      continue
+    }
+
     try {
       const filename = `img_${Date.now()}_${Math.random().toString(36).substring(2, 6)}.png`
       const result = await window.electronAPI?.autoDownloadImage(imgUrl, filename)
@@ -255,14 +263,17 @@ async function handleSaveToOutputs(message: { images?: string[], prompt?: string
           createdAt: Date.now()
         }
         outputs.value.unshift(outputFile)
+        hasNewOutput = true
       }
     } catch (error) {
       console.error('保存图片失败:', error)
     }
   }
 
-  // 保存到存储
-  await saveOutputs()
+  // 只有在有新产出物时才保存
+  if (hasNewOutput) {
+    await saveOutputs()
+  }
 }
 
 // 生成唯一 ID
