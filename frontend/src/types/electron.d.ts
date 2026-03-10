@@ -273,6 +273,12 @@ interface ElectronAPI {
   // 图片下载
   downloadImage: (url: string) => Promise<{ success: boolean; error?: string; cancelled?: boolean }>
   onDownloadComplete: (callback: (savePath: string) => void) => void
+  // 自动下载图片到产出物目录
+  autoDownloadImage: (url: string, filename: string) => Promise<{ success: boolean; path?: string; error?: string }>
+  // 打开产出物目录
+  openOutputsFolder: () => Promise<{ success: boolean; path?: string; error?: string }>
+  // 获取产出物目录路径
+  getOutputsPath: () => Promise<string>
 }
 
 declare global {

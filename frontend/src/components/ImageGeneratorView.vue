@@ -2,7 +2,7 @@
 import { ref, onMounted, nextTick, watch } from 'vue'
 import { useImageGenerator } from '@/composables/useImageGenerator'
 import { IMAGE_SIZE_OPTIONS, IMAGE_MODEL_OPTIONS } from '@/types/imageGenerator'
-import type { ImageChatSession } from '@/types/imageGenerator'
+import type { ImageChatSession, OutputFile } from '@/types/imageGenerator'
 
 const {
   configList,
@@ -18,7 +18,12 @@ const {
   deleteSession,
   sendMessage,
   updateConfig,
-  clearHistory
+  clearHistory,
+  // 产出物相关
+  outputs,
+  loadOutputs,
+  saveOutputs,
+  deleteOutput
 } = useImageGenerator()
 
 // 输入框内容
@@ -51,6 +56,7 @@ watch(
 onMounted(async () => {
   await loadConfig()
   await loadHistory()
+  await loadOutputs()
 
   // 如果没有会话，创建一个新会话
   if (history.value.sessions.length === 0) {
@@ -173,6 +179,96 @@ async function downloadImage(url: string) {
     alert('下载图片失败')
   }
 }
+
+// 打开产出物目录
+async function openOutputsFolder() {
+  try {
+    await window.electronAPI?.openOutputsFolder()
+  } catch (error) {
+    console.error('打开产出物目录失败:', error)
+  }
+}
+
+// 格式化产出物时间
+function formatOutputTime(timestamp: number): string {
+  const date = new Date(timestamp)
+  return date.toLocaleDateString('zh-CN', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+// 删除产出物
+async function handleDeleteOutput(id: string, event: Event) {
+  event.stopPropagation()
+  await deleteOutput(id)
+}
+
+// 重新生成图片
+async function handleRegenerate(messageId: string) {
+  const session = currentSession.value
+  if (!session || isSending.value) return
+
+  const messages = session.messages
+  const messageIndex = messages.findIndex(m => m.id === messageId)
+  if (messageIndex === -1) return
+
+  // 找到这条助手消息之前的用户消息
+  for (let i = messageIndex - 1; i >= 0; i--) {
+    const msg = messages[i]
+    if (msg && msg.role === 'user') {
+      // 重新发送该用户消息
+      const userMessage = msg.content
+      // 删除当前助手消息及之后的所有消息
+      messages.splice(messageIndex)
+      // 重新发送
+      await sendMessage(userMessage)
+      break
+    }
+  }
+}
+
+// 保存到产出物
+async function handleSaveToOutputs(message: { images?: string[], prompt?: string, model?: string, size?: string }) {
+  if (!message.images || message.images.length === 0) return
+
+  const config = activeConfig.value
+  const sessionId = currentSession.value?.id
+
+  for (const imgUrl of message.images) {
+    try {
+      const filename = `img_${Date.now()}_${Math.random().toString(36).substring(2, 6)}.png`
+      const result = await window.electronAPI?.autoDownloadImage(imgUrl, filename)
+
+      if (result?.success && result.path) {
+        const outputFile: OutputFile = {
+          id: generateId(),
+          filename,
+          localPath: result.path,
+          originalUrl: imgUrl,
+          prompt: message.prompt || '',
+          model: message.model || config?.model || '',
+          size: message.size || config?.size || '',
+          sessionId: sessionId || '',
+          createdAt: Date.now()
+        }
+        outputs.value.unshift(outputFile)
+      }
+    } catch (error) {
+      console.error('保存图片失败:', error)
+    }
+  }
+
+  // 保存到存储
+  await saveOutputs()
+}
+
+// 生成唯一 ID
+function generateId(): string {
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+}
 </script>
 
 <template>
@@ -222,12 +318,8 @@ async function downloadImage(url: string) {
         </div>
       </div>
 
-      <!-- 右侧聊天区域 -->
+      <!-- 中间聊天区域 -->
       <div class="chat-area">
-        <!-- 顶部标题栏 -->
-        <div class="chat-header">
-          <span class="chat-title">生图模式</span>
-        </div>
         <!-- 消息列表 -->
         <div ref="messagesContainer" class="messages-container">
           <div v-if="!currentSession || currentSession.messages.length === 0" class="empty-state">
@@ -277,6 +369,33 @@ async function downloadImage(url: string) {
                   </div>
                 </div>
               </div>
+              <!-- 重新生成按钮 -->
+              <button
+                v-if="(message.images && message.images.length > 0) || message.error"
+                class="regenerate-btn"
+                @click="handleRegenerate(message.id)"
+                :disabled="isSending"
+                title="重新生成"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="23 4 23 10 17 10"></polyline>
+                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                </svg>
+                重新生成
+              </button>
+              <!-- 保存到产出物按钮 -->
+              <button
+                v-if="message.images && message.images.length > 0"
+                class="save-output-btn"
+                @click="handleSaveToOutputs(message)"
+                :disabled="isSending"
+                title="保存到产出物"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h2l2-3h9a2 2 0 0 1 2 2z"></path>
+                </svg>
+                保存
+              </button>
               <!-- 错误信息 -->
               <div v-if="message.error" class="message-error">
                 {{ message.error }}
@@ -327,6 +446,42 @@ async function downloadImage(url: string) {
             </svg>
             <span v-else class="loading-spinner"></span>
           </button>
+        </div>
+      </div>
+
+      <!-- 右侧产出物面板 -->
+      <div class="outputs-panel">
+        <div class="outputs-header">
+          <span class="outputs-title">产出物</span>
+          <button class="open-folder-btn" @click="openOutputsFolder" title="打开目录">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+          </button>
+        </div>
+        <div class="outputs-list">
+          <div v-for="file in outputs" :key="file.id" class="output-item" @click="openImagePreview(file.originalUrl)">
+            <img :src="file.originalUrl" class="output-thumb" :alt="file.prompt" />
+            <div class="output-info">
+              <span class="output-prompt">{{ file.prompt.slice(0, 40) }}{{ file.prompt.length > 40 ? '...' : '' }}</span>
+              <span class="output-meta">{{ formatOutputTime(file.createdAt) }}</span>
+            </div>
+            <button class="delete-output-btn" @click="handleDeleteOutput(file.id, $event)" title="删除">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+          <div v-if="outputs.length === 0" class="empty-outputs">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+              <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+            <p>暂无产出物</p>
+            <p class="hint">生成的图片将自动保存在这里</p>
+          </div>
         </div>
       </div>
     </div>
@@ -413,9 +568,9 @@ async function downloadImage(url: string) {
 
 /* 侧边栏 */
 .sidebar {
-  width: 30%;
-  min-width: 200px;
-  max-width: 300px;
+  width: 20%;
+  min-width: 180px;
+  max-width: 250px;
   display: flex;
   flex-direction: column;
   background: var(--color-bg-secondary, #f5f5f5);
@@ -554,21 +709,6 @@ async function downloadImage(url: string) {
   background: var(--color-bg-primary, #ffffff);
 }
 
-.chat-header {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 8px 16px;
-  background: var(--color-bg-secondary, #f5f5f5);
-  border-bottom: 1px solid var(--color-border, #e5e5e5);
-}
-
-.chat-title {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-text-primary, #1a1a1a);
-}
-
 .messages-container {
   flex: 1;
   overflow-y: auto;
@@ -703,6 +843,59 @@ async function downloadImage(url: string) {
 
 .download-btn:hover {
   background: rgba(0, 0, 0, 0.8);
+}
+
+.regenerate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border, #e5e5e5);
+  background: transparent;
+  color: var(--color-text-secondary, #666);
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.15s ease;
+}
+
+.regenerate-btn:hover:not(:disabled) {
+  border-color: var(--color-primary, #333);
+  color: var(--color-primary, #333);
+  background: var(--color-bg-tertiary, #f0f0f0);
+}
+
+.regenerate-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.save-output-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  margin-left: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border, #e5e5e5);
+  background: transparent;
+  color: var(--color-text-secondary, #666);
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.15s ease;
+}
+
+.save-output-btn:hover:not(:disabled) {
+  border-color: var(--color-primary, #333);
+  color: var(--color-primary, #333);
+  background: var(--color-bg-tertiary, #f0f0f0);
+}
+
+.save-output-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .message-error {
@@ -862,6 +1055,151 @@ async function downloadImage(url: string) {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* 产出物面板 */
+.outputs-panel {
+  width: 25%;
+  min-width: 200px;
+  max-width: 300px;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-secondary, #f5f5f5);
+  border-left: 1px solid var(--color-border, #e5e5e5);
+}
+
+.outputs-header {
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--color-border, #e5e5e5);
+  background: var(--color-bg-primary, #ffffff);
+}
+
+.outputs-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary, #1a1a1a);
+}
+
+.open-folder-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border, #e5e5e5);
+  background: transparent;
+  color: var(--color-text-secondary, #666);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.open-folder-btn:hover {
+  border-color: var(--color-primary, #333);
+  color: var(--color-primary, #333);
+  background: var(--color-bg-tertiary, #f0f0f0);
+}
+
+.outputs-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.output-item {
+  position: relative;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--color-bg-primary, #ffffff);
+  border: 1px solid var(--color-border, #e5e5e5);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.output-item:hover {
+  border-color: var(--color-primary, #333);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.output-thumb {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+}
+
+.output-info {
+  padding: 8px 10px;
+}
+
+.output-prompt {
+  font-size: 12px;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-primary, #1a1a1a);
+}
+
+.output-meta {
+  font-size: 11px;
+  color: var(--color-text-tertiary, #888);
+  margin-top: 4px;
+  display: block;
+}
+
+.delete-output-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  cursor: pointer;
+  opacity: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.output-item:hover .delete-output-btn {
+  opacity: 1;
+}
+
+.delete-output-btn:hover {
+  background: rgba(239, 68, 68, 0.9);
+}
+
+.empty-outputs {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: var(--color-text-tertiary, #888);
+}
+
+.empty-outputs svg {
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.empty-outputs p {
+  margin: 4px 0;
+  font-size: 13px;
+}
+
+.empty-outputs .hint {
+  font-size: 12px;
+  opacity: 0.7;
 }
 
 /* 配置对话框 */
@@ -1060,6 +1398,40 @@ async function downloadImage(url: string) {
 :global(.dark-mode) .form-group select {
   background: var(--color-bg-secondary, #1a1a1a);
   border-color: var(--color-border, #333);
+}
+
+:global(.dark-mode) .outputs-panel {
+  background: var(--color-bg-secondary, #1a1a1a);
+  border-left-color: var(--color-border, #333);
+}
+
+:global(.dark-mode) .outputs-header {
+  background: var(--color-bg-tertiary, #252525);
+  border-bottom-color: var(--color-border, #333);
+}
+
+:global(.dark-mode) .open-folder-btn {
+  border-color: var(--color-border, #333);
+  color: var(--color-text-secondary, #888);
+}
+
+:global(.dark-mode) .open-folder-btn:hover {
+  border-color: var(--color-primary, #666);
+  color: var(--color-text-primary, #e5e5e5);
+  background: var(--color-bg-tertiary, #333);
+}
+
+:global(.dark-mode) .output-item {
+  background: var(--color-bg-tertiary, #252525);
+  border-color: var(--color-border, #333);
+}
+
+:global(.dark-mode) .output-item:hover {
+  border-color: var(--color-primary, #666);
+}
+
+:global(.dark-mode) .output-prompt {
+  color: var(--color-text-primary, #e5e5e5);
 }
 
 /* 图片预览 */

@@ -2977,6 +2977,67 @@ ipcMain.handle('download-image', async (_event, url: string): Promise<{ success:
   }
 })
 
+// 产出物输出目录
+const IMAGE_OUTPUTS_PATH = path.join(app.getPath('userData'), 'image-outputs')
+
+// 自动下载图片（无对话框，保存到默认目录）
+ipcMain.handle('auto-download-image', async (_event, url: string, filename: string): Promise<{ success: boolean; path?: string; error?: string }> => {
+  try {
+    // 确保目录存在
+    if (!fs.existsSync(IMAGE_OUTPUTS_PATH)) {
+      fs.mkdirSync(IMAGE_OUTPUTS_PATH, { recursive: true })
+    }
+
+    const savePath = path.join(IMAGE_OUTPUTS_PATH, filename)
+
+    // 如果是 base64 格式
+    if (url.startsWith('data:')) {
+      const base64Data = url.replace(/^data:image\/\w+;base64,/, '')
+      const buffer = Buffer.from(base64Data, 'base64')
+      fs.writeFileSync(savePath, buffer)
+      return { success: true, path: savePath }
+    }
+
+    // 远程 URL，下载图片
+    const response = await fetch(url)
+    if (!response.ok) {
+      throw new Error(`下载失败: ${response.status}`)
+    }
+    const arrayBuffer = await response.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+    fs.writeFileSync(savePath, buffer)
+
+    return { success: true, path: savePath }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+})
+
+// 打开产出物目录
+ipcMain.handle('open-outputs-folder', async (): Promise<{ success: boolean; path?: string; error?: string }> => {
+  try {
+    // 确保目录存在
+    if (!fs.existsSync(IMAGE_OUTPUTS_PATH)) {
+      fs.mkdirSync(IMAGE_OUTPUTS_PATH, { recursive: true })
+    }
+    await shell.openPath(IMAGE_OUTPUTS_PATH)
+    return { success: true, path: IMAGE_OUTPUTS_PATH }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+})
+
+// 获取产出物目录路径
+ipcMain.handle('get-outputs-path', (): string => {
+  return IMAGE_OUTPUTS_PATH
+})
+
 app.whenReady().then(createWindow)
 
 app.on('window-all-closed', () => {

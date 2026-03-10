@@ -171,4 +171,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onDownloadComplete: (callback: (savePath: string) => void) => {
     ipcRenderer.on('download-complete', (_event, savePath) => callback(savePath))
   },
+  // 自动下载图片到产出物目录
+  autoDownloadImage: (url: string, filename: string) =>
+    ipcRenderer.invoke('auto-download-image', url, filename),
+  // 打开产出物目录
+  openOutputsFolder: () =>
+    ipcRenderer.invoke('open-outputs-folder'),
+  // 获取产出物目录路径
+  getOutputsPath: () =>
+    ipcRenderer.invoke('get-outputs-path'),
 })

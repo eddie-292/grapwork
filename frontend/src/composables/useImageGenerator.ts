@@ -9,7 +9,9 @@ import type {
   ImageGeneratorConfigList,
   ImageGeneratorHistory,
   ImageChatSession,
-  ImageChatMessage
+  ImageChatMessage,
+  OutputFile,
+  OutputsRegistry
 } from '@/types/imageGenerator'
 import {
   DEFAULT_IMAGE_CONFIGS,
@@ -27,6 +29,75 @@ export function useImageGenerator() {
 
   // 历史记录
   const history = ref<ImageGeneratorHistory>(JSON.parse(JSON.stringify(DEFAULT_IMAGE_HISTORY)))
+
+  // 产出物列表
+  const outputs = ref<OutputFile[]>([])
+
+  // 加载产出物
+  async function loadOutputs() {
+    try {
+      const saved = await storage.get<OutputsRegistry>('outputs-registry')
+      if (saved?.data?.files) {
+        outputs.value = saved.data.files
+      }
+    } catch (error) {
+      console.error('加载产出物失败:', error)
+    }
+  }
+
+  // 保存产出物
+  async function saveOutputs() {
+    try {
+      const registry: OutputsRegistry = {
+        files: outputs.value,
+        version: 1,
+        lastUpdated: Date.now()
+      }
+      await storage.set('outputs-registry', registry)
+    } catch (error) {
+      console.error('保存产出物失败:', error)
+    }
+  }
+
+  // 自动下载图片并添加到产出物列表
+  async function autoDownloadImage(url: string, metadata: {
+    prompt: string
+    model: string
+    size: string
+    sessionId: string
+  }) {
+    try {
+      const filename = `img_${Date.now()}.png`
+      const result = await window.electronAPI?.autoDownloadImage(url, filename)
+
+      if (result?.success && result.path) {
+        const outputFile: OutputFile = {
+          id: generateId(),
+          filename,
+          localPath: result.path,
+          originalUrl: url,
+          prompt: metadata.prompt,
+          model: metadata.model,
+          size: metadata.size,
+          sessionId: metadata.sessionId,
+          createdAt: Date.now()
+        }
+        outputs.value.unshift(outputFile)
+        await saveOutputs()
+      }
+    } catch (error) {
+      console.error('自动下载图片失败:', error)
+    }
+  }
+
+  // 删除产出物
+  async function deleteOutput(id: string) {
+    const index = outputs.value.findIndex(f => f.id === id)
+    if (index !== -1) {
+      outputs.value.splice(index, 1)
+      await saveOutputs()
+    }
+  }
 
   // 当前会话
   const currentSession = computed(() => {
@@ -157,12 +228,26 @@ export function useImageGenerator() {
         content: result?.success ? '图片生成成功' : '生成失败',
         images: result?.images,
         error: result?.error,
+        model: config.model,
+        size: config.size,
         createdAt: Date.now()
       }
       session.messages.push(assistantMessage)
       session.sending = false
 
       await saveHistory()
+
+      // 自动下载生成的图片
+      if (result?.success && result.images && session) {
+        for (const imgUrl of result.images) {
+          await autoDownloadImage(imgUrl, {
+            prompt: content,
+            model: config.model,
+            size: config.size,
+            sessionId: session.id
+          })
+        }
+      }
 
       return {
         success: result?.success || false,
@@ -249,6 +334,12 @@ export function useImageGenerator() {
     switchSession,
     deleteSession,
     clearHistory,
+
+    // 产出物相关
+    outputs,
+    loadOutputs,
+    saveOutputs,
+    deleteOutput,
 
     // 消息相关
     sendMessage

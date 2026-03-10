@@ -106,3 +106,30 @@ export const IMAGE_SIZE_OPTIONS = [
 export const IMAGE_MODEL_OPTIONS = [
   { label: 'GLM-Image (智谱)', value: 'glm-image' }
 ]
+
+// 产出物文件
+export interface OutputFile {
+  id: string
+  filename: string           // 文件名
+  localPath: string          // 本地文件路径
+  originalUrl: string        // 原始 URL (用于预览)
+  prompt: string             // 生成提示词
+  model: string              // 使用的模型
+  size: string               // 使用的尺寸
+  sessionId: string          // 所属会话 ID
+  createdAt: number
+}
+
+// 产出物注册表
+export interface OutputsRegistry {
+  files: OutputFile[]
+  version: number
+  lastUpdated: number
+}
+
+// 默认产出物注册表
+export const DEFAULT_OUTPUTS_REGISTRY: OutputsRegistry = {
+  files: [],
+  version: 1,
+  lastUpdated: Date.now()
+}
