@@ -88,7 +88,9 @@ async function handleSwitchSession(session: ImageChatSession) {
 // 删除会话
 async function handleDeleteSession(sessionId: string, event: Event) {
   event.stopPropagation()
-  await deleteSession(sessionId)
+  if (confirm('确定要删除这个会话吗？')) {
+    await deleteSession(sessionId)
+  }
 }
 
 // 打开配置对话框
