@@ -17,9 +17,9 @@ import type {
 
 // 千问万相模型 - plus/max 系列支持的固定尺寸
 const QWEN_PLUS_SIZES = [
+  { label: '1:1 正方形 (1328*1328)', value: '1328*1328' },
   { label: '16:9 横向 (1664*928)', value: '1664*928' },
   { label: '4:3 横向 (1472*1104)', value: '1472*1104' },
-  { label: '1:1 正方形 (1328*1328)', value: '1328*1328' },
   { label: '3:4 竖向 (1104*1472)', value: '1104*1472' },
   { label: '9:16 竖向 (928*1664)', value: '928*1664' }
 ]
@@ -27,8 +27,6 @@ const QWEN_PLUS_SIZES = [
 // 千问支持的模型
 const QWEN_MODELS = [
   { label: 'Qwen-Image-Plus', value: 'qwen-image-plus' },
-  { label: 'Qwen-Image-Max', value: 'qwen-image-max' },
-  { label: 'Qwen-Image-2.0', value: 'qwen-image-2.0' }
 ]
 
 // 异步任务状态
