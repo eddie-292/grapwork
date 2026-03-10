@@ -239,10 +239,10 @@ async function handleRegenerate(messageId: string) {
   for (let i = messageIndex - 1; i >= 0; i--) {
     const msg = messages[i]
     if (msg && msg.role === 'user') {
-      // 重新发送该用户消息
+      // 保存用户消息内容
       const userMessage = msg.content
-      // 删除当前助手消息及之后的所有消息
-      messages.splice(messageIndex)
+      // 删除用户消息及之后的所有消息（包括助手消息）
+      messages.splice(i)
       // 重新发送
       await sendMessage(userMessage)
       break
