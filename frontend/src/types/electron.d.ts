@@ -279,6 +279,8 @@ interface ElectronAPI {
   openOutputsFolder: () => Promise<{ success: boolean; path?: string; error?: string }>
   // 获取产出物目录路径
   getOutputsPath: () => Promise<string>
+  // 删除产出物文件
+  deleteOutputFile: (filePath: string) => Promise<{ success: boolean; error?: string }>
 }
 
 declare global {

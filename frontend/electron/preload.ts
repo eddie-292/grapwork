@@ -180,4 +180,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 获取产出物目录路径
   getOutputsPath: () =>
     ipcRenderer.invoke('get-outputs-path'),
+  // 删除产出物文件
+  deleteOutputFile: (filePath: string) =>
+    ipcRenderer.invoke('delete-output-file', filePath),
 })

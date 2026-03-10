@@ -3038,6 +3038,29 @@ ipcMain.handle('get-outputs-path', (): string => {
   return IMAGE_OUTPUTS_PATH
 })
 
+// 删除产出物文件
+ipcMain.handle('delete-output-file', async (_event, filePath: string): Promise<{ success: boolean; error?: string }> => {
+  try {
+    // 安全检查：确保文件路径在产出物目录内
+    const normalizedPath = path.normalize(filePath)
+    const normalizedOutputsPath = path.normalize(IMAGE_OUTPUTS_PATH)
+
+    if (!normalizedPath.startsWith(normalizedOutputsPath)) {
+      return { success: false, error: 'Invalid file path' }
+    }
+
+    if (fs.existsSync(normalizedPath)) {
+      fs.unlinkSync(normalizedPath)
+    }
+    return { success: true }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+})
+
 app.whenReady().then(createWindow)
 
 app.on('window-all-closed', () => {

@@ -203,6 +203,26 @@ function formatOutputTime(timestamp: number): string {
 // 删除产出物
 async function handleDeleteOutput(id: string, event: Event) {
   event.stopPropagation()
+
+  // 二次确认
+  if (!confirm('确定要删除这个产出物吗？\n本地文件也将被删除。')) {
+    return
+  }
+
+  // 获取产出物信息
+  const output = outputs.value.find(o => o.id === id)
+  if (!output) return
+
+  // 删除本地文件
+  if (output.localPath) {
+    try {
+      await window.electronAPI?.deleteOutputFile(output.localPath)
+    } catch (error) {
+      console.error('删除文件失败:', error)
+    }
+  }
+
+  // 从列表中移除
   await deleteOutput(id)
 }
 
