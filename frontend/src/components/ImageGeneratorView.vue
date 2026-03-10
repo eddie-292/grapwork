@@ -134,9 +134,11 @@ function closeImagePreview() {
 async function downloadImage(url: string) {
   try {
     const result = await window.electronAPI?.downloadImage(url)
-    if (result?.success) {
-      // 下载成功，不需要提示，用户会在下载目录找到
-    } else {
+    if (result?.cancelled) {
+      // 用户取消了保存对话框，不做任何提示
+      return
+    }
+    if (!result?.success) {
       alert(result?.error || '下载图片失败')
     }
   } catch (error) {
@@ -253,13 +255,15 @@ async function downloadImage(url: string) {
 
         <!-- 输入区域 -->
         <div class="input-area">
-          <textarea
-            v-model="inputContent"
-            placeholder="描述你想生成的图片..."
-            @keydown="handleKeydown"
-            :disabled="isSending"
-            rows="3"
-          ></textarea>
+          <div class="input-wrapper">
+            <textarea
+              v-model="inputContent"
+              placeholder="描述你想生成的图片..."
+              @keydown="handleKeydown"
+              :disabled="isSending"
+              rows="3"
+            ></textarea>
+          </div>
           <button
             class="send-btn"
             @click="handleSend"
@@ -641,32 +645,63 @@ async function downloadImage(url: string) {
   background: var(--color-bg-primary, #ffffff);
 }
 
-.input-area textarea {
+.input-wrapper {
   flex: 1;
-  padding: 12px;
-  border-radius: 12px;
+  border-radius: 16px;
   border: 1px solid var(--color-border, #e5e5e5);
   background: var(--color-bg-secondary, #f5f5f5);
+  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.input-wrapper:focus-within {
+  border-color: var(--color-primary, #333);
+  box-shadow: 0 0 0 3px rgba(51, 51, 51, 0.1);
+}
+
+.input-wrapper textarea {
+  width: 100%;
+  height: 100%;
+  min-height: 48px;
+  max-height: 200px;
+  padding: 14px 16px;
+  border: none;
+  background: transparent;
   color: var(--color-text-primary, #1a1a1a);
   font-size: 14px;
+  line-height: 1.5;
   resize: none;
   outline: none;
   font-family: inherit;
-  transition: border-color 0.15s ease;
+  box-sizing: border-box;
 }
 
-.input-area textarea:focus {
-  border-color: var(--color-primary, #333);
-}
-
-.input-area textarea::placeholder {
+.input-wrapper textarea::placeholder {
   color: var(--color-text-tertiary, #888);
+}
+
+/* 自定义滚动条 */
+.input-wrapper textarea::-webkit-scrollbar {
+  width: 6px;
+}
+
+.input-wrapper textarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.input-wrapper textarea::-webkit-scrollbar-thumb {
+  background: var(--color-border, #ccc);
+  border-radius: 3px;
+}
+
+.input-wrapper textarea::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-tertiary, #aaa);
 }
 
 .send-btn {
   width: 48px;
   height: 48px;
-  border-radius: 12px;
+  border-radius: 16px;
   border: none;
   background: var(--color-primary, #333);
   color: white;
@@ -674,16 +709,23 @@ async function downloadImage(url: string) {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 .send-btn:hover:not(:disabled) {
-  opacity: 0.9;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(51, 51, 51, 0.3);
+}
+
+.send-btn:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .send-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
 }
 
 .loading-spinner {
@@ -850,8 +892,25 @@ async function downloadImage(url: string) {
 }
 
 :global(.dark-mode) .input-area textarea {
+  background: transparent;
+}
+
+:global(.dark-mode) .input-wrapper {
   background: var(--color-bg-secondary, #1a1a1a);
   border-color: var(--color-border, #333);
+}
+
+:global(.dark-mode) .input-wrapper:focus-within {
+  border-color: var(--color-primary, #666);
+  box-shadow: 0 0 0 3px rgba(102, 102, 102, 0.2);
+}
+
+:global(.dark-mode) .input-wrapper textarea::-webkit-scrollbar-thumb {
+  background: var(--color-border, #444);
+}
+
+:global(.dark-mode) .input-wrapper textarea::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-tertiary, #666);
 }
 
 :global(.dark-mode) .config-dialog {

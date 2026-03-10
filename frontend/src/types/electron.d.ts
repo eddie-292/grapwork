@@ -271,7 +271,7 @@ interface ElectronAPI {
   imageGeneratorClose: () => Promise<void>
   imageGeneratorIsMaximized: () => Promise<boolean>
   // 图片下载
-  downloadImage: (url: string) => Promise<{ success: boolean; error?: string }>
+  downloadImage: (url: string) => Promise<{ success: boolean; error?: string; cancelled?: boolean }>
   onDownloadComplete: (callback: (savePath: string) => void) => void
 }
 
