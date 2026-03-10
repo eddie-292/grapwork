@@ -149,6 +149,30 @@ function handleImageSelect(event: Event) {
   target.value = ''
 }
 
+// 处理粘贴事件（支持粘贴图片）
+function handlePaste(event: ClipboardEvent) {
+  const items = event.clipboardData?.items
+  if (!items) return
+
+  for (const item of Array.from(items)) {
+    if (item.type.startsWith('image/')) {
+      event.preventDefault()
+
+      const file = item.getAsFile()
+      if (!file) continue
+
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const result = e.target?.result as string
+        if (result && !attachedImages.value.includes(result)) {
+          attachedImages.value.push(result)
+        }
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+}
+
 // 移除图片
 function removeImage(index: number) {
   attachedImages.value.splice(index, 1)
@@ -157,6 +181,20 @@ function removeImage(index: number) {
 // 清空所有图片
 function clearImages() {
   attachedImages.value = []
+}
+
+// 图片预览对话框
+const showImagePreview = ref(false)
+const previewImageUrl = ref('')
+
+function openImagePreview(url: string) {
+  previewImageUrl.value = url
+  showImagePreview.value = true
+}
+
+function closeImagePreview() {
+  showImagePreview.value = false
+  previewImageUrl.value = ''
 }
 
 // 提取关键词的简单函数
@@ -875,7 +913,7 @@ function scrollToBottom() {
             <div class="msg-bubble-wrapper">
               <!-- 用户消息图片预览 -->
               <div v-if="m.role === 'user' && m.images && m.images.length > 0" class="message-images">
-                <img v-for="(img, imgIndex) in m.images" :key="imgIndex" :src="img" class="message-image" />
+                <img v-for="(img, imgIndex) in m.images" :key="imgIndex" :src="img" class="message-image clickable" @click="openImagePreview(img)" />
               </div>
               <!-- 渲染输出内容 -->
               <div class="msg-bubble" v-html="render(getContentAsString(m.content))" />
@@ -920,9 +958,10 @@ function scrollToBottom() {
         <textarea
           :value="input"
           class="textarea"
-          placeholder="输入消息，回车发送，Shift+Enter 换行"
+          placeholder="输入消息，回车发送，Shift+Enter 换行（支持粘贴图片）"
           @keydown.enter.exact.prevent="handleSend"
           @input="handleUpdateInput"
+          @paste="handlePaste"
           ref="textareaRef"
         />
         <!-- 图片预览区域 -->
@@ -1122,6 +1161,18 @@ function scrollToBottom() {
       :mermaid-content="mermaidPreviewContent"
       @close="showMermaidPreview = false"
     />
+
+    <!-- 图片预览对话框 -->
+    <Transition name="modal">
+      <div v-if="showImagePreview" class="image-preview-overlay" @click="closeImagePreview">
+        <div class="image-preview-dialog" @click.stop>
+          <button class="image-preview-close" @click="closeImagePreview" title="关闭">
+            <XIcon :size="20" />
+          </button>
+          <img :src="previewImageUrl" class="image-preview-full" @click.stop />
+        </div>
+      </div>
+    </Transition>
 
     <!-- 文件夹选择对话框 -->
     <Transition name="modal">
@@ -2576,5 +2627,68 @@ function scrollToBottom() {
   max-height: 200px;
   border-radius: 8px;
   object-fit: contain;
+}
+
+.message-image.clickable {
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.message-image.clickable:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* 图片预览对话框 */
+.image-preview-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 40px;
+}
+
+.image-preview-dialog {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.image-preview-close {
+  position: absolute;
+  top: -40px;
+  right: 0;
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.image-preview-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.image-preview-full {
+  max-width: 100%;
+  max-height: 85vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 </style>
