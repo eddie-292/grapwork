@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useSkills } from '@/composables/useSkills'
 import type { Skill, SkillMetadata } from '@/types/skill'
+import RefreshIcon from '@/components/icons/RefreshIcon.vue'
 
 const skillsManager = useSkills()
 
@@ -123,9 +124,14 @@ onMounted(() => {
     <!-- Header -->
     <div class="panel-header">
       <h3>技能管理</h3>
-      <button class="add-btn" @click="showCreateForm = !showCreateForm" :disabled="loading">
-        + 新建技能
-      </button>
+      <div class="header-actions">
+        <button class="refresh-btn" @click="skillsManager.loadRegistry()" :disabled="loading" title="刷新技能列表">
+          <RefreshIcon :class="{ spinning: loading }" />
+        </button>
+        <button class="add-btn" @click="showCreateForm = !showCreateForm" :disabled="loading">
+          + 新建技能
+        </button>
+      </div>
     </div>
 
     <!-- Error display -->
@@ -366,6 +372,54 @@ onMounted(() => {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.refresh-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 8px;
+  background-color: var(--color-bg-primary, white);
+  color: var(--color-text-secondary, #6b7280);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background-color: var(--color-bg-secondary, #f7f7f8);
+  color: var(--color-text-primary, #111827);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.refresh-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.refresh-btn svg.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .error-message {
