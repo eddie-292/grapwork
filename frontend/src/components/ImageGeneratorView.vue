@@ -12,6 +12,7 @@ const {
   isSending,
   loadConfig,
   loadHistory,
+  saveConfig,
   createSession,
   switchSession,
   deleteSession,
@@ -106,6 +107,11 @@ async function handleSaveConfig() {
     await updateConfig(configList.value.activeIndex, activeConfig.value)
   }
   closeConfigDialog()
+}
+
+// 快速设置变更（模型/尺寸）
+async function handleQuickSettingChange() {
+  await saveConfig()
 }
 
 // 清空历史
@@ -262,14 +268,34 @@ async function downloadImage(url: string) {
 
         <!-- 输入区域 -->
         <div class="input-area">
-          <div class="input-wrapper">
-            <textarea
-              v-model="inputContent"
-              placeholder="描述你想生成的图片..."
-              @keydown="handleKeydown"
-              :disabled="isSending"
-              rows="3"
-            ></textarea>
+          <div class="input-container">
+            <div class="input-toolbar">
+              <div class="toolbar-item">
+                <label>模型</label>
+                <select v-model="activeConfig.model" class="toolbar-select" v-if="activeConfig" @change="handleQuickSettingChange">
+                  <option v-for="opt in IMAGE_MODEL_OPTIONS" :key="opt.value" :value="opt.value">
+                    {{ opt.label }}
+                  </option>
+                </select>
+              </div>
+              <div class="toolbar-item">
+                <label>尺寸</label>
+                <select v-model="activeConfig.size" class="toolbar-select" v-if="activeConfig" @change="handleQuickSettingChange">
+                  <option v-for="opt in IMAGE_SIZE_OPTIONS" :key="opt.value" :value="opt.value">
+                    {{ opt.label }}
+                  </option>
+                </select>
+              </div>
+            </div>
+            <div class="input-wrapper">
+              <textarea
+                v-model="inputContent"
+                placeholder="描述你想生成的图片..."
+                @keydown="handleKeydown"
+                :disabled="isSending"
+                rows="3"
+              ></textarea>
+            </div>
           </div>
           <button
             class="send-btn"
@@ -652,6 +678,51 @@ async function downloadImage(url: string) {
   background: var(--color-bg-primary, #ffffff);
 }
 
+.input-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.input-toolbar {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.toolbar-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toolbar-item label {
+  font-size: 12px;
+  color: var(--color-text-secondary, #666);
+  white-space: nowrap;
+}
+
+.toolbar-select {
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border, #e5e5e5);
+  background: var(--color-bg-secondary, #f5f5f5);
+  color: var(--color-text-primary, #1a1a1a);
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.toolbar-select:hover {
+  border-color: var(--color-primary, #333);
+}
+
+.toolbar-select:focus {
+  border-color: var(--color-primary, #333);
+}
+
 .input-wrapper {
   flex: 1;
   border-radius: 16px;
@@ -918,6 +989,17 @@ async function downloadImage(url: string) {
 
 :global(.dark-mode) .input-wrapper textarea::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-tertiary, #666);
+}
+
+:global(.dark-mode) .toolbar-select {
+  background: var(--color-bg-secondary, #1a1a1a);
+  border-color: var(--color-border, #333);
+  color: var(--color-text-primary, #e5e5e5);
+}
+
+:global(.dark-mode) .toolbar-select:hover,
+:global(.dark-mode) .toolbar-select:focus {
+  border-color: var(--color-primary, #666);
 }
 
 :global(.dark-mode) .config-dialog {
