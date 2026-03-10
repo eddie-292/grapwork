@@ -2511,7 +2511,9 @@ ipcMain.handle('skills-scan', async (): Promise<SkillScanResult> => {
             continue
           }
 
-          const skillId = `${location}-${frontmatter.name}`
+          // Use folder name (entry.name) for skillId to ensure correct path reconstruction
+          // frontmatter.name may differ from folder name (e.g., folder: seo-1.0.3, frontmatter: seo)
+          const skillId = `${location}-${entry.name}`
           const stats = fs.statSync(skillMdPath)
 
           skills.push({
