@@ -1,16 +1,20 @@
 /**
  * 生图模式相关类型定义
  */
+import type { ImageProviderType } from '@/imageProviders/types'
 
 // 生图配置
 export interface ImageGeneratorConfig {
   id: string
   name: string
+  provider: ImageProviderType  // 提供商类型
   apiUrl: string        // API 地址 (如: https://open.bigmodel.cn/api/paas/v4/images/generations)
   apiKey: string        // API 密钥
   model: string         // 模型名称 (默认: 'glm-image')
   size: string          // 图片尺寸 (默认: '1280x1280')
   enabled: boolean      // 是否启用
+  // 提供商特定配置
+  extraConfig?: Record<string, unknown>
 }
 
 // 生图配置列表
@@ -72,6 +76,7 @@ export const DEFAULT_IMAGE_CONFIGS: ImageGeneratorConfigList = {
     {
       id: 'zhipu-default',
       name: '智谱 GLM-Image',
+      provider: 'zhipu',
       apiUrl: 'https://open.bigmodel.cn/api/paas/v4/images/generations',
       apiKey: '',
       model: 'glm-image',

@@ -1,8 +1,23 @@
 <script setup lang="ts">
-import { ref, onMounted, nextTick, watch } from 'vue'
+import { ref, onMounted, nextTick, watch, computed } from 'vue'
 import { useImageGenerator } from '@/composables/useImageGenerator'
-import { IMAGE_SIZE_OPTIONS, IMAGE_MODEL_OPTIONS } from '@/types/imageGenerator'
+import { getProvider } from '@/imageProviders'
 import type { ImageChatSession, OutputFile } from '@/types/imageGenerator'
+
+// 根据当前配置获取尺寸和模型选项
+const currentSizeOptions = computed(() => {
+  const config = activeConfig.value
+  if (!config) return []
+  const provider = getProvider(config.provider || 'zhipu')
+  return provider?.getCapabilities().sizes || []
+})
+
+const currentModelOptions = computed(() => {
+  const config = activeConfig.value
+  if (!config) return []
+  const provider = getProvider(config.provider || 'zhipu')
+  return provider?.getCapabilities().models || []
+})
 
 const {
   configList,
@@ -140,13 +155,13 @@ function formatTime(timestamp: number): string {
 
 // 获取模型标签
 function getModelLabel(value: string): string {
-  const opt = IMAGE_MODEL_OPTIONS.find(o => o.value === value)
+  const opt = currentModelOptions.value.find(o => o.value === value)
   return opt ? opt.label : value
 }
 
 // 获取尺寸标签
 function getSizeLabel(value: string): string {
-  const opt = IMAGE_SIZE_OPTIONS.find(o => o.value === value)
+  const opt = currentSizeOptions.value.find(o => o.value === value)
   return opt ? opt.label : value
 }
 
@@ -442,7 +457,7 @@ function generateId(): string {
               <div class="toolbar-item">
                 <label>模型</label>
                 <select v-model="activeConfig.model" class="toolbar-select" v-if="activeConfig" @change="handleQuickSettingChange">
-                  <option v-for="opt in IMAGE_MODEL_OPTIONS" :key="opt.value" :value="opt.value">
+                  <option v-for="opt in currentModelOptions" :key="opt.value" :value="opt.value">
                     {{ opt.label }}
                   </option>
                 </select>
@@ -450,7 +465,7 @@ function generateId(): string {
               <div class="toolbar-item">
                 <label>尺寸</label>
                 <select v-model="activeConfig.size" class="toolbar-select" v-if="activeConfig" @change="handleQuickSettingChange">
-                  <option v-for="opt in IMAGE_SIZE_OPTIONS" :key="opt.value" :value="opt.value">
+                  <option v-for="opt in currentSizeOptions" :key="opt.value" :value="opt.value">
                     {{ opt.label }}
                   </option>
                 </select>
@@ -540,7 +555,7 @@ function generateId(): string {
           <div class="form-group">
             <label>模型</label>
             <select v-model="activeConfig.model">
-              <option v-for="opt in IMAGE_MODEL_OPTIONS" :key="opt.value" :value="opt.value">
+              <option v-for="opt in currentModelOptions" :key="opt.value" :value="opt.value">
                 {{ opt.label }}
               </option>
             </select>
@@ -548,7 +563,7 @@ function generateId(): string {
           <div class="form-group">
             <label>图片尺寸</label>
             <select v-model="activeConfig.size">
-              <option v-for="opt in IMAGE_SIZE_OPTIONS" :key="opt.value" :value="opt.value">
+              <option v-for="opt in currentSizeOptions" :key="opt.value" :value="opt.value">
                 {{ opt.label }}
               </option>
             </select>

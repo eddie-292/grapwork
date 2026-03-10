@@ -4,6 +4,8 @@
  */
 import { ref, computed } from 'vue'
 import { storage } from '@/services/StorageService'
+import { generateImage } from '@/imageProviders'
+import type { ImageProviderConfig } from '@/imageProviders/types'
 import type {
   ImageGeneratorConfig,
   ImageGeneratorConfigList,
@@ -212,13 +214,24 @@ export function useImageGenerator() {
     await saveHistory()
 
     try {
-      // 调用图片生成 API
-      const result = await window.electronAPI?.imageGeneratorRequest({
+      // 转换为 Provider 配置格式
+      const providerConfig: ImageProviderConfig = {
+        id: config.id,
+        name: config.name,
+        provider: config.provider || 'zhipu',
         apiUrl: config.apiUrl,
         apiKey: config.apiKey,
         model: config.model,
+        size: config.size,
+        enabled: config.enabled,
+        extraConfig: config.extraConfig
+      }
+
+      // 使用 Provider 生成图片
+      const result = await generateImage(providerConfig, {
         prompt: content,
-        size: config.size
+        size: config.size,
+        model: config.model
       })
 
       // 添加助手消息
