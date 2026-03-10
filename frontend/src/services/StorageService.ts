@@ -21,6 +21,7 @@ import type { Assistant } from '@/types/electron';
 import type { Chat } from '@/types/chat';
 import type { MCPServerList } from '@/types/mcp';
 import type { SkillRegistry } from '@/types/skill';
+import type { ImageGeneratorConfigList, ImageGeneratorHistory } from '@/types/imageGenerator';
 
 /**
  * 默认内置助理的System Prompt
@@ -483,6 +484,40 @@ export class StorageService {
    */
   async clearSelectedFolder(): Promise<boolean> {
     const result = await this.delete(StorageKey.SELECTED_FOLDER);
+    return result.success;
+  }
+
+  // ==================== 生图模式 ====================
+
+  /**
+   * 获取生图配置列表
+   */
+  async getImageGeneratorConfigList(): Promise<ImageGeneratorConfigList | null> {
+    const result = await this.get<ImageGeneratorConfigList>(StorageKey.IMAGE_GENERATOR_CONFIG);
+    return result.data ?? null;
+  }
+
+  /**
+   * 保存生图配置列表
+   */
+  async saveImageGeneratorConfigList(configList: ImageGeneratorConfigList): Promise<boolean> {
+    const result = await this.set(StorageKey.IMAGE_GENERATOR_CONFIG, configList);
+    return result.success;
+  }
+
+  /**
+   * 获取生图历史
+   */
+  async getImageGeneratorHistory(): Promise<ImageGeneratorHistory | null> {
+    const result = await this.get<ImageGeneratorHistory>(StorageKey.IMAGE_GENERATOR_HISTORY);
+    return result.data ?? null;
+  }
+
+  /**
+   * 保存生图历史
+   */
+  async saveImageGeneratorHistory(history: ImageGeneratorHistory): Promise<boolean> {
+    const result = await this.set(StorageKey.IMAGE_GENERATOR_HISTORY, history);
     return result.success;
   }
 }

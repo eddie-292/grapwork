@@ -66,6 +66,13 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/mcp',
     redirect: '/settings?tab=mcp'
+  },
+  // 生图模式独立窗口
+  {
+    path: '/image-generator',
+    name: 'ImageGenerator',
+    component: () => import('../components/ImageGeneratorView.vue'),
+    meta: { requiresAuth: false, skipEnvironmentCheck: true }
   }
 ]
 

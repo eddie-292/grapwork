@@ -149,6 +149,11 @@ async function handleDoubleClick() {
   }
 }
 
+// 打开生图模式窗口
+async function openImageGenerator() {
+  await window.electronAPI?.openImageGeneratorWindow()
+}
+
 // 右键菜单相关函数
 function showContextMenu(event: MouseEvent, chatId: string) {
   event.preventDefault()
@@ -275,6 +280,13 @@ onUnmounted(() => {
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="11" cy="11" r="8"/>
         <path d="M21 21l-4.35-4.35"/>
+      </svg>
+    </button>
+    <button class="image-generator-btn" @click="openImageGenerator" title="生图模式">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+        <circle cx="8.5" cy="8.5" r="1.5"/>
+        <polyline points="21 15 16 10 5 21"/>
       </svg>
     </button>
 
@@ -593,6 +605,28 @@ onUnmounted(() => {
   background: var(--color-bg-tertiary, #f0f0f0);
 }
 
+.image-generator-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border, #e5e5e5);
+  background: transparent;
+  color: var(--color-text-secondary, #666);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
+}
+
+.image-generator-btn:hover {
+  border-color: var(--color-border-hover, #d0d0d0);
+  background: var(--color-bg-tertiary, #f0f0f0);
+  color: var(--color-primary, #333);
+}
+
 /* 深色模式 */
 :global(.dark-mode) .chat-tab-bar {
   background: var(--color-bg-secondary, #1a1a1a);
@@ -658,6 +692,17 @@ onUnmounted(() => {
 
 :global(.dark-mode) .search-btn:hover,
 :global(.dark-mode) .search-btn.active {
+  border-color: var(--color-primary, #666);
+  color: var(--color-primary, #666);
+  background: var(--color-bg-tertiary, #252525);
+}
+
+:global(.dark-mode) .image-generator-btn {
+  border-color: var(--color-border, #333);
+  color: var(--color-text-secondary, #888);
+}
+
+:global(.dark-mode) .image-generator-btn:hover {
   border-color: var(--color-primary, #666);
   color: var(--color-primary, #666);
   background: var(--color-bg-tertiary, #252525);

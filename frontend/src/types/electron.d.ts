@@ -136,6 +136,22 @@ export interface MCPCheckDependenciesResult {
 // Skills 技能系统类型
 import type { SkillMetadata, Skill, SkillScanResult, SkillLoadResult } from './skill'
 
+// 生图模式类型
+export interface ImageGeneratorRequestParams {
+  apiUrl: string
+  apiKey: string
+  model: string
+  prompt: string
+  size: string
+}
+
+export interface ImageGeneratorResponse {
+  success: boolean
+  error?: string
+  images?: string[]
+  created?: number
+}
+
 interface ElectronAPI {
   getConfig: () => Promise<ConfigList>
   saveConfig: (config: ConfigList) => Promise<boolean>
@@ -247,6 +263,13 @@ interface ElectronAPI {
   windowMaximize: () => Promise<boolean> // 返回当前是否最大化
   windowClose: () => Promise<void>
   windowIsMaximized: () => Promise<boolean>
+  // 生图模式窗口
+  openImageGeneratorWindow: () => Promise<void>
+  imageGeneratorRequest: (params: ImageGeneratorRequestParams) => Promise<ImageGeneratorResponse>
+  imageGeneratorMinimize: () => Promise<void>
+  imageGeneratorMaximize: () => Promise<boolean>
+  imageGeneratorClose: () => Promise<void>
+  imageGeneratorIsMaximized: () => Promise<boolean>
 }
 
 declare global {

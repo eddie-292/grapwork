@@ -33,6 +33,10 @@ export const StorageKey = {
 
   // Skills 技能系统
   SKILL_REGISTRY: 'skill-registry',
+
+  // 生图模式
+  IMAGE_GENERATOR_CONFIG: 'image-generator-config',
+  IMAGE_GENERATOR_HISTORY: 'image-generator-history',
 } as const
 
 export type StorageKey = typeof StorageKey[keyof typeof StorageKey]

@@ -150,5 +150,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   windowClose: () =>
     ipcRenderer.invoke('window-close'),
   windowIsMaximized: () =>
-    ipcRenderer.invoke('window-is-maximized')
+    ipcRenderer.invoke('window-is-maximized'),
+  // 生图模式窗口
+  openImageGeneratorWindow: () =>
+    ipcRenderer.invoke('open-image-generator-window'),
+  imageGeneratorRequest: (params: { apiUrl: string; apiKey: string; model: string; prompt: string; size: string }) =>
+    ipcRenderer.invoke('image-generator-request', params),
+  imageGeneratorMinimize: () =>
+    ipcRenderer.invoke('image-generator-minimize'),
+  imageGeneratorMaximize: () =>
+    ipcRenderer.invoke('image-generator-maximize'),
+  imageGeneratorClose: () =>
+    ipcRenderer.invoke('image-generator-close'),
+  imageGeneratorIsMaximized: () =>
+    ipcRenderer.invoke('image-generator-is-maximized'),
 })

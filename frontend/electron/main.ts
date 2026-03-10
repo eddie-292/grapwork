@@ -1029,6 +1029,54 @@ const defaultConfigList: ConfigList = {
 }
 
 let mainWindow: BrowserWindow | null = null
+let imageGeneratorWindow: BrowserWindow | null = null
+
+// 创建生图模式窗口
+function createImageGeneratorWindow() {
+  // 如果窗口已存在，聚焦并返回
+  if (imageGeneratorWindow) {
+    imageGeneratorWindow.focus()
+    return
+  }
+
+  // 图标路径
+  const iconPath = process.env.VITE_DEV_SERVER_URL
+    ? path.join(__dirname, '..', 'build', 'icons', 'icon.png')
+    : path.join(path.dirname(__dirname), 'build', 'icons', 'icon.png')
+
+  // 获取屏幕尺寸
+  const primaryDisplay = screen.getPrimaryDisplay()
+  const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize
+
+  // 窗口大小为屏幕的 60%
+  const windowWidth = Math.max(800, Math.floor(screenWidth * 0.6))
+  const windowHeight = Math.max(600, Math.floor(screenHeight * 0.7))
+
+  imageGeneratorWindow = new BrowserWindow({
+    width: windowWidth,
+    height: windowHeight,
+    icon: iconPath,
+    title: '生图模式',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.cjs')
+    }
+  })
+
+  // 加载页面
+  if (process.env.VITE_DEV_SERVER_URL) {
+    imageGeneratorWindow.loadURL(`${process.env.VITE_DEV_SERVER_URL}#/image-generator`)
+    imageGeneratorWindow.webContents.openDevTools()
+  } else {
+    const distPath = path.join(path.dirname(__dirname), 'dist', 'index.html')
+    imageGeneratorWindow.loadFile(distPath, { hash: '/image-generator' })
+  }
+
+  imageGeneratorWindow.on('closed', () => {
+    imageGeneratorWindow = null
+  })
+}
 
 function createWindow() {
   // 图标路径：开发模式使用 build/icons，生产模式使用打包后的资源
@@ -2782,6 +2830,97 @@ ipcMain.handle('chat-request', async (_event, { apiUrl, apiKey, model, messages,
       success: true,
       status: response.status,
       headers: Object.fromEntries(response.headers.entries())
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+})
+
+// ==================== 生图模式 IPC 处理程序 ====================
+
+// 打开生图窗口
+ipcMain.handle('open-image-generator-window', () => {
+  createImageGeneratorWindow()
+})
+
+// 生图窗口最小化
+ipcMain.handle('image-generator-minimize', () => {
+  imageGeneratorWindow?.minimize()
+})
+
+// 生图窗口最大化
+ipcMain.handle('image-generator-maximize', () => {
+  if (imageGeneratorWindow?.isMaximized()) {
+    imageGeneratorWindow.unmaximize()
+    return false
+  } else {
+    imageGeneratorWindow?.maximize()
+    return true
+  }
+})
+
+// 生图窗口关闭
+ipcMain.handle('image-generator-close', () => {
+  imageGeneratorWindow?.close()
+})
+
+// 生图窗口是否最大化
+ipcMain.handle('image-generator-is-maximized', () => {
+  return imageGeneratorWindow?.isMaximized() ?? false
+})
+
+// 图片生成请求
+ipcMain.handle('image-generator-request', async (_event, params: {
+  apiUrl: string
+  apiKey: string
+  model: string
+  prompt: string
+  size: string
+}): Promise<{ success: boolean; error?: string; images?: string[]; created?: number }> => {
+  try {
+    const { apiUrl, apiKey, model, prompt, size } = params
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        prompt,
+        size
+      }),
+    })
+
+    if (!response.ok) {
+      const text = await response.text()
+      throw new Error(`API request failed: ${response.status} ${text}`)
+    }
+
+    const result = await response.json()
+
+    // 提取图片 URL
+    const images: string[] = []
+    if (result.data && Array.isArray(result.data)) {
+      for (const item of result.data) {
+        if (item.url) {
+          images.push(item.url)
+        }
+        // 支持 base64 格式的图片
+        if (item.b64_json) {
+          images.push(`data:image/png;base64,${item.b64_json}`)
+        }
+      }
+    }
+
+    return {
+      success: true,
+      images,
+      created: result.created
     }
   } catch (error) {
     return {
