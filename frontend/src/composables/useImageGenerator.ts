@@ -122,7 +122,29 @@ export function useImageGenerator() {
   async function loadConfig() {
     const saved = await storage.getImageGeneratorConfigList()
     if (saved) {
-      configList.value = saved
+      // 合并默认配置：确保默认配置始终存在
+      const defaultIds = DEFAULT_IMAGE_CONFIGS.configs.filter(c => c.isDefault).map(c => c.id)
+      const savedNonDefault = saved.configs.filter(c => !defaultIds.includes(c.id))
+      const defaultConfigs = DEFAULT_IMAGE_CONFIGS.configs.filter(c => c.isDefault)
+
+      // 保留用户保存的 API Key 等配置
+      const mergedDefaults = defaultConfigs.map(defaultConfig => {
+        const savedDefault = saved.configs.find(c => c.id === defaultConfig.id)
+        if (savedDefault) {
+          // 合并：使用保存的 apiKey，但保留默认的其他字段
+          return {
+            ...defaultConfig,
+            apiKey: savedDefault.apiKey,
+            extraConfig: savedDefault.extraConfig || defaultConfig.extraConfig
+          }
+        }
+        return defaultConfig
+      })
+
+      configList.value = {
+        configs: [...mergedDefaults, ...savedNonDefault],
+        activeIndex: saved.activeIndex
+      }
     }
   }
 
@@ -301,13 +323,19 @@ export function useImageGenerator() {
   // 删除配置
   async function deleteConfig(index: number) {
     if (index >= 0 && index < configList.value.configs.length) {
+      // 不允许删除默认配置
+      if (configList.value.configs[index].isDefault) {
+        return false
+      }
       configList.value.configs.splice(index, 1)
       // 调整 activeIndex
       if (configList.value.activeIndex >= configList.value.configs.length) {
         configList.value.activeIndex = Math.max(0, configList.value.configs.length - 1)
       }
       await saveConfig()
+      return true
     }
+    return false
   }
 
   // 设置激活的配置索引

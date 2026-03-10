@@ -3,13 +3,15 @@
  */
 
 // 提供商类型
-export type ImageProviderType = 'zhipu' | 'openai' | 'stability' | 'custom'
+export type ImageProviderType = 'zhipu' | 'qwen' | 'openai' | 'stability' | 'custom'
 
 // 生成请求参数（通用）
 export interface ImageGenerationParams {
   prompt: string
   size: string
   model?: string
+  negativePrompt?: string   // 负面提示词（可选）
+  n?: number                // 生成图片数量（可选）
 }
 
 // 生成结果

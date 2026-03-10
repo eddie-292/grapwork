@@ -2,7 +2,7 @@
 import { ref, onMounted, nextTick, watch, computed } from 'vue'
 import { useImageGenerator } from '@/composables/useImageGenerator'
 import { getProvider } from '@/imageProviders'
-import type { ImageChatSession, OutputFile } from '@/types/imageGenerator'
+import type { ImageChatSession, OutputFile, ImageGeneratorConfig } from '@/types/imageGenerator'
 
 // 根据当前配置获取尺寸和模型选项
 const currentSizeOptions = computed(() => {
@@ -17,6 +17,14 @@ const currentModelOptions = computed(() => {
   if (!config) return []
   const provider = getProvider(config.provider || 'zhipu')
   return provider?.getCapabilities().models || []
+})
+
+// 获取当前 provider 的自定义配置字段
+const currentCustomFields = computed(() => {
+  const config = activeConfig.value
+  if (!config) return []
+  const provider = getProvider(config.provider || 'zhipu')
+  return provider?.getCapabilities().customConfigFields || []
 })
 
 const {
@@ -34,6 +42,9 @@ const {
   sendMessage,
   updateConfig,
   clearHistory,
+  setActiveConfigIndex,
+  addConfig,
+  deleteConfig,
   // 产出物相关
   outputs,
   loadOutputs,
@@ -116,6 +127,10 @@ async function handleDeleteSession(sessionId: string, event: Event) {
 
 // 打开配置对话框
 function openConfigDialog() {
+  // 确保 extraConfig 被初始化
+  if (activeConfig.value && !activeConfig.value.extraConfig) {
+    activeConfig.value.extraConfig = {}
+  }
   showConfigDialog.value = true
 }
 
@@ -135,6 +150,53 @@ async function handleSaveConfig() {
 // 快速设置变更（模型/尺寸）
 async function handleQuickSettingChange() {
   await saveConfig()
+}
+
+// 切换配置
+async function handleConfigSwitch() {
+  await setActiveConfigIndex(configList.value.activeIndex)
+}
+
+// 选择配置
+async function handleSelectConfig(index: number) {
+  await setActiveConfigIndex(index)
+}
+
+// 添加新配置
+async function handleAddConfig() {
+  const { v4 } = await import('uuid')
+  const newConfig: ImageGeneratorConfig = {
+    id: v4(),
+    name: '新配置',
+    provider: 'zhipu',
+    apiUrl: 'https://open.bigmodel.cn/api/paas/v4/images/generations',
+    apiKey: '',
+    model: 'glm-image',
+    size: '1280x1280',
+    enabled: true,
+    extraConfig: {}
+  }
+  await addConfig(newConfig)
+  await setActiveConfigIndex(configList.value.configs.length - 1)
+}
+
+// 删除配置
+async function handleDeleteConfig(index: number) {
+  // 不允许删除默认配置
+  if (configList.value.configs[index]?.isDefault) {
+    alert('默认配置不可删除')
+    return
+  }
+  if (configList.value.configs.length <= 1) {
+    alert('至少保留一个配置')
+    return
+  }
+  if (confirm('确定要删除这个配置吗？')) {
+    const deleted = await deleteConfig(index)
+    if (!deleted) {
+      alert('删除失败')
+    }
+  }
 }
 
 // 清空历史
@@ -455,6 +517,14 @@ function generateId(): string {
           <div class="input-container">
             <div class="input-toolbar">
               <div class="toolbar-item">
+                <label>配置</label>
+                <select v-model="configList.activeIndex" class="toolbar-select" @change="handleConfigSwitch">
+                  <option v-for="(cfg, index) in configList.configs" :key="cfg.id" :value="index">
+                    {{ cfg.name }}
+                  </option>
+                </select>
+              </div>
+              <div class="toolbar-item">
                 <label>模型</label>
                 <select v-model="activeConfig.model" class="toolbar-select" v-if="activeConfig" @change="handleQuickSettingChange">
                   <option v-for="opt in currentModelOptions" :key="opt.value" :value="opt.value">
@@ -534,39 +604,88 @@ function generateId(): string {
 
     <!-- 配置对话框 -->
     <div v-if="showConfigDialog" class="config-dialog-overlay" @click.self="closeConfigDialog">
-      <div class="config-dialog">
+      <div class="config-dialog config-dialog-large">
         <div class="dialog-header">
           <h3>生图配置</h3>
           <button class="close-btn" @click="closeConfigDialog">×</button>
         </div>
-        <div class="dialog-content" v-if="activeConfig">
-          <div class="form-group">
-            <label>配置名称</label>
-            <input v-model="activeConfig.name" type="text" placeholder="配置名称" />
+        <div class="dialog-body">
+          <!-- 左侧配置列表 -->
+          <div class="config-list">
+            <div class="config-list-header">
+              <span>配置列表</span>
+              <button class="add-config-btn" @click="handleAddConfig" title="添加配置">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+              </button>
+            </div>
+            <div class="config-list-items">
+              <div
+                v-for="(cfg, index) in configList.configs"
+                :key="cfg.id"
+                :class="['config-item', { active: index === configList.activeIndex }]"
+                @click="handleSelectConfig(index)"
+              >
+                <span class="config-name">{{ cfg.name }}</span>
+                <span class="config-provider">{{ cfg.provider }}</span>
+                <button
+                  v-if="configList.configs.length > 1 && !cfg.isDefault"
+                  class="delete-config-btn"
+                  @click.stop="handleDeleteConfig(index)"
+                  title="删除配置"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              </div>
+            </div>
           </div>
-          <div class="form-group">
-            <label>API 地址</label>
-            <input v-model="activeConfig.apiUrl" type="text" placeholder="https://open.bigmodel.cn/api/paas/v4/images/generations" />
-          </div>
-          <div class="form-group">
-            <label>API Key</label>
-            <input v-model="activeConfig.apiKey" type="password" placeholder="输入 API Key" />
-          </div>
-          <div class="form-group">
-            <label>模型</label>
-            <select v-model="activeConfig.model">
-              <option v-for="opt in currentModelOptions" :key="opt.value" :value="opt.value">
-                {{ opt.label }}
-              </option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>图片尺寸</label>
-            <select v-model="activeConfig.size">
-              <option v-for="opt in currentSizeOptions" :key="opt.value" :value="opt.value">
-                {{ opt.label }}
-              </option>
-            </select>
+          <!-- 右侧配置详情 -->
+          <div class="config-detail" v-if="activeConfig">
+            <div class="form-group">
+              <label>配置名称</label>
+              <input v-model="activeConfig.name" type="text" placeholder="配置名称" />
+            </div>
+            <div class="form-group">
+              <label>API 地址</label>
+              <input v-model="activeConfig.apiUrl" type="text" placeholder="https://open.bigmodel.cn/api/paas/v4/images/generations" />
+            </div>
+            <div class="form-group">
+              <label>API Key</label>
+              <input v-model="activeConfig.apiKey" type="password" placeholder="输入 API Key" />
+            </div>
+            <div class="form-group">
+              <label>模型</label>
+              <select v-model="activeConfig.model">
+                <option v-for="opt in currentModelOptions" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>图片尺寸</label>
+              <select v-model="activeConfig.size">
+                <option v-for="opt in currentSizeOptions" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </option>
+              </select>
+            </div>
+            <!-- Provider 特有配置字段 -->
+            <div v-for="field in currentCustomFields" :key="field.key" class="form-group">
+              <label>{{ field.label }}</label>
+              <select v-if="field.type === 'select'" v-model="activeConfig.extraConfig![field.key]">
+                <option v-for="opt in field.options" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </option>
+              </select>
+              <input v-else-if="field.type === 'text'" type="text" v-model="activeConfig.extraConfig![field.key]" :placeholder="field.placeholder" />
+              <input v-else-if="field.type === 'password'" type="password" v-model="activeConfig.extraConfig![field.key]" :placeholder="field.placeholder" />
+              <input v-else-if="field.type === 'number'" type="number" v-model="activeConfig.extraConfig![field.key]" :placeholder="field.placeholder" />
+            </div>
           </div>
         </div>
         <div class="dialog-footer">
@@ -1267,6 +1386,136 @@ function generateId(): string {
   background: var(--color-bg-primary, #ffffff);
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.config-dialog-large {
+  width: 700px;
+  max-width: 90vw;
+}
+
+.dialog-body {
+  display: flex;
+  padding: 0;
+  max-height: 60vh;
+}
+
+/* 左侧配置列表 */
+.config-list {
+  width: 200px;
+  border-right: 1px solid var(--color-border, #e5e5e5);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-secondary, #f5f5f5);
+}
+
+.config-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border, #e5e5e5);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary, #666);
+}
+
+.add-config-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border, #e5e5e5);
+  background: var(--color-bg-primary, #ffffff);
+  color: var(--color-text-secondary, #666);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.add-config-btn:hover {
+  border-color: var(--color-primary, #333);
+  color: var(--color-primary, #333);
+}
+
+.config-list-items {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.config-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-bottom: 4px;
+  transition: all 0.15s ease;
+  gap: 8px;
+}
+
+.config-item:hover {
+  background: var(--color-bg-tertiary, #ebebeb);
+}
+
+.config-item.active {
+  background: var(--color-primary, #333);
+  color: white;
+}
+
+.config-name {
+  flex: 1;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.config-provider {
+  font-size: 11px;
+  opacity: 0.7;
+  text-transform: uppercase;
+}
+
+.delete-config-btn {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary, #888);
+  cursor: pointer;
+  opacity: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.config-item:hover .delete-config-btn {
+  opacity: 1;
+}
+
+.config-item.active .delete-config-btn {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.delete-config-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.config-item.active .delete-config-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+}
+
+/* 右侧配置详情 */
+.config-detail {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
 }
 
 .dialog-header {

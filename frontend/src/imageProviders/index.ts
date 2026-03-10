@@ -3,12 +3,14 @@
  */
 import type { ImageProvider, ImageProviderType, ImageProviderConfig } from './types'
 import { zhipuProvider } from './zhipu'
+import { qwenProvider } from './qwen'
 
 // Provider 注册表
 const providers: Map<ImageProviderType, ImageProvider> = new Map()
 
 // 注册默认 providers
 providers.set('zhipu', zhipuProvider)
+providers.set('qwen', qwenProvider)
 
 /**
  * 注册一个新的 provider
@@ -81,3 +83,4 @@ export async function generateImage(
 // 导出类型
 export * from './types'
 export { zhipuProvider } from './zhipu'
+export { qwenProvider } from './qwen'

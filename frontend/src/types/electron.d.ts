@@ -266,6 +266,13 @@ interface ElectronAPI {
   // 生图模式窗口
   openImageGeneratorWindow: () => Promise<void>
   imageGeneratorRequest: (params: ImageGeneratorRequestParams) => Promise<ImageGeneratorResponse>
+  // 通用图片 API 请求（支持自定义 headers 和方法）
+  imageApiRequest: (params: {
+    url: string
+    method: 'GET' | 'POST'
+    headers?: Record<string, string>
+    body?: string
+  }) => Promise<{ success: boolean; status: number; data?: string; error?: string }>
   imageGeneratorMinimize: () => Promise<void>
   imageGeneratorMaximize: () => Promise<boolean>
   imageGeneratorClose: () => Promise<void>

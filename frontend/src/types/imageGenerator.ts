@@ -13,6 +13,7 @@ export interface ImageGeneratorConfig {
   model: string         // 模型名称 (默认: 'glm-image')
   size: string          // 图片尺寸 (默认: '1280x1280')
   enabled: boolean      // 是否启用
+  isDefault?: boolean   // 是否为默认配置（默认配置不可删除）
   // 提供商特定配置
   extraConfig?: Record<string, unknown>
 }
@@ -81,7 +82,23 @@ export const DEFAULT_IMAGE_CONFIGS: ImageGeneratorConfigList = {
       apiKey: '',
       model: 'glm-image',
       size: '1280x1280',
-      enabled: true
+      enabled: true,
+      isDefault: true
+    },
+    {
+      id: 'qwen-default',
+      name: '千问万相',
+      provider: 'qwen',
+      apiUrl: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis',
+      apiKey: '',
+      model: 'qwen-image-plus',
+      size: '1664*928',
+      enabled: true,
+      isDefault: true,
+      extraConfig: {
+        promptExtend: 'true',
+        watermark: 'false'
+      }
     }
   ],
   activeIndex: 0

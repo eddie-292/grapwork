@@ -2930,6 +2930,45 @@ ipcMain.handle('image-generator-request', async (_event, params: {
   }
 })
 
+// 通用图片 API 请求（支持任意 HTTP 方法和自定义 headers）
+ipcMain.handle('image-api-request', async (_event, params: {
+  url: string
+  method: 'GET' | 'POST'
+  headers?: Record<string, string>
+  body?: string
+}): Promise<{ success: boolean; status: number; data?: string; error?: string }> => {
+  try {
+    const { url, method, headers = {}, body } = params
+
+    const fetchOptions: RequestInit = {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...headers
+      }
+    }
+
+    if (body && method === 'POST') {
+      fetchOptions.body = body
+    }
+
+    const response = await fetch(url, fetchOptions)
+    const data = await response.text()
+
+    return {
+      success: response.ok,
+      status: response.status,
+      data
+    }
+  } catch (error) {
+    return {
+      success: false,
+      status: 0,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+})
+
 // 下载图片
 ipcMain.handle('download-image', async (_event, url: string): Promise<{ success: boolean; error?: string; cancelled?: boolean }> => {
   try {

@@ -156,6 +156,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('open-image-generator-window'),
   imageGeneratorRequest: (params: { apiUrl: string; apiKey: string; model: string; prompt: string; size: string }) =>
     ipcRenderer.invoke('image-generator-request', params),
+  // 通用图片 API 请求（支持自定义 headers 和方法）
+  imageApiRequest: (params: { url: string; method: 'GET' | 'POST'; headers?: Record<string, string>; body?: string }) =>
+    ipcRenderer.invoke('image-api-request', params),
   imageGeneratorMinimize: () =>
     ipcRenderer.invoke('image-generator-minimize'),
   imageGeneratorMaximize: () =>
