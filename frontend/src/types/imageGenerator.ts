@@ -91,13 +91,13 @@ export const DEFAULT_IMAGE_HISTORY: ImageGeneratorHistory = {
 // 可选的图片尺寸 (智谱 GLM-Image 推荐)
 // 自定义参数: 长宽需在 512px-2048px 范围内，且长宽均需为32的整数倍
 export const IMAGE_SIZE_OPTIONS = [
-  { label: '1280x1280 (默认)', value: '1280x1280' },
-  { label: '1568x1056 (横向)', value: '1568x1056' },
-  { label: '1056x1568 (竖向)', value: '1056x1568' },
-  { label: '1472x1088 (横向)', value: '1472x1088' },
-  { label: '1088x1472 (竖向)', value: '1088x1472' },
-  { label: '1728x960 (宽幅)', value: '1728x960' },
-  { label: '960x1728 (窄幅)', value: '960x1728' }
+  { label: '1:1 正方形 (1280x1280)', value: '1280x1280' },
+  { label: '3:2 横向 (1568x1056)', value: '1568x1056' },
+  { label: '2:3 竖向 (1056x1568)', value: '1056x1568' },
+  { label: '4:3 横向 (1472x1088)', value: '1472x1088' },
+  { label: '3:4 竖向 (1088x1472)', value: '1088x1472' },
+  { label: '16:9 宽幅 (1728x960)', value: '1728x960' },
+  { label: '9:16 窄幅 (960x1728)', value: '960x1728' }
 ]
 
 // 可选的模型
