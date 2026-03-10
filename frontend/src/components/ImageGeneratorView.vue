@@ -555,19 +555,19 @@ function generateId(): string {
                 :disabled="isSending"
                 rows="3"
               ></textarea>
+              <button
+                class="send-btn"
+                @click="handleSend"
+                :disabled="isSending || !inputContent.trim()"
+              >
+                <svg v-if="!isSending" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="22" y1="2" x2="11" y2="13"></line>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+                <span v-else class="loading-spinner"></span>
+              </button>
             </div>
           </div>
-          <button
-            class="send-btn"
-            @click="handleSend"
-            :disabled="isSending || !inputContent.trim()"
-          >
-            <svg v-if="!isSending" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="22" y1="2" x2="11" y2="13"></line>
-              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-            </svg>
-            <span v-else class="loading-spinner"></span>
-          </button>
         </div>
       </div>
 
@@ -1138,10 +1138,13 @@ function generateId(): string {
 
 .input-wrapper {
   flex: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
   border-radius: 16px;
   border: 1px solid var(--color-border, #e5e5e5);
   background: var(--color-bg-secondary, #f5f5f5);
-  overflow: hidden;
+  padding: 8px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -1151,11 +1154,10 @@ function generateId(): string {
 }
 
 .input-wrapper textarea {
-  width: 100%;
-  height: 100%;
-  min-height: 48px;
+  flex: 1;
+  min-height: 32px;
   max-height: 200px;
-  padding: 14px 16px;
+  padding: 6px 8px;
   border: none;
   background: transparent;
   color: var(--color-text-primary, #1a1a1a);
@@ -1164,7 +1166,6 @@ function generateId(): string {
   resize: none;
   outline: none;
   font-family: inherit;
-  box-sizing: border-box;
 }
 
 .input-wrapper textarea::placeholder {
@@ -1190,9 +1191,9 @@ function generateId(): string {
 }
 
 .send-btn {
-  width: 48px;
-  height: 48px;
-  border-radius: 16px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   border: none;
   background: var(--color-primary, #333);
   color: white;
@@ -1655,10 +1656,6 @@ function generateId(): string {
 
 :global(.dark-mode) .message.assistant {
   background: var(--color-bg-secondary, #1a1a1a);
-}
-
-:global(.dark-mode) .input-area textarea {
-  background: transparent;
 }
 
 :global(.dark-mode) .input-wrapper {
