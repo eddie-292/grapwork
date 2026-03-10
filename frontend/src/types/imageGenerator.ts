@@ -26,6 +26,8 @@ export interface ImageChatMessage {
   content: string       // 消息内容 (用户输入的描述或 AI 返回的信息)
   images?: string[]     // 生成的图片 URL 列表
   error?: string        // 错误信息
+  model?: string        // 使用的模型
+  size?: string         // 使用的尺寸
   createdAt: number
 }
 

@@ -130,6 +130,18 @@ function formatTime(timestamp: number): string {
   })
 }
 
+// 获取模型标签
+function getModelLabel(value: string): string {
+  const opt = IMAGE_MODEL_OPTIONS.find(o => o.value === value)
+  return opt ? opt.label : value
+}
+
+// 获取尺寸标签
+function getSizeLabel(value: string): string {
+  const opt = IMAGE_SIZE_OPTIONS.find(o => o.value === value)
+  return opt ? opt.label : value
+}
+
 // 图片预览
 const previewImage = ref<string | null>(null)
 
@@ -185,8 +197,11 @@ async function downloadImage(url: string) {
             @click="handleSwitchSession(session)"
           >
             <span class="session-title">{{ session.title }}</span>
-            <button class="delete-btn" @click="handleDeleteSession(session.id, $event)" title="删除">
-              ×
+            <button class="delete-btn" @click="handleDeleteSession(session.id, $event)" title="删除会话">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
             </button>
           </div>
         </div>
@@ -239,6 +254,11 @@ async function downloadImage(url: string) {
                 <span class="time">{{ formatTime(message.createdAt) }}</span>
               </div>
               <div class="message-content">{{ message.content }}</div>
+              <!-- 用户消息显示参数 -->
+              <div v-if="message.role === 'user' && (message.model || message.size)" class="message-params">
+                <span v-if="message.model" class="param-tag">{{ getModelLabel(message.model) }}</span>
+                <span v-if="message.size" class="param-tag">{{ getSizeLabel(message.size) }}</span>
+              </div>
               <!-- 图片展示 -->
               <div v-if="message.images && message.images.length > 0" class="message-images">
                 <div v-for="(img, index) in message.images" :key="index" class="image-item">
@@ -465,16 +485,18 @@ async function downloadImage(url: string) {
 }
 
 .delete-btn {
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
   border: none;
   background: transparent;
   color: var(--color-text-tertiary, #888);
   cursor: pointer;
   opacity: 0;
   transition: all 0.15s ease;
-  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .session-item:hover .delete-btn {
@@ -482,8 +504,17 @@ async function downloadImage(url: string) {
 }
 
 .delete-btn:hover {
-  background: rgba(255, 0, 0, 0.1);
+  background: rgba(239, 68, 68, 0.1);
   color: #ef4444;
+}
+
+.session-item.active .delete-btn {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.session-item.active .delete-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
 }
 
 .sidebar-footer {
@@ -605,6 +636,21 @@ async function downloadImage(url: string) {
   font-size: 14px;
   line-height: 1.5;
   word-wrap: break-word;
+}
+
+.message-params {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.param-tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.15);
+  opacity: 0.85;
 }
 
 .message-images {

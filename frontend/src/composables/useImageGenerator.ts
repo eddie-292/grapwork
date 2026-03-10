@@ -125,6 +125,8 @@ export function useImageGenerator() {
       id: generateId(),
       role: 'user',
       content,
+      model: config.model,
+      size: config.size,
       createdAt: Date.now()
     }
     session.messages.push(userMessage)
