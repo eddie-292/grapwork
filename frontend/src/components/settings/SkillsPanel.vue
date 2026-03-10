@@ -100,6 +100,19 @@ function getLocationClass(location: string): string {
   }
 }
 
+function getLocationPath(skills: SkillMetadata[]): string {
+  if (!skills || skills.length === 0) return ''
+  // Get the parent directory of the first skill's path
+  const firstSkill = skills[0]
+  if (!firstSkill) return ''
+  const firstSkillPath = firstSkill.path
+  const lastSlash = Math.max(
+    firstSkillPath.lastIndexOf('/'),
+    firstSkillPath.lastIndexOf('\\')
+  )
+  return lastSlash > 0 ? firstSkillPath.substring(0, lastSlash) : firstSkillPath
+}
+
 onMounted(() => {
   skillsManager.loadRegistry()
 })
@@ -163,6 +176,7 @@ onMounted(() => {
       <!-- User Skills -->
       <div v-if="userSkills.length > 0" class="skill-section">
         <h4>用户技能 ({{ userSkills.length }})</h4>
+        <p class="skill-path">{{ getLocationPath(userSkills) }}</p>
         <div class="skill-list">
           <div
             v-for="skill in userSkills"
@@ -195,6 +209,7 @@ onMounted(() => {
       <!-- Installed Skills -->
       <div v-if="installedSkills.length > 0" class="skill-section">
         <h4>安装的技能 ({{ installedSkills.length }})</h4>
+        <p class="skill-path">{{ getLocationPath(installedSkills) }}</p>
         <div class="skill-list">
           <div
             v-for="skill in installedSkills"
@@ -226,6 +241,7 @@ onMounted(() => {
       <!-- Public Skills -->
       <div v-if="publicSkills.length > 0" class="skill-section">
         <h4>系统技能 ({{ publicSkills.length }})</h4>
+        <p class="skill-path">{{ getLocationPath(publicSkills) }}</p>
         <div class="skill-list">
           <div
             v-for="skill in publicSkills"
@@ -257,6 +273,7 @@ onMounted(() => {
       <!-- Example Skills -->
       <div v-if="exampleSkills.length > 0" class="skill-section">
         <h4>内置技能 ({{ exampleSkills.length }})</h4>
+        <p class="skill-path">{{ getLocationPath(exampleSkills) }}</p>
         <div class="skill-list">
           <div
             v-for="skill in exampleSkills"
@@ -414,12 +431,20 @@ onMounted(() => {
 }
 
 .skill-section h4 {
-  margin: 0 0 12px 0;
+  margin: 0 0 4px 0;
   font-size: 14px;
   font-weight: 600;
   color: var(--color-text-secondary, #6b7280);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.skill-path {
+  margin: 0 0 12px 0;
+  font-size: 12px;
+  color: var(--color-text-tertiary, #9ca3af);
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  word-break: break-all;
 }
 
 .skill-list {

@@ -2491,8 +2491,8 @@ ipcMain.handle('skills-scan', async (): Promise<SkillScanResult> => {
         const skillPath = path.join(dirPath, entry.name)
         const skillMdPath = path.join(skillPath, 'SKILL.md')
 
+        // Skip directories without SKILL.md silently
         if (!fs.existsSync(skillMdPath)) {
-          errors.push(`Skill "${entry.name}" missing SKILL.md`)
           continue
         }
 
