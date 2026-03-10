@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, nextTick, watch } from 'vue'
 import { useImageGenerator } from '@/composables/useImageGenerator'
 import { IMAGE_SIZE_OPTIONS, IMAGE_MODEL_OPTIONS } from '@/types/imageGenerator'
 import type { ImageChatSession } from '@/types/imageGenerator'
@@ -38,6 +38,14 @@ function scrollToBottom() {
   })
 }
 
+// 监听消息变化，自动滚动到底部
+watch(
+  () => currentSession.value?.messages.length,
+  () => {
+    scrollToBottom()
+  }
+)
+
 // 初始化
 onMounted(async () => {
   await loadConfig()
@@ -56,7 +64,6 @@ async function handleSend() {
 
   inputContent.value = ''
   await sendMessage(content)
-  scrollToBottom()
 }
 
 // 处理键盘事件
