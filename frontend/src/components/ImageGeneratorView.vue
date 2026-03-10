@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick, watch, computed } from 'vue'
 import { useImageGenerator } from '@/composables/useImageGenerator'
-import { getProvider } from '@/imageProviders'
+import { getProvider, getAllProviders } from '@/imageProviders'
 import type { ImageChatSession, OutputFile, ImageGeneratorConfig } from '@/types/imageGenerator'
 
 // 根据当前配置获取尺寸和模型选项
@@ -215,16 +215,22 @@ function formatTime(timestamp: number): string {
   })
 }
 
-// 获取模型标签
+// 获取模型标签（从所有 providers 中查找）
 function getModelLabel(value: string): string {
-  const opt = currentModelOptions.value.find(o => o.value === value)
-  return opt ? opt.label : value
+  for (const provider of getAllProviders()) {
+    const opt = provider.getCapabilities().models.find(o => o.value === value)
+    if (opt) return opt.label
+  }
+  return value
 }
 
-// 获取尺寸标签
+// 获取尺寸标签（从所有 providers 中查找）
 function getSizeLabel(value: string): string {
-  const opt = currentSizeOptions.value.find(o => o.value === value)
-  return opt ? opt.label : value
+  for (const provider of getAllProviders()) {
+    const opt = provider.getCapabilities().sizes.find(o => o.value === value)
+    if (opt) return opt.label
+  }
+  return value
 }
 
 // 图片预览
