@@ -198,10 +198,7 @@ async function downloadImage(url: string) {
           >
             <span class="session-title">{{ session.title }}</span>
             <button class="delete-btn" @click="handleDeleteSession(session.id, $event)" title="删除会话">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
+              x
             </button>
           </div>
         </div>
@@ -492,7 +489,7 @@ async function downloadImage(url: string) {
   background: transparent;
   color: var(--color-text-tertiary, #888);
   cursor: pointer;
-  opacity: 0;
+  opacity: 0.5;
   transition: all 0.15s ease;
   display: flex;
   align-items: center;
@@ -509,7 +506,7 @@ async function downloadImage(url: string) {
 }
 
 .session-item.active .delete-btn {
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .session-item.active .delete-btn:hover {
