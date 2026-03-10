@@ -164,4 +164,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('image-generator-close'),
   imageGeneratorIsMaximized: () =>
     ipcRenderer.invoke('image-generator-is-maximized'),
+  // 下载图片
+  downloadImage: (url: string) =>
+    ipcRenderer.invoke('download-image', url),
+  // 下载完成通知
+  onDownloadComplete: (callback: (savePath: string) => void) => {
+    ipcRenderer.on('download-complete', (_event, savePath) => callback(savePath))
+  },
 })

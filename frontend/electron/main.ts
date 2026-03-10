@@ -2930,6 +2930,43 @@ ipcMain.handle('image-generator-request', async (_event, params: {
   }
 })
 
+// 下载图片
+ipcMain.handle('download-image', async (_event, url: string): Promise<{ success: boolean; error?: string }> => {
+  try {
+    // 获取用户的下载目录
+    const downloadsPath = app.getPath('downloads')
+    const filename = `image_${Date.now()}.png`
+    const savePath = path.join(downloadsPath, filename)
+
+    // 如果是 base64 格式
+    if (url.startsWith('data:')) {
+      const base64Data = url.replace(/^data:image\/\w+;base64,/, '')
+      const buffer = Buffer.from(base64Data, 'base64')
+      fs.writeFileSync(savePath, buffer)
+      return { success: true }
+    }
+
+    // 远程 URL，下载图片
+    const response = await fetch(url)
+    if (!response.ok) {
+      throw new Error(`下载失败: ${response.status}`)
+    }
+    const arrayBuffer = await response.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+    fs.writeFileSync(savePath, buffer)
+
+    // 通知用户文件已保存
+    imageGeneratorWindow?.webContents.send('download-complete', savePath)
+
+    return { success: true }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+})
+
 app.whenReady().then(createWindow)
 
 app.on('window-all-closed', () => {

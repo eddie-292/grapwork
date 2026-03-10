@@ -133,26 +133,11 @@ function closeImagePreview() {
 // 下载图片
 async function downloadImage(url: string) {
   try {
-    // 如果是 base64 格式
-    if (url.startsWith('data:')) {
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `image_${Date.now()}.png`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+    const result = await window.electronAPI?.downloadImage(url)
+    if (result?.success) {
+      // 下载成功，不需要提示，用户会在下载目录找到
     } else {
-      // 远程 URL，先获取再下载
-      const response = await fetch(url)
-      const blob = await response.blob()
-      const blobUrl = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = blobUrl
-      link.download = `image_${Date.now()}.png`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(blobUrl)
+      alert(result?.error || '下载图片失败')
     }
   } catch (error) {
     console.error('下载图片失败:', error)
@@ -248,13 +233,12 @@ async function downloadImage(url: string) {
                     @click="openImagePreview(img)"
                   />
                   <div class="image-actions">
-                    <button class="action-btn download-btn" @click="downloadImage(img)" title="下载图片">
+                    <button class="download-btn" @click="downloadImage(img)" title="下载图片">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                         <polyline points="7 10 12 15 17 10"></polyline>
                         <line x1="12" y1="15" x2="12" y2="3"></line>
                       </svg>
-                      下载
                     </button>
                   </div>
                 </div>
