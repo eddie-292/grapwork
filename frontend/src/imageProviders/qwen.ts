@@ -105,7 +105,7 @@ async function apiRequest(
 
 export class QwenImageProvider implements ImageProvider {
   readonly type = 'qwen' as const
-  readonly displayName = '千问万相'
+  readonly displayName = '千问 Qwen-Image-Plus'
 
   getCapabilities(): ImageProviderCapabilities {
     return {
