@@ -614,12 +614,6 @@ function generateId(): string {
           <div class="config-list">
             <div class="config-list-header">
               <span>配置列表</span>
-              <button class="add-config-btn" @click="handleAddConfig" title="添加配置">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="12" y1="5" x2="12" y2="19"></line>
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-              </button>
             </div>
             <div class="config-list-items">
               <div
@@ -648,11 +642,21 @@ function generateId(): string {
           <div class="config-detail" v-if="activeConfig">
             <div class="form-group">
               <label>配置名称</label>
-              <input v-model="activeConfig.name" type="text" placeholder="配置名称" />
+              <input
+                v-model="activeConfig.name"
+                type="text"
+                placeholder="配置名称"
+                :disabled="activeConfig.isDefault"
+              />
             </div>
             <div class="form-group">
               <label>API 地址</label>
-              <input v-model="activeConfig.apiUrl" type="text" placeholder="https://open.bigmodel.cn/api/paas/v4/images/generations" />
+              <input
+                v-model="activeConfig.apiUrl"
+                type="text"
+                placeholder="https://open.bigmodel.cn/api/paas/v4/images/generations"
+                :disabled="activeConfig.isDefault"
+              />
             </div>
             <div class="form-group">
               <label>API Key</label>

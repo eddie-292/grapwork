@@ -76,7 +76,7 @@ export const DEFAULT_IMAGE_CONFIGS: ImageGeneratorConfigList = {
   configs: [
     {
       id: 'zhipu-default',
-      name: '智谱 GLM-Image',
+      name: 'GLM-Image',
       provider: 'zhipu',
       apiUrl: 'https://open.bigmodel.cn/api/paas/v4/images/generations',
       apiKey: '',
@@ -87,7 +87,7 @@ export const DEFAULT_IMAGE_CONFIGS: ImageGeneratorConfigList = {
     },
     {
       id: 'qwen-default',
-      name: '千问万相',
+      name: 'Qwen-Image-Plus',
       provider: 'qwen',
       apiUrl: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis',
       apiKey: '',

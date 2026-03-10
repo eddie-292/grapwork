@@ -28,7 +28,7 @@ const ZHIPU_MODELS = [
 
 export class ZhipuImageProvider implements ImageProvider {
   readonly type = 'zhipu' as const
-  readonly displayName = '智谱 GLM-Image'
+  readonly displayName = 'GLM-Image'
 
   getCapabilities(): ImageProviderCapabilities {
     return {
