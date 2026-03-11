@@ -186,4 +186,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 删除产出物文件
   deleteOutputFile: (filePath: string) =>
     ipcRenderer.invoke('delete-output-file', filePath),
+  // 选择图片文件（用于图片编辑模式）
+  selectImageFile: () =>
+    ipcRenderer.invoke('select-image-file'),
 })

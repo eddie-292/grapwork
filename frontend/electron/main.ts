@@ -3102,6 +3102,34 @@ ipcMain.handle('delete-output-file', async (_event, filePath: string): Promise<{
   }
 })
 
+// 选择图片文件（用于图片编辑）
+ipcMain.handle('select-image-file', async (): Promise<{ success: boolean; data?: string; format?: string; error?: string }> => {
+  try {
+    const result = await dialog.showOpenDialog(imageGeneratorWindow!, {
+      title: '选择输入图片',
+      properties: ['openFile'],
+      filters: [
+        { name: '图片文件', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'] }
+      ]
+    })
+    if (result.canceled || result.filePaths.length === 0) {
+      return { success: false }
+    }
+    const filePath = result.filePaths[0]
+    const fileBuffer = fs.readFileSync(filePath)
+    const ext = path.extname(filePath).toLowerCase().replace('.', '')
+    const mimeType = ext === 'jpg' ? 'jpeg' : ext
+    const base64 = fileBuffer.toString('base64')
+    const dataUrl = `data:image/${mimeType};base64,${base64}`
+    return { success: true, data: dataUrl, format: mimeType }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+})
+
 app.whenReady().then(createWindow)
 
 app.on('window-all-closed', () => {

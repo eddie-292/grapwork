@@ -288,6 +288,8 @@ interface ElectronAPI {
   getOutputsPath: () => Promise<string>
   // 删除产出物文件
   deleteOutputFile: (filePath: string) => Promise<{ success: boolean; error?: string }>
+  // 选择图片文件（用于图片编辑模式）
+  selectImageFile: () => Promise<{ success: boolean; data?: string; error?: string }>
 }
 
 declare global {

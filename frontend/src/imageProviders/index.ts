@@ -4,6 +4,7 @@
 import type { ImageProvider, ImageProviderType, ImageProviderConfig } from './types'
 import { zhipuProvider } from './zhipu'
 import { qwenProvider } from './qwen'
+import { qwenImageEditProvider } from './qwenImageEdit'
 
 // Provider 注册表
 const providers: Map<ImageProviderType, ImageProvider> = new Map()
@@ -11,6 +12,7 @@ const providers: Map<ImageProviderType, ImageProvider> = new Map()
 // 注册默认 providers
 providers.set('zhipu', zhipuProvider)
 providers.set('qwen', qwenProvider)
+providers.set('qwen-image-edit', qwenImageEditProvider)
 
 /**
  * 注册一个新的 provider
@@ -49,7 +51,7 @@ export function getProviderOptions(): Array<{ label: string; value: ImageProvide
  */
 export async function generateImage(
   config: ImageProviderConfig,
-  params: { prompt: string; size: string; model?: string; negativePrompt?: string }
+  params: { prompt: string; size: string; model?: string; negativePrompt?: string; inputImages?: string[] }
 ): Promise<{ success: boolean; images?: string[]; error?: string; created?: number }> {
   const provider = providers.get(config.provider)
 
@@ -60,7 +62,7 @@ export async function generateImage(
     }
   }
 
-  // 验证配置
+  // 食用配置
   const validation = provider.validateConfig(config)
   if (!validation.valid) {
     return {
@@ -84,3 +86,4 @@ export async function generateImage(
 export * from './types'
 export { zhipuProvider } from './zhipu'
 export { qwenProvider } from './qwen'
+export { qwenImageEditProvider } from './qwenImageEdit'

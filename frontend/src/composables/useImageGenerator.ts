@@ -204,7 +204,11 @@ export function useImageGenerator() {
   }
 
   // 发送消息并生成图片
-  async function sendMessage(content: string, negativePrompt?: string): Promise<{ success: boolean; error?: string }> {
+  async function sendMessage(
+    content: string,
+    negativePrompt?: string,
+    inputImages?: string[]
+  ): Promise<{ success: boolean; error?: string }> {
     const config = activeConfig.value
     if (!config || !config.apiKey) {
       return { success: false, error: '请先配置生图模型 API' }
@@ -221,6 +225,7 @@ export function useImageGenerator() {
       role: 'user',
       content,
       negativePrompt,
+      inputImages,
       model: config.model,
       size: config.size,
       createdAt: Date.now()
@@ -255,8 +260,9 @@ export function useImageGenerator() {
         prompt: content,
         size: config.size,
         model: config.model,
-        negativePrompt
-      })
+        negativePrompt,
+        inputImages
+      } as any)
 
       // 添加助手消息
       const assistantMessage: ImageChatMessage = {
@@ -326,7 +332,7 @@ export function useImageGenerator() {
   async function deleteConfig(index: number) {
     if (index >= 0 && index < configList.value.configs.length) {
       // 不允许删除默认配置
-      if (configList.value.configs[index].isDefault) {
+      if (configList.value.configs[index]?.isDefault) {
         return false
       }
       configList.value.configs.splice(index, 1)

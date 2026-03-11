@@ -30,6 +30,7 @@ export interface ImageChatMessage {
   role: 'user' | 'assistant'
   content: string         // 消息内容 (用户输入的描述或 AI 返回的信息)
   negativePrompt?: string // 反向提示词（可选）
+  inputImages?: string[]  // 输入的参考图片 URL 列表（图片编辑模式）
   images?: string[]       // 生成的图片 URL 列表
   error?: string          // 错误信息
   model?: string          // 使用的模型
@@ -99,6 +100,22 @@ export const DEFAULT_IMAGE_CONFIGS: ImageGeneratorConfigList = {
       extraConfig: {
         promptExtend: 'true',
         watermark: 'false'
+      }
+    },
+    {
+      id: 'qwen-image-edit-default',
+      name: 'Qwen-Image-Edit-Plus',
+      provider: 'qwen-image-edit',
+      apiUrl: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
+      apiKey: '',
+      model: 'qwen-image-edit-plus',
+      size: '1024*1024',
+      enabled: true,
+      isDefault: true,
+      extraConfig: {
+        promptExtend: 'true',
+        watermark: 'false',
+        outputCount: '1'
       }
     }
   ],

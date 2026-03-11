@@ -35,6 +35,17 @@ const supportsNegativePrompt = computed(() => {
   return provider?.getCapabilities().supportsNegativePrompt || false
 })
 
+// 检查当前 provider 是否支持图片编辑
+const supportsImageEditing = computed(() => {
+  const config = activeConfig.value
+  if (!config) return false
+  const provider = getProvider(config.provider || 'zhipu')
+  return provider?.getCapabilities().supportsImageEditing || false
+})
+
+// 输入的参考图片（图片编辑模式）
+const inputImages = ref<string[]>([])
+
 const {
   configList,
   history,
@@ -112,9 +123,11 @@ async function handleSend() {
   if (!content || isSending.value) return
 
   const negative = negativePrompt.value.trim()
+  const images = inputImages.value.length > 0 ? [...inputImages.value] : undefined
   inputContent.value = ''
   negativePrompt.value = ''
-  await sendMessage(content, negative || undefined)
+  inputImages.value = []
+  await sendMessage(content, negative || undefined, images)
 }
 
 // 处理键盘事件
@@ -325,6 +338,23 @@ async function handleDeleteOutput(id: string, event: Event) {
 
   // 从列表中移除
   await deleteOutput(id)
+}
+
+// 选择输入图片
+async function selectInputImage() {
+  try {
+    const result = await window.electronAPI?.selectImageFile()
+    if (result && result.success && result.data) {
+      inputImages.value.push(result.data)
+    }
+  } catch (error) {
+    console.error('选择图片失败:', error)
+  }
+}
+
+// 移除输入图片
+function removeInputImage(index: number) {
+  inputImages.value.splice(index, 1)
 }
 
 // 重新生成图片
@@ -572,6 +602,40 @@ function generateId(): string {
                     {{ opt.label }}
                   </option>
                 </select>
+              </div>
+            </div>
+            <!-- 图片编辑模式：输入图片区域 -->
+            <div v-if="supportsImageEditing" class="input-images-area">
+              <div class="input-images-label">
+                <span>参考图片</span>
+                <span class="hint">（最多3张，可选）</span>
+              </div>
+              <div class="input-images-list">
+                <div
+                  v-for="(img, index) in inputImages"
+                  :key="index"
+                  class="input-image-item"
+                >
+                  <img :src="img" :alt="`参考图 ${index + 1}`" />
+                  <button class="remove-image-btn" @click="removeInputImage(index)" title="移除">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  </button>
+                </div>
+                <button
+                  v-if="inputImages.length < 3"
+                  class="add-image-btn"
+                  @click="selectInputImage"
+                  :disabled="isSending"
+                  title="添加参考图片"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                </button>
               </div>
             </div>
             <div class="input-wrapper">
@@ -1204,6 +1268,105 @@ function generateId(): string {
   border-color: var(--color-primary, #333);
 }
 
+/* 参考图片输入区域 */
+.input-images-area {
+  padding: 12px;
+  background: var(--color-bg-secondary, #f5f5f5);
+  border-radius: 12px;
+  border: 1px solid var(--color-border, #e5e5e5);
+  margin-bottom: 8px;
+}
+
+.input-images-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: var(--color-text-secondary, #666);
+}
+
+.input-images-label .hint {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.input-images-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.input-image-item {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--color-border, #e5e5e5);
+  background: var(--color-bg-primary, #ffffff);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.input-image-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.remove-image-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  cursor: pointer;
+  opacity: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.input-image-item:hover .remove-image-btn {
+  opacity: 1;
+}
+
+.remove-image-btn:hover {
+  background: rgba(239, 68, 68, 0.9);
+  transform: scale(1.1);
+}
+
+.add-image-btn {
+  width: 72px;
+  height: 72px;
+  border-radius: 8px;
+  border: 2px dashed var(--color-border, #e5e5e5);
+  background: transparent;
+  color: var(--color-text-tertiary, #888);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.add-image-btn:hover:not(:disabled) {
+  border-color: var(--color-primary, #333);
+  color: var(--color-primary, #333);
+  background: var(--color-bg-tertiary, #f0f0f0);
+}
+
+.add-image-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .input-wrapper {
   flex: 1;
   display: flex;
@@ -1818,6 +1981,30 @@ function generateId(): string {
 
 :global(.dark-mode) .output-prompt {
   color: var(--color-text-primary, #e5e5e5);
+}
+
+/* 深色模式 - 参考图片区域 */
+:global(.dark-mode) .input-images-area {
+  border-color: var(--color-border, #333);
+}
+
+:global(.dark-mode) .input-image-item {
+  border-color: var(--color-border, #333);
+}
+
+:global(.dark-mode) .remove-image-btn {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+:global(.dark-mode) .add-image-btn {
+  border-color: var(--color-border, #444);
+  color: var(--color-text-tertiary, #888);
+}
+
+:global(.dark-mode) .add-image-btn:hover:not(:disabled) {
+  border-color: var(--color-primary, #666);
+  color: var(--color-primary, #999);
+  background: var(--color-bg-tertiary, #333);
 }
 
 /* 图片预览 */
