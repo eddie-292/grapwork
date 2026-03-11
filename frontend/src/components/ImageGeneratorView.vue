@@ -373,10 +373,11 @@ async function handleRegenerate(messageId: string) {
       // 保存用户消息内容
       const userMessage = msg.content
       const userNegativePrompt = msg.negativePrompt
+      const userInputImages = msg.inputImages
       // 删除用户消息及之后的所有消息（包括助手消息）
       messages.splice(i)
       // 重新发送
-      await sendMessage(userMessage, userNegativePrompt)
+      await sendMessage(userMessage, userNegativePrompt, userInputImages)
       break
     }
   }
@@ -512,6 +513,19 @@ function generateId(): string {
                 <span class="time">{{ formatTime(message.createdAt) }}</span>
               </div>
               <div class="message-content">{{ message.content }}</div>
+              <!-- 显示参考图片（图片编辑模式） -->
+              <div v-if="message.role === 'user' && message.inputImages && message.inputImages.length > 0" class="message-input-images">
+                <span class="input-images-tag">参考图片：</span>
+                <div class="input-images-preview">
+                  <img
+                    v-for="(img, index) in message.inputImages"
+                    :key="index"
+                    :src="img"
+                    :alt="`参考图 ${index + 1}`"
+                    @click="openImagePreview(img)"
+                  />
+                </div>
+              </div>
               <!-- 显示反向提示词 -->
               <div v-if="message.role === 'user' && message.negativePrompt" class="message-negative-prompt">
                 <span class="negative-label">反向提示词：</span>{{ message.negativePrompt }}
@@ -1070,6 +1084,40 @@ function generateId(): string {
   font-size: 14px;
   line-height: 1.5;
   word-wrap: break-word;
+}
+
+/* 消息中的参考图片 */
+.message-input-images {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.input-images-tag {
+  font-size: 12px;
+  opacity: 0.7;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.input-images-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.input-images-preview img {
+  width: 60px;
+  height: 60px;
+  border-radius: 6px;
+  object-fit: cover;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: transform 0.15s ease;
+}
+
+.input-images-preview img:hover {
+  transform: scale(1.05);
 }
 
 .message-negative-prompt {
