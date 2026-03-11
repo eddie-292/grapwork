@@ -1996,6 +1996,7 @@ function handleFolderChanged(path: string) {
 }
 
 .app-title {
+  font-weight: bolder;
   font-size: 13px;
   color: var(--color-text-tertiary, #888);
   -webkit-app-region: no-drag;

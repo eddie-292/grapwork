@@ -341,6 +341,32 @@ async function handleMigrateOutputs() {
   }
 }
 
+// 刷新产出物列表（从文件系统扫描）
+async function handleRefreshOutputs() {
+  try {
+    const result = await window.electronAPI?.scanOutputsFolder()
+    if (result?.success && result.files) {
+      // 将扫描到的文件转换为 OutputFile 格式
+      const newOutputs: OutputFile[] = result.files.map(file => ({
+        id: `scanned-${file.filename}-${file.createdAt}`,
+        filename: file.filename,
+        localPath: file.path,
+        originalUrl: `local-file://${file.path}`,
+        prompt: file.filename.replace(/\.[^.]+$/, ''),
+        model: 'unknown',
+        size: 'unknown',
+        sessionId: 'scanned',
+        createdAt: file.createdAt
+      }))
+
+      outputs.value = newOutputs
+      await saveOutputs()
+    }
+  } catch (error) {
+    console.error('刷新产出物列表失败:', error)
+  }
+}
+
 // 格式化产出物时间
 function formatOutputTime(timestamp: number): string {
   const date = new Date(timestamp)
@@ -494,7 +520,7 @@ function generateId(): string {
   <div class="image-generator">
     <!-- 双击缩放和按住拖拽区域 -->
     <div class="window-drag-area" @dblclick="handleDragAreaDoubleClick">
-      <span class="app-title">MirrorGrap Work</span>
+      <span class="app-title">MirrorGrap Work Generate Image</span>
     </div>
     <!-- 主内容区域 -->
     <div class="main-content">
@@ -762,6 +788,13 @@ function generateId(): string {
                 <line x1="12" y1="2" x2="12" y2="22"></line>
               </svg>
             </button>
+            <button class="refresh-btn" @click="handleRefreshOutputs" title="刷新列表">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+              </svg>
+            </button>
           </div>
         </div>
         <div class="outputs-list">
@@ -941,6 +974,7 @@ function generateId(): string {
 }
 
 .app-title {
+  font-weight: bolder;
   font-size: 13px;
   color: var(--color-text-tertiary, #888);
   -webkit-app-region: no-drag;
@@ -1677,6 +1711,26 @@ function generateId(): string {
   background: var(--color-bg-tertiary, #f0f0f0);
 }
 
+.refresh-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border, #e5e5e5);
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  color: var(--color-text-secondary, #666);
+}
+
+.refresh-btn:hover {
+  border-color: var(--color-primary, #333);
+  color: var(--color-primary, #333);
+  background: var(--color-bg-tertiary, #f0f0f0);
+}
+
 .outputs-list {
   flex: 1;
   overflow-y: auto;
@@ -2154,6 +2208,17 @@ function generateId(): string {
 }
 
 :global(.dark-mode) .migrate-btn:hover {
+  border-color: var(--color-primary, #666);
+  color: var(--color-text-primary, #e5e5e5);
+  background: var(--color-bg-tertiary, #333);
+}
+
+:global(.dark-mode) .refresh-btn {
+  border-color: var(--color-border, #333);
+  color: var(--color-text-secondary, #888);
+}
+
+:global(.dark-mode) .refresh-btn:hover {
   border-color: var(--color-primary, #666);
   color: var(--color-text-primary, #e5e5e5);
   background: var(--color-bg-tertiary, #333);

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, dialog, Menu, screen } from 'electron'
+import { app, BrowserWindow, ipcMain, shell, dialog, Menu, screen, protocol } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import { spawn, ChildProcess } from 'child_process'
@@ -3145,6 +3145,44 @@ ipcMain.handle('migrate-outputs', async (_event, targetPath: string, moveFiles: 
   }
 })
 
+// 扫描产出物目录
+ipcMain.handle('scan-outputs-folder', async (): Promise<{ success: boolean; files?: Array<{ filename: string; path: string; createdAt: number }>; error?: string }> => {
+  try {
+    // 确保目录存在
+    if (!fs.existsSync(IMAGE_OUTPUTS_PATH)) {
+      fs.mkdirSync(IMAGE_OUTPUTS_PATH, { recursive: true })
+      return { success: true, files: [] }
+    }
+
+    const files = fs.readdirSync(IMAGE_OUTPUTS_PATH)
+    const result: Array<{ filename: string; path: string; createdAt: number }> = []
+
+    for (const file of files) {
+      const filePath = path.join(IMAGE_OUTPUTS_PATH, file)
+      const stat = fs.statSync(filePath)
+
+      // 只处理图片文件
+      if (stat.isFile() && /\.(png|jpg|jpeg|webp|gif)$/i.test(file)) {
+        result.push({
+          filename: file,
+          path: filePath,
+          createdAt: stat.mtimeMs
+        })
+      }
+    }
+
+    // 按创建时间倒序排列
+    result.sort((a, b) => b.createdAt - a.createdAt)
+
+    return { success: true, files: result }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+})
+
 // 选择图片文件（用于图片编辑）
 ipcMain.handle('select-image-file', async (): Promise<{ success: boolean; data?: string; format?: string; error?: string }> => {
   try {
@@ -3173,7 +3211,16 @@ ipcMain.handle('select-image-file', async (): Promise<{ success: boolean; data?:
   }
 })
 
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  // 注册 local-file 协议用于加载本地图片
+  protocol.registerFileProtocol('local-file', (request, callback) => {
+    const url = request.url.slice('local-file://'.length)
+    const filePath = decodeURIComponent(url)
+    callback(filePath)
+  })
+
+  createWindow()
+})
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

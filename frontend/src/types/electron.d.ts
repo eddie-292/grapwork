@@ -290,6 +290,8 @@ interface ElectronAPI {
   deleteOutputFile: (filePath: string) => Promise<{ success: boolean; error?: string }>
   // 迁移产出物到新目录
   migrateOutputs: (targetPath: string, moveFiles: boolean) => Promise<{ success: boolean; migratedCount?: number; error?: string }>
+  // 扫描产出物目录
+  scanOutputsFolder: () => Promise<{ success: boolean; files?: Array<{ filename: string; path: string; createdAt: number }>; error?: string }>
   // 选择图片文件（用于图片编辑模式）
   selectImageFile: () => Promise<{ success: boolean; data?: string; error?: string }>
 }

@@ -189,6 +189,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 迁移产出物到新目录
   migrateOutputs: (targetPath: string, moveFiles: boolean) =>
     ipcRenderer.invoke('migrate-outputs', targetPath, moveFiles),
+  // 扫描产出物目录
+  scanOutputsFolder: () =>
+    ipcRenderer.invoke('scan-outputs-folder'),
   // 选择图片文件（用于图片编辑模式）
   selectImageFile: () =>
     ipcRenderer.invoke('select-image-file'),
