@@ -360,6 +360,65 @@
             z-index: -1;
         }
 
+        /* Core Features Grid */
+        .core-features {
+            padding: 80px 0 120px;
+        }
+
+        .core-features-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-top: 60px;
+        }
+
+        .core-feature-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 24px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .core-feature-card:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(16, 163, 127, 0.3);
+            transform: translateY(-4px);
+        }
+
+        .core-feature-icon {
+            width: 44px;
+            height: 44px;
+            background: rgba(16, 163, 127, 0.1);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+
+        .core-feature-icon svg {
+            width: 22px;
+            height: 22px;
+            stroke: #34d399;
+            stroke-width: 1.5;
+            fill: none;
+        }
+
+        .core-feature-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #fafafa;
+        }
+
+        .core-feature-desc {
+            font-size: 13px;
+            color: #71717a;
+            line-height: 1.6;
+        }
+
         /* Use Cases Grid */
         .use-cases {
             padding: 80px 0 120px;
@@ -394,8 +453,15 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
             margin-bottom: 16px;
+        }
+
+        .use-case-icon svg {
+            width: 24px;
+            height: 24px;
+            stroke: #ffffff;
+            stroke-width: 1.5;
+            fill: none;
         }
 
         .use-case-card:nth-child(1) .use-case-icon {
@@ -468,6 +534,10 @@
                 padding-left: 0;
             }
 
+            .core-features-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
             .use-cases-grid {
                 grid-template-columns: repeat(2, 1fr);
             }
@@ -498,6 +568,10 @@
 
             .feature-title {
                 font-size: 22px;
+            }
+
+            .core-features-grid {
+                grid-template-columns: 1fr;
             }
 
             .use-cases-grid {
@@ -547,7 +621,8 @@
                     <span class="logo-text">MirrorGrap Work</span>
                 </div>
                 <nav class="nav-links">
-                    <a href="#features">Features</a>
+                    <a href="#core-features">Core Features</a>
+                    <a href="#features">Capabilities</a>
                     <a href="#use-cases">Use Cases</a>
                     <a href="https://github.com" target="_blank">GitHub</a>
                 </nav>
@@ -567,6 +642,101 @@
                 <div class="app-preview animate-in delay-4">
                     <div class="app-preview-glow"></div>
                     <img src="image/openchat_use_cases/soft.png" alt="MirrorGrap Work App Preview">
+                </div>
+            </div>
+        </section>
+
+        <section class="core-features" id="core-features">
+            <div class="container">
+                <span class="section-label">Core Features</span>
+                <h2 class="section-title">核心功能</h2>
+                <p class="section-desc">简洁高效的 AI 对话体验，集成多种强大功能</p>
+
+                <div class="core-features-grid">
+                    <div class="core-feature-card">
+                        <div class="core-feature-icon">
+                            <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        </div>
+                        <h4 class="core-feature-title">多标签对话</h4>
+                        <p class="core-feature-desc">支持多会话标签管理，流式响应实时显示，可配置温度、Top-P 等对话参数</p>
+                    </div>
+                    <div class="core-feature-card">
+                        <div class="core-feature-icon">
+                            <svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                        </div>
+                        <h4 class="core-feature-title">MCP 工具调用</h4>
+                        <p class="core-feature-desc">支持 STDIO/SSE 两种传输方式，自动发现并执行 MCP 服务器提供的工具</p>
+                    </div>
+                    <div class="core-feature-card">
+                        <div class="core-feature-icon">
+                            <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/><path d="M12 6a1 1 0 0 0-1 1v4.59l-2.71 2.7a1 1 0 0 0 1.42 1.42l3-3A1 1 0 0 0 13 12V7a1 1 0 0 0-1-1z"/></svg>
+                        </div>
+                        <h4 class="core-feature-title">全局记忆</h4>
+                        <p class="core-feature-desc">持久化知识存储，支持关键词智能匹配，自动注入相关上下文到对话中</p>
+                    </div>
+                    <div class="core-feature-card">
+                        <div class="core-feature-icon">
+                            <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                        </div>
+                        <h4 class="core-feature-title">技能系统</h4>
+                        <p class="core-feature-desc">基于 SKILL.md 的领域知识包，支持多优先级来源，按需加载注入</p>
+                    </div>
+                    <div class="core-feature-card">
+                        <div class="core-feature-icon">
+                            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                        </div>
+                        <h4 class="core-feature-title">社区助理</h4>
+                        <p class="core-feature-desc">创建自定义 AI 助手，配置专属角色和 System Prompt，一键切换场景</p>
+                    </div>
+                    <div class="core-feature-card">
+                        <div class="core-feature-icon">
+                            <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                        </div>
+                        <h4 class="core-feature-title">工作空间</h4>
+                        <p class="core-feature-desc">内置文件浏览器，支持目录浏览、文件预览、搜索等操作</p>
+                    </div>
+                    <div class="core-feature-card">
+                        <div class="core-feature-icon">
+                            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        </div>
+                        <h4 class="core-feature-title">图片生成</h4>
+                        <p class="core-feature-desc">多提供商支持（智谱 GLM-Image、通义万相），会话历史独立管理</p>
+                    </div>
+                    <div class="core-feature-card">
+                        <div class="core-feature-icon">
+                            <svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                        </div>
+                        <h4 class="core-feature-title">Markdown 渲染</h4>
+                        <p class="core-feature-desc">完整 Markdown 解析，代码语法高亮，可切换代码主题</p>
+                    </div>
+                    <div class="core-feature-card">
+                        <div class="core-feature-icon">
+                            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                        </div>
+                        <h4 class="core-feature-title">推理过程展示</h4>
+                        <p class="core-feature-desc">支持 DeepSeek、Qwen 等推理模型，可展开查看完整思考过程</p>
+                    </div>
+                    <div class="core-feature-card">
+                        <div class="core-feature-icon">
+                            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                        </div>
+                        <h4 class="core-feature-title">灵活配置</h4>
+                        <p class="core-feature-desc">支持多个 LLM API 配置，兼容 OpenAI、Claude、本地模型等</p>
+                    </div>
+                    <div class="core-feature-card">
+                        <div class="core-feature-icon">
+                            <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                        </div>
+                        <h4 class="core-feature-title">跨平台支持</h4>
+                        <p class="core-feature-desc">基于 Electron 构建，支持 macOS、Windows 和 Linux</p>
+                    </div>
+                    <div class="core-feature-card">
+                        <div class="core-feature-icon">
+                            <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        </div>
+                        <h4 class="core-feature-title">隐私安全</h4>
+                        <p class="core-feature-desc">所有数据本地存储，不上传云端，可插拔存储后端</p>
+                    </div>
                 </div>
             </div>
         </section>
@@ -641,6 +811,19 @@
                         <img src="image/openchat_use_cases/整理目录文件.png" alt="File Organization">
                     </div>
                 </div>
+
+                <!-- Feature 6: Image Generation -->
+                <div class="feature-card">
+                    <div class="feature-content">
+                        <span class="feature-number">06</span>
+                        <h3 class="feature-title">图片生成模式</h3>
+                        <p class="feature-desc">支持智谱 GLM-Image、通义万相等多种图片生成提供商，通过自然语言描述即可生成高质量图片，创意无限。</p>
+                    </div>
+                    <div class="feature-image">
+                        <div class="feature-image-glow"></div>
+                        <img src="image/openchat_use_cases/generate_image.png" alt="Image Generation">
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -652,22 +835,30 @@
 
                 <div class="use-cases-grid">
                     <div class="use-case-card">
-                        <div class="use-case-icon">📄</div>
+                        <div class="use-case-icon">
+                            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                        </div>
                         <h4 class="use-case-title">文档生成</h4>
                         <p class="use-case-desc">自动生成 Word、PDF 等格式文档，智能排版与内容填充</p>
                     </div>
                     <div class="use-case-card">
-                        <div class="use-case-icon">📊</div>
+                        <div class="use-case-icon">
+                            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                        </div>
                         <h4 class="use-case-title">数据分析</h4>
                         <p class="use-case-desc">Excel 表格自动生成，公式计算与数据可视化</p>
                     </div>
                     <div class="use-case-card">
-                        <div class="use-case-icon">📽</div>
+                        <div class="use-case-icon">
+                            <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                        </div>
                         <h4 class="use-case-title">演示制作</h4>
                         <p class="use-case-desc">一键生成专业 PPT，智能布局与设计建议</p>
                     </div>
                     <div class="use-case-card">
-                        <div class="use-case-icon">✉️</div>
+                        <div class="use-case-icon">
+                            <svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                        </div>
                         <h4 class="use-case-title">邮件助手</h4>
                         <p class="use-case-desc">智能撰写邮件内容，一键发送到多个收件人</p>
                     </div>
@@ -698,7 +889,7 @@
             });
         }, observerOptions);
 
-        document.querySelectorAll('.feature-card, .use-case-card').forEach(el => {
+        document.querySelectorAll('.feature-card, .use-case-card, .core-feature-card').forEach(el => {
             el.style.opacity = '0';
             el.style.transform = 'translateY(30px)';
             el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
