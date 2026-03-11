@@ -266,10 +266,21 @@ onUnmounted(() => {
       </svg>
     </button>
     <button class="image-generator-btn" @click="openImageGenerator" title="生图模式">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-        <circle cx="8.5" cy="8.5" r="1.5"/>
-        <polyline points="21 15 16 10 5 21"/>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="imageGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#ff6b6b"/>
+            <stop offset="50%" style="stop-color:#feca57"/>
+            <stop offset="100%" style="stop-color:#48dbfb"/>
+          </linearGradient>
+          <linearGradient id="sunGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#ff9ff3"/>
+            <stop offset="100%" style="stop-color:#feca57"/>
+          </linearGradient>
+        </defs>
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke="url(#imageGradient)" stroke-width="2"/>
+        <circle cx="8.5" cy="8.5" r="1.5" fill="url(#sunGradient)"/>
+        <polyline points="21 15 16 10 5 21" stroke="url(#imageGradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
     </button>
 
