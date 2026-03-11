@@ -1605,6 +1605,13 @@ function logout() {
   showLogoutConfirmDialog.value = true
 }
 
+// 双击拖动区域切换窗口最大化
+async function handleDragAreaDoubleClick() {
+  if (window.electronAPI?.windowMaximize) {
+    await window.electronAPI.windowMaximize()
+  }
+}
+
 async function confirmLogout() {
   await storage.clearLoginInfo()
   router.push('/login')
@@ -1670,267 +1677,289 @@ function handleFolderChanged(path: string) {
 </script>
 
 <template>
-  <div class="container">
-    <aside class="sidebar" :class="{ collapsed: !showSidebar }">
-      <!-- 工作空间内容 -->
-      <div class="workspace-wrapper">
-        <WorkspaceView :current-folder="currentFolder" />
-      </div>
+  <div class="chat-view-wrapper">
+    <!-- 双击缩放和按住拖拽区域 -->
+    <div class="window-drag-area" @dblclick="handleDragAreaDoubleClick"></div>
+    <div class="container">
+      <aside class="sidebar" :class="{ collapsed: !showSidebar }">
+        <!-- 工作空间内容 -->
+        <div class="workspace-wrapper">
+          <WorkspaceView :current-folder="currentFolder" />
+        </div>
 
-      <!-- 侧边栏底部固定区域 -->
-      <div class="sidebar-footer">
-        <div class="user-info">
-          <div class="user-avatar">{{ username.charAt(0).toUpperCase() }}</div>
-          <div class="user-details">
-            <div class="user-name">{{ username }}</div>
+        <!-- 侧边栏底部固定区域 -->
+        <div class="sidebar-footer">
+          <div class="user-info">
+            <div class="user-avatar">{{ username.charAt(0).toUpperCase() }}</div>
+            <div class="user-details">
+              <div class="user-name">{{ username }}</div>
+            </div>
+          </div>
+          <div class="footer-actions">
+            <button class="footer-btn" @click="router.push('/settings')" title="设置">
+              <SettingsIcon :size="18" />
+            </button>
+            <button class="footer-btn" @click="logout" title="退出登录">
+              <LogoutIcon :size="18" />
+            </button>
           </div>
         </div>
-        <div class="footer-actions">
-          <button class="footer-btn" @click="router.push('/settings')" title="设置">
-            <SettingsIcon :size="18" />
-          </button>
-          <button class="footer-btn" @click="logout" title="退出登录">
-            <LogoutIcon :size="18" />
-          </button>
-        </div>
-      </div>
-    </aside>
-    <div class="content-wrapper">
-      <div class="content-area">
-        <!-- 标签栏 -->
-        <ChatTabBar
-          :chat-list="normalChats"
-          :current-chat-id="currentChatId"
-          @switch-chat="switchChat"
-          @delete-chat="deleteChat"
-          @create-chat="createNewChat"
-        />
+      </aside>
+      <div class="content-wrapper">
+        <div class="content-area">
+          <!-- 标签栏 -->
+          <ChatTabBar
+            :chat-list="normalChats"
+            :current-chat-id="currentChatId"
+            @switch-chat="switchChat"
+            @delete-chat="deleteChat"
+            @create-chat="createNewChat"
+          />
 
-      <!-- ============================================= -->
-      <!-- 普通会话模式 -->
-      <NormalChat
-        :messages="messages"
-        :input="input"
-        :sending="sending"
-        :active-config="activeConfig"
-        :active-assistant="activeAssistant"
-        :current-chat="currentChat"
-        :assistant-list="assistantList"
-        :config-list="configList"
-        :usage="currentChat?.usage"
-        :enable-thinking="activeConfig?.enable_thinking ?? false"
-        @send="(images) => send(images)"
-        @cancel="cancel"
-        @update:input="input = $event"
-        @toggle-reasoning="toggleReasoning"
-        @open-params-dialog="openParamsDialog"
-        @change-assistant="changeAssistant"
-        @change-config="changeChatConfig"
-        @clear-assistant="changeAssistant('')"
-        @folder-changed="handleFolderChanged"
-        @update:enable-thinking="handleUpdateEnableThinking"
-        ref="normalChatRef"
+        <!-- ============================================= -->
+        <!-- 普通会话模式 -->
+        <NormalChat
+          :messages="messages"
+          :input="input"
+          :sending="sending"
+          :active-config="activeConfig"
+          :active-assistant="activeAssistant"
+          :current-chat="currentChat"
+          :assistant-list="assistantList"
+          :config-list="configList"
+          :usage="currentChat?.usage"
+          :enable-thinking="activeConfig?.enable_thinking ?? false"
+          @send="(images) => send(images)"
+          @cancel="cancel"
+          @update:input="input = $event"
+          @toggle-reasoning="toggleReasoning"
+          @open-params-dialog="openParamsDialog"
+          @change-assistant="changeAssistant"
+          @change-config="changeChatConfig"
+          @clear-assistant="changeAssistant('')"
+          @folder-changed="handleFolderChanged"
+          @update:enable-thinking="handleUpdateEnableThinking"
+          ref="normalChatRef"
+        />
+      </div>
+      </div>  <!-- content-wrapper 结束 -->
+
+      <!-- 参数配置对话框 -->
+      <Teleport to="body">
+        <Transition name="modal">
+          <div v-if="showParamsDialog" class="dialog-overlay" @click.self="showParamsDialog = false">
+            <div class="dialog-content">
+            <div class="dialog-header">
+              <h3>对话参数配置</h3>
+              <button class="dialog-close" @click="showParamsDialog = false"><XIcon :size="16" /></button>
+            </div>
+            <div class="dialog-body">
+              <div class="param-group">
+                <label class="param-label">
+                  <span>Temperature (温度)</span>
+                  <span class="param-value">{{ tempParams.temperature }}</span>
+                </label>
+                <input
+                  type="range"
+                  v-model.number="tempParams.temperature"
+                  min="0"
+                  max="2"
+                  step="0.1"
+                  class="param-range"
+                />
+                <p class="param-desc">控制输出的随机性，值越高越随机，值越低越确定</p>
+              </div>
+
+              <div class="param-group">
+                <label class="param-label">
+                  <span>Top P (核采样)</span>
+                  <span class="param-value">{{ tempParams.top_p }}</span>
+                </label>
+                <input
+                  type="range"
+                  v-model.number="tempParams.top_p"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  class="param-range"
+                />
+                <p class="param-desc">控制词汇选择范围，值越小越保守</p>
+              </div>
+
+              <div class="param-group">
+                <label class="param-label">
+                  <span>Max Tokens (最大生成长度)</span>
+                  <div class="param-value-with-action">
+                    <span class="param-value">{{ tempParams.max_tokens === 0 ? '未设置' : tempParams.max_tokens }}</span>
+                    <button
+                      v-if="tempParams.max_tokens !== undefined && tempParams.max_tokens > 0"
+                      type="button"
+                      class="clear-btn"
+                      @click="tempParams.max_tokens = 0"
+                      title="清空限制"
+                    ><XIcon :size="12" /></button>
+                  </div>
+                </label>
+                <input
+                  type="number"
+                  v-model.number="tempParams.max_tokens"
+                  min="0"
+                  max="128000"
+                  class="param-number"
+                  placeholder="留空或 0 则不限制"
+                />
+                <p class="param-desc">限制生成的最大 token 数量，0 或留空则不限制</p>
+              </div>
+
+              <div class="param-group">
+                <label class="param-label">
+                  <span>Presence Penalty (存在惩罚)</span>
+                  <span class="param-value">{{ tempParams.presence_penalty }}</span>
+                </label>
+                <input
+                  type="range"
+                  v-model.number="tempParams.presence_penalty"
+                  min="-2"
+                  max="2"
+                  step="0.1"
+                  class="param-range"
+                />
+                <p class="param-desc">惩罚已出现的话题，鼓励讨论新话题</p>
+              </div>
+
+              <div class="param-group">
+                <label class="param-label">
+                  <span>Frequency Penalty (频率惩罚)</span>
+                  <span class="param-value">{{ tempParams.frequency_penalty }}</span>
+                </label>
+                <input
+                  type="range"
+                  v-model.number="tempParams.frequency_penalty"
+                  min="-2"
+                  max="2"
+                  step="0.1"
+                  class="param-range"
+                />
+                <p class="param-desc">惩罚重复的 token，鼓励多样性</p>
+              </div>
+
+              <div class="param-group">
+                <label class="param-label">
+                  <span>Seed (随机种子)</span>
+                  <div class="param-value-with-action">
+                    <span class="param-value">{{ tempParams.seed === undefined || tempParams.seed === 0 ? '未设置' : tempParams.seed }}</span>
+                    <button
+                      v-if="tempParams.seed !== undefined && tempParams.seed !== 0"
+                      type="button"
+                      class="clear-btn"
+                      @click="tempParams.seed = undefined"
+                      title="清空种子"
+                    ><XIcon :size="12" /></button>
+                  </div>
+                </label>
+                <input
+                  type="number"
+                  v-model.number="tempParams.seed"
+                  min="0"
+                  max="4294967295"
+                  class="param-number"
+                  placeholder="留空则不使用固定种子"
+                />
+                <p class="param-desc">固定随机种子以获得可重复的结果</p>
+              </div>
+            </div>
+            <div class="dialog-footer">
+              <button type="button" class="btn secondary" @click="resetParams">
+                重置默认
+              </button>
+              <button type="button" class="btn ghost" @click="showParamsDialog = false">
+                取消
+              </button>
+              <button type="button" class="btn primary" @click="saveParams">
+                保存
+              </button>
+            </div>
+          </div>
+        </div>
+        </Transition>
+      </Teleport>
+
+      <!-- 快速保存到全局记忆对话框 -->
+      <SaveToGlobalMemoryDialog
+        :show="showSaveToGlobalMemoryDialog"
+        :initial-content="saveToGlobalMemoryContent"
+        :initial-keywords="saveToGlobalMemoryKeywords"
+        @close="showSaveToGlobalMemoryDialog = false"
+        @saved="showSaveToGlobalMemoryDialog = false"
+      />
+
+      <!-- HTML预览对话框 -->
+      <HtmlPreviewDialog
+        :show="showHtmlPreview"
+        :html-content="htmlPreviewContent"
+        @close="showHtmlPreview = false"
+      />
+
+      <!-- Mermaid预览对话框 -->
+      <MermaidDialog
+        :show="showMermaidPreview"
+        :mermaid-content="mermaidPreviewContent"
+        @close="showMermaidPreview = false"
+      />
+
+      <!-- 退出登录确认对话框 -->
+      <ConfirmDialog
+        :show="showLogoutConfirmDialog"
+        title="退出登录"
+        message="确定要退出登录吗？"
+        confirm-text="确认退出"
+        cancel-text="取消"
+        type="warning"
+        @confirm="confirmLogout"
+        @cancel="cancelLogout"
+      />
+
+      <!-- 命令执行确认对话框 -->
+      <ConfirmDialog
+        :show="showCommandConfirmDialog"
+        title="确认执行命令"
+        :message="`即将执行风险命令：\n${pendingCommand}\n\n风险类型：${pendingCommandReason}\n\n是否继续？`"
+        confirm-text="确认执行"
+        cancel-text="取消"
+        type="danger"
+        :show-auto-allow="true"
+        :auto-allow-checked="commandAutoAllow"
+        @confirm="onCommandConfirm"
+        @cancel="onCommandCancel"
+        @update:auto-allow-checked="onCommandAutoAllowUpdate"
       />
     </div>
-    </div>  <!-- content-wrapper 结束 -->
-
-    <!-- 参数配置对话框 -->
-    <Teleport to="body">
-      <Transition name="modal">
-        <div v-if="showParamsDialog" class="dialog-overlay" @click.self="showParamsDialog = false">
-          <div class="dialog-content">
-          <div class="dialog-header">
-            <h3>对话参数配置</h3>
-            <button class="dialog-close" @click="showParamsDialog = false"><XIcon :size="16" /></button>
-          </div>
-          <div class="dialog-body">
-            <div class="param-group">
-              <label class="param-label">
-                <span>Temperature (温度)</span>
-                <span class="param-value">{{ tempParams.temperature }}</span>
-              </label>
-              <input
-                type="range"
-                v-model.number="tempParams.temperature"
-                min="0"
-                max="2"
-                step="0.1"
-                class="param-range"
-              />
-              <p class="param-desc">控制输出的随机性，值越高越随机，值越低越确定</p>
-            </div>
-
-            <div class="param-group">
-              <label class="param-label">
-                <span>Top P (核采样)</span>
-                <span class="param-value">{{ tempParams.top_p }}</span>
-              </label>
-              <input
-                type="range"
-                v-model.number="tempParams.top_p"
-                min="0"
-                max="1"
-                step="0.05"
-                class="param-range"
-              />
-              <p class="param-desc">控制词汇选择范围，值越小越保守</p>
-            </div>
-
-            <div class="param-group">
-              <label class="param-label">
-                <span>Max Tokens (最大生成长度)</span>
-                <div class="param-value-with-action">
-                  <span class="param-value">{{ tempParams.max_tokens === 0 ? '未设置' : tempParams.max_tokens }}</span>
-                  <button
-                    v-if="tempParams.max_tokens !== undefined && tempParams.max_tokens > 0"
-                    type="button"
-                    class="clear-btn"
-                    @click="tempParams.max_tokens = 0"
-                    title="清空限制"
-                  ><XIcon :size="12" /></button>
-                </div>
-              </label>
-              <input
-                type="number"
-                v-model.number="tempParams.max_tokens"
-                min="0"
-                max="128000"
-                class="param-number"
-                placeholder="留空或 0 则不限制"
-              />
-              <p class="param-desc">限制生成的最大 token 数量，0 或留空则不限制</p>
-            </div>
-
-            <div class="param-group">
-              <label class="param-label">
-                <span>Presence Penalty (存在惩罚)</span>
-                <span class="param-value">{{ tempParams.presence_penalty }}</span>
-              </label>
-              <input
-                type="range"
-                v-model.number="tempParams.presence_penalty"
-                min="-2"
-                max="2"
-                step="0.1"
-                class="param-range"
-              />
-              <p class="param-desc">惩罚已出现的话题，鼓励讨论新话题</p>
-            </div>
-
-            <div class="param-group">
-              <label class="param-label">
-                <span>Frequency Penalty (频率惩罚)</span>
-                <span class="param-value">{{ tempParams.frequency_penalty }}</span>
-              </label>
-              <input
-                type="range"
-                v-model.number="tempParams.frequency_penalty"
-                min="-2"
-                max="2"
-                step="0.1"
-                class="param-range"
-              />
-              <p class="param-desc">惩罚重复的 token，鼓励多样性</p>
-            </div>
-
-            <div class="param-group">
-              <label class="param-label">
-                <span>Seed (随机种子)</span>
-                <div class="param-value-with-action">
-                  <span class="param-value">{{ tempParams.seed === undefined || tempParams.seed === 0 ? '未设置' : tempParams.seed }}</span>
-                  <button
-                    v-if="tempParams.seed !== undefined && tempParams.seed !== 0"
-                    type="button"
-                    class="clear-btn"
-                    @click="tempParams.seed = undefined"
-                    title="清空种子"
-                  ><XIcon :size="12" /></button>
-                </div>
-              </label>
-              <input
-                type="number"
-                v-model.number="tempParams.seed"
-                min="0"
-                max="4294967295"
-                class="param-number"
-                placeholder="留空则不使用固定种子"
-              />
-              <p class="param-desc">固定随机种子以获得可重复的结果</p>
-            </div>
-          </div>
-          <div class="dialog-footer">
-            <button type="button" class="btn secondary" @click="resetParams">
-              重置默认
-            </button>
-            <button type="button" class="btn ghost" @click="showParamsDialog = false">
-              取消
-            </button>
-            <button type="button" class="btn primary" @click="saveParams">
-              保存
-            </button>
-          </div>
-        </div>
-      </div>
-      </Transition>
-    </Teleport>
-
-    <!-- 快速保存到全局记忆对话框 -->
-    <SaveToGlobalMemoryDialog
-      :show="showSaveToGlobalMemoryDialog"
-      :initial-content="saveToGlobalMemoryContent"
-      :initial-keywords="saveToGlobalMemoryKeywords"
-      @close="showSaveToGlobalMemoryDialog = false"
-      @saved="showSaveToGlobalMemoryDialog = false"
-    />
-
-    <!-- HTML预览对话框 -->
-    <HtmlPreviewDialog
-      :show="showHtmlPreview"
-      :html-content="htmlPreviewContent"
-      @close="showHtmlPreview = false"
-    />
-
-    <!-- Mermaid预览对话框 -->
-    <MermaidDialog
-      :show="showMermaidPreview"
-      :mermaid-content="mermaidPreviewContent"
-      @close="showMermaidPreview = false"
-    />
-
-    <!-- 退出登录确认对话框 -->
-    <ConfirmDialog
-      :show="showLogoutConfirmDialog"
-      title="退出登录"
-      message="确定要退出登录吗？"
-      confirm-text="确认退出"
-      cancel-text="取消"
-      type="warning"
-      @confirm="confirmLogout"
-      @cancel="cancelLogout"
-    />
-
-    <!-- 命令执行确认对话框 -->
-    <ConfirmDialog
-      :show="showCommandConfirmDialog"
-      title="确认执行命令"
-      :message="`即将执行风险命令：\n${pendingCommand}\n\n风险类型：${pendingCommandReason}\n\n是否继续？`"
-      confirm-text="确认执行"
-      cancel-text="取消"
-      type="danger"
-      :show-auto-allow="true"
-      :auto-allow-checked="commandAutoAllow"
-      @confirm="onCommandConfirm"
-      @cancel="onCommandCancel"
-      @update:auto-allow-checked="onCommandAutoAllowUpdate"
-    />
   </div>
+  
 </template>
 
 <style scoped>
+.chat-view-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.window-drag-area {
+  height: 32px;
+  width: 100%;
+  -webkit-app-region: drag;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--color-border, #e5e5e5);
+}
+
 .container {
-  min-height: 100vh;
+  flex: 1;
   display: flex;
   background: var(--color-bg-primary);
+  min-height: 0;
+  overflow: hidden;
 }
 
 .content-wrapper {

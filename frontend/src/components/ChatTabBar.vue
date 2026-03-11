@@ -60,16 +60,6 @@ const showSearch = ref(false)
 const searchQuery = ref('')
 const searchInputRef = ref<HTMLInputElement | null>(null)
 
-// 窗口最大化状态
-const isMaximized = ref(false)
-
-// 初始化时检查窗口状态
-onMounted(async () => {
-  if (window.electronAPI?.windowIsMaximized) {
-    isMaximized.value = await window.electronAPI.windowIsMaximized()
-  }
-})
-
 // 基于 chat.id 生成稳定的颜色
 function getChatColor(chatId: string): string {
   const colors = [
@@ -140,13 +130,6 @@ function closeSearch() {
 function switchToResult(chatId: string) {
   emit('switch-chat', chatId)
   closeSearch()
-}
-
-// 双击标签栏切换最大化
-async function handleDoubleClick() {
-  if (window.electronAPI?.windowMaximize) {
-    isMaximized.value = await window.electronAPI.windowMaximize()
-  }
 }
 
 // 打开生图模式窗口
@@ -229,7 +212,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div id="chat-tab-bar_" class="chat-tab-bar" @dblclick="handleDoubleClick">
+  <div id="chat-tab-bar_" class="chat-tab-bar">
     <div class="tabs-container">
       <div
         v-for="chat in (isSearching ? filteredChats : chatList)"

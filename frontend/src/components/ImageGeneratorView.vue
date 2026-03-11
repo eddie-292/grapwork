@@ -70,6 +70,13 @@ function scrollToBottom() {
   })
 }
 
+// 双击拖动区域切换窗口最大化
+async function handleDragAreaDoubleClick() {
+  if (window.electronAPI?.imageGeneratorMaximize) {
+    await window.electronAPI.imageGeneratorMaximize()
+  }
+}
+
 // 监听消息变化，自动滚动到底部
 watch(
   () => currentSession.value?.messages.length,
@@ -387,6 +394,8 @@ function generateId(): string {
 
 <template>
   <div class="image-generator">
+    <!-- 双击缩放和按住拖拽区域 -->
+    <div class="window-drag-area" @dblclick="handleDragAreaDoubleClick"></div>
     <!-- 主内容区域 -->
     <div class="main-content">
       <!-- 左侧会话列表 -->
@@ -732,6 +741,14 @@ function generateId(): string {
   height: 100vh;
   background: var(--color-bg-primary, #ffffff);
   color: var(--color-text-primary, #1a1a1a);
+}
+
+.window-drag-area {
+  height: 32px;
+  width: 100%;
+  -webkit-app-region: drag;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--color-border, #e5e5e5);
 }
 
 /* 主内容区域 */

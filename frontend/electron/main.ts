@@ -1057,6 +1057,8 @@ function createImageGeneratorWindow() {
     height: windowHeight,
     icon: iconPath,
     title: '生图模式',
+    //titleBarStyle: 'hidden', // 隐藏标题栏
+    titleBarStyle: 'hiddenInset', // 标题栏与系统背景色一致，保留红绿灯按钮
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -1097,7 +1099,7 @@ function createWindow() {
     height: windowHeight,
     icon: iconPath,
     //frame: false, // 无边框窗口
-    //titleBarStyle: 'hidden', // 隐藏标题栏
+    titleBarStyle: 'hiddenInset', // 标题栏与系统背景色一致，保留红绿灯按钮
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
