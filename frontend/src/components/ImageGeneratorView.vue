@@ -357,6 +357,23 @@ function removeInputImage(index: number) {
   inputImages.value.splice(index, 1)
 }
 
+// 从产出物添加到参考图片
+function addOutputToInputImages(url: string, event: Event) {
+  event.stopPropagation()
+
+  // 检查是否超过最大数量
+  if (inputImages.value.length >= 3) {
+    return
+  }
+
+  // 检查是否已存在
+  if (inputImages.value.includes(url)) {
+    return
+  }
+
+  inputImages.value.push(url)
+}
+
 // 重新生成图片
 async function handleRegenerate(messageId: string) {
   const session = currentSession.value
@@ -704,6 +721,17 @@ function generateId(): string {
               <span class="output-prompt">{{ file.prompt.slice(0, 40) }}{{ file.prompt.length > 40 ? '...' : '' }}</span>
               <span class="output-meta">{{ formatOutputTime(file.createdAt) }}</span>
             </div>
+            <button
+              v-if="supportsImageEditing && inputImages.length < 3 && !inputImages.includes(file.originalUrl)"
+              class="add-to-input-btn"
+              @click="addOutputToInputImages(file.originalUrl, $event)"
+              title="添加到参考图"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+            </button>
             <button class="delete-output-btn" @click="handleDeleteOutput(file.id, $event)" title="删除">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -1645,6 +1673,33 @@ function generateId(): string {
   opacity: 1;
 }
 
+.add-to-input-btn {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(34, 197, 94, 0.9);
+  color: white;
+  cursor: pointer;
+  opacity: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.output-item:hover .add-to-input-btn {
+  opacity: 1;
+}
+
+.add-to-input-btn:hover {
+  background: rgba(22, 163, 74, 1);
+  transform: scale(1.1);
+}
+
 .delete-output-btn:hover {
   background: rgba(239, 68, 68, 0.9);
 }
@@ -2025,6 +2080,14 @@ function generateId(): string {
 
 :global(.dark-mode) .output-item:hover {
   border-color: var(--color-primary, #666);
+}
+
+:global(.dark-mode) .add-to-input-btn {
+  background: rgba(34, 197, 94, 0.8);
+}
+
+:global(.dark-mode) .add-to-input-btn:hover {
+  background: rgba(22, 163, 74, 0.95);
 }
 
 :global(.dark-mode) .output-prompt {
