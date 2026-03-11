@@ -5,6 +5,7 @@ import hljs from 'highlight.js'
 import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
 import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
 import MermaidDialog from './MermaidDialog.vue'
+import ConfirmDialog from './ConfirmDialog.vue'
 import { storage } from '@/services/StorageService'
 import CopyIcon from './icons/CopyIcon.vue'
 import ChevronDownIcon from './icons/ChevronDownIcon.vue'
@@ -87,6 +88,7 @@ const emit = defineEmits<{
   'clear-assistant': []
   'folder-changed': [path: string]
   'update:enable-thinking': [value: boolean]  // 更新思考模式
+  'delete-message': [index: number]  // 删除消息
 }>()
 
 // 思考模式
@@ -114,6 +116,10 @@ const selectedFolderPath = ref<string>('')
 const showFolderDialog = ref(false)
 // 设置弹出框状态
 const showSettingsPopover = ref(false)
+
+// 删除确认对话框状态
+const showDeleteConfirmDialog = ref(false)
+const pendingDeleteIndex = ref<number | null>(null)
 
 // 图片附件相关
 const attachedImages = ref<string[]>([])
@@ -498,6 +504,29 @@ function scrollToMessage(index: number) {
     messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
     showNavList.value = false
   }
+}
+
+// 删除消息（包括该消息之后的后续内容以及相关的 tool 消息）
+function deleteMessage(index: number, event: Event) {
+  event.stopPropagation()  // 阻止触发 scrollToMessage
+  pendingDeleteIndex.value = index
+  showDeleteConfirmDialog.value = true
+}
+
+// 确认删除消息
+function confirmDeleteMessage() {
+  if (pendingDeleteIndex.value !== null) {
+    emit('delete-message', pendingDeleteIndex.value)
+    pendingDeleteIndex.value = null
+  }
+  showDeleteConfirmDialog.value = false
+  showNavList.value = false
+}
+
+// 取消删除
+function cancelDeleteMessage() {
+  pendingDeleteIndex.value = null
+  showDeleteConfirmDialog.value = false
 }
 
 function getMessagePreview(content: string, maxLength: number = 50): string {
@@ -1106,6 +1135,12 @@ function scrollToBottom() {
                     >
                       <span class="nav-role">{{ item.role === 'user' ? '我' : 'AI' }}</span>
                       <span class="nav-preview">{{ getMessagePreview(item.preview) }}</span>
+                      <span class="nav-delete" @click="deleteMessage(item.index, $event)" title="删除此消息及后续内容">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+                          <polyline points="3 6 5 6 21 6"></polyline>
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -1204,6 +1239,18 @@ function scrollToBottom() {
         </div>
       </div>
     </Transition>
+
+    <!-- 删除消息确认对话框 -->
+    <ConfirmDialog
+      :show="showDeleteConfirmDialog"
+      title="删除消息"
+      message="确定要删除这条消息吗？该消息之后的所有内容也将被删除，此操作不可撤销。"
+      confirm-text="确认删除"
+      cancel-text="取消"
+      type="danger"
+      @confirm="confirmDeleteMessage"
+      @cancel="cancelDeleteMessage"
+    />
   </main>
 </template>
 
@@ -2461,6 +2508,29 @@ function scrollToBottom() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.nav-delete {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: var(--color-text-tertiary);
+  opacity: 0;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+
+.nav-item:hover .nav-delete {
+  opacity: 1;
+}
+
+.nav-delete:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
 }
 
 .nav-backdrop {

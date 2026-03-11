@@ -1483,6 +1483,40 @@ function toggleReasoning(index: number) {
   reasoningExpanded.value[index] = !reasoningExpanded.value[index]
 }
 
+// 删除指定索引的消息及其后续内容（包括相关的 tool 消息）
+function deleteMessage(messageIndex: number) {
+  if (!currentChat.value) return
+
+  const messages = currentChat.value.messages
+  if (messageIndex < 0 || messageIndex >= messages.length) return
+
+  // 找到要删除的范围：
+  // 1. 删除指定消息
+  // 2. 删除该消息之后的所有消息（因为上下文会断裂）
+  // 3. 如果删除的是 user 消息，需要找到对应的 assistant 回复和相关 tool 消息
+
+  // 简单处理：删除指定索引及其之后的所有消息
+  // 这样可以保证上下文的完整性
+  const deleteFromIndex = messageIndex
+
+  // 删除从 deleteFromIndex 开始的所有消息
+  messages.splice(deleteFromIndex)
+
+  // 清理相关的 reasoning 状态
+  for (let i = deleteFromIndex; i < messages.length + 100; i++) {
+    delete reasoningExpanded.value[i]
+    delete reasoningStartTime.value[i]
+  }
+
+  // 如果删除后没有消息了，重置 usage
+  if (messages.length === 0) {
+    currentChat.value.usage = undefined
+  }
+
+  // 保存历史
+  saveChatHistory()
+}
+
 function changeAssistant(assistantId: string) {
   const chat = currentChat.value
   if (chat) {
@@ -1741,6 +1775,7 @@ function handleFolderChanged(path: string) {
           @clear-assistant="changeAssistant('')"
           @folder-changed="handleFolderChanged"
           @update:enable-thinking="handleUpdateEnableThinking"
+          @delete-message="deleteMessage"
           ref="normalChatRef"
         />
       </div>
