@@ -117,13 +117,55 @@ onMounted(async () => {
   }
 })
 
+// 检查是否为有效的 API 图片格式（URL 或 base64）
+function isValidApiImageFormat(img: string): boolean {
+  return img.startsWith('http://') || img.startsWith('https://') || img.startsWith('data:image/')
+}
+
+// 将本地文件转换为 base64 格式（如果需要）
+async function convertLocalImagesToBase64(images: string[]): Promise<string[]> {
+  const converted: string[] = []
+
+  for (const img of images) {
+    if (isValidApiImageFormat(img)) {
+      // 已经是有效格式，直接使用
+      converted.push(img)
+    } else if (img.startsWith('local-file://') || !img.startsWith('http')) {
+      // 本地文件路径，需要转换为 base64
+      try {
+        const result = await window.electronAPI?.localFileToBase64(img)
+        if (result?.success && result.data) {
+          converted.push(result.data)
+        } else {
+          console.warn('转换本地图片失败:', result?.error)
+          // 转换失败时仍然保留原始值（让 API 返回具体错误）
+          converted.push(img)
+        }
+      } catch (error) {
+        console.error('转换本地图片失败:', error)
+        converted.push(img)
+      }
+    } else {
+      converted.push(img)
+    }
+  }
+
+  return converted
+}
+
 // 发送消息
 async function handleSend() {
   const content = inputContent.value.trim()
   if (!content || isSending.value) return
 
   const negative = negativePrompt.value.trim()
-  const images = inputImages.value.length > 0 ? [...inputImages.value] : undefined
+
+  // 处理输入图片：转换本地文件为 base64
+  let images: string[] | undefined
+  if (inputImages.value.length > 0) {
+    images = await convertLocalImagesToBase64([...inputImages.value])
+  }
+
   inputContent.value = ''
   negativePrompt.value = ''
   inputImages.value = []

@@ -294,6 +294,8 @@ interface ElectronAPI {
   scanOutputsFolder: () => Promise<{ success: boolean; files?: Array<{ filename: string; path: string; createdAt: number }>; error?: string }>
   // 选择图片文件（用于图片编辑模式）
   selectImageFile: () => Promise<{ success: boolean; data?: string; error?: string }>
+  // 将本地文件转换为 base64 data URL（用于图片编辑模式）
+  localFileToBase64: (filePath: string) => Promise<{ success: boolean; data?: string; error?: string }>
 }
 
 declare global {

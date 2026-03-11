@@ -195,4 +195,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 选择图片文件（用于图片编辑模式）
   selectImageFile: () =>
     ipcRenderer.invoke('select-image-file'),
+  // 将本地文件转换为 base64 data URL（用于图片编辑模式）
+  localFileToBase64: (filePath: string) =>
+    ipcRenderer.invoke('local-file-to-base64', filePath),
 })

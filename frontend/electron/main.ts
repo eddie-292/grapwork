@@ -3211,6 +3211,34 @@ ipcMain.handle('select-image-file', async (): Promise<{ success: boolean; data?:
   }
 })
 
+// 将本地文件转换为 base64 data URL（用于图片编辑模式）
+ipcMain.handle('local-file-to-base64', async (_event, filePath: string): Promise<{ success: boolean; data?: string; error?: string }> => {
+  try {
+    // 处理 local-file:// 协议
+    let actualPath = filePath
+    if (filePath.startsWith('local-file://')) {
+      actualPath = decodeURIComponent(filePath.slice('local-file://'.length))
+    }
+
+    // 检查文件是否存在
+    if (!fs.existsSync(actualPath)) {
+      return { success: false, error: '文件不存在' }
+    }
+
+    const fileBuffer = fs.readFileSync(actualPath)
+    const ext = path.extname(actualPath).toLowerCase().replace('.', '')
+    const mimeType = ext === 'jpg' ? 'jpeg' : ext
+    const base64 = fileBuffer.toString('base64')
+    const dataUrl = `data:image/${mimeType};base64,${base64}`
+    return { success: true, data: dataUrl }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+})
+
 app.whenReady().then(() => {
   // 注册 local-file 协议用于加载本地图片
   protocol.registerFileProtocol('local-file', (request, callback) => {
