@@ -1679,7 +1679,9 @@ function handleFolderChanged(path: string) {
 <template>
   <div class="chat-view-wrapper">
     <!-- 双击缩放和按住拖拽区域 -->
-    <div class="window-drag-area" @dblclick="handleDragAreaDoubleClick"></div>
+    <div class="window-drag-area" @dblclick="handleDragAreaDoubleClick">
+      <span class="app-title">MirrorGrap Work</span>
+    </div>
     <div class="container">
       <aside class="sidebar" :class="{ collapsed: !showSidebar }">
         <!-- 工作空间内容 -->
@@ -1952,6 +1954,16 @@ function handleFolderChanged(path: string) {
   -webkit-app-region: drag;
   flex-shrink: 0;
   border-bottom: 1px solid var(--color-border, #e5e5e5);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 12px;
+}
+
+.app-title {
+  font-size: 13px;
+  color: var(--color-text-tertiary, #888);
+  -webkit-app-region: no-drag;
 }
 
 .container {

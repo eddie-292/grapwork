@@ -395,7 +395,9 @@ function generateId(): string {
 <template>
   <div class="image-generator">
     <!-- 双击缩放和按住拖拽区域 -->
-    <div class="window-drag-area" @dblclick="handleDragAreaDoubleClick"></div>
+    <div class="window-drag-area" @dblclick="handleDragAreaDoubleClick">
+      <span class="app-title">MirrorGrap Work</span>
+    </div>
     <!-- 主内容区域 -->
     <div class="main-content">
       <!-- 左侧会话列表 -->
@@ -749,6 +751,16 @@ function generateId(): string {
   -webkit-app-region: drag;
   flex-shrink: 0;
   border-bottom: 1px solid var(--color-border, #e5e5e5);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 12px;
+}
+
+.app-title {
+  font-size: 13px;
+  color: var(--color-text-tertiary, #888);
+  -webkit-app-region: no-drag;
 }
 
 /* 主内容区域 */
