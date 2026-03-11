@@ -3102,6 +3102,49 @@ ipcMain.handle('delete-output-file', async (_event, filePath: string): Promise<{
   }
 })
 
+// 迁移产出物到新目录
+ipcMain.handle('migrate-outputs', async (_event, targetPath: string, moveFiles: boolean): Promise<{ success: boolean; migratedCount?: number; error?: string }> => {
+  try {
+    // 确保源目录存在
+    if (!fs.existsSync(IMAGE_OUTPUTS_PATH)) {
+      return { success: true, migratedCount: 0 }
+    }
+
+    // 确保目标目录存在
+    if (!fs.existsSync(targetPath)) {
+      fs.mkdirSync(targetPath, { recursive: true })
+    }
+
+    // 读取源目录中的所有文件
+    const files = fs.readdirSync(IMAGE_OUTPUTS_PATH)
+    let migratedCount = 0
+
+    for (const file of files) {
+      const sourceFile = path.join(IMAGE_OUTPUTS_PATH, file)
+      const targetFile = path.join(targetPath, file)
+
+      // 只处理文件，跳过子目录
+      if (fs.statSync(sourceFile).isFile()) {
+        if (moveFiles) {
+          // 移动文件
+          fs.renameSync(sourceFile, targetFile)
+        } else {
+          // 复制文件
+          fs.copyFileSync(sourceFile, targetFile)
+        }
+        migratedCount++
+      }
+    }
+
+    return { success: true, migratedCount }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+})
+
 // 选择图片文件（用于图片编辑）
 ipcMain.handle('select-image-file', async (): Promise<{ success: boolean; data?: string; format?: string; error?: string }> => {
   try {

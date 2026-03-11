@@ -303,6 +303,44 @@ async function openOutputsFolder() {
   }
 }
 
+// 迁移产出物
+async function handleMigrateOutputs() {
+  if (outputs.value.length === 0) {
+    alert('暂无产出物可迁移')
+    return
+  }
+
+  // 选择目标目录
+  const result = await window.electronAPI?.selectFolder()
+  if (!result?.success || !result.path) {
+    return
+  }
+
+  // 确认迁移方式
+  const moveFiles = confirm(`将 ${outputs.value.length} 个产出物迁移到:\n${result.path}\n\n点击"确定"移动文件（原目录将清空）\n点击"取消"复制文件（保留原文件）`)
+
+  try {
+    const migrateResult = await window.electronAPI?.migrateOutputs(result.path, moveFiles)
+    if (migrateResult?.success) {
+      alert(`成功迁移 ${migrateResult.migratedCount} 个文件到:\n${result.path}`)
+
+      // 如果是移动模式，清空产出物列表
+      if (moveFiles && migrateResult.migratedCount && migrateResult.migratedCount > 0) {
+        outputs.value = []
+        await saveOutputs()
+      }
+
+      // 打开目标目录
+      await window.electronAPI?.openPath(result.path)
+    } else {
+      alert('迁移失败: ' + (migrateResult?.error || '未知错误'))
+    }
+  } catch (error) {
+    console.error('迁移产出物失败:', error)
+    alert('迁移失败')
+  }
+}
+
 // 格式化产出物时间
 function formatOutputTime(timestamp: number): string {
   const date = new Date(timestamp)
@@ -708,11 +746,23 @@ function generateId(): string {
       <div class="outputs-panel">
         <div class="outputs-header">
           <span class="outputs-title">产出物</span>
-          <button class="open-folder-btn" @click="openOutputsFolder" title="打开目录">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-            </svg>
-          </button>
+          <div class="outputs-actions">
+            <button class="open-folder-btn" @click="openOutputsFolder" title="打开目录">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+              </svg>
+            </button>
+            <button class="migrate-btn" @click="handleMigrateOutputs" title="迁移产出物">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M5 9l-3 3 3 3"></path>
+                <path d="M9 5l3-3 3 3"></path>
+                <path d="M15 19l3 3 3-3"></path>
+                <path d="M19 9l3 3-3 3"></path>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+                <line x1="12" y1="2" x2="12" y2="22"></line>
+              </svg>
+            </button>
+          </div>
         </div>
         <div class="outputs-list">
           <div v-for="file in outputs" :key="file.id" class="output-item" @click="openImagePreview(file.originalUrl)">
@@ -1602,6 +1652,31 @@ function generateId(): string {
   background: var(--color-bg-tertiary, #f0f0f0);
 }
 
+.outputs-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.migrate-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border, #e5e5e5);
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  color: var(--color-text-secondary, #666);
+}
+
+.migrate-btn:hover {
+  border-color: var(--color-primary, #333);
+  color: var(--color-primary, #333);
+  background: var(--color-bg-tertiary, #f0f0f0);
+}
+
 .outputs-list {
   flex: 1;
   overflow-y: auto;
@@ -2068,6 +2143,17 @@ function generateId(): string {
 }
 
 :global(.dark-mode) .open-folder-btn:hover {
+  border-color: var(--color-primary, #666);
+  color: var(--color-text-primary, #e5e5e5);
+  background: var(--color-bg-tertiary, #333);
+}
+
+:global(.dark-mode) .migrate-btn {
+  border-color: var(--color-border, #333);
+  color: var(--color-text-secondary, #888);
+}
+
+:global(.dark-mode) .migrate-btn:hover {
   border-color: var(--color-primary, #666);
   color: var(--color-text-primary, #e5e5e5);
   background: var(--color-bg-tertiary, #333);
