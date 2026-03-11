@@ -34,7 +34,7 @@ export class ZhipuImageProvider implements ImageProvider {
     return {
       sizes: ZHIPU_SIZES,
       models: ZHIPU_MODELS,
-      supportsNegativePrompt: false,
+      supportsNegativePrompt: true,
       supportsMultipleImages: true,
       supportsImageEditing: false
     }
@@ -54,7 +54,13 @@ export class ZhipuImageProvider implements ImageProvider {
     config: ImageProviderConfig,
     params: ImageGenerationParams
   ): Promise<ImageGenerationResult> {
-    const { prompt, size, model } = params
+    const { prompt, size, model, negativePrompt } = params
+
+    // 将负面提示词拼接到正向提示词末尾
+    let finalPrompt = prompt
+    if (negativePrompt && negativePrompt.trim()) {
+      finalPrompt = `${prompt} 反向提示词：${negativePrompt.trim()}`
+    }
 
     try {
       const response = await fetch(config.apiUrl, {
@@ -65,7 +71,7 @@ export class ZhipuImageProvider implements ImageProvider {
         },
         body: JSON.stringify({
           model: model || config.model || 'glm-image',
-          prompt,
+          prompt: finalPrompt,
           size: size || config.size || '1280x1280'
         }),
       })
