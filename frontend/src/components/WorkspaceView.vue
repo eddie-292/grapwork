@@ -964,7 +964,7 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 11px 12px;
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg-primary);
 }
@@ -1047,7 +1047,7 @@ defineExpose({
   display: flex;
   align-items: center;
   gap: 4px;
-  color: #0f8f6d;
+  color: #000000;
   cursor: pointer;
   transition: color 0.15s;
 }
