@@ -1096,8 +1096,8 @@ function createWindow() {
     width: windowWidth,
     height: windowHeight,
     icon: iconPath,
-    frame: false, // 无边框窗口
-    titleBarStyle: 'hidden', // 隐藏标题栏
+    //frame: false, // 无边框窗口
+    //titleBarStyle: 'hidden', // 隐藏标题栏
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
