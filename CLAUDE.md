@@ -12,6 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Skills System**: Domain knowledge packages that can be injected into AI context (SKILL.md files with frontmatter)
 - **Workspace View**: Built-in file browser and management capabilities
 - **Multi-chat Support**: Tab-based chat management with search functionality
+- **Image Generator**: Multi-provider image generation (Zhipu GLM-Image, Qwen-Image, Qwen-Image-Edit) with session history
 
 ## Development Commands
 
@@ -86,6 +87,7 @@ frontend/
 │   │   ├── ChatTabBar.vue           # Tab bar with search functionality
 │   │   ├── WorkspaceView.vue        # Workspace/file browser component
 │   │   ├── SettingsView.vue         # Unified settings (8 tabs)
+│   │   ├── ImageGeneratorView.vue   # Image generation interface (separate window)
 │   │   ├── AssistantView.vue        # Assistant system prompt management
 │   │   ├── GlobalMemoryView.vue     # Global memory management UI
 │   │   ├── MCPView.vue              # MCP server configuration management
@@ -93,8 +95,10 @@ frontend/
 │   │   ├── EnvironmentCheckView.vue # Environment dependency check UI
 │   │   ├── ChangelogView.vue        # Update changelog display
 │   │   ├── SaveToGlobalMemoryDialog.vue
+│   │   ├── GlobalMemoryFormDialog.vue
 │   │   ├── ConfirmDialog.vue
 │   │   ├── HtmlPreviewDialog.vue
+│   │   ├── MermaidDialog.vue
 │   │   ├── settings/
 │   │   │   ├── LLMConfigPanel.vue       # LLM API configuration form
 │   │   │   ├── CodeHighlightThemePanel.vue  # Code theme selection
@@ -104,7 +108,14 @@ frontend/
 │   ├── composables/
 │   │   ├── useGlobalMemory.ts       # Global knowledge storage
 │   │   ├── useMCP.ts                # MCP server management
-│   │   └── useSkills.ts             # Skills management
+│   │   ├── useSkills.ts             # Skills management
+│   │   └── useImageGenerator.ts     # Image generation state management
+│   ├── imageProviders/
+│   │   ├── index.ts                 # Provider registry and factory
+│   │   ├── types.ts                 # Provider interfaces
+│   │   ├── zhipu.ts                 # Zhipu GLM-Image provider
+│   │   ├── qwen.ts                  # Qwen-Image provider
+│   │   └── qwenImageEdit.ts         # Qwen-Image-Edit provider
 │   ├── services/
 │   │   ├── StorageService.ts        # Unified storage layer (singleton)
 │   │   └── storage/
@@ -117,6 +128,7 @@ frontend/
 │   │   ├── mcp.ts                   # MCP (Model Context Protocol) types
 │   │   ├── skill.ts                 # Skills system types
 │   │   ├── chat.ts                  # Chat message types
+│   │   ├── imageGenerator.ts        # Image generation types and configs
 │   │   └── electron.d.ts            # Electron IPC API types
 │   └── router/
 │       └── index.ts                 # Vue Router config with auth guards
@@ -217,7 +229,7 @@ Unified storage layer providing pluggable backends and type-safe APIs:
 
 Key types in `types/storage.ts`:
 - `IStorageBackend`: Interface all backends must implement
-- `StorageKey`: Enum of all storage keys (IS_LOGGED_IN, LLM_CONFIG_LIST, GLOBAL_MEMORY, MCP_SERVER_LIST, SKILL_REGISTRY, etc.)
+- `StorageKey`: Enum of all storage keys (IS_LOGGED_IN, LLM_CONFIG_LIST, GLOBAL_MEMORY, MCP_SERVER_LIST, SKILL_REGISTRY, IMAGE_GENERATOR_CONFIG, IMAGE_GENERATOR_HISTORY, etc.)
 - `StorageResult<T>`: Wrapper for operation results with success/error handling
 - `StorageBackendType`: Enum of available backend types
 
@@ -298,6 +310,30 @@ Supports multiple reasoning formats:
 - **DeepSeek**: `choices[0].delta.reasoning_content`
 - **Qwen**: Thinking tags embedded in content field, parsed via state machine
 - **Standard**: `choices[0].delta.content`
+
+### Image Generator Architecture
+
+Multi-provider image generation system with session history:
+
+1. **Providers**:
+   - `zhipu`: Zhipu GLM-Image (智谱)
+   - `qwen`: Qwen-Image-Plus (通义万相)
+   - `qwen-image-edit`: Qwen-Image-Edit-Plus (图片编辑)
+
+2. **Provider Pattern**: Each provider implements `ImageProvider` interface with:
+   - `type`: Provider identifier
+   - `displayName`: UI display name
+   - `validateConfig()`: Validate provider-specific config
+   - `generate()`: Execute image generation API call
+
+3. **Storage Keys**:
+   - `IMAGE_GENERATOR_CONFIG`: Config list and active index
+   - `IMAGE_GENERATOR_HISTORY`: Sessions and messages
+   - `outputs-registry`: Generated file metadata
+
+4. **Route**: `/image-generator` (separate window, no auth required)
+
+**Flow**: `ImageGeneratorView.vue` → `useImageGenerator.ts` → `imageProviders/index.ts` → Provider implementation
 
 ## Configuration
 
@@ -386,6 +422,13 @@ For full MCP servers:
 - SSE: Configure `url` for remote MCP server endpoints
 - Tools are auto-discovered from server via `listTools` call
 
+### Adding New Image Providers
+
+1. Create new provider file in `imageProviders/` implementing `ImageProvider` interface
+2. Register provider in `imageProviders/index.ts` using `registerProvider()`
+3. Add provider type to `ImageProviderType` in `imageProviders/types.ts`
+4. Update `DEFAULT_IMAGE_CONFIGS` in `types/imageGenerator.ts` if needed
+
 ### Electron IPC Patterns
 
 To add new IPC handlers:
@@ -402,6 +445,7 @@ Uses hash-based routing with auth guard checking `storage.getIsLoggedIn()`. Rout
 - `/login`: Authentication page
 - `/`: Main chat view
 - `/settings`: Unified settings page with tab query param (`?tab=llm|theme|assistants|memory|mcp|skills|environment|changelog`)
+- `/image-generator`: Image generation interface (no auth, separate window)
 - Legacy routes (`/assistants`, `/global-memory`, `/mcp`) redirect to `/settings?tab=...`
 
 **Environment Check Flow**: On first launch, checks for required commands (node, npx, uvx, uv) and config directory permissions. Results cached in `localStorage.firstEnvCheckDone`.
@@ -452,6 +496,7 @@ Dual build process:
 6. Test MCP: Configure MCP server → Enable for chat → Verify tool calling works
 7. Test Skills: Create skill → Enable → Verify skill context appears in system prompt
 8. Test Workspace: Select folder → Browse files → Verify file operations
+9. Test Image Generator: Navigate to `/image-generator` → Configure provider → Generate image
 
 ## IDE Setup
 
