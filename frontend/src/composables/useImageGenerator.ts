@@ -204,7 +204,7 @@ export function useImageGenerator() {
   }
 
   // 发送消息并生成图片
-  async function sendMessage(content: string): Promise<{ success: boolean; error?: string }> {
+  async function sendMessage(content: string, negativePrompt?: string): Promise<{ success: boolean; error?: string }> {
     const config = activeConfig.value
     if (!config || !config.apiKey) {
       return { success: false, error: '请先配置生图模型 API' }
@@ -220,6 +220,7 @@ export function useImageGenerator() {
       id: generateId(),
       role: 'user',
       content,
+      negativePrompt,
       model: config.model,
       size: config.size,
       createdAt: Date.now()
@@ -253,7 +254,8 @@ export function useImageGenerator() {
       const result = await generateImage(providerConfig, {
         prompt: content,
         size: config.size,
-        model: config.model
+        model: config.model,
+        negativePrompt
       })
 
       // 添加助手消息

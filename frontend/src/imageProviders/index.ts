@@ -49,7 +49,7 @@ export function getProviderOptions(): Array<{ label: string; value: ImageProvide
  */
 export async function generateImage(
   config: ImageProviderConfig,
-  params: { prompt: string; size: string; model?: string }
+  params: { prompt: string; size: string; model?: string; negativePrompt?: string }
 ): Promise<{ success: boolean; images?: string[]; error?: string; created?: number }> {
   const provider = providers.get(config.provider)
 

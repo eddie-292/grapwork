@@ -27,6 +27,14 @@ const currentCustomFields = computed(() => {
   return provider?.getCapabilities().customConfigFields || []
 })
 
+// 检查当前 provider 是否支持反向提示词
+const supportsNegativePrompt = computed(() => {
+  const config = activeConfig.value
+  if (!config) return false
+  const provider = getProvider(config.provider || 'zhipu')
+  return provider?.getCapabilities().supportsNegativePrompt || false
+})
+
 const {
   configList,
   history,
@@ -54,6 +62,7 @@ const {
 
 // 输入框内容
 const inputContent = ref('')
+const negativePrompt = ref('')
 
 // 显示配置对话框
 const showConfigDialog = ref(false)
@@ -102,8 +111,10 @@ async function handleSend() {
   const content = inputContent.value.trim()
   if (!content || isSending.value) return
 
+  const negative = negativePrompt.value.trim()
   inputContent.value = ''
-  await sendMessage(content)
+  negativePrompt.value = ''
+  await sendMessage(content, negative || undefined)
 }
 
 // 处理键盘事件
@@ -331,10 +342,11 @@ async function handleRegenerate(messageId: string) {
     if (msg && msg.role === 'user') {
       // 保存用户消息内容
       const userMessage = msg.content
+      const userNegativePrompt = msg.negativePrompt
       // 删除用户消息及之后的所有消息（包括助手消息）
       messages.splice(i)
       // 重新发送
-      await sendMessage(userMessage)
+      await sendMessage(userMessage, userNegativePrompt)
       break
     }
   }
@@ -470,6 +482,10 @@ function generateId(): string {
                 <span class="time">{{ formatTime(message.createdAt) }}</span>
               </div>
               <div class="message-content">{{ message.content }}</div>
+              <!-- 显示反向提示词 -->
+              <div v-if="message.role === 'user' && message.negativePrompt" class="message-negative-prompt">
+                <span class="negative-label">反向提示词：</span>{{ message.negativePrompt }}
+              </div>
               <!-- 用户消息显示参数 -->
               <div v-if="message.role === 'user' && (message.model || message.size)" class="message-params">
                 <span v-if="message.model" class="param-tag">{{ getModelLabel(message.model) }}</span>
@@ -559,13 +575,24 @@ function generateId(): string {
               </div>
             </div>
             <div class="input-wrapper">
-              <textarea
-                v-model="inputContent"
-                placeholder="描述你想生成的图片..."
-                @keydown="handleKeydown"
-                :disabled="isSending"
-                rows="3"
-              ></textarea>
+              <div class="prompt-inputs">
+                <textarea
+                  v-model="inputContent"
+                  placeholder="正向提示词：描述你想生成的图片..."
+                  @keydown="handleKeydown"
+                  :disabled="isSending"
+                  rows="2"
+                ></textarea>
+                <textarea
+                  v-if="supportsNegativePrompt"
+                  v-model="negativePrompt"
+                  placeholder="反向提示词：描述不想出现的内容（可选）"
+                  @keydown="handleKeydown"
+                  :disabled="isSending"
+                  rows="2"
+                  class="negative-prompt"
+                ></textarea>
+              </div>
               <button
                 class="send-btn"
                 @click="handleSend"
@@ -981,6 +1008,18 @@ function generateId(): string {
   word-wrap: break-word;
 }
 
+.message-negative-prompt {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.negative-label {
+  opacity: 0.7;
+}
+
 .message-params {
   display: flex;
   flex-wrap: wrap;
@@ -1182,6 +1221,13 @@ function generateId(): string {
   box-shadow: 0 0 0 3px rgba(51, 51, 51, 0.1);
 }
 
+.prompt-inputs {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .input-wrapper textarea {
   flex: 1;
   min-height: 32px;
@@ -1199,6 +1245,15 @@ function generateId(): string {
 
 .input-wrapper textarea::placeholder {
   color: var(--color-text-tertiary, #888);
+}
+
+.input-wrapper textarea.negative-prompt {
+  font-size: 13px;
+  color: var(--color-text-secondary, #666);
+}
+
+.input-wrapper textarea.negative-prompt::placeholder {
+  color: var(--color-text-tertiary, #999);
 }
 
 /* 自定义滚动条 */
