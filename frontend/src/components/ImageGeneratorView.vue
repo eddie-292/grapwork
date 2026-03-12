@@ -2,7 +2,7 @@
 import { ref, onMounted, nextTick, watch, computed } from 'vue'
 import { useImageGenerator } from '@/composables/useImageGenerator'
 import { getProvider, getAllProviders } from '@/imageProviders'
-import type { ImageChatSession, OutputFile, ImageGeneratorConfig } from '@/types/imageGenerator'
+import type { ImageChatSession, OutputFile } from '@/types/imageGenerator'
 
 // 根据当前配置获取尺寸和模型选项
 const currentSizeOptions = computed(() => {
@@ -62,7 +62,6 @@ const {
   updateConfig,
   clearHistory,
   setActiveConfigIndex,
-  addConfig,
   deleteConfig,
   // 产出物相关
   outputs,
@@ -257,24 +256,6 @@ async function handleConfigSwitch() {
 // 选择配置
 async function handleSelectConfig(index: number) {
   await setActiveConfigIndex(index)
-}
-
-// 添加新配置
-async function handleAddConfig() {
-  const { v4 } = await import('uuid')
-  const newConfig: ImageGeneratorConfig = {
-    id: v4(),
-    name: '新配置',
-    provider: 'zhipu',
-    apiUrl: 'https://open.bigmodel.cn/api/paas/v4/images/generations',
-    apiKey: '',
-    model: 'glm-image',
-    size: '1280x1280',
-    enabled: true,
-    extraConfig: {}
-  }
-  await addConfig(newConfig)
-  await setActiveConfigIndex(configList.value.configs.length - 1)
 }
 
 // 删除配置
@@ -538,7 +519,8 @@ const canEditLastMessage = computed(() => {
   if (messages.length === 0) return false
   // 找到最后一条用户消息
   for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].role === 'user') {
+    const msg = messages[i]
+    if (msg && msg.role === 'user') {
       return true
     }
   }
