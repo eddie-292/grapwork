@@ -105,6 +105,21 @@ watch(
   }
 )
 
+// 监听会话切换，重置编辑状态
+watch(
+  () => currentSession.value?.id,
+  () => {
+    editingMessageIndex.value = -1
+  }
+)
+
+// 监听输入框清空，取消编辑状态
+watch(inputContent, (newVal) => {
+  if (!newVal.trim() && editingMessageIndex.value >= 0) {
+    editingMessageIndex.value = -1
+  }
+})
+
 // 初始化
 onMounted(async () => {
   await loadConfig()
@@ -164,6 +179,15 @@ async function handleSend() {
   let images: string[] | undefined
   if (inputImages.value.length > 0) {
     images = await convertLocalImagesToBase64([...inputImages.value])
+  }
+
+  // 如果正在编辑模式，先删除原消息及其后续消息
+  if (editingMessageIndex.value >= 0) {
+    const session = currentSession.value
+    if (session) {
+      session.messages.splice(editingMessageIndex.value)
+    }
+    editingMessageIndex.value = -1
   }
 
   inputContent.value = ''
@@ -506,6 +530,45 @@ async function handleRegenerate(messageId: string) {
   }
 }
 
+// 检查是否可以编辑最后一条用户消息
+const canEditLastMessage = computed(() => {
+  const session = currentSession.value
+  if (!session || isSending.value) return false
+  const messages = session.messages
+  if (messages.length === 0) return false
+  // 找到最后一条用户消息
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === 'user') {
+      return true
+    }
+  }
+  return false
+})
+
+// 正在编辑的消息索引（-1 表示不在编辑模式）
+const editingMessageIndex = ref(-1)
+
+// 重新编辑最后一条用户消息
+function handleEditLastMessage() {
+  const session = currentSession.value
+  if (!session || isSending.value) return
+
+  const messages = session.messages
+  // 找到最后一条用户消息
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i]
+    if (msg && msg.role === 'user') {
+      // 将消息内容填入输入框
+      inputContent.value = msg.content
+      negativePrompt.value = msg.negativePrompt || ''
+      inputImages.value = msg.inputImages ? [...msg.inputImages] : []
+      // 记录正在编辑的消息索引
+      editingMessageIndex.value = i
+      break
+    }
+  }
+}
+
 // 保存到产出物
 async function handleSaveToOutputs(message: { images?: string[], prompt?: string, model?: string, size?: string }) {
   if (!message.images || message.images.length === 0) return
@@ -804,6 +867,18 @@ function generateId(): string {
                   <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
                 </svg>
                 <span v-else class="loading-spinner"></span>
+              </button>
+              <button
+                v-if="canEditLastMessage"
+                class="edit-last-btn"
+                @click="handleEditLastMessage"
+                :disabled="isSending"
+                title="编辑上一条消息"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
               </button>
             </div>
           </div>
@@ -1667,6 +1742,32 @@ function generateId(): string {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;
+}
+
+.edit-last-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border, #e5e5e5);
+  background: transparent;
+  color: var(--color-text-secondary, #666);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.edit-last-btn:hover:not(:disabled) {
+  border-color: var(--color-primary, #333);
+  color: var(--color-primary, #333);
+  background: var(--color-bg-tertiary, #f0f0f0);
+}
+
+.edit-last-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .loading-spinner {

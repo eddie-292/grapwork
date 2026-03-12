@@ -211,7 +211,7 @@ export class QwenImageEditProvider implements ImageProvider {
         size: size || config.size || '1024*1024'
       }
     }
-
+    console.log("requestBody ", requestBody)
     try {
       const response = await apiRequest(
         config.apiUrl || DEFAULT_API_URL,
