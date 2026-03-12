@@ -697,7 +697,7 @@ function cancel() {
 async function executeNormalChat(text: string, images: string[] = []) {
   if (currentChat.value) {
     if (currentChat.value.messages.length === 0) {
-      updateChatTitle(currentChat.value.id, text)
+      updateChatTitle(currentChat.value.id, text, images.length > 0)
     }
     // 构建用户消息，如果有图片则使用数组格式
     const userMessage: any = {
@@ -1471,10 +1471,15 @@ function scrollToBottom() {
   })
 }
 
-function updateChatTitle(chatId: string, firstMessage: string) {
+function updateChatTitle(chatId: string, firstMessage: string, hasImages: boolean = false) {
   const chat = chatList.value.find(c => c.id === chatId)
   if (chat) {
-    chat.title = firstMessage.slice(0, 20) + (firstMessage.length > 20 ? '...' : '')
+    // 如果没有文本但有图片，使用默认标题
+    if (!firstMessage && hasImages) {
+      chat.title = '图片对话'
+    } else {
+      chat.title = firstMessage.slice(0, 20) + (firstMessage.length > 20 ? '...' : '')
+    }
     saveChatHistory()
   }
 }
