@@ -379,6 +379,6 @@ npm run generate-icons        # 生成应用图标
 
 **Made with love by baozebing**
 
-[Report Bug](https://github.com/your-username/grapwork/issues) | [Request Feature](https://github.com/your-username/grapwork/issues)
+[Report Bug](https://github.com/eddie-292/grapwork/issues) | [Request Feature](https://github.com/eddie-292/grapwork/issues)
 
 </div>
