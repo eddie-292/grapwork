@@ -77,6 +77,9 @@ const negativePrompt = ref('')
 // 显示配置对话框
 const showConfigDialog = ref(false)
 
+// 显示 API Key
+const showApiKey = ref(false)
+
 // 消息列表容器引用
 const messagesContainer = ref<HTMLElement | null>(null)
 
@@ -992,7 +995,19 @@ function generateId(): string {
             </div>
             <div class="form-group">
               <label>API Key</label>
-              <input v-model="activeConfig.apiKey" type="password" placeholder="输入 API Key" />
+              <div class="api-key-input-wrapper">
+                <input v-model="activeConfig.apiKey" :type="showApiKey ? 'text' : 'password'" placeholder="输入 API Key" />
+                <button type="button" class="toggle-visibility-btn" @click="showApiKey = !showApiKey" :title="showApiKey ? '隐藏' : '显示'">
+                  <svg v-if="showApiKey" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                  </svg>
+                  <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </button>
+              </div>
             </div>
             <div class="form-group">
               <label>模型</label>
@@ -2197,6 +2212,35 @@ function generateId(): string {
 .form-group input:focus,
 .form-group select:focus {
   border-color: var(--color-primary, #333);
+}
+
+.api-key-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.api-key-input-wrapper input {
+  flex: 1;
+}
+
+.toggle-visibility-btn {
+  flex-shrink: 0;
+  padding: 8px;
+  border: 1px solid var(--color-border, #e5e5e5);
+  border-radius: 8px;
+  background: var(--color-bg-secondary, #f5f5f5);
+  color: var(--color-text-secondary, #666);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toggle-visibility-btn:hover {
+  border-color: var(--color-primary, #333);
+  color: var(--color-primary, #333);
 }
 
 .dialog-footer {

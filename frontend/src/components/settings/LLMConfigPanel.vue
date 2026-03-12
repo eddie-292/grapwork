@@ -25,6 +25,7 @@ const showDeleteConfirm = ref(false)
 const configToDeleteIndex = ref(-1)
 const saving = ref(false)
 const message = ref('')
+const showApiKey = ref(false)
 
 const deleteMessage = ref('')
 
@@ -268,12 +269,29 @@ defineExpose({
 
         <div class="form-group">
           <label>API Key</label>
-          <input
-            v-model="currentConfig.apiKey"
-            type="password"
-            placeholder="sk-..."
-            class="input"
-          />
+          <div class="api-key-input-wrapper">
+            <input
+              v-model="currentConfig.apiKey"
+              :type="showApiKey ? 'text' : 'password'"
+              placeholder="sk-..."
+              class="input api-key-input"
+            />
+            <button
+              type="button"
+              class="toggle-visibility-btn"
+              @click="showApiKey = !showApiKey"
+              :title="showApiKey ? '隐藏' : '显示'"
+            >
+              <svg v-if="showApiKey" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+              </svg>
+              <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </button>
+          </div>
           <small>您的 API 密钥将安全存储在本地</small>
         </div>
 
@@ -448,6 +466,35 @@ defineExpose({
   border-color: var(--color-border-hover);
 }
 
+.api-key-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.api-key-input {
+  flex: 1;
+}
+
+.toggle-visibility-btn {
+  flex-shrink: 0;
+  padding: 8px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.toggle-visibility-btn:hover {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
 .textarea {
   padding: 12px;
   border: 1px solid var(--color-border);
@@ -467,6 +514,34 @@ defineExpose({
 .form-group small {
   color: var(--color-text-secondary);
   font-size: 12px;
+}
+
+.api-key-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.api-key-input {
+  flex: 1;
+}
+
+.toggle-visibility-btn {
+  padding: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg-primary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toggle-visibility-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .form-actions {

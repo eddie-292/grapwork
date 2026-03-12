@@ -1116,8 +1116,6 @@ function createWindow() {
     // __dirname 在打包后指向 dist-electron，所以需要回到项目根目录然后进入 dist
     const distPath = path.join(path.dirname(__dirname), 'dist', 'index.html')
     mainWindow.loadFile(distPath)
-    // 生产模式也打开 DevTools 用于调试
-    mainWindow.webContents.openDevTools()
   }
 
   // 隐藏默认菜单栏 (File, Edit, View 等)
@@ -3249,22 +3247,24 @@ app.whenReady().then(() => {
 
   createWindow()
 
-  // 注册开发者工具快捷键 (F12 或 Cmd/Ctrl+Shift+I)
-  const devToolsShortcut = process.platform === 'darwin' ? 'Command+Shift+I' : 'Ctrl+Shift+I'
+  // 仅在开发模式下注册开发者工具快捷键 (F12 或 Cmd/Ctrl+Shift+I)
+  if (process.env.VITE_DEV_SERVER_URL) {
+    const devToolsShortcut = process.platform === 'darwin' ? 'Command+Shift+I' : 'Ctrl+Shift+I'
 
-  globalShortcut.register('F12', () => {
-    const focusedWindow = BrowserWindow.getFocusedWindow()
-    if (focusedWindow) {
-      focusedWindow.webContents.toggleDevTools()
-    }
-  })
+    globalShortcut.register('F12', () => {
+      const focusedWindow = BrowserWindow.getFocusedWindow()
+      if (focusedWindow) {
+        focusedWindow.webContents.toggleDevTools()
+      }
+    })
 
-  globalShortcut.register(devToolsShortcut, () => {
-    const focusedWindow = BrowserWindow.getFocusedWindow()
-    if (focusedWindow) {
-      focusedWindow.webContents.toggleDevTools()
-    }
-  })
+    globalShortcut.register(devToolsShortcut, () => {
+      const focusedWindow = BrowserWindow.getFocusedWindow()
+      if (focusedWindow) {
+        focusedWindow.webContents.toggleDevTools()
+      }
+    })
+  }
 })
 
 app.on('window-all-closed', () => {
@@ -3809,8 +3809,8 @@ ipcMain.handle('get-changelog', async () => {
       // 开发模式：从项目根目录读取
       changelogPath = path.join(path.dirname(__dirname), '..', 'frontend/src/upload_log/更新日志.md')
     } else {
-      // 生产模式：从应用资源目录读取（需要在打包时包含）
-      changelogPath = path.join(path.dirname(__dirname), '..', 'frontend/src/upload_log/更新日志.md')
+      // 生产模式：从 app.asar 内读取（打包时包含在 src/upload_log/ 中）
+      changelogPath = path.join(app.getAppPath(), 'src/upload_log/更新日志.md')
     }
 
     if (fs.existsSync(changelogPath)) {

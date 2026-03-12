@@ -11,7 +11,8 @@
     "dist-electron/main.cjs",
     "dist-electron/preload.cjs",
     "mcp-servers/**/*",
-    "skills/**/*"
+    "skills/**/*",
+    "src/upload_log/**/*"
   ],
   "extraMetadata": {
     "main": "dist-electron/main.cjs"
