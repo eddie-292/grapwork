@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, dialog, Menu, screen, protocol } from 'electron'
+import { app, BrowserWindow, ipcMain, shell, dialog, Menu, screen, protocol, globalShortcut } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import { spawn, ChildProcess } from 'child_process'
@@ -3248,9 +3248,28 @@ app.whenReady().then(() => {
   })
 
   createWindow()
+
+  // 注册开发者工具快捷键 (F12 或 Cmd/Ctrl+Shift+I)
+  const devToolsShortcut = process.platform === 'darwin' ? 'Command+Shift+I' : 'Ctrl+Shift+I'
+
+  globalShortcut.register('F12', () => {
+    const focusedWindow = BrowserWindow.getFocusedWindow()
+    if (focusedWindow) {
+      focusedWindow.webContents.toggleDevTools()
+    }
+  })
+
+  globalShortcut.register(devToolsShortcut, () => {
+    const focusedWindow = BrowserWindow.getFocusedWindow()
+    if (focusedWindow) {
+      focusedWindow.webContents.toggleDevTools()
+    }
+  })
 })
 
 app.on('window-all-closed', () => {
+  // 注销所有快捷键
+  globalShortcut.unregisterAll()
   if (process.platform !== 'darwin') {
     app.quit()
   }

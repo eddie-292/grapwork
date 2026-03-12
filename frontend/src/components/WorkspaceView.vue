@@ -722,7 +722,7 @@ defineExpose({
   <div class="workspace-container">
     <!-- 标题栏 -->
     <div class="workspace-header">
-      <h3 class="workspace-title"></h3>
+      <img src="@/assets/logo.svg" alt="Logo" class="workspace-logo" />
       <div class="workspace-btns">
         <!-- 返回上级目录 -->
         <button
@@ -969,11 +969,9 @@ defineExpose({
   background: var(--color-bg-primary);
 }
 
-.workspace-title {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: #333333;
+.workspace-logo {
+  height: 24px;
+  width: auto;
 }
 
 .workspace-btns {
