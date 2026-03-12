@@ -69,6 +69,20 @@ Download the latest release from [Releases](https://github.com/your-username/gra
 - **Windows**: `.exe` (NSIS installer) or `.zip`
 - **Linux**: `.AppImage` or `.deb`
 
+##### macOS Installation Notes
+
+Since the app is not notarized by Apple, you may encounter a "file is damaged" warning on first launch. Use one of the following methods to resolve:
+
+**Method 1: System Settings**
+1. Right-click the app and select "Open"
+2. Click "Open" in the dialog
+3. Or go to**System Settings → Privacy & Security** → Click "Open Anyway"
+
+**Method 2: Terminal Command**
+```bash
+sudo xattr -cr /Applications/GrapWork.app
+```
+
 #### Build from Source
 
 ```bash
@@ -247,6 +261,20 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **macOS**: `.dmg` 或 `.zip`
 - **Windows**: `.exe` (NSIS 安装包) 或 `.zip`
 - **Linux**: `.AppImage` 或 `.deb`
+
+##### macOS 安装说明
+
+由于应用未经Apple 公证，首次打开可能会提示"文件已损坏"。请使用以下方法解决：
+
+**方法一：系统设置**
+1. 右键点击应用，选择"打开"
+2. 在弹出对话框中点击"打开"
+3. 或前往**系统设置 → 隐私与安全性** → 点击"仍要打开"
+
+**方法二：终端命令**
+```bash
+sudo xattr -cr /Applications/GrapWork.app
+```
 
 #### 从源码构建
 
