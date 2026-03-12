@@ -377,7 +377,7 @@ npm run generate-icons        # 生成应用图标
 
 <div align="center">
 
-**Made with love by [Your Name]**
+**Made with love by baozebing**
 
 [Report Bug](https://github.com/your-username/grapwork/issues) | [Request Feature](https://github.com/your-username/grapwork/issues)
 
