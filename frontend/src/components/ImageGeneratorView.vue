@@ -610,7 +610,7 @@ function generateId(): string {
   <div class="image-generator">
     <!-- 双击缩放和按住拖拽区域 -->
     <div class="window-drag-area" @dblclick="handleDragAreaDoubleClick">
-      <span class="app-title">MirrorGrap Work Generate Image</span>
+      <span class="app-title">GrapWork Generate Image</span>
     </div>
     <!-- 主内容区域 -->
     <div class="main-content">

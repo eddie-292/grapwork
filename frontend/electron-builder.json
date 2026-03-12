@@ -1,6 +1,6 @@
 {
   "appId": "com.mirrorgrap.work",
-  "productName": "MirrorGrap Work",
+  "productName": "GrapWork",
   "icon": "build/icons/icon.png",
   "directories": {
     "output": "release",

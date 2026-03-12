@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**MirrorGrap Work** - A cross-platform desktop AI Agent assistant (Electron + Vue 3 + TypeScript) that supports any OpenAI-compatible LLM API. Features:
+**GrapWork** - A cross-platform desktop AI Agent assistant (Electron + Vue 3 + TypeScript) that supports any OpenAI-compatible LLM API. Features:
 - **Global Memory**: Persistent knowledge storage for user preferences and custom context with smart keyword matching
 - **Assistant System**: Custom AI assistant/system prompt management with default "EddieLab-Agent (ELA)"
 - **MCP Support**: Model Context Protocol integration for extensible tool/function calling with STDIO/SSE transports

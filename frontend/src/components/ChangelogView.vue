@@ -41,7 +41,7 @@ async function loadChangelog() {
 }
 
 function getFallbackContent(): string {
-  return `# MirrorGrap Work 更新日志
+  return `# GrapWork 更新日志
 
 ## v1.0.0 (2024-02-14)
 
@@ -66,7 +66,7 @@ function getFallbackContent(): string {
 
 ---
 
-*感谢使用 MirrorGrap Work!*`
+*感谢使用 GrapWork!*`
 }
 
 onMounted(() => {
@@ -78,7 +78,7 @@ onMounted(() => {
   <div class="changelog-view">
     <div class="changelog-header">
       <h2>更新日志</h2>
-      <p>查看 MirrorGrap Work 的版本更新历史</p>
+      <p>查看 GrapWork 的版本更新历史</p>
     </div>
 
     <div v-if="loading" class="loading-state">

@@ -99,11 +99,11 @@ IMAP_PORT=993
 IMAP_PASSWORD=你的授权码
 ```
 
-## 在 MirrorGrap Work 中配置
+## 在 GrapWork 中配置
 
 ### 方法一：使用 uvx 运行（推荐）
 
-1. 打开 MirrorGrap Work
+1. 打开 GrapWork
 2. 进入 设置 → MCP
 3. 添加新服务器，配置如下：
 
@@ -182,7 +182,7 @@ load_dotenv()
 
 ## 使用示例
 
-在 MirrorGrap Work 中与 AI 对话时，你可以这样请求：
+在 GrapWork 中与 AI 对话时，你可以这样请求：
 
 - "帮我给 xxx@example.com 发一封邮件，主题是..."
 - "检查我的收件箱，有没有未读邮件"

@@ -792,7 +792,7 @@ function scrollToBottom() {
     <div id="messages_dev" class="messages" ref="messagesRef" @scroll="handleMessagesScroll" @click="handleLinkClick">
       <div v-if="messages.length === 0" class="welcome">
         <div class="welcome-hero">
-          <h2 class="welcome-title">MirrorGrap Work</h2>
+          <h2 class="welcome-title">GrapWork</h2>
           <p class="welcome-subtitle">跨平台桌面 AI Agent 助手</p>
         </div>
 
