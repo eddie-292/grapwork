@@ -256,7 +256,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 #### 下载安装包
 
-从 [Releases](https://github.com/your-username/grapwork/releases) 页面下载最新版本：
+从 [Releases](https://github.com/eddie-292/grapwork/releases) 页面下载最新版本：
 
 - **macOS**: `.dmg` 或 `.zip`
 - **Windows**: `.exe` (NSIS 安装包) 或 `.zip`
