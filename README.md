@@ -280,7 +280,7 @@ sudo xattr -cr /Applications/GrapWork.app
 
 ```bash
 # 克隆仓库
-git clone https://github.com/your-username/grapwork.git
+git clone https://github.com/eddie-292/grapwork.git
 cd grapwork
 
 # 安装依赖
