@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import MarkdownIt from 'markdown-it'
+import type Token from 'markdown-it/lib/token.mjs'
 import hljs from 'highlight.js'
 import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
 import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
@@ -355,7 +356,7 @@ const md: MarkdownIt = new MarkdownIt({
 })
 
 // Custom code block renderer with copy button
-md.renderer.rules.fence = (tokens, idx) => {
+md.renderer.rules.fence = (tokens: Token[], idx: number) => {
   const token = tokens[idx]
   if (!token) return ''
 

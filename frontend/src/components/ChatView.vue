@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import MarkdownIt from 'markdown-it'
+import type Token from 'markdown-it/lib/token.mjs'
 import hljs from 'highlight.js'
 import type { ConfigList, AssistantList } from '../types/electron'
 import { useGlobalMemory } from '../composables/useGlobalMemory'
@@ -191,7 +192,7 @@ const md: MarkdownIt = new MarkdownIt({
 })
 
 // 自定义代码块渲染器，添加复制按钮
-md.renderer.rules.fence = (tokens, idx) => {
+md.renderer.rules.fence = (tokens: Token[], idx: number) => {
   const token = tokens[idx]
   if (!token) return ''
 

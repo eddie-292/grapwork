@@ -26,7 +26,12 @@
       "mcp__zai-mcp-server__ui_to_artifact",
       "Bash(textutil:*)",
       "Bash(git checkout:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(npm i:*)",
+      "Bash(rd:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(where:*)",
+      "Bash(if:*)"
     ]
   }
 }
