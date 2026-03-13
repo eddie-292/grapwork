@@ -413,9 +413,6 @@ async function getWorkspaceContext(): Promise<string> {
   }
 
   try {
-    // 获取目录名称
-    const folderName = currentFolder.value.split('/').pop() || currentFolder.value.split('\\').pop() || 'workspace'
-
     // 扫描目录结构（只展示当前目录，不递归子文件夹）
     const structure = await scanDirectoryStructure(currentFolder.value, '', 0, 0)
 
@@ -429,7 +426,6 @@ async function getWorkspaceContext(): Promise<string> {
 工作目录: \`${currentFolder.value}\`
 
 \`\`\`
-📁 ${folderName}/
 ${structure}\`\`\`
 
 > 注：这是当前工作目录的结构概览。你可以使用 \`list_directory\` 等工具查看更详细的内容。
