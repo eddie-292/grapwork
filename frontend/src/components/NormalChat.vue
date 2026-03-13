@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import MarkdownIt from 'markdown-it'
 import type Token from 'markdown-it/lib/token.mjs'
 import hljs from 'highlight.js'
@@ -8,6 +8,7 @@ import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
 import MermaidDialog from './MermaidDialog.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import { storage } from '@/services/StorageService'
+import { useSkills } from '@/composables/useSkills'
 import CopyIcon from './icons/CopyIcon.vue'
 import ChevronDownIcon from './icons/ChevronDownIcon.vue'
 import ChevronRightIcon from './icons/ChevronRightIcon.vue'
@@ -121,6 +122,55 @@ const showSettingsPopover = ref(false)
 // 删除确认对话框状态
 const showDeleteConfirmDialog = ref(false)
 const pendingDeleteIndex = ref<number | null>(null)
+
+// Skills selector state
+const skillsManager = useSkills()
+const showSkillSelector = ref(false)
+const skillSelectorQuery = ref('')
+const selectedSkillIndex = ref(0)
+const selectedSkill = ref<string | null>(null)  // Currently selected skill name for prefix
+
+// Filtered skills based on query
+const filteredSkills = computed(() => {
+  const allSkills = skillsManager.registry.value.skills.filter(s => s.enabled && !s.hasError)
+  if (!skillSelectorQuery.value) {
+    return allSkills.slice(0, 8)  // Show top 8 skills when no query
+  }
+  const query = skillSelectorQuery.value.toLowerCase()
+  return allSkills
+    .filter(skill =>
+      skill.name.toLowerCase().includes(query) ||
+      skill.description.toLowerCase().includes(query)
+    )
+    .slice(0, 8)
+})
+
+// Watch input changes to detect @ trigger
+watch(() => props.input, (newValue) => {
+  if (selectedSkill.value) {
+    // If skill is already selected, don't trigger selector again
+    return
+  }
+
+  // Find @ symbol position
+  const atIndex = newValue.lastIndexOf('@')
+  if (atIndex !== -1) {
+    // Check if @ is at start or preceded by whitespace/newline
+    const charBefore = atIndex > 0 ? newValue[atIndex - 1] : ' '
+    if (charBefore === ' ' || charBefore === '\n' || atIndex === 0) {
+      // Extract query after @
+      const textAfterAt = newValue.slice(atIndex + 1)
+      // Don't trigger if there's a space after @ (likely an email)
+      if (!textAfterAt.includes(' ') && !textAfterAt.includes('\n')) {
+        skillSelectorQuery.value = textAfterAt
+        selectedSkillIndex.value = 0
+        showSkillSelector.value = true
+        return
+      }
+    }
+  }
+  showSkillSelector.value = false
+})
 
 // 图片附件相关
 const attachedImages = ref<string[]>([])
@@ -539,10 +589,25 @@ function getMessagePreview(content: string, maxLength: number = 50): string {
 
 function handleSend(e: Event) {
   e.preventDefault()
+
+  // 如果技能选择器打开，不发送消息（让 handleKeydown 处理）
+  if (showSkillSelector.value) {
+    return
+  }
+
   const images = [...attachedImages.value]
+
+  // If skill is selected, emit with skill prefix
+  const skill = selectedSkill.value
+  const message = props.input.trim()
+  if (skill && message) {
+    emit('update:input', `使用 ${skill} 技能：${message}`)
+  }
+
   emit('send', images)
-  // 发送后清空图片
+  // 发送后清空图片和选中的技能
   clearImages()
+  selectedSkill.value = null
 }
 
 function handleCancel() {
@@ -552,6 +617,69 @@ function handleCancel() {
 function handleUpdateInput(e: Event) {
   const target = e.target as HTMLTextAreaElement
   emit('update:input', target.value)
+}
+
+// Handle keyboard navigation in skill selector
+function handleKeydown(e: KeyboardEvent) {
+  if (!showSkillSelector.value) {
+    return
+  }
+
+  const skills = filteredSkills.value
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    selectedSkillIndex.value = Math.min(selectedSkillIndex.value + 1, skills.length - 1)
+    scrollSkillIntoView()
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    selectedSkillIndex.value = Math.max(selectedSkillIndex.value - 1, 0)
+    scrollSkillIntoView()
+  } else if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault()
+    const skill = skills[selectedSkillIndex.value]
+    if (skill) {
+      selectSkill(skill)
+    }
+  } else if (e.key === 'Escape') {
+    e.preventDefault()
+    showSkillSelector.value = false
+  } else if (e.key === 'Tab') {
+    e.preventDefault()
+    const skill = skills[selectedSkillIndex.value]
+    if (skill) {
+      selectSkill(skill)
+    }
+  }
+}
+
+// Scroll selected skill item into view
+function scrollSkillIntoView() {
+  nextTick(() => {
+    const selectedEl = document.querySelector('.skill-item.selected')
+    if (selectedEl) {
+      selectedEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }
+  })
+}
+
+// Select a skill and update input
+function selectSkill(skill: { name: string; description?: string }) {
+  const currentValue = props.input
+  const atIndex = currentValue.lastIndexOf('@')
+  if (atIndex !== -1) {
+    // Remove the @query part and add skill prefix
+    const beforeAt = currentValue.slice(0, atIndex)
+    const newInput = beforeAt.trim()
+    selectedSkill.value = skill.name
+    emit('update:input', newInput)
+    showSkillSelector.value = false
+
+    // Focus back to textarea
+    nextTick(() => {
+      textareaRef.value?.focus()
+    })
+  }
 }
 
 function openParamsDialog() {
@@ -621,6 +749,10 @@ function handleClickOutside(e: MouseEvent) {
   if (!target.closest('.settings-wrapper')) {
     showSettingsPopover.value = false
   }
+  // 关闭技能选择器（点击技能选择器外部时）
+  if (!target.closest('.skill-selector-popup') && !target.closest('.textarea')) {
+    showSkillSelector.value = false
+  }
 }
 
 // 组件挂载时设置全局函数，卸载时清理
@@ -638,6 +770,8 @@ onMounted(async () => {
   if (savedFolder) {
     selectedFolderPath.value = savedFolder
   }
+  // 加载技能列表
+  await skillsManager.loadRegistry()
   // 添加点击外部关闭弹出框的事件监听
   document.addEventListener('click', handleClickOutside)
 
@@ -976,6 +1110,13 @@ function scrollToBottom() {
       </div>
 
       <div class="composer">
+        <!-- Selected skill indicator -->
+        <div v-if="selectedSkill" class="selected-skill-indicator">
+          <span>使用 {{ selectedSkill }} 技能</span>
+          <button type="button" @click="selectedSkill = null" title="取消选择技能">
+            <XIcon :size="12" />
+          </button>
+        </div>
         <!-- 隐藏的文件选择输入框 -->
         <input
           type="file"
@@ -990,10 +1131,34 @@ function scrollToBottom() {
           class="textarea"
           placeholder="输入消息，回车发送，Shift+Enter 换行（支持粘贴图片）"
           @keydown.enter.exact.prevent="handleSend"
+          @keydown="handleKeydown"
           @input="handleUpdateInput"
           @paste="handlePaste"
           ref="textareaRef"
         />
+        <!-- Skill Selector Popup -->
+        <Transition name="skill-selector">
+          <div v-if="showSkillSelector && filteredSkills.length > 0" class="skill-selector-popup">
+            <div class="skill-selector-header">
+              <span class="skill-selector-title">选择技能</span>
+              <span class="skill-selector-hint">↑↓ 选择 · Enter 确认 · Esc 关闭</span>
+            </div>
+            <div class="skill-selector-list">
+              <button
+                v-for="(skill, index) in filteredSkills"
+                :key="skill.id"
+                type="button"
+                class="skill-item"
+                :class="{ selected: index === selectedSkillIndex }"
+                @click="selectSkill(skill)"
+                @mouseenter="selectedSkillIndex = index"
+              >
+                <span class="skill-name">{{ skill.name }}</span>
+                <span class="skill-desc">{{ skill.description }}</span>
+              </button>
+            </div>
+          </div>
+        </Transition>
         <!-- 图片预览区域 -->
         <div v-if="attachedImages.length > 0" class="image-preview-container">
           <div v-for="(img, index) in attachedImages" :key="index" class="image-preview-item">
@@ -1924,6 +2089,7 @@ function scrollToBottom() {
 }
 
 .composer {
+  position: relative;
   max-width: 900px;
   margin: 0 auto;
   display: flex;
@@ -2761,5 +2927,126 @@ function scrollToBottom() {
   object-fit: contain;
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+/* Skill Selector Popup */
+.skill-selector-popup {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  z-index: 100;
+  overflow: hidden;
+  max-height: 300px;
+}
+
+.skill-selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.skill-selector-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.skill-selector-hint {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.skill-selector-list {
+  max-height: 248px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px;
+}
+
+.skill-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+  overflow: hidden;
+}
+
+.skill-item:hover,
+.skill-item.selected {
+  background: var(--color-bg-hover);
+}
+
+.skill-item.selected {
+  background: var(--color-bg-active, rgba(16, 163, 127, 0.1));
+}
+
+.skill-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.skill-desc {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* Skill Selector Transition */
+.skill-selector-enter-active,
+.skill-selector-leave-active {
+  transition: all 0.2s ease;
+}
+
+.skill-selector-enter-from,
+.skill-selector-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+/* Selected skill indicator in input */
+.selected-skill-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: rgba(16, 163, 127, 0.15);
+  border: 1px solid rgba(16, 163, 127, 0.3);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--color-primary);
+  margin-bottom: 4px;
+}
+
+.selected-skill-indicator button {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--color-text-tertiary);
+  display: flex;
+  align-items: center;
+}
+
+.selected-skill-indicator button:hover {
+  color: var(--color-error-text, #ef4444);
 }
 </style>
