@@ -63,7 +63,7 @@
 
 #### Download Release
 
-Download the latest release from [Releases](https://github.com/your-username/grapwork/releases) page:
+Download the latest release from [Releases](https://github.com/eddie-292/grapwork/releases) page:
 
 - **macOS**: `.dmg` or `.zip`
 - **Windows**: `.exe` (NSIS installer) or `.zip`
