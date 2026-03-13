@@ -126,17 +126,20 @@ const pendingDeleteIndex = ref<number | null>(null)
 // Skills selector state
 const skillsManager = useSkills()
 const showSkillSelector = ref(false)
-const skillSelectorQuery = ref('')
+const skillSelectorQuery = ref('')  // Query from @ trigger in textarea
+const skillSelectorPopupQuery = ref('')  // Query from popup filter input
 const selectedSkillIndex = ref(0)
 const selectedSkill = ref<string | null>(null)  // Currently selected skill name for prefix
+const skillFilterInputRef = ref<HTMLInputElement | null>(null)
 
 // Filtered skills based on query
 const filteredSkills = computed(() => {
   const allSkills = skillsManager.registry.value.skills.filter(s => s.enabled && !s.hasError)
-  if (!skillSelectorQuery.value) {
+  // Use popup query if available, otherwise use @ trigger query
+  const query = (skillSelectorPopupQuery.value || skillSelectorQuery.value).toLowerCase()
+  if (!query) {
     return allSkills.slice(0, 8)  // Show top 8 skills when no query
   }
-  const query = skillSelectorQuery.value.toLowerCase()
   return allSkills
     .filter(skill =>
       skill.name.toLowerCase().includes(query) ||
@@ -144,6 +147,13 @@ const filteredSkills = computed(() => {
     )
     .slice(0, 8)
 })
+
+// Handle keyboard events in the filter input
+function handleFilterKeydown(e: KeyboardEvent) {
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === 'Escape' || e.key === 'Tab') {
+    handleKeydown(e)
+  }
+}
 
 // Watch input changes to detect @ trigger
 watch(() => props.input, (newValue) => {
@@ -163,13 +173,19 @@ watch(() => props.input, (newValue) => {
       // Don't trigger if there's a space after @ (likely an email)
       if (!textAfterAt.includes(' ') && !textAfterAt.includes('\n')) {
         skillSelectorQuery.value = textAfterAt
+        skillSelectorPopupQuery.value = ''  // Reset popup query
         selectedSkillIndex.value = 0
         showSkillSelector.value = true
+        // Focus the filter input after popup opens
+        nextTick(() => {
+          skillFilterInputRef.value?.focus()
+        })
         return
       }
     }
   }
   showSkillSelector.value = false
+  skillSelectorPopupQuery.value = ''  // Reset popup query when closing
 })
 
 // 图片附件相关
@@ -1138,12 +1154,22 @@ function scrollToBottom() {
         />
         <!-- Skill Selector Popup -->
         <Transition name="skill-selector">
-          <div v-if="showSkillSelector && filteredSkills.length > 0" class="skill-selector-popup">
+          <div v-if="showSkillSelector" class="skill-selector-popup">
             <div class="skill-selector-header">
               <span class="skill-selector-title">选择技能</span>
               <span class="skill-selector-hint">↑↓ 选择 · Enter 确认 · Esc 关闭</span>
             </div>
-            <div class="skill-selector-list">
+            <div class="skill-selector-filter">
+              <input
+                type="text"
+                v-model="skillSelectorPopupQuery"
+                class="skill-filter-input"
+                placeholder="搜索技能..."
+                ref="skillFilterInputRef"
+                @keydown="handleFilterKeydown"
+              />
+            </div>
+            <div class="skill-selector-list" v-if="filteredSkills.length > 0">
               <button
                 v-for="(skill, index) in filteredSkills"
                 :key="skill.id"
@@ -1156,6 +1182,9 @@ function scrollToBottom() {
                 <span class="skill-name">{{ skill.name }}</span>
                 <span class="skill-desc">{{ skill.description }}</span>
               </button>
+            </div>
+            <div v-else class="skill-selector-empty">
+              <span>没有找到匹配的技能</span>
             </div>
           </div>
         </Transition>
@@ -2964,11 +2993,43 @@ function scrollToBottom() {
   color: var(--color-text-tertiary);
 }
 
+.skill-selector-filter {
+  padding: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.skill-filter-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.skill-filter-input:focus {
+  border-color: var(--color-primary);
+}
+
+.skill-filter-input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
 .skill-selector-list {
   max-height: 248px;
   overflow-y: auto;
   overflow-x: hidden;
   padding: 4px;
+}
+
+.skill-selector-empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--color-text-tertiary);
+  font-size: 13px;
 }
 
 .skill-item {

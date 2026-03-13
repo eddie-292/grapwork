@@ -13,6 +13,8 @@ release/
 .env.local
 .env.*.local
 
+CLAUDE.md
+
 # IDE
 .vscode/*
 !.vscode/extensions.json
