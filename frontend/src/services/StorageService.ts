@@ -16,7 +16,6 @@ import type {
 } from '@/types/storage';
 import { StorageBackendType, StorageKey } from '@/types/storage';
 import type { ConfigList } from '@/types/electron';
-import type { GlobalMemory } from '@/types/globalMemory';
 import type { Assistant } from '@/types/electron';
 import type { Chat } from '@/types/chat';
 import type { MCPServerList } from '@/types/mcp';
@@ -284,22 +283,6 @@ export class StorageService {
    */
   async saveConfigList(configList: ConfigList): Promise<boolean> {
     const result = await this.set(StorageKey.LLM_CONFIG_LIST, configList);
-    return result.success;
-  }
-
-  /**
-   * 获取全局记忆
-   */
-  async getGlobalMemory(): Promise<GlobalMemory | null> {
-    const result = await this.get<GlobalMemory>(StorageKey.GLOBAL_MEMORY);
-    return result.data ?? null;
-  }
-
-  /**
-   * 保存全局记忆
-   */
-  async saveGlobalMemory(memory: GlobalMemory): Promise<boolean> {
-    const result = await this.set(StorageKey.GLOBAL_MEMORY, memory);
     return result.success;
   }
 

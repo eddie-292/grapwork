@@ -11,7 +11,6 @@ import { useSkills } from '../composables/useSkills'
 import NormalChat from './NormalChat.vue'
 import WorkspaceView from './WorkspaceView.vue'
 import ChatTabBar from './ChatTabBar.vue'
-import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
 import MermaidDialog from './MermaidDialog.vue'
@@ -22,19 +21,12 @@ import XIcon from './icons/XIcon.vue'
 
 const router = useRouter()
 
-// 全局记忆管理器
-const globalMemoryManager = useGlobalMemory()
 
 // MCP 管理器
 const mcpManager = useMCP()
 
 // Skills 管理器
 const skillsManager = useSkills()
-
-// 快速保存到全局记忆对话框状态
-const showSaveToGlobalMemoryDialog = ref(false)
-const saveToGlobalMemoryContent = ref('')
-const saveToGlobalMemoryKeywords = ref<string[]>([])
 
 // HTML预览对话框状态
 const showHtmlPreview = ref(false)
@@ -344,17 +336,15 @@ async function scanDirectoryStructure(
 
     for (const item of displayItems) {
       if (item.type === 'directory') {
-        structure += `${indent}📁 ${item.name}/\n`
+        structure += `${indent} ${item.name}/\n`
         // 只有当未达到最大深度时才递归扫描子目录
         if (depth < maxDepth) {
           const subPath = currentPath ? `${currentPath}/${item.name}` : item.name
           structure += await scanDirectoryStructure(basePath, subPath, depth + 1, maxDepth)
         }
       } else {
-        // 显示文件，带扩展名图标
-        const ext = item.name.split('.').pop()?.toLowerCase() || ''
-        const icon = getFileIcon(ext)
-        structure += `${indent}${icon} ${item.name}\n`
+        // 显示文件
+        structure += `${indent}${item.name}\n`
       }
     }
 
@@ -367,35 +357,6 @@ async function scanDirectoryStructure(
     console.error('扫描目录结构失败:', error)
     return ''
   }
-}
-
-/**
- * 根据文件扩展名获取图标
- */
-function getFileIcon(ext: string): string {
-  const iconMap: Record<string, string> = {
-    'js': '📜', 'ts': '📜', 'jsx': '⚛️', 'tsx': '⚛️',
-    'vue': '💚', 'svelte': '🔶',
-    'py': '🐍', 'rb': '💎',
-    'java': '☕', 'kt': '☕', 'scala': '☕',
-    'go': '🔵', 'rs': '🦀',
-    'c': '🔵', 'cpp': '🔵', 'h': '📄',
-    'cs': '💜',
-    'php': '🐘',
-    'swift': '🍎', 'm': '🍎',
-    'json': '📋', 'yaml': '📋', 'yml': '📋', 'toml': '📋',
-    'xml': '📋', 'html': '🌐', 'css': '🎨', 'scss': '🎨', 'less': '🎨',
-    'md': '📝', 'txt': '📄', 'rst': '📝',
-    'sql': '🗃️', 'db': '🗃️', 'sqlite': '🗃️',
-    'sh': '💻', 'bash': '💻', 'zsh': '💻', 'ps1': '💻', 'bat': '💻',
-    'env': '🔐', 'gitignore': '🔐', 'dockerignore': '🔐',
-    'dockerfile': '🐳',
-    'png': '🖼️', 'jpg': '🖼️', 'jpeg': '🖼️', 'gif': '🖼️', 'svg': '🖼️', 'ico': '🖼️',
-    'pdf': '📕', 'doc': '📘', 'docx': '📘',
-    'zip': '📦', 'tar': '📦', 'gz': '📦', 'rar': '📦',
-    'mp3': '🎵', 'wav': '🎵', 'mp4': '🎬', 'avi': '🎬',
-  }
-  return iconMap[ext] || '📄'
 }
 
 /**
@@ -749,26 +710,12 @@ async function executeNormalChat(text: string, images: string[] = []) {
       return msg
     })
 
-    // 确保全局记忆已加载（如果未加载则立即加载）
-    if (!globalMemoryManager.memory.value) {
-      await globalMemoryManager.load()
-    }
-
-    // 调试：检查全局记忆状态
-    ////console.log('[GlobalMemory] memory.value:', globalMemoryManager.memory.value)
-    ////console.log('[GlobalMemory] entries:', globalMemoryManager.entries.value)
-    ////console.log('[GlobalMemory] user message:', text)
-
-    // 生成智能匹配的全局记忆上下文
-    const globalMemoryContext = globalMemoryManager.generateInjectContext(text)
-    ////console.log('[GlobalMemory] generated context:', globalMemoryContext)
-
     // 生成 MCP tools 数组（如果有激活的工具）
     await mcpManager.loadServers()
     const mcpTools = mcpManager.generateOpenAITools()
     //console.log('[MCP] Active tools:', mcpTools.length)
 
-    // 构建 system prompt（合并 assistant system prompt 和 global memory）
+    // 构建 system prompt
     let systemPrompt = ''
     if (activeAssistant.value?.systemPrompt && activeAssistant.value.systemPrompt.trim()) {
       systemPrompt = activeAssistant.value.systemPrompt.trim()
@@ -777,9 +724,15 @@ async function executeNormalChat(text: string, images: string[] = []) {
       systemPrompt = storage.getDefaultAssistantPrompt()
     }
 
-    // 如果有全局记忆，追加到 system prompt
-    if (globalMemoryContext) {
-      systemPrompt += '\n\n' + globalMemoryContext + '\n\n请在回复时考虑这些偏好。'
+    // 注入 memory.md 路径信息
+    if (window.electronAPI?.getMemoryMdPath) {
+      try {
+        const memoryMdPath = await window.electronAPI.getMemoryMdPath()
+        const memoryContext = `\n## 记忆系统\n\n长期记忆文件 \`memory.md\` 的完整路径为：\n\`\`\`\n${memoryMdPath}\n\`\`\`\n\n你可以使用 \`read_file\` 工具读取此路径的文件来获取用户的历史偏好、重要信息等。也可以在适当的时候使用 \`write_file\` 工具向该文件追加新的记忆内容。`
+        systemPrompt += memoryContext
+      } catch (e) {
+        console.error('Failed to get memory.md path:', e)
+      }
     }
 
     // 加载 Skills 注册表并生成上下文
@@ -1669,8 +1622,6 @@ onMounted(async () => {
   if (savedUsername) {
     username.value = savedUsername
   }
-  // 加载全局记忆
-  await globalMemoryManager.load()
 
   // 加载选中的文件夹并同步到 mcpManager 和 currentFolder
   const savedFolder = await storage.getSelectedFolder()
@@ -1923,14 +1874,6 @@ function handleFolderChanged(path: string) {
         </Transition>
       </Teleport>
 
-      <!-- 快速保存到全局记忆对话框 -->
-      <SaveToGlobalMemoryDialog
-        :show="showSaveToGlobalMemoryDialog"
-        :initial-content="saveToGlobalMemoryContent"
-        :initial-keywords="saveToGlobalMemoryKeywords"
-        @close="showSaveToGlobalMemoryDialog = false"
-        @saved="showSaveToGlobalMemoryDialog = false"
-      />
 
       <!-- HTML预览对话框 -->
       <HtmlPreviewDialog

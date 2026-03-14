@@ -6,28 +6,6 @@ export interface AppConfig {
   model: string
 }
 
-export interface GlobalMemoryEntry {
-  id: string
-  type: string
-  category: string
-  title: string
-  content: string
-  keywords: string[]
-  enabled: boolean
-  createdAt: number
-  updatedAt: number
-  metadata?: {
-    usageCount?: number
-    lastUsedAt?: number
-  }
-}
-
-export interface GlobalMemory {
-  entries: GlobalMemoryEntry[]
-  version: number
-  lastUpdated: number
-}
-
 // MCP 服务器配置
 export interface MCPServerConfig {
   id: string
@@ -68,8 +46,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveConfig: (config: AppConfig) => ipcRenderer.invoke('save-config', config),
   chatRequest: (params: { apiUrl: string; apiKey: string; model: string; messages: any[] }) =>
     ipcRenderer.invoke('chat-request', params),
-  getGlobalMemory: () => ipcRenderer.invoke('get-global-memory'),
-  saveGlobalMemory: (memory: GlobalMemory) => ipcRenderer.invoke('save-global-memory', memory),
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
   // 在系统文件管理器中打开路径
   openPath: (path: string) => ipcRenderer.invoke('open-path', path),
@@ -131,6 +107,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 读取更新日志
   getChangelog: () =>
     ipcRenderer.invoke('get-changelog'),
+  // 获取 memory.md 文件路径
+  getMemoryMdPath: () =>
+    ipcRenderer.invoke('get-memory-md-path'),
   // Skills 技能系统
   skillsScan: () =>
     ipcRenderer.invoke('skills-scan'),

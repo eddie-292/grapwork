@@ -986,6 +986,34 @@ const CONFIG_PATH = path.join(app.getPath('userData'), 'config.json')
 // 全局记忆文件路径
 const GLOBAL_MEMORY_PATH = path.join(app.getPath('userData'), 'global-memory.json')
 
+// memory.md 文件路径（用于 AI 记忆存储）
+const MEMORY_MD_PATH = path.join(app.getPath('userData'), 'memory.md')
+
+// 初始化 memory.md 文件
+function initMemoryMd(): void {
+  try {
+    if (!fs.existsSync(MEMORY_MD_PATH)) {
+      const defaultContent = `# AI 记忆存储
+
+这是一个用于存储 AI 对话记忆的文件。AI 可以在对话中读取和更新此文件来记住用户偏好、重要信息等。
+
+## 用户信息
+
+
+## 偏好设置
+
+
+## 重要事项
+
+`
+      fs.writeFileSync(MEMORY_MD_PATH, defaultContent, 'utf-8')
+      console.log('[Memory] Created memory.md file at:', MEMORY_MD_PATH)
+    }
+  } catch (error) {
+    console.error('[Memory] Failed to initialize memory.md:', error)
+  }
+}
+
 interface AppConfig {
   apiUrl: string
   apiKey: string
@@ -2114,8 +2142,8 @@ ipcMain.handle('file-operation', async (_event, operation: string, args: Record<
 
         const targetPath = path.isAbsolute(file_path) ? file_path : resolveSafePath(file_path)
 
-        // 对于绝对路径，验证是否在基础路径内
-        if (path.isAbsolute(file_path) && !targetPath.startsWith(path.resolve(basePath))) {
+        // 对于绝对路径，验证是否在基础路径内（允许访问 memory.md）
+        if (path.isAbsolute(file_path) && !targetPath.startsWith(path.resolve(basePath)) && targetPath !== MEMORY_MD_PATH) {
           return {
             success: false,
             error: '文件路径必须在基础目录内'
@@ -2178,8 +2206,8 @@ ipcMain.handle('file-operation', async (_event, operation: string, args: Record<
 
         const targetPath = path.isAbsolute(file_path) ? file_path : resolveSafePath(file_path)
 
-        // 对于绝对路径，验证是否在基础路径内
-        if (path.isAbsolute(file_path) && !targetPath.startsWith(path.resolve(basePath))) {
+        // 对于绝对路径，验证是否在基础路径内（允许访问 memory.md）
+        if (path.isAbsolute(file_path) && !targetPath.startsWith(path.resolve(basePath)) && targetPath !== MEMORY_MD_PATH) {
           return {
             success: false,
             error: '文件路径必须在基础目录内'
@@ -3245,6 +3273,9 @@ app.whenReady().then(() => {
     callback(filePath)
   })
 
+  // 初始化 memory.md 文件
+  initMemoryMd()
+
   createWindow()
 
   // 仅在开发模式下注册开发者工具快捷键 (F12 或 Cmd/Ctrl+Shift+I)
@@ -3797,6 +3828,11 @@ ipcMain.handle('install-environment', async (event, items: string[]): Promise<En
   }
 
   return results
+})
+
+// 获取 memory.md 文件路径
+ipcMain.handle('get-memory-md-path', () => {
+  return MEMORY_MD_PATH
 })
 
 // 读取更新日志

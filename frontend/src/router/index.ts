@@ -60,10 +60,6 @@ const routes: RouteRecordRaw[] = [
     redirect: '/settings?tab=assistants'
   },
   {
-    path: '/global-memory',
-    redirect: '/settings?tab=memory'
-  },
-  {
     path: '/mcp',
     redirect: '/settings?tab=mcp'
   },

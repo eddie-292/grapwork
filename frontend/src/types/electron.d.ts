@@ -58,31 +58,6 @@ export interface EnvironmentInstallResult {
   requiresRestart?: boolean // 是否需要重启应用或终端
 }
 
-// 全局记忆类型
-export type GlobalMemoryType = 'preferences' | 'settings' | 'general_info' | 'custom'
-
-export interface GlobalMemoryEntry {
-  id: string
-  type: GlobalMemoryType
-  category: string
-  title: string
-  content: string
-  keywords: string[]
-  enabled: boolean
-  createdAt: number
-  updatedAt: number
-  metadata?: {
-    usageCount?: number
-    lastUsedAt?: number
-  }
-}
-
-export interface GlobalMemory {
-  entries: GlobalMemoryEntry[]
-  version: number
-  lastUpdated: number
-}
-
 // MCP 服务器配置
 export interface MCPServerConfig {
   id: string
@@ -162,8 +137,6 @@ interface ElectronAPI {
     messages: any[]
     extra_body?: string
   }) => Promise<{ success: boolean; error?: string; status?: number; headers?: Record<string, string> }>
-  getGlobalMemory: () => Promise<GlobalMemory>
-  saveGlobalMemory: (memory: GlobalMemory) => Promise<boolean>
   openExternal: (url: string) => Promise<void>
   // 在系统文件管理器中打开路径
   openPath: (path: string) => Promise<void>
@@ -234,6 +207,8 @@ interface ElectronAPI {
     content: string
     error?: string
   }>
+  // 获取 memory.md 文件路径
+  getMemoryMdPath: () => Promise<string>
   // Skills 技能系统
   skillsScan: () => Promise<SkillScanResult>
   skillsLoad: (skillId: string) => Promise<SkillLoadResult>

@@ -3,7 +3,6 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import MarkdownIt from 'markdown-it'
 import type Token from 'markdown-it/lib/token.mjs'
 import hljs from 'highlight.js'
-import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
 import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
 import MermaidDialog from './MermaidDialog.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
@@ -98,11 +97,6 @@ const enableThinking = computed(() => props.enableThinking ?? false)
 function handleThinkingToggle() {
   emit('update:enable-thinking', !enableThinking.value)
 }
-
-// 全局记忆对话框状态
-const showSaveToGlobalMemoryDialog = ref(false)
-const saveToGlobalMemoryContent = ref('')
-const saveToGlobalMemoryKeywords = ref<string[]>([])
 
 // HTML预览对话框状态
 const showHtmlPreview = ref(false)
@@ -270,17 +264,6 @@ function closeImagePreview() {
   previewImageUrl.value = ''
 }
 
-// 提取关键词的简单函数
-function extractKeywords(content: string): string[] {
-  // 简单分词（中英文混合）
-  const words = content
-    .toLowerCase()
-    .split(/[\s\u4e00-\u9fa5,;.!?。，；！？、]+/)
-    .filter(w => w.length > 1)
-  // 去重并返回前 5 个
-  return Array.from(new Set(words)).slice(0, 5)
-}
-
 // 获取消息内容的字符串形式
 function getContentAsString(content: MessageContent): string {
   if (typeof content === 'string') return content
@@ -298,14 +281,6 @@ function isErrorMessage(message: Message): boolean {
   const contentStr = getContentAsString(message.content)
   const errorPrefixes = ['对话失败', '任务执行失败', 'API 请求失败', 'API request failed', 'Maximum context length', 'context length', 'tokens']
   return errorPrefixes.some(prefix => contentStr.includes(prefix))
-}
-
-// 打开保存到全局记忆对话框
-function openSaveToGlobalMemoryDialog(content: MessageContent) {
-  const contentStr = getContentAsString(content)
-  saveToGlobalMemoryContent.value = contentStr
-  saveToGlobalMemoryKeywords.value = extractKeywords(contentStr)
-  showSaveToGlobalMemoryDialog.value = true
 }
 
 // Refs
@@ -608,6 +583,12 @@ function handleSend(e: Event) {
 
   // 如果技能选择器打开，不发送消息（让 handleKeydown 处理）
   if (showSkillSelector.value) {
+    return
+  }
+
+  // 如果没有选择文件夹，提示用户并阻止发送
+  if (!selectedFolderPath.value) {
+    alert('请先选择工作空间文件夹')
     return
   }
 
@@ -1106,9 +1087,6 @@ function scrollToBottom() {
                   <span v-if="copyStatus[i]?.md" class="success-icon">✓</span>
                   <span v-else>Copy Markdown</span>
                 </button>
-                <button class="copy-btn" @click="openSaveToGlobalMemoryDialog(m.content)" title="保存为全局记忆">
-                  + Global Memory
-                </button>
               </div>
             </div>
           </div>
@@ -1368,15 +1346,6 @@ function scrollToBottom() {
         </div>
       </div>
     </form>
-
-    <!-- 快速保存到全局记忆对话框 -->
-    <SaveToGlobalMemoryDialog
-      :show="showSaveToGlobalMemoryDialog"
-      :initial-content="saveToGlobalMemoryContent"
-      :initial-keywords="saveToGlobalMemoryKeywords"
-      @close="showSaveToGlobalMemoryDialog = false"
-      @saved="showSaveToGlobalMemoryDialog = false"
-    />
 
     <!-- HTML预览对话框 -->
     <HtmlPreviewDialog

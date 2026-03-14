@@ -13,9 +13,6 @@ export const StorageKey = {
   LLM_CONFIG_LIST: 'llm-config-list',
   HIGHLIGHT_THEME: 'highlight-theme',
 
-  // 全局记忆
-  GLOBAL_MEMORY: 'global-memory',
-
   // 助理系统
   ASSISTANT_LIST: 'assistant-list',
   ACTIVE_ASSISTANT_INDEX: 'active-assistant-index',
