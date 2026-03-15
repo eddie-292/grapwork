@@ -1679,7 +1679,6 @@ function handleFolderChanged(path: string) {
         <!-- 侧边栏底部固定区域 -->
         <div class="sidebar-footer">
           <div class="user-info">
-            <div class="user-avatar">{{ username.charAt(0).toUpperCase() }}</div>
             <div class="user-details">
               <div class="user-name">{{ username }}</div>
             </div>
@@ -2071,20 +2070,6 @@ function handleFolderChanged(path: string) {
   gap: 10px;
   flex: 1;
   min-width: 0;
-}
-
-.user-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: var(--color-primary);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  font-weight: 600;
-  flex-shrink: 0;
 }
 
 .user-details {
