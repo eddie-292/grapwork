@@ -38,6 +38,9 @@ export const StorageKey = {
   // 工作空间系统
   WORKSPACE_LIST: 'workspace-list',
   WORKSPACE_CHAT_HISTORY_PREFIX: 'workspace-chat-history-',
+
+  // Loop 定时任务系统
+  LOOP_TASK_REGISTRY: 'loop-task-registry',
 } as const
 
 export type StorageKey = typeof StorageKey[keyof typeof StorageKey]

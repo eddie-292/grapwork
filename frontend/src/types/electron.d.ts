@@ -271,6 +271,21 @@ interface ElectronAPI {
   selectImageFile: () => Promise<{ success: boolean; data?: string; error?: string }>
   // 将本地文件转换为 base64 data URL（用于图片编辑模式）
   localFileToBase64: (filePath: string) => Promise<{ success: boolean; data?: string; error?: string }>
+
+  // Loop 定时任务系统
+  loopListTasks: () => Promise<{ success: boolean; tasks: any[]; error?: string }>
+  loopGetTask: (taskId: string) => Promise<{ success: boolean; task?: any; error?: string }>
+  loopCreateTask: (params: any) => Promise<{ success: boolean; task?: any; error?: string }>
+  loopUpdateTask: (taskId: string, params: any) => Promise<{ success: boolean; task?: any; error?: string }>
+  loopDeleteTask: (taskId: string) => Promise<{ success: boolean; error?: string }>
+  loopPauseTask: (taskId: string) => Promise<{ success: boolean; error?: string }>
+  loopResumeTask: (taskId: string) => Promise<{ success: boolean; error?: string }>
+  loopExecuteNow: (taskId: string) => Promise<{ success: boolean; execution?: any; error?: string }>
+  loopParseInterval: (expression: string) => Promise<{ success: boolean; parsed?: any; error?: string }>
+  loopGetStatus: () => Promise<{ success: boolean; status?: any; error?: string }>
+  // Loop 任务执行完成事件
+  onLoopTaskExecuted: (callback: (data: { taskId: string; execution: any }) => void) => void
+  removeLoopTaskExecutedListener: () => void
 }
 
 declare global {

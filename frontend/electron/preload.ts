@@ -177,4 +177,33 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 将本地文件转换为 base64 data URL（用于图片编辑模式）
   localFileToBase64: (filePath: string) =>
     ipcRenderer.invoke('local-file-to-base64', filePath),
+
+  // Loop 定时任务系统
+  loopListTasks: () =>
+    ipcRenderer.invoke('loop-list-tasks'),
+  loopGetTask: (taskId: string) =>
+    ipcRenderer.invoke('loop-get-task', taskId),
+  loopCreateTask: (params: any) =>
+    ipcRenderer.invoke('loop-create-task', params),
+  loopUpdateTask: (taskId: string, params: any) =>
+    ipcRenderer.invoke('loop-update-task', taskId, params),
+  loopDeleteTask: (taskId: string) =>
+    ipcRenderer.invoke('loop-delete-task', taskId),
+  loopPauseTask: (taskId: string) =>
+    ipcRenderer.invoke('loop-pause-task', taskId),
+  loopResumeTask: (taskId: string) =>
+    ipcRenderer.invoke('loop-resume-task', taskId),
+  loopExecuteNow: (taskId: string) =>
+    ipcRenderer.invoke('loop-execute-now', taskId),
+  loopParseInterval: (expression: string) =>
+    ipcRenderer.invoke('loop-parse-interval', expression),
+  loopGetStatus: () =>
+    ipcRenderer.invoke('loop-get-status'),
+  // Loop 任务执行完成事件
+  onLoopTaskExecuted: (callback: (data: { taskId: string; execution: any }) => void) => {
+    ipcRenderer.on('loop-task-executed', (_event, data) => callback(data))
+  },
+  removeLoopTaskExecutedListener: () => {
+    ipcRenderer.removeAllListeners('loop-task-executed')
+  },
 })

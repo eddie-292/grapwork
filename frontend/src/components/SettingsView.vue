@@ -20,11 +20,13 @@ import TrashIcon from './icons/TrashIcon.vue'
 import UsersIcon from './icons/UsersIcon.vue'
 import CloudSyncPanel from './settings/CloudSyncPanel.vue'
 import CloudIcon from './icons/CloudIcon.vue'
+import ClockIcon from './icons/ClockIcon.vue'
+import LoopView from './LoopView.vue'
 
 const router = useRouter()
 const route = useRoute()
 
-type SettingsTab = 'llm' | 'theme' | 'assistants' | 'mcp' | 'skills' | 'teams' | 'environment' | 'changelog' | 'sync'
+type SettingsTab = 'llm' | 'theme' | 'assistants' | 'mcp' | 'skills' | 'teams' | 'environment' | 'changelog' | 'sync' | 'loop'
 
 // 从 query 参数获取当前标签，默认为 llm
 const activeTab = ref<SettingsTab>((route.query.tab as SettingsTab) || 'llm')
@@ -43,6 +45,7 @@ const navItems = computed(() => [
   { id: 'assistants' as SettingsTab, label: '社区助理', icon: 'robot' },
   { id: 'mcp' as SettingsTab, label: 'MCP 服务器', icon: 'zap' },
   { id: 'skills' as SettingsTab, label: '技能管理', icon: 'book-open' },
+  { id: 'loop' as SettingsTab, label: '定时任务', icon: 'clock' },
   { id: 'environment' as SettingsTab, label: '环境检测', icon: 'search' },
   { id: 'changelog' as SettingsTab, label: '更新日志', icon: 'scroll' },
   { id: 'sync' as SettingsTab, label: '云同步', icon: 'cloud' },
@@ -96,6 +99,7 @@ async function clearChatHistory() {
               <SearchIcon v-else-if="item.icon === 'search'" :size="18" />
               <ScrollIcon v-else-if="item.icon === 'scroll'" :size="18" />
               <CloudIcon v-else-if="item.icon === 'cloud'" :size="18" />
+              <ClockIcon v-else-if="item.icon === 'clock'" :size="18" />
             </span>
             <span class="nav-label">{{ item.label }}</span>
           </button>
@@ -146,6 +150,9 @@ async function clearChatHistory() {
 
             <!-- 更新日志 -->
             <ChangelogView v-else-if="activeTab === 'changelog'" />
+
+            <!-- 定时任务 -->
+            <LoopView v-else-if="activeTab === 'loop'" />
 
             <!-- 云同步 -->
             <CloudSyncPanel v-else-if="activeTab === 'sync'" />

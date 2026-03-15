@@ -9,6 +9,8 @@ import type { Workspace } from '../types/workspace'
 import { useGlobalMemory } from '../composables/useGlobalMemory'
 import { useMCP } from '../composables/useMCP'
 import { useSkills } from '../composables/useSkills'
+import { useLoop } from '../composables/useLoop'
+import type { LoopTask } from '../types/loop'
 import NormalChat from './NormalChat.vue'
 import WorkspaceView from './WorkspaceView.vue'
 import ChatTabBar from './ChatTabBar.vue'
@@ -29,6 +31,9 @@ const mcpManager = useMCP()
 
 // Skills 管理器
 const skillsManager = useSkills()
+
+// Loop 定时任务管理器
+const loopManager = useLoop()
 
 // HTML预览对话框状态
 const showHtmlPreview = ref(false)
@@ -633,6 +638,13 @@ async function send(images: string[] = []) {
   const text = input.value.trim()
   if ((!text && images.length === 0) || (currentChat.value?.sending)) return
 
+  // 处理 /loop 指令
+  const loopResult = await handleLoopCommand(text)
+  if (loopResult) {
+    input.value = ''
+    return
+  }
+
   if (!activeConfig.value?.apiKey) {
     alert('请先配置并启用一个 LLM 接口')
     router.push('/settings')
@@ -648,6 +660,111 @@ async function send(images: string[] = []) {
 
   // 普通对话流程（默认）
   await executeNormalChat(text, images)
+}
+
+/**
+ * 处理 /loop 定时任务指令
+ * 格式: /loop [时间表达式] [任务描述]
+ * 示例: /loop 5m 检查API服务状态
+ */
+async function handleLoopCommand(text: string): Promise<boolean> {
+  // 匹配 /loop 指令
+  const loopMatch = text.match(/^\/loop\s+(\S+)\s+(.+)$/i)
+  if (!loopMatch) {
+    // 检查是否是 /loop 相关指令
+    if (text.match(/^\/loop\s*$/i)) {
+      // 显示帮助信息
+      addSystemMessage('**Loop 定时任务帮助**\n\n' +
+        '用法: `/loop [时间] [任务描述]`\n\n' +
+        '**时间表达式:**\n' +
+        '- `30s` - 30秒 (最小1分钟)\n' +
+        '- `5m` - 5分钟\n' +
+        '- `2h` - 2小时\n' +
+        '- `1d` - 1天\n\n' +
+        '**示例:**\n' +
+        '- `/loop 5m 检查API状态`\n' +
+        '- `/loop 1h 提醒我休息`\n' +
+        '- `/loop 1d 生成每日报告`')
+      return true
+    }
+    return false
+  }
+
+  const interval = loopMatch[1]
+  const description = loopMatch[2]
+
+  if (!interval || !description) {
+    return false
+  }
+
+  try {
+    // 解析时间表达式
+    const parsed = await loopManager.parseInterval(interval)
+    if (!parsed || !parsed.isValid) {
+      addSystemMessage(`❌ 时间表达式无效: "${interval}"\n\n支持格式: 30s, 5m, 2h, 1d (最小1分钟)`)
+      return true
+    }
+
+    // 创建定时任务
+    const task = await loopManager.createTask({
+      name: description,
+      description: `由对话创建: ${description}`,
+      interval: interval,
+      type: 'chat',
+      payload: {
+        prompt: description
+      },
+      maxRetries: 2,
+      retryDelay: 5000
+    })
+
+    if (task) {
+      const formatInterval = (ms: number): string => {
+        if (ms < 60000) return `${ms / 1000}秒`
+        if (ms < 3600000) return `${ms / 60000}分钟`
+        if (ms < 86400000) return `${ms / 3600000}小时`
+        return `${ms / 86400000}天`
+      }
+
+      const nextTime = new Date(Date.now() + parsed.milliseconds).toLocaleString('zh-CN')
+
+      addSystemMessage(
+        `✅ **定时任务已创建**\n\n` +
+        `**任务名称:** ${description}\n` +
+        `**执行间隔:** ${formatInterval(parsed.milliseconds)}\n` +
+        `**任务ID:** ${task.id}\n` +
+        `**下次执行:** ${nextTime}\n\n` +
+        `_任务将在后台自动执行，执行结果会通知您_`
+      )
+    } else {
+      addSystemMessage(`❌ 创建任务失败: ${loopManager.error || '未知错误'}`)
+    }
+  } catch (e: any) {
+    addSystemMessage(`❌ 处理指令失败: ${e?.message || '未知错误'}`)
+  }
+
+  return true
+}
+
+/**
+ * 添加系统消息到当前聊天
+ */
+function addSystemMessage(content: string) {
+  if (!currentChat.value) {
+    createNewChat()
+  }
+
+  const systemMessage = {
+    id: `sys-${Date.now()}`,
+    role: 'assistant' as const,
+    content: content,
+    timestamp: Date.now(),
+    isSystem: true
+  }
+
+  currentChat.value?.messages.push(systemMessage)
+  saveChatHistory()
+  scrollToBottom()
 }
 
 function cancel() {
@@ -1813,12 +1930,51 @@ onMounted(async () => {
   // 设置命令确认回调
   mcpManager.setCommandConfirmCallback(handleCommandConfirm)
 
+  // 监听 Loop 任务执行完成事件
+  if (window.electronAPI?.onLoopTaskExecuted) {
+    window.electronAPI.onLoopTaskExecuted(({ taskId, execution }: { taskId: string; execution: any }) => {
+      const task = loopManager.tasks.value.find((t: LoopTask) => t.id === taskId)
+      if (task) {
+        const statusIcon = execution.status === 'success' ? '✅' : '❌'
+        const timeStr = new Date(execution.completedAt || Date.now()).toLocaleString('zh-CN')
+
+        let resultContent = ''
+        if (execution.status === 'success' && execution.result) {
+          if (execution.result.response) {
+            // Chat 类型任务
+            resultContent = `\n\n**响应:** ${execution.result.response}`
+          } else if (execution.result.stdout !== undefined) {
+            // Command 类型任务
+            resultContent = `\n\n**输出:**\n\`\`\`\n${execution.result.stdout}\n\`\`\``
+          } else if (execution.result.data) {
+            // API 类型任务
+            resultContent = `\n\n**结果:** ${JSON.stringify(execution.result.data, null, 2)}`
+          }
+        } else if (execution.error) {
+          resultContent = `\n\n**错误:** ${execution.error}`
+        }
+
+        addSystemMessage(
+          `${statusIcon} **定时任务执行完成**\n\n` +
+          `**任务:** ${task.name}\n` +
+          `**时间:** ${timeStr}\n` +
+          `**状态:** ${execution.status === 'success' ? '成功' : '失败'}` +
+          resultContent
+        )
+      }
+    })
+  }
+
   scrollToBottom()
 })
 
 onUnmounted(() => {
   // 清理命令确认回调
   mcpManager.setCommandConfirmCallback(null)
+  // 清理 Loop 任务执行监听
+  if (window.electronAPI?.removeLoopTaskExecutedListener) {
+    window.electronAPI.removeLoopTaskExecutedListener()
+  }
   // 中止所有正在进行的流式请求
   for (const id in controllers.value) {
     if (controllers.value[id]) {

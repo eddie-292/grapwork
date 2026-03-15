@@ -3,6 +3,7 @@ import ChatView from '../components/ChatView.vue'
 import LoginView from '../components/LoginView.vue'
 import SettingsView from '../components/SettingsView.vue'
 import EnvironmentCheckView from '../components/EnvironmentCheckView.vue'
+import LoopView from '../components/LoopView.vue'
 import { storage } from '../services/StorageService'
 
 // 检查登录状态（兼容旧版本 localStorage）
@@ -52,6 +53,12 @@ const routes: RouteRecordRaw[] = [
     path: '/settings',
     name: 'Settings',
     component: SettingsView,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/loop',
+    name: 'Loop',
+    component: LoopView,
     meta: { requiresAuth: true }
   },
   // 重定向旧路由到统一设置页面
