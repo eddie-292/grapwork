@@ -34,6 +34,10 @@ export const StorageKey = {
   // 生图模式
   IMAGE_GENERATOR_CONFIG: 'image-generator-config',
   IMAGE_GENERATOR_HISTORY: 'image-generator-history',
+
+  // 工作空间系统
+  WORKSPACE_LIST: 'workspace-list',
+  WORKSPACE_CHAT_HISTORY_PREFIX: 'workspace-chat-history-',
 } as const
 
 export type StorageKey = typeof StorageKey[keyof typeof StorageKey]

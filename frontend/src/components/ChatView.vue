@@ -5,12 +5,14 @@ import MarkdownIt from 'markdown-it'
 import type Token from 'markdown-it/lib/token.mjs'
 import hljs from 'highlight.js'
 import type { ConfigList, AssistantList } from '../types/electron'
+import type { Workspace } from '../types/workspace'
 import { useGlobalMemory } from '../composables/useGlobalMemory'
 import { useMCP } from '../composables/useMCP'
 import { useSkills } from '../composables/useSkills'
 import NormalChat from './NormalChat.vue'
 import WorkspaceView from './WorkspaceView.vue'
 import ChatTabBar from './ChatTabBar.vue'
+import WorkspaceSwitcher from './WorkspaceSwitcher.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
 import MermaidDialog from './MermaidDialog.vue'
@@ -257,6 +259,10 @@ const currentChatId = ref<string | null>(null)
 const input = ref('')
 const controllers = ref<Record<string, AbortController>>({})
 const showSidebar = ref(true)
+
+// 工作空间状态
+const workspaceList = ref<Workspace[]>([])
+const currentWorkspaceId = ref<string | null>(null)
 
 // 用户名（用于侧边栏底部显示）
 const username = ref('')
@@ -1572,12 +1578,17 @@ function resetParams() {
 }
 
 async function saveChatHistory() {
-  await storage.saveChatHistory(chatList.value)
+  if (!currentWorkspaceId.value) return
+  await storage.saveWorkspaceChatHistory(currentWorkspaceId.value, chatList.value)
 }
 
 async function loadChatHistory() {
+  if (!currentWorkspaceId.value) {
+    createNewChat()
+    return
+  }
   try {
-    const history = await storage.getChatHistory()
+    const history = await storage.getWorkspaceChatHistory(currentWorkspaceId.value)
     chatList.value = history
     if (chatList.value.length > 0) {
       currentChatId.value = chatList.value[0]?.id ?? null
@@ -1611,7 +1622,183 @@ function cancelLogout() {
   showLogoutConfirmDialog.value = false
 }
 
+// ==================== 工作空间管理 ====================
+
+// 从路径提取文件夹名称
+function extractFolderName(path: string): string {
+  if (!path) return '新工作空间'
+  const parts = path.replace(/\\/g, '/').split('/')
+  return parts[parts.length - 1] || '新工作空间'
+}
+
+// 从单工作空间迁移数据
+async function migrateFromSingleWorkspace(): Promise<boolean> {
+  const list = await storage.getWorkspaceList()
+  if (list.workspaces.length > 0) return false // 已迁移
+
+  const oldHistory = await storage.getChatHistory()
+  const oldFolder = await storage.getSelectedFolder()
+
+  if (oldHistory.length === 0 && !oldFolder) {
+    // 没有旧数据，创建空的默认工作空间
+    const defaultWorkspace: Workspace = {
+      id: 'default',
+      name: '默认工作空间',
+      folderPath: '',
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    }
+    await storage.saveWorkspaceList({
+      workspaces: [defaultWorkspace],
+      activeWorkspaceId: defaultWorkspace.id
+    })
+    return true
+  }
+
+  // 从旧数据迁移
+  const defaultWorkspace: Workspace = {
+    id: 'default',
+    name: '默认工作空间',
+    folderPath: oldFolder || '',
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  }
+
+  await storage.saveWorkspaceList({
+    workspaces: [defaultWorkspace],
+    activeWorkspaceId: defaultWorkspace.id
+  })
+
+  if (oldHistory.length > 0) {
+    await storage.saveWorkspaceChatHistory(defaultWorkspace.id, oldHistory)
+  }
+
+  return true
+}
+
+// 切换工作空间
+async function switchWorkspace(workspaceId: string) {
+  if (workspaceId === currentWorkspaceId.value) return
+
+  // 保存当前工作空间的聊天历史
+  await saveChatHistory()
+
+  // 切换工作空间
+  currentWorkspaceId.value = workspaceId
+  await storage.setActiveWorkspace(workspaceId)
+
+  // 更新文件夹路径
+  const workspace = workspaceList.value.find(w => w.id === workspaceId)
+  if (workspace) {
+    currentFolder.value = workspace.folderPath
+    mcpManager.setSelectedFolder(workspace.folderPath)
+    // 保存到存储
+    await storage.saveSelectedFolder(workspace.folderPath)
+  }
+
+  // 加载新工作空间的聊天历史
+  await loadChatHistory()
+
+  // 清除目录结构缓存
+  directoryStructureCache.value = ''
+  directoryStructureCacheTime.value = 0
+}
+
+// 创建新工作空间
+async function createWorkspace() {
+  try {
+    const result = await window.electronAPI?.selectFolder()
+    if (!result?.success || !result.path) return
+
+    // 检查是否已存在相同路径的工作空间
+    const exists = workspaceList.value.some(w => w.folderPath === result.path)
+    if (exists) {
+      alert('该文件夹已创建工作空间')
+      return
+    }
+
+    const newWorkspace: Workspace = {
+      id: Date.now().toString(),
+      name: extractFolderName(result.path),
+      folderPath: result.path,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    }
+
+    // 添加到列表
+    workspaceList.value.push(newWorkspace)
+    await storage.saveWorkspaceList({
+      workspaces: workspaceList.value,
+      activeWorkspaceId: currentWorkspaceId.value
+    })
+
+    // 切换到新工作空间
+    await switchWorkspace(newWorkspace.id)
+  } catch (e) {
+    console.error('Failed to create workspace:', e)
+  }
+}
+
+// 重命名工作空间
+async function renameWorkspace(workspaceId: string, newName: string) {
+  const workspace = workspaceList.value.find(w => w.id === workspaceId)
+  if (!workspace) return
+
+  workspace.name = newName
+  workspace.updatedAt = Date.now()
+
+  await storage.updateWorkspace(workspace)
+}
+
+// 删除工作空间
+async function deleteWorkspace(workspaceId: string) {
+  if (workspaceList.value.length <= 1) {
+    alert('至少需要保留一个工作空间')
+    return
+  }
+
+  if (!confirm('确定要删除此工作空间吗？该工作空间的所有聊天记录将被删除。')) {
+    return
+  }
+
+  // 如果删除的是当前工作空间，先切换到其他工作空间
+  if (workspaceId === currentWorkspaceId.value) {
+    const otherWorkspace = workspaceList.value.find(w => w.id !== workspaceId)
+    if (otherWorkspace) {
+      await switchWorkspace(otherWorkspace.id)
+    }
+  }
+
+  // 从列表中移除
+  workspaceList.value = workspaceList.value.filter(w => w.id !== workspaceId)
+  await storage.deleteWorkspace(workspaceId)
+}
+
+// 加载工作空间
+async function loadWorkspaces() {
+  await migrateFromSingleWorkspace()
+
+  const list = await storage.getWorkspaceList()
+  workspaceList.value = list.workspaces
+  currentWorkspaceId.value = list.activeWorkspaceId
+
+  // 如果没有激活的工作空间，选择第一个
+  if (!currentWorkspaceId.value && workspaceList.value.length > 0) {
+    currentWorkspaceId.value = workspaceList.value[0]?.id ?? null
+  }
+
+  // 设置当前文件夹
+  const activeWorkspace = workspaceList.value.find(w => w.id === currentWorkspaceId.value)
+  if (activeWorkspace) {
+    currentFolder.value = activeWorkspace.folderPath
+    mcpManager.setSelectedFolder(activeWorkspace.folderPath)
+  }
+}
+
 onMounted(async () => {
+  // 先加载工作空间（包含迁移逻辑）
+  await loadWorkspaces()
+  // 加载当前工作空间的聊天历史
   await loadChatHistory()
   await loadConfig()
   await loadAssistants()
@@ -1621,13 +1808,6 @@ onMounted(async () => {
   const savedUsername = await storage.getUsername()
   if (savedUsername) {
     username.value = savedUsername
-  }
-
-  // 加载选中的文件夹并同步到 mcpManager 和 currentFolder
-  const savedFolder = await storage.getSelectedFolder()
-  if (savedFolder) {
-    mcpManager.setSelectedFolder(savedFolder)
-    currentFolder.value = savedFolder
   }
 
   // 设置命令确认回调
@@ -1671,6 +1851,16 @@ function handleFolderChanged(path: string) {
     </div>
     <div class="container">
       <aside class="sidebar" :class="{ collapsed: !showSidebar }">
+        <!-- 工作空间切换器 -->
+        <WorkspaceSwitcher
+          :workspaces="workspaceList"
+          :active-id="currentWorkspaceId"
+          @switch="switchWorkspace"
+          @create="createWorkspace"
+          @rename="renameWorkspace"
+          @delete="deleteWorkspace"
+        />
+
         <!-- 工作空间内容 -->
         <div class="workspace-wrapper">
           <WorkspaceView :current-folder="currentFolder" />

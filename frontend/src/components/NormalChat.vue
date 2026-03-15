@@ -7,13 +7,10 @@ import katex from '@traptitech/markdown-it-katex'
 import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
 import MermaidDialog from './MermaidDialog.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
-import { storage } from '@/services/StorageService'
 import { useSkills } from '@/composables/useSkills'
 import CopyIcon from './icons/CopyIcon.vue'
 import ChevronDownIcon from './icons/ChevronDownIcon.vue'
 import ChevronRightIcon from './icons/ChevronRightIcon.vue'
-import FolderIcon from './icons/FolderIcon.vue'
-import FolderOpenIcon from './icons/FolderOpenIcon.vue'
 import CheckIcon from './icons/CheckIcon.vue'
 import XIcon from './icons/XIcon.vue'
 import ArrowUpIcon from './icons/ArrowUpIcon.vue'
@@ -107,10 +104,6 @@ const htmlPreviewContent = ref('')
 const showMermaidPreview = ref(false)
 const mermaidPreviewContent = ref('')
 
-// 选中的文件夹路径
-const selectedFolderPath = ref<string>('')
-// 文件夹对话框状态
-const showFolderDialog = ref(false)
 // 设置弹出框状态
 const showSettingsPopover = ref(false)
 
@@ -587,12 +580,6 @@ function handleSend(e: Event) {
     return
   }
 
-  // 如果没有选择文件夹，提示用户并阻止发送
-  if (!selectedFolderPath.value) {
-    alert('请先选择工作空间文件夹')
-    return
-  }
-
   const images = [...attachedImages.value]
 
   // If skill is selected, emit with skill prefix
@@ -763,11 +750,6 @@ onMounted(async () => {
     const base64Code = btn.getAttribute('data-mermaid-code') || ''
     openMermaidPreview(base64Code)
   }
-  // 加载已保存的文件夹路径
-  const savedFolder = await storage.getSelectedFolder()
-  if (savedFolder) {
-    selectedFolderPath.value = savedFolder
-  }
   // 加载技能列表
   await skillsManager.loadRegistry()
   // 添加点击外部关闭弹出框的事件监听
@@ -818,40 +800,6 @@ async function handleLinkClick(e: MouseEvent) {
       }
     }
   }
-}
-
-// 选择文件夹
-function handleSelectFolder() {
-  showFolderDialog.value = true
-}
-
-// 从对话框选择文件夹
-async function selectFolderFromDialog() {
-  if (window.electronAPI?.selectFolder) {
-    try {
-      const result = await window.electronAPI.selectFolder()
-      if (result.success && result.path) {
-        selectedFolderPath.value = result.path
-        await storage.saveSelectedFolder(result.path)
-        // 通知父组件文件夹已更改
-        emit('folder-changed', result.path)
-        // 清空助理选择
-        emit('clear-assistant')
-        showFolderDialog.value = false
-      }
-    } catch (err) {
-      console.error('Failed to select folder:', err)
-      alert('选择文件夹失败')
-    }
-  }
-}
-
-// 清除文件夹
-async function handleClearFolder() {
-  selectedFolderPath.value = ''
-  await storage.clearSelectedFolder()
-  emit('folder-changed', '')
-  showFolderDialog.value = false
 }
 
 // 格式化 token 数量显示
@@ -1181,18 +1129,6 @@ function scrollToBottom() {
         </div>
         <!-- 操作栏 - 单行布局 -->
         <div class="action-bar">
-          <!-- 左侧：工作空间选择 -->
-          <button
-            type="button"
-            class="action-btn workspace-btn"
-            :class="{ active: selectedFolderPath }"
-            @click="handleSelectFolder"
-            :title="selectedFolderPath || '选择工作空间'"
-          >
-            <FolderIcon :size="16" />
-            <span class="btn-text">{{ selectedFolderPath ? (selectedFolderPath.split('/').pop() || selectedFolderPath.split('\\').pop()) : '工作空间' }}</span>
-          </button>
-
           <!-- 中间：模型选择器 -->
           <div class="settings-wrapper">
             <button
@@ -1370,37 +1306,6 @@ function scrollToBottom() {
             <XIcon :size="20" />
           </button>
           <img :src="previewImageUrl" class="image-preview-full" @click.stop />
-        </div>
-      </div>
-    </Transition>
-
-    <!-- 文件夹选择对话框 -->
-    <Transition name="modal">
-      <div v-if="showFolderDialog" class="dialog-overlay" @click.self="showFolderDialog = false">
-        <div class="dialog-content folder-dialog">
-          <h3 class="folder-dialog-title">
-            <FolderIcon :size="20" />
-            选择文件夹
-          </h3>
-          <div v-if="selectedFolderPath" class="current-folder">
-            <span class="folder-label">当前选中的文件夹</span>
-            <span class="folder-path" :title="selectedFolderPath">{{ selectedFolderPath }}</span>
-          </div>
-          <div v-else class="no-folder">
-            <FolderOpenIcon :size="32" />
-            <span>暂未选择文件夹</span>
-          </div>
-          <div class="dialog-actions">
-            <button v-if="selectedFolderPath" type="button" class="dialog-btn danger" @click="handleClearFolder">
-              清除
-            </button>
-            <button type="button" class="dialog-btn primary" @click="selectFolderFromDialog">
-              {{ selectedFolderPath ? '更换文件夹' : '选择文件夹' }}
-            </button>
-            <button type="button" class="dialog-btn ghost" @click="showFolderDialog = false">
-              取消
-            </button>
-          </div>
         </div>
       </div>
     </Transition>
@@ -2128,39 +2033,6 @@ function scrollToBottom() {
   flex-shrink: 0;
 }
 
-/* 工作空间按钮 */
-.workspace-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 10px;
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  color: var(--color-text-secondary);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-  max-width: 100px;
-  overflow: hidden;
-}
-
-.workspace-btn:hover {
-  border-color: var(--color-border-hover);
-  color: var(--color-text-primary);
-}
-
-.workspace-btn.active {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
-.workspace-btn .btn-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 /* 模型选择器 */
 .model-selector {
   display: flex;
@@ -2506,78 +2378,6 @@ function scrollToBottom() {
   max-width: 90vw;
   max-height: 90vh;
   overflow: auto;
-}
-
-.folder-dialog {
-  min-width: 400px;
-  max-width: 600px;
-}
-
-.folder-dialog h3 {
-  margin: 0 0 20px 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  text-align: center;
-}
-
-.folder-dialog-title {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-}
-
-.folder-dialog-title svg {
-  color: var(--color-primary);
-}
-
-.current-folder {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 16px;
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  margin-bottom: 20px;
-}
-
-.no-folder {
-  padding: 32px 16px;
-  background: var(--color-bg-tertiary);
-  border: 1px dashed var(--color-border);
-  border-radius: 8px;
-  margin-bottom: 20px;
-  color: var(--color-text-tertiary);
-  text-align: center;
-  font-size: 14px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
-
-.no-folder svg {
-  color: var(--color-text-tertiary);
-}
-
-.folder-dialog .folder-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.folder-dialog .folder-path {
-  font-size: 14px;
-  color: var(--color-text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: 'SF Mono', Monaco, 'Andale Mono', "JetBrains Mono", Menlo, Consolas, monospace;
-  word-break: break-all;
 }
 
 .dialog-actions {

@@ -4,6 +4,6 @@ import IconBase from './IconBase.vue'
 
 <template>
   <IconBase viewBox="0 0 24 24">
-    <path d="M18 10h-1.26A8 8 0 1 0 9 9h2M18 10a4 4 0 0 1 4 4h3a4 4 0 0 1-4 4H3a4 4 0 0 1 4-4h4.26A8.001 8.001 0 1 0 9 9h2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z" />
   </IconBase>
 </template>

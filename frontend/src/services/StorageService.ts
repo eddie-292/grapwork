@@ -21,6 +21,7 @@ import type { Chat } from '@/types/chat';
 import type { MCPServerList } from '@/types/mcp';
 import type { SkillRegistry } from '@/types/skill';
 import type { ImageGeneratorConfigList, ImageGeneratorHistory } from '@/types/imageGenerator';
+import type { WorkspaceList, Workspace } from '@/types/workspace';
 
 /**
  * 默认内置助理的System Prompt
@@ -517,6 +518,101 @@ export class StorageService {
   async saveImageGeneratorHistory(history: ImageGeneratorHistory): Promise<boolean> {
     const result = await this.set(StorageKey.IMAGE_GENERATOR_HISTORY, history);
     return result.success;
+  }
+
+  // ==================== 工作空间系统 ====================
+
+  /**
+   * 获取工作空间列表
+   */
+  async getWorkspaceList(): Promise<WorkspaceList> {
+    const result = await this.get<WorkspaceList>(StorageKey.WORKSPACE_LIST)
+    return result.data ?? { workspaces: [], activeWorkspaceId: null }
+  }
+
+  /**
+   * 保存工作空间列表
+   */
+  async saveWorkspaceList(list: WorkspaceList): Promise<boolean> {
+    const result = await this.set(StorageKey.WORKSPACE_LIST, list)
+    return result.success
+  }
+
+  /**
+   * 获取指定工作空间的聊天历史
+   */
+  async getWorkspaceChatHistory(workspaceId: string): Promise<Chat[]> {
+    const key = `${StorageKey.WORKSPACE_CHAT_HISTORY_PREFIX}${workspaceId}`
+    const result = await this.get<Chat[]>(key)
+    return result.data ?? []
+  }
+
+  /**
+   * 保存指定工作空间的聊天历史
+   */
+  async saveWorkspaceChatHistory(workspaceId: string, history: Chat[]): Promise<boolean> {
+    const key = `${StorageKey.WORKSPACE_CHAT_HISTORY_PREFIX}${workspaceId}`
+    const result = await this.set<Chat[]>(key, history)
+    return result.success
+  }
+
+  /**
+   * 删除指定工作空间的聊天历史
+   */
+  async deleteWorkspaceChatHistory(workspaceId: string): Promise<boolean> {
+    const key = `${StorageKey.WORKSPACE_CHAT_HISTORY_PREFIX}${workspaceId}`
+    const result = await this.delete(key)
+    return result.success
+  }
+
+  /**
+   * 获取当前激活工作空间的 ID
+   */
+  async getActiveWorkspaceId(): Promise<string | null> {
+    const list = await this.getWorkspaceList()
+    return list.activeWorkspaceId
+  }
+
+  /**
+   * 设置当前激活工作空间
+   */
+  async setActiveWorkspace(workspaceId: string): Promise<boolean> {
+    const list = await this.getWorkspaceList()
+    list.activeWorkspaceId = workspaceId
+    return this.saveWorkspaceList(list)
+  }
+
+  /**
+   * 添加新工作空间
+   */
+  async addWorkspace(workspace: Workspace): Promise<boolean> {
+    const list = await this.getWorkspaceList()
+    list.workspaces.push(workspace)
+    return this.saveWorkspaceList(list)
+  }
+
+  /**
+   * 更新工作空间
+   */
+  async updateWorkspace(workspace: Workspace): Promise<boolean> {
+    const list = await this.getWorkspaceList()
+    const index = list.workspaces.findIndex(w => w.id === workspace.id)
+    if (index === -1) return false
+    list.workspaces[index] = { ...workspace, updatedAt: Date.now() }
+    return this.saveWorkspaceList(list)
+  }
+
+  /**
+   * 删除工作空间（同时删除其聊天历史）
+   */
+  async deleteWorkspace(workspaceId: string): Promise<boolean> {
+    const list = await this.getWorkspaceList()
+    list.workspaces = list.workspaces.filter(w => w.id !== workspaceId)
+    if (list.activeWorkspaceId === workspaceId) {
+      list.activeWorkspaceId = list.workspaces[0]?.id ?? null
+    }
+    await this.deleteWorkspaceChatHistory(workspaceId)
+    return this.saveWorkspaceList(list)
   }
 }
 
