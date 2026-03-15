@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import MarkdownIt from 'markdown-it'
 import type Token from 'markdown-it/lib/token.mjs'
 import hljs from 'highlight.js'
+import katex from '@traptitech/markdown-it-katex'
 import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
 import MermaidDialog from './MermaidDialog.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
@@ -394,7 +395,7 @@ const md: MarkdownIt = new MarkdownIt({
       return md.utils.escapeHtml(str)
     }
   },
-})
+}).use(katex, { throwOnError: false, errorColor: ' #cc0000' })
 
 // Custom code block renderer with copy button
 md.renderer.rules.fence = (tokens: Token[], idx: number) => {
@@ -1417,6 +1418,11 @@ function scrollToBottom() {
     />
   </main>
 </template>
+
+<style>
+/* KaTeX CSS for LaTeX rendering */
+@import 'katex/dist/katex.min.css';
+</style>
 
 <style scoped>
 .main {

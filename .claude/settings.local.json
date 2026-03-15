@@ -31,7 +31,8 @@
       "Bash(rd:*)",
       "Bash(powershell -Command:*)",
       "Bash(where:*)",
-      "Bash(if:*)"
+      "Bash(if:*)",
+      "Bash(npx run:*)"
     ]
   }
 }

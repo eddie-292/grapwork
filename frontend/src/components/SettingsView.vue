@@ -18,11 +18,13 @@ import SearchIcon from './icons/SearchIcon.vue'
 import ScrollIcon from './icons/ScrollIcon.vue'
 import TrashIcon from './icons/TrashIcon.vue'
 import UsersIcon from './icons/UsersIcon.vue'
+import CloudSyncPanel from './settings/CloudSyncPanel.vue'
+import CloudIcon from './icons/CloudIcon.vue'
 
 const router = useRouter()
 const route = useRoute()
 
-type SettingsTab = 'llm' | 'theme' | 'assistants' | 'mcp' | 'skills' | 'teams' | 'environment' | 'changelog'
+type SettingsTab = 'llm' | 'theme' | 'assistants' | 'mcp' | 'skills' | 'teams' | 'environment' | 'changelog' | 'sync'
 
 // 从 query 参数获取当前标签，默认为 llm
 const activeTab = ref<SettingsTab>((route.query.tab as SettingsTab) || 'llm')
@@ -43,6 +45,7 @@ const navItems = computed(() => [
   { id: 'skills' as SettingsTab, label: '技能管理', icon: 'book-open' },
   { id: 'environment' as SettingsTab, label: '环境检测', icon: 'search' },
   { id: 'changelog' as SettingsTab, label: '更新日志', icon: 'scroll' },
+  { id: 'sync' as SettingsTab, label: '云同步', icon: 'cloud' },
 ])
 
 function switchTab(tab: SettingsTab) {
@@ -92,6 +95,7 @@ async function clearChatHistory() {
               <UsersIcon v-else-if="item.icon === 'users'" :size="18" />
               <SearchIcon v-else-if="item.icon === 'search'" :size="18" />
               <ScrollIcon v-else-if="item.icon === 'scroll'" :size="18" />
+              <CloudIcon v-else-if="item.icon === 'cloud'" :size="18" />
             </span>
             <span class="nav-label">{{ item.label }}</span>
           </button>
@@ -142,6 +146,9 @@ async function clearChatHistory() {
 
             <!-- 更新日志 -->
             <ChangelogView v-else-if="activeTab === 'changelog'" />
+
+            <!-- 云同步 -->
+            <CloudSyncPanel v-else-if="activeTab === 'sync'" />
           </div>
         </Transition>
       </main>
