@@ -301,6 +301,47 @@ function createLoopManager() {
     tasks.value.filter(t => t.status === 'error' || t.lastError)
   )
 
+  // 全局默认 LLM 配置
+  const defaultConfigIndex = ref<number | undefined>(undefined)
+
+  /**
+   * 获取全局默认配置
+   */
+  async function getDefaultConfig(): Promise<void> {
+    if (!isElectronEnv || !window.electronAPI?.loopGetDefaultConfig) {
+      return
+    }
+
+    try {
+      const result = await window.electronAPI.loopGetDefaultConfig()
+      if (result.success) {
+        defaultConfigIndex.value = result.configIndex
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  /**
+   * 设置全局默认配置
+   */
+  async function setDefaultConfig(configIndex: number | undefined): Promise<boolean> {
+    if (!isElectronEnv || !window.electronAPI?.loopSetDefaultConfig) {
+      return false
+    }
+
+    try {
+      const result = await window.electronAPI.loopSetDefaultConfig(configIndex)
+      if (result.success) {
+        defaultConfigIndex.value = configIndex
+        return true
+      }
+      return false
+    } catch {
+      return false
+    }
+  }
+
   // 初始化
   initEventListeners()
 
@@ -310,6 +351,7 @@ function createLoopManager() {
     loading,
     error,
     schedulerStatus,
+    defaultConfigIndex,
 
     // Computed
     activeTasks,
@@ -327,6 +369,8 @@ function createLoopManager() {
     toggleTaskEnabled,
     parseInterval,
     getStatus,
+    getDefaultConfig,
+    setDefaultConfig,
     onTaskExecuted,
     clearError
   }

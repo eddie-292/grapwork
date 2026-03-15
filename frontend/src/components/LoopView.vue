@@ -10,6 +10,28 @@
       </div>
     </div>
 
+    <!-- 全局 LLM 配置 -->
+    <div class="global-config-section">
+      <div class="config-row">
+        <span class="config-label">默认 LLM 配置:</span>
+        <select
+          class="config-select global"
+          :value="defaultConfigIndex ?? -1"
+          @change="handleGlobalConfigChange(($event.target as HTMLSelectElement).value)"
+          :disabled="globalConfigLoading"
+        >
+          <option :value="-1">默认选择LLM列表中的第一个</option>
+          <option
+            v-for="(config, index) in configs"
+            :key="index"
+            :value="index"
+          >
+            {{ config.name }} ({{ config.model }})
+          </option>
+        </select>
+      </div>
+    </div>
+
     <!-- 帮助信息 -->
     <div class="help-section">
       <p>在聊天中输入 <code>/loop [时间] [任务]</code> 创建定时任务，例如：</p>
@@ -49,25 +71,6 @@
           <div class="info-item">
             <span class="label">类型:</span>
             <span class="value">{{ task.type }}</span>
-          </div>
-          <!-- LLM 配置选择 (仅 chat 类型任务) -->
-          <div class="info-item full-width" v-if="task.type === 'chat'">
-            <span class="label">LLM:</span>
-            <select
-              class="config-select"
-              :value="task.payload.configIndex ?? -1"
-              @change="handleConfigChange(task.id, ($event.target as HTMLSelectElement).value)"
-              :disabled="actionLoading[task.id]"
-            >
-              <option :value="-1">默认 (第一个启用的配置)</option>
-              <option
-                v-for="(config, index) in configs"
-                :key="index"
-                :value="index"
-              >
-                {{ config.name }} {{ config.enabled ? '' : '(未启用)' }}
-              </option>
-            </select>
           </div>
           <div class="info-item">
             <span class="label">统计:</span>
@@ -121,13 +124,17 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useLoop } from '@/composables/useLoop'
+import { StorageService } from '@/services/StorageService'
 import type { AppConfig } from '@/types/electron'
+
+const storage = StorageService.getInstance()
 
 const {
   tasks,
   loading,
   error,
   schedulerStatus,
+  defaultConfigIndex,
   loadTasks,
   getStatus,
   pauseTask,
@@ -135,16 +142,19 @@ const {
   executeNow,
   deleteTask,
   updateTask,
+  getDefaultConfig,
+  setDefaultConfig,
   onTaskExecuted
 } = useLoop()
 
 const actionLoading = ref<Record<string, boolean>>({})
 const configs = ref<AppConfig[]>([])
+const globalConfigLoading = ref(false)
 
 // 加载配置列表
 async function loadConfigs() {
   try {
-    const result = await window.electronAPI?.getConfig()
+    const result = await storage.getConfigList()
     if (result) {
       configs.value = result.configs || []
     }
@@ -156,6 +166,7 @@ async function loadConfigs() {
 // 加载任务列表
 onMounted(async () => {
   await loadConfigs()
+  await getDefaultConfig()
   await loadTasks()
   await getStatus()
 })
@@ -239,6 +250,20 @@ async function handleConfigChange(taskId: string, configIndexStr: string) {
     alert('更新配置失败: ' + (e?.message || '未知错误'))
   } finally {
     actionLoading.value[taskId] = false
+  }
+}
+
+// 修改全局默认配置
+async function handleGlobalConfigChange(configIndexStr: string) {
+  const configIndex = parseInt(configIndexStr, 10)
+
+  globalConfigLoading.value = true
+  try {
+    await setDefaultConfig(configIndex === -1 ? undefined : configIndex)
+  } catch (e: any) {
+    alert('更新配置失败: ' + (e?.message || '未知错误'))
+  } finally {
+    globalConfigLoading.value = false
   }
 }
 
@@ -418,15 +443,34 @@ function formatTime(timestamp: number): string {
   max-width: 200px;
 }
 
-.config-select:hover:not(:disabled) {
-  border-color: #999;
+.config-label {
+  color: #666;
+  font-size: 13px;
+  white-space: nowrap;
 }
-
 .config-select:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
+.global-config-section {
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+}
+
+.config-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.config-select.global {
+  flex: 1;
+  min-width: 200px;
+}
 .task-actions {
   display: flex;
   gap: 8px;

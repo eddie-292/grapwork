@@ -1010,7 +1010,6 @@ defineExpose({
   background: var(--color-bg-tertiary);
   border-bottom: 1px solid var(--color-border);
   font-size: 13px;
-  overflow-x: auto;
   white-space: nowrap;
   gap: 4px;
   /* 自定义滚动条 */

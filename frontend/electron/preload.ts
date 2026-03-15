@@ -199,6 +199,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('loop-parse-interval', expression),
   loopGetStatus: () =>
     ipcRenderer.invoke('loop-get-status'),
+  // 全局默认 LLM 配置
+  loopSetDefaultConfig: (configIndex: number | undefined) =>
+    ipcRenderer.invoke('loop-set-default-config', configIndex),
+  loopGetDefaultConfig: () =>
+    ipcRenderer.invoke('loop-get-default-config'),
   // Loop 任务执行完成事件
   onLoopTaskExecuted: (callback: (data: { taskId: string; execution: any }) => void) => {
     ipcRenderer.on('loop-task-executed', (_event, data) => callback(data))

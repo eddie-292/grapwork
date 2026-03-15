@@ -283,6 +283,9 @@ interface ElectronAPI {
   loopExecuteNow: (taskId: string) => Promise<{ success: boolean; execution?: any; error?: string }>
   loopParseInterval: (expression: string) => Promise<{ success: boolean; parsed?: any; error?: string }>
   loopGetStatus: () => Promise<{ success: boolean; status?: any; error?: string }>
+  // Loop 全局默认 LLM 配置
+  loopSetDefaultConfig: (configIndex: number | undefined) => Promise<{ success: boolean; error?: string }>
+  loopGetDefaultConfig: () => Promise<{ success: boolean; configIndex?: number; error?: string }>
   // Loop 任务执行完成事件
   onLoopTaskExecuted: (callback: (data: { taskId: string; execution: any }) => void) => void
   removeLoopTaskExecutedListener: () => void

@@ -118,6 +118,8 @@ export interface LoopTaskRegistry {
   tasks: LoopTask[]
   version: number
   lastUpdated: number
+  // 全局默认 LLM 配置索引
+  defaultConfigIndex?: number
 }
 
 // 任务创建参数

@@ -3315,7 +3315,8 @@ async function saveLoopTaskRegistry(): Promise<void> {
   const registry: LoopTaskRegistry = {
     tasks: loopScheduler.getAllTasks(),
     version: 1,
-    lastUpdated: Date.now()
+    lastUpdated: Date.now(),
+    defaultConfigIndex: loopExecutor.getDefaultConfigIndex()
   }
 
   try {
@@ -3329,6 +3330,11 @@ async function saveLoopTaskRegistry(): Promise<void> {
 async function initializeLoopScheduler(): Promise<void> {
   try {
     const registry = await loadLoopTaskRegistry()
+
+    // 设置全局默认配置索引
+    if (registry.defaultConfigIndex !== undefined) {
+      loopExecutor.setDefaultConfigIndex(registry.defaultConfigIndex)
+    }
 
     // 设置 Chat 配置提供者（返回所有配置）
     loopExecutor.setChatConfigProvider(() => {
@@ -3525,6 +3531,28 @@ ipcMain.handle('loop-get-status', async (): Promise<{ success: boolean; status?:
   try {
     const status = loopScheduler.getStatus()
     return { success: true, status }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+})
+
+// 设置全局默认 LLM 配置
+ipcMain.handle('loop-set-default-config', async (_event, configIndex: number | undefined): Promise<{ success: boolean; error?: string }> => {
+  try {
+    // 先更新 executor 的默认配置，这样 saveLoopTaskRegistry 才能获取到正确的值
+    loopExecutor.setDefaultConfigIndex(configIndex)
+    await saveLoopTaskRegistry()
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+})
+
+// 获取全局默认 LLM 配置
+ipcMain.handle('loop-get-default-config', async (): Promise<{ success: boolean; configIndex?: number; error?: string }> => {
+  try {
+    const registry = await loadLoopTaskRegistry()
+    return { success: true, configIndex: registry.defaultConfigIndex }
   } catch (error: any) {
     return { success: false, error: error.message }
   }

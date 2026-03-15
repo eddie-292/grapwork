@@ -30,6 +30,7 @@ export type GetChatConfigsCallback = () => ChatConfig[]
 
 export class LoopExecutor {
   private getChatConfigs: GetChatConfigsCallback | null = null
+  private defaultConfigIndex: number | undefined = undefined
 
   /**
    * 设置获取 Chat 配置列表的回调
@@ -39,7 +40,22 @@ export class LoopExecutor {
   }
 
   /**
+   * 设置全局默认配置索引
+   */
+  setDefaultConfigIndex(index: number | undefined): void {
+    this.defaultConfigIndex = index
+  }
+
+  /**
+   * 获取全局默认配置索引
+   */
+  getDefaultConfigIndex(): number | undefined {
+    return this.defaultConfigIndex
+  }
+
+  /**
    * 获取指定的配置（按索引或默认启用配置）
+   * 优先级：任务指定索引 > 全局默认索引 > 第一个启用的配置
    */
   private getConfig(configIndex?: number): ChatConfig | null {
     if (!this.getChatConfigs) return null
@@ -47,9 +63,14 @@ export class LoopExecutor {
     const configs = this.getChatConfigs()
     if (!configs || configs.length === 0) return null
 
-    // 如果指定了索引，使用该索引
+    // 如果任务指定了索引，使用该索引
     if (configIndex !== undefined && configIndex >= 0 && configIndex < configs.length) {
       return configs[configIndex]
+    }
+
+    // 如果设置了全局默认索引，使用它
+    if (this.defaultConfigIndex !== undefined && this.defaultConfigIndex >= 0 && this.defaultConfigIndex < configs.length) {
+      return configs[this.defaultConfigIndex]
     }
 
     // 否则使用第一个启用的配置

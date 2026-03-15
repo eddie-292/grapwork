@@ -59,6 +59,14 @@ export type TokenUsage = {
   totalTokens: number
 }
 
+// 斜杠命令类型
+interface SlashCommand {
+  name: string
+  description: string
+  usage: string
+  example: string
+}
+
 // Props
 interface Props {
   messages: Message[]
@@ -120,6 +128,35 @@ const selectedSkillIndex = ref(0)
 const selectedSkill = ref<string | null>(null)  // Currently selected skill name for prefix
 const skillFilterInputRef = ref<HTMLInputElement | null>(null)
 
+// 支持的斜杠命令列表
+const slashCommands: SlashCommand[] = [
+  {
+    name: '/loop',
+    description: '创建定时任务',
+    usage: '/loop [时间] [任务描述]',
+    example: '/loop 5m 检查API状态'
+  }
+]
+
+const showSlashCommandSelector = ref(false)
+const slashCommandQuery = ref('')
+const slashCommandPopupQuery = ref('')
+const selectedCommandIndex = ref(0)
+const slashCommandFilterInputRef = ref<HTMLInputElement | null>(null)
+const slashCommandTriggered = ref(false) // 记录是否已触发过斜杠命令选择器
+
+// Filtered slash commands based on query
+const filteredSlashCommands = computed(() => {
+  const query = (slashCommandPopupQuery.value || slashCommandQuery.value).toLowerCase()
+  if (!query) {
+    return slashCommands
+  }
+  return slashCommands.filter(cmd =>
+    cmd.name.toLowerCase().includes(query) ||
+    cmd.description.toLowerCase().includes(query)
+  )
+})
+
 // Filtered skills based on query
 const filteredSkills = computed(() => {
   const allSkills = skillsManager.registry.value.skills.filter(s => s.enabled && !s.hasError)
@@ -143,12 +180,34 @@ function handleFilterKeydown(e: KeyboardEvent) {
   }
 }
 
-// Watch input changes to detect @ trigger
+// Watch input changes to detect @ and / triggers
 watch(() => props.input, (newValue) => {
+  // Reset slash command trigger when input is cleared
+  if (!newValue) {
+    slashCommandTriggered.value = false
+  }
+
   if (selectedSkill.value) {
     // If skill is already selected, don't trigger selector again
     return
   }
+
+  // Check for / slash command trigger (only when input is exactly "/" and not triggered before)
+  if (newValue === '/' && !slashCommandTriggered.value) {
+    slashCommandQuery.value = ''
+    slashCommandPopupQuery.value = ''
+    selectedCommandIndex.value = 0
+    slashCommandTriggered.value = true
+    showSlashCommandSelector.value = true
+    // Close skill selector if open
+    showSkillSelector.value = false
+    nextTick(() => {
+      slashCommandFilterInputRef.value?.focus()
+    })
+    return
+  }
+  showSlashCommandSelector.value = false
+  slashCommandPopupQuery.value = ''
 
   // Find @ symbol position
   const atIndex = newValue.lastIndexOf('@')
@@ -604,8 +663,45 @@ function handleUpdateInput(e: Event) {
   emit('update:input', target.value)
 }
 
-// Handle keyboard navigation in skill selector
+// Handle keyboard navigation in skill selector and slash command selector
 function handleKeydown(e: KeyboardEvent) {
+  // Handle slash command selector
+  if (showSlashCommandSelector.value) {
+    const commands = filteredSlashCommands.value
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      selectedCommandIndex.value = Math.min(selectedCommandIndex.value + 1, commands.length - 1)
+      scrollCommandIntoView()
+      return
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      selectedCommandIndex.value = Math.max(selectedCommandIndex.value - 1, 0)
+      scrollCommandIntoView()
+      return
+    } else if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      const cmd = commands[selectedCommandIndex.value]
+      if (cmd) {
+        selectSlashCommand(cmd)
+      }
+      return
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      showSlashCommandSelector.value = false
+      return
+    } else if (e.key === 'Tab') {
+      e.preventDefault()
+      const cmd = commands[selectedCommandIndex.value]
+      if (cmd) {
+        selectSlashCommand(cmd)
+      }
+      return
+    }
+    return
+  }
+
+  // Handle skill selector
   if (!showSkillSelector.value) {
     return
   }
@@ -648,6 +744,16 @@ function scrollSkillIntoView() {
   })
 }
 
+// Scroll selected command item into view
+function scrollCommandIntoView() {
+  nextTick(() => {
+    const selectedEl = document.querySelector('.slash-command-item.selected')
+    if (selectedEl) {
+      selectedEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }
+  })
+}
+
 // Select a skill and update input
 function selectSkill(skill: { name: string; description?: string }) {
   const currentValue = props.input
@@ -665,6 +771,18 @@ function selectSkill(skill: { name: string; description?: string }) {
       textareaRef.value?.focus()
     })
   }
+}
+
+// Select a slash command and update input
+function selectSlashCommand(cmd: SlashCommand) {
+  // Replace the current input with the command usage template
+  emit('update:input', cmd.usage)
+  showSlashCommandSelector.value = false
+
+  // Focus back to textarea
+  nextTick(() => {
+    textareaRef.value?.focus()
+  })
 }
 
 function openParamsDialog() {
@@ -737,6 +855,10 @@ function handleClickOutside(e: MouseEvent) {
   // 关闭技能选择器（点击技能选择器外部时）
   if (!target.closest('.skill-selector-popup') && !target.closest('.textarea')) {
     showSkillSelector.value = false
+  }
+  // 关闭斜杠命令选择器（点击斜杠命令选择器外部时）
+  if (!target.closest('.slash-command-selector-popup') && !target.closest('.textarea')) {
+    showSlashCommandSelector.value = false
   }
 }
 
@@ -1112,6 +1234,43 @@ function scrollToBottom() {
             </div>
             <div v-else class="skill-selector-empty">
               <span>没有找到匹配的技能</span>
+            </div>
+          </div>
+        </Transition>
+        <!-- Slash Command Selector Popup -->
+        <Transition name="skill-selector">
+          <div v-if="showSlashCommandSelector" class="slash-command-selector-popup">
+            <div class="slash-command-selector-header">
+              <span class="slash-command-selector-title">斜杠命令</span>
+              <span class="slash-command-selector-hint">↑↓ 选择 · Enter 确认 · Esc 关闭</span>
+            </div>
+            <div class="slash-command-selector-filter">
+              <input
+                type="text"
+                v-model="slashCommandPopupQuery"
+                class="slash-command-filter-input"
+                placeholder="搜索命令..."
+                ref="slashCommandFilterInputRef"
+                @keydown="handleFilterKeydown"
+              />
+            </div>
+            <div class="slash-command-selector-list" v-if="filteredSlashCommands.length > 0">
+              <button
+                v-for="(cmd, index) in filteredSlashCommands"
+                :key="cmd.name"
+                type="button"
+                class="slash-command-item"
+                :class="{ selected: index === selectedCommandIndex }"
+                @click="selectSlashCommand(cmd)"
+                @mouseenter="selectedCommandIndex = index"
+              >
+                <span class="slash-command-name">{{ cmd.name }}</span>
+                <span class="slash-command-desc">{{ cmd.description }}</span>
+                <span class="slash-command-usage">{{ cmd.usage }}</span>
+              </button>
+            </div>
+            <div v-else class="slash-command-selector-empty">
+              <span>没有找到匹配的命令</span>
             </div>
           </div>
         </Transition>
@@ -2884,5 +3043,121 @@ function scrollToBottom() {
 
 .selected-skill-indicator button:hover {
   color: var(--color-error-text, #ef4444);
+}
+
+/* Slash Command Selector Popup */
+.slash-command-selector-popup {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  z-index: 100;
+  overflow: hidden;
+  max-height: 320px;
+}
+
+.slash-command-selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.slash-command-selector-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.slash-command-selector-hint {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.slash-command-selector-filter {
+  padding: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.slash-command-filter-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.slash-command-filter-input:focus {
+  border-color: var(--color-primary);
+}
+
+.slash-command-filter-input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.slash-command-selector-list {
+  max-height: 248px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px;
+}
+
+.slash-command-selector-empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+}
+
+.slash-command-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+  overflow: hidden;
+}
+
+.slash-command-item:hover,
+.slash-command-item.selected {
+  background: var(--color-bg-hover);
+}
+
+.slash-command-item.selected {
+  background: var(--color-bg-active, rgba(16, 163, 127, 0.1));
+}
+
+.slash-command-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-primary);
+  font-family: 'SF Mono', Monaco, 'Andale Mono', monospace;
+}
+
+.slash-command-desc {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.slash-command-usage {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  font-family: 'SF Mono', Monaco, 'Andale Mono', monospace;
 }
 </style>
