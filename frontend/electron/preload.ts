@@ -6,28 +6,6 @@ export interface AppConfig {
   model: string
 }
 
-export interface GlobalMemoryEntry {
-  id: string
-  type: string
-  category: string
-  title: string
-  content: string
-  keywords: string[]
-  enabled: boolean
-  createdAt: number
-  updatedAt: number
-  metadata?: {
-    usageCount?: number
-    lastUsedAt?: number
-  }
-}
-
-export interface GlobalMemory {
-  entries: GlobalMemoryEntry[]
-  version: number
-  lastUpdated: number
-}
-
 // MCP 服务器配置
 export interface MCPServerConfig {
   id: string
@@ -68,8 +46,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveConfig: (config: AppConfig) => ipcRenderer.invoke('save-config', config),
   chatRequest: (params: { apiUrl: string; apiKey: string; model: string; messages: any[] }) =>
     ipcRenderer.invoke('chat-request', params),
-  getGlobalMemory: () => ipcRenderer.invoke('get-global-memory'),
-  saveGlobalMemory: (memory: GlobalMemory) => ipcRenderer.invoke('save-global-memory', memory),
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
   // 在系统文件管理器中打开路径
   openPath: (path: string) => ipcRenderer.invoke('open-path', path),
@@ -131,6 +107,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 读取更新日志
   getChangelog: () =>
     ipcRenderer.invoke('get-changelog'),
+  // 获取 memory.md 文件路径
+  getMemoryMdPath: () =>
+    ipcRenderer.invoke('get-memory-md-path'),
   // Skills 技能系统
   skillsScan: () =>
     ipcRenderer.invoke('skills-scan'),
@@ -198,4 +177,38 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 将本地文件转换为 base64 data URL（用于图片编辑模式）
   localFileToBase64: (filePath: string) =>
     ipcRenderer.invoke('local-file-to-base64', filePath),
+
+  // Loop 定时任务系统
+  loopListTasks: () =>
+    ipcRenderer.invoke('loop-list-tasks'),
+  loopGetTask: (taskId: string) =>
+    ipcRenderer.invoke('loop-get-task', taskId),
+  loopCreateTask: (params: any) =>
+    ipcRenderer.invoke('loop-create-task', params),
+  loopUpdateTask: (taskId: string, params: any) =>
+    ipcRenderer.invoke('loop-update-task', taskId, params),
+  loopDeleteTask: (taskId: string) =>
+    ipcRenderer.invoke('loop-delete-task', taskId),
+  loopPauseTask: (taskId: string) =>
+    ipcRenderer.invoke('loop-pause-task', taskId),
+  loopResumeTask: (taskId: string) =>
+    ipcRenderer.invoke('loop-resume-task', taskId),
+  loopExecuteNow: (taskId: string) =>
+    ipcRenderer.invoke('loop-execute-now', taskId),
+  loopParseInterval: (expression: string) =>
+    ipcRenderer.invoke('loop-parse-interval', expression),
+  loopGetStatus: () =>
+    ipcRenderer.invoke('loop-get-status'),
+  // 全局默认 LLM 配置
+  loopSetDefaultConfig: (configIndex: number | undefined) =>
+    ipcRenderer.invoke('loop-set-default-config', configIndex),
+  loopGetDefaultConfig: () =>
+    ipcRenderer.invoke('loop-get-default-config'),
+  // Loop 任务执行完成事件
+  onLoopTaskExecuted: (callback: (data: { taskId: string; execution: any }) => void) => {
+    ipcRenderer.on('loop-task-executed', (_event, data) => callback(data))
+  },
+  removeLoopTaskExecutedListener: () => {
+    ipcRenderer.removeAllListeners('loop-task-executed')
+  },
 })

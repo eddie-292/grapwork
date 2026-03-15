@@ -13,9 +13,6 @@ export const StorageKey = {
   LLM_CONFIG_LIST: 'llm-config-list',
   HIGHLIGHT_THEME: 'highlight-theme',
 
-  // 全局记忆
-  GLOBAL_MEMORY: 'global-memory',
-
   // 助理系统
   ASSISTANT_LIST: 'assistant-list',
   ACTIVE_ASSISTANT_INDEX: 'active-assistant-index',
@@ -37,6 +34,13 @@ export const StorageKey = {
   // 生图模式
   IMAGE_GENERATOR_CONFIG: 'image-generator-config',
   IMAGE_GENERATOR_HISTORY: 'image-generator-history',
+
+  // 工作空间系统
+  WORKSPACE_LIST: 'workspace-list',
+  WORKSPACE_CHAT_HISTORY_PREFIX: 'workspace-chat-history-',
+
+  // Loop 定时任务系统
+  LOOP_TASK_REGISTRY: 'loop-task-registry',
 } as const
 
 export type StorageKey = typeof StorageKey[keyof typeof StorageKey]

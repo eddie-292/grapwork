@@ -416,9 +416,13 @@ export function useMCP() {
       )
 
       // 合并服务器列表（内置服务器在前）
+      // 内置服务器的 ID 也需要添加到 activeServerIds 中（如果它们是 enabled 的）
+      const builtinActiveIds = builtinServers
+        .filter(s => s.enabled)
+        .map(s => s.id)
       serverList.value = {
         servers: [...builtinServers, ...filteredUserServers],
-        activeServerIds: [...userActiveIds]
+        activeServerIds: [...new Set([...builtinActiveIds, ...userActiveIds])]
       }
     } catch (e: any) {
       error.value = e?.message || '加载 MCP 服务器失败'

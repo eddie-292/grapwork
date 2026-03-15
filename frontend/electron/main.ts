@@ -2,6 +2,17 @@ import { app, BrowserWindow, ipcMain, shell, dialog, Menu, screen, protocol, glo
 import path from 'path'
 import fs from 'fs'
 import { spawn, ChildProcess } from 'child_process'
+import { getLoopScheduler } from './LoopScheduler'
+import { loopExecutor } from './LoopExecutor'
+import { TimeExpressionParser } from '../src/services/loop/TimeExpressionParser'
+import type {
+  LoopTask,
+  LoopTaskRegistry,
+  CreateLoopTaskParams,
+  UpdateLoopTaskParams,
+  LoopTaskExecution
+} from '../src/types/loop'
+import { LoopTaskStatus } from '../src/types/loop'
 
 const __dirname = path.dirname(__filename)
 
@@ -985,6 +996,34 @@ const CONFIG_PATH = path.join(app.getPath('userData'), 'config.json')
 
 // 全局记忆文件路径
 const GLOBAL_MEMORY_PATH = path.join(app.getPath('userData'), 'global-memory.json')
+
+// memory.md 文件路径（用于 AI 记忆存储）
+const MEMORY_MD_PATH = path.join(app.getPath('userData'), 'memory.md')
+
+// 初始化 memory.md 文件
+function initMemoryMd(): void {
+  try {
+    if (!fs.existsSync(MEMORY_MD_PATH)) {
+      const defaultContent = `# AI 记忆存储
+
+这是一个用于存储 AI 对话记忆的文件。AI 可以在对话中读取和更新此文件来记住用户偏好、重要信息等。
+
+## 用户信息
+
+
+## 偏好设置
+
+
+## 重要事项
+
+`
+      fs.writeFileSync(MEMORY_MD_PATH, defaultContent, 'utf-8')
+      console.log('[Memory] Created memory.md file at:', MEMORY_MD_PATH)
+    }
+  } catch (error) {
+    console.error('[Memory] Failed to initialize memory.md:', error)
+  }
+}
 
 interface AppConfig {
   apiUrl: string
@@ -2114,8 +2153,8 @@ ipcMain.handle('file-operation', async (_event, operation: string, args: Record<
 
         const targetPath = path.isAbsolute(file_path) ? file_path : resolveSafePath(file_path)
 
-        // 对于绝对路径，验证是否在基础路径内
-        if (path.isAbsolute(file_path) && !targetPath.startsWith(path.resolve(basePath))) {
+        // 对于绝对路径，验证是否在基础路径内（允许访问 memory.md）
+        if (path.isAbsolute(file_path) && !targetPath.startsWith(path.resolve(basePath)) && targetPath !== MEMORY_MD_PATH) {
           return {
             success: false,
             error: '文件路径必须在基础目录内'
@@ -2178,8 +2217,8 @@ ipcMain.handle('file-operation', async (_event, operation: string, args: Record<
 
         const targetPath = path.isAbsolute(file_path) ? file_path : resolveSafePath(file_path)
 
-        // 对于绝对路径，验证是否在基础路径内
-        if (path.isAbsolute(file_path) && !targetPath.startsWith(path.resolve(basePath))) {
+        // 对于绝对路径，验证是否在基础路径内（允许访问 memory.md）
+        if (path.isAbsolute(file_path) && !targetPath.startsWith(path.resolve(basePath)) && targetPath !== MEMORY_MD_PATH) {
           return {
             success: false,
             error: '文件路径必须在基础目录内'
@@ -3237,6 +3276,288 @@ ipcMain.handle('local-file-to-base64', async (_event, filePath: string): Promise
   }
 })
 
+// ============================================================================
+// Loop 定时任务系统
+// ============================================================================
+
+const loopScheduler = getLoopScheduler()
+const timeParser = TimeExpressionParser.getInstance()
+
+// Loop 任务数据文件路径
+function getLoopTasksPath(): string {
+  return path.join(app.getPath('userData'), 'loop-tasks.json')
+}
+
+// 加载 Loop 任务注册表
+async function loadLoopTaskRegistry(): Promise<LoopTaskRegistry> {
+  const registryPath = getLoopTasksPath()
+
+  try {
+    if (fs.existsSync(registryPath)) {
+      const data = fs.readFileSync(registryPath, 'utf-8')
+      return JSON.parse(data)
+    }
+  } catch (error) {
+    console.error('[Loop] Failed to load registry:', error)
+  }
+
+  return {
+    tasks: [],
+    version: 1,
+    lastUpdated: Date.now()
+  }
+}
+
+// 保存 Loop 任务注册表
+async function saveLoopTaskRegistry(): Promise<void> {
+  const registryPath = getLoopTasksPath()
+
+  const registry: LoopTaskRegistry = {
+    tasks: loopScheduler.getAllTasks(),
+    version: 1,
+    lastUpdated: Date.now(),
+    defaultConfigIndex: loopExecutor.getDefaultConfigIndex()
+  }
+
+  try {
+    fs.writeFileSync(registryPath, JSON.stringify(registry, null, 2))
+  } catch (error) {
+    console.error('[Loop] Failed to save registry:', error)
+  }
+}
+
+// 初始化 Loop 调度器
+async function initializeLoopScheduler(): Promise<void> {
+  try {
+    const registry = await loadLoopTaskRegistry()
+
+    // 设置全局默认配置索引
+    if (registry.defaultConfigIndex !== undefined) {
+      loopExecutor.setDefaultConfigIndex(registry.defaultConfigIndex)
+    }
+
+    // 设置 Chat 配置提供者（返回所有配置）
+    loopExecutor.setChatConfigProvider(() => {
+      const configList = loadConfig()
+      return configList.configs.map(c => ({
+        apiUrl: c.apiUrl,
+        apiKey: c.apiKey,
+        model: c.model,
+        name: c.name,
+        enabled: c.enabled
+      }))
+    })
+
+    await loopScheduler.initialize(registry, saveLoopTaskRegistry, (taskId, execution) => {
+      // 任务执行完成时发送通知到渲染进程
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('loop-task-executed', { taskId, execution })
+      }
+    })
+    console.log('[Loop] Scheduler initialized successfully')
+  } catch (error) {
+    console.error('[Loop] Failed to initialize scheduler:', error)
+  }
+}
+
+// 获取所有 Loop 任务
+ipcMain.handle('loop-list-tasks', async (): Promise<{ success: boolean; tasks: LoopTask[]; error?: string }> => {
+  try {
+    const tasks = loopScheduler.getAllTasks()
+    return { success: true, tasks }
+  } catch (error: any) {
+    return { success: false, tasks: [], error: error.message }
+  }
+})
+
+// 获取单个 Loop 任务
+ipcMain.handle('loop-get-task', async (_event, taskId: string): Promise<{ success: boolean; task?: LoopTask; error?: string }> => {
+  try {
+    const task = loopScheduler.getTask(taskId)
+    return { success: true, task }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+})
+
+// 创建 Loop 任务
+ipcMain.handle('loop-create-task', async (_event, params: CreateLoopTaskParams): Promise<{ success: boolean; task?: LoopTask; error?: string }> => {
+  try {
+    // 检查任务数量限制
+    const currentTasks = loopScheduler.getAllTasks()
+    if (currentTasks.length >= 50) {
+      return { success: false, error: '已达到最大任务数量限制 (50)' }
+    }
+
+    // 解析时间表达式
+    const parsed = timeParser.parse(params.interval)
+    if (!parsed.isValid) {
+      return { success: false, error: parsed.error || '无效的时间表达式' }
+    }
+
+    const task: LoopTask = {
+      id: `loop-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      name: params.name,
+      description: params.description,
+      interval: params.interval,
+      intervalMs: parsed.milliseconds,
+      type: params.type,
+      payload: params.payload,
+      status: LoopTaskStatus.PENDING,
+      enabled: true,
+      maxRetries: params.maxRetries ?? 3,
+      retryDelay: params.retryDelay ?? 5000,
+      timeout: params.timeout ?? 30000,
+      executionCount: 0,
+      successCount: 0,
+      errorCount: 0,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      tags: params.tags
+    }
+
+    loopScheduler.addTask(task)
+    await saveLoopTaskRegistry()
+
+    return { success: true, task }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+})
+
+// 更新 Loop 任务
+ipcMain.handle('loop-update-task', async (_event, taskId: string, params: UpdateLoopTaskParams): Promise<{ success: boolean; task?: LoopTask; error?: string }> => {
+  try {
+    const task = loopScheduler.getTask(taskId)
+    if (!task) {
+      return { success: false, error: '任务不存在' }
+    }
+
+    // 更新字段
+    if (params.name !== undefined) task.name = params.name
+    if (params.description !== undefined) task.description = params.description
+    if (params.enabled !== undefined) task.enabled = params.enabled
+    if (params.maxRetries !== undefined) task.maxRetries = params.maxRetries
+    if (params.retryDelay !== undefined) task.retryDelay = params.retryDelay
+    if (params.timeout !== undefined) task.timeout = params.timeout
+    if (params.tags !== undefined) task.tags = params.tags
+    if (params.payload !== undefined) {
+      task.payload = { ...task.payload, ...params.payload }
+    }
+
+    // 重新解析时间表达式
+    if (params.interval !== undefined) {
+      const parsed = timeParser.parse(params.interval)
+      if (!parsed.isValid) {
+        return { success: false, error: parsed.error || '无效的时间表达式' }
+      }
+      task.interval = params.interval
+      task.intervalMs = parsed.milliseconds
+    }
+
+    task.updatedAt = Date.now()
+
+    loopScheduler.updateTask(task)
+    await saveLoopTaskRegistry()
+
+    return { success: true, task }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+})
+
+// 删除 Loop 任务
+ipcMain.handle('loop-delete-task', async (_event, taskId: string): Promise<{ success: boolean; error?: string }> => {
+  try {
+    loopScheduler.removeTask(taskId)
+    await saveLoopTaskRegistry()
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+})
+
+// 暂停 Loop 任务
+ipcMain.handle('loop-pause-task', async (_event, taskId: string): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const success = loopScheduler.pauseTask(taskId)
+    if (success) {
+      await saveLoopTaskRegistry()
+      return { success: true }
+    }
+    return { success: false, error: '任务不存在' }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+})
+
+// 恢复 Loop 任务
+ipcMain.handle('loop-resume-task', async (_event, taskId: string): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const success = loopScheduler.resumeTask(taskId)
+    if (success) {
+      await saveLoopTaskRegistry()
+      return { success: true }
+    }
+    return { success: false, error: '任务不存在或未暂停' }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+})
+
+// 立即执行 Loop 任务
+ipcMain.handle('loop-execute-now', async (_event, taskId: string): Promise<{ success: boolean; execution?: LoopTaskExecution; error?: string }> => {
+  try {
+    const execution = await loopScheduler.executeNow(taskId)
+    await saveLoopTaskRegistry()
+    return { success: true, execution }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+})
+
+// 解析时间表达式
+ipcMain.handle('loop-parse-interval', async (_event, expression: string): Promise<{ success: boolean; parsed?: any; error?: string }> => {
+  try {
+    const parsed = timeParser.parse(expression)
+    return { success: true, parsed }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+})
+
+// 获取调度器状态
+ipcMain.handle('loop-get-status', async (): Promise<{ success: boolean; status?: any; error?: string }> => {
+  try {
+    const status = loopScheduler.getStatus()
+    return { success: true, status }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+})
+
+// 设置全局默认 LLM 配置
+ipcMain.handle('loop-set-default-config', async (_event, configIndex: number | undefined): Promise<{ success: boolean; error?: string }> => {
+  try {
+    // 先更新 executor 的默认配置，这样 saveLoopTaskRegistry 才能获取到正确的值
+    loopExecutor.setDefaultConfigIndex(configIndex)
+    await saveLoopTaskRegistry()
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+})
+
+// 获取全局默认 LLM 配置
+ipcMain.handle('loop-get-default-config', async (): Promise<{ success: boolean; configIndex?: number; error?: string }> => {
+  try {
+    const registry = await loadLoopTaskRegistry()
+    return { success: true, configIndex: registry.defaultConfigIndex }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+})
+
 app.whenReady().then(() => {
   // 注册 local-file 协议用于加载本地图片
   protocol.registerFileProtocol('local-file', (request, callback) => {
@@ -3244,6 +3565,12 @@ app.whenReady().then(() => {
     const filePath = decodeURIComponent(url)
     callback(filePath)
   })
+
+  // 初始化 memory.md 文件
+  initMemoryMd()
+
+  // 初始化 Loop 调度器
+  initializeLoopScheduler()
 
   createWindow()
 
@@ -3797,6 +4124,11 @@ ipcMain.handle('install-environment', async (event, items: string[]): Promise<En
   }
 
   return results
+})
+
+// 获取 memory.md 文件路径
+ipcMain.handle('get-memory-md-path', () => {
+  return MEMORY_MD_PATH
 })
 
 // 读取更新日志

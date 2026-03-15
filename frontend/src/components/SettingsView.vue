@@ -4,7 +4,6 @@ import { useRouter, useRoute } from 'vue-router'
 import LLMConfigPanel from './settings/LLMConfigPanel.vue'
 import CodeHighlightThemePanel from './settings/CodeHighlightThemePanel.vue'
 import AssistantView from './AssistantView.vue'
-import GlobalMemoryView from './GlobalMemoryView.vue'
 import MCPView from './MCPView.vue'
 import ChangelogView from './ChangelogView.vue'
 import SkillsPanel from './settings/SkillsPanel.vue'
@@ -13,18 +12,21 @@ import { storage } from '../services/StorageService'
 import PlugIcon from './icons/PlugIcon.vue'
 import PaletteIcon from './icons/PaletteIcon.vue'
 import RobotIcon from './icons/RobotIcon.vue'
-import BrainIcon from './icons/BrainIcon.vue'
 import ZapIcon from './icons/ZapIcon.vue'
 import BookOpenIcon from './icons/BookOpenIcon.vue'
 import SearchIcon from './icons/SearchIcon.vue'
 import ScrollIcon from './icons/ScrollIcon.vue'
 import TrashIcon from './icons/TrashIcon.vue'
 import UsersIcon from './icons/UsersIcon.vue'
+import CloudSyncPanel from './settings/CloudSyncPanel.vue'
+import CloudIcon from './icons/CloudIcon.vue'
+import ClockIcon from './icons/ClockIcon.vue'
+import LoopView from './LoopView.vue'
 
 const router = useRouter()
 const route = useRoute()
 
-type SettingsTab = 'llm' | 'theme' | 'assistants' | 'memory' | 'mcp' | 'skills' | 'teams' | 'environment' | 'changelog'
+type SettingsTab = 'llm' | 'theme' | 'assistants' | 'mcp' | 'skills' | 'teams' | 'environment' | 'changelog' | 'sync' | 'loop'
 
 // 从 query 参数获取当前标签，默认为 llm
 const activeTab = ref<SettingsTab>((route.query.tab as SettingsTab) || 'llm')
@@ -41,11 +43,12 @@ const navItems = computed(() => [
   { id: 'llm' as SettingsTab, label: 'LLM 接口配置', icon: 'plug' },
   { id: 'theme' as SettingsTab, label: '代码高亮主题', icon: 'palette' },
   { id: 'assistants' as SettingsTab, label: '社区助理', icon: 'robot' },
-  { id: 'memory' as SettingsTab, label: '全局记忆', icon: 'brain' },
   { id: 'mcp' as SettingsTab, label: 'MCP 服务器', icon: 'zap' },
   { id: 'skills' as SettingsTab, label: '技能管理', icon: 'book-open' },
+  { id: 'loop' as SettingsTab, label: '定时任务', icon: 'clock' },
   { id: 'environment' as SettingsTab, label: '环境检测', icon: 'search' },
   { id: 'changelog' as SettingsTab, label: '更新日志', icon: 'scroll' },
+  { id: 'sync' as SettingsTab, label: '云同步', icon: 'cloud' },
 ])
 
 function switchTab(tab: SettingsTab) {
@@ -90,12 +93,13 @@ async function clearChatHistory() {
               <PlugIcon v-if="item.icon === 'plug'" :size="18" />
               <PaletteIcon v-else-if="item.icon === 'palette'" :size="18" />
               <RobotIcon v-else-if="item.icon === 'robot'" :size="18" />
-              <BrainIcon v-else-if="item.icon === 'brain'" :size="18" />
               <ZapIcon v-else-if="item.icon === 'zap'" :size="18" />
               <BookOpenIcon v-else-if="item.icon === 'book-open'" :size="18" />
               <UsersIcon v-else-if="item.icon === 'users'" :size="18" />
               <SearchIcon v-else-if="item.icon === 'search'" :size="18" />
               <ScrollIcon v-else-if="item.icon === 'scroll'" :size="18" />
+              <CloudIcon v-else-if="item.icon === 'cloud'" :size="18" />
+              <ClockIcon v-else-if="item.icon === 'clock'" :size="18" />
             </span>
             <span class="nav-label">{{ item.label }}</span>
           </button>
@@ -127,11 +131,6 @@ async function clearChatHistory() {
               <AssistantView />
             </div>
 
-            <!-- 全局记忆 -->
-            <div v-else-if="activeTab === 'memory'" class="panel-wrapper">
-              <GlobalMemoryView />
-            </div>
-
             <!-- MCP 服务器 -->
             <div v-else-if="activeTab === 'mcp'" class="panel-wrapper">
               <MCPView />
@@ -151,6 +150,12 @@ async function clearChatHistory() {
 
             <!-- 更新日志 -->
             <ChangelogView v-else-if="activeTab === 'changelog'" />
+
+            <!-- 定时任务 -->
+            <LoopView v-else-if="activeTab === 'loop'" />
+
+            <!-- 云同步 -->
+            <CloudSyncPanel v-else-if="activeTab === 'sync'" />
           </div>
         </Transition>
       </main>
@@ -283,7 +288,6 @@ async function clearChatHistory() {
 
 /* 调整子组件 header 布局，只显示添加按钮 */
 .panel-wrapper :deep(.assistant-header),
-.panel-wrapper :deep(.global-memory-view > .header),
 .panel-wrapper :deep(.mcp-header) {
   justify-content: flex-end;
   padding: 12px 0;
@@ -292,7 +296,6 @@ async function clearChatHistory() {
 
 /* 调整子组件内容的 padding */
 .panel-wrapper :deep(.assistant-content),
-.panel-wrapper :deep(.global-memory-view > .content),
 .panel-wrapper :deep(.mcp-content) {
   padding: 0;
 }

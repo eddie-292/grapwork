@@ -3,17 +3,14 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import MarkdownIt from 'markdown-it'
 import type Token from 'markdown-it/lib/token.mjs'
 import hljs from 'highlight.js'
-import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
+import katex from '@traptitech/markdown-it-katex'
 import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
 import MermaidDialog from './MermaidDialog.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
-import { storage } from '@/services/StorageService'
 import { useSkills } from '@/composables/useSkills'
 import CopyIcon from './icons/CopyIcon.vue'
 import ChevronDownIcon from './icons/ChevronDownIcon.vue'
 import ChevronRightIcon from './icons/ChevronRightIcon.vue'
-import FolderIcon from './icons/FolderIcon.vue'
-import FolderOpenIcon from './icons/FolderOpenIcon.vue'
 import CheckIcon from './icons/CheckIcon.vue'
 import XIcon from './icons/XIcon.vue'
 import ArrowUpIcon from './icons/ArrowUpIcon.vue'
@@ -62,6 +59,14 @@ export type TokenUsage = {
   totalTokens: number
 }
 
+// 斜杠命令类型
+interface SlashCommand {
+  name: string
+  description: string
+  usage: string
+  example: string
+}
+
 // Props
 interface Props {
   messages: Message[]
@@ -99,11 +104,6 @@ function handleThinkingToggle() {
   emit('update:enable-thinking', !enableThinking.value)
 }
 
-// 全局记忆对话框状态
-const showSaveToGlobalMemoryDialog = ref(false)
-const saveToGlobalMemoryContent = ref('')
-const saveToGlobalMemoryKeywords = ref<string[]>([])
-
 // HTML预览对话框状态
 const showHtmlPreview = ref(false)
 const htmlPreviewContent = ref('')
@@ -112,10 +112,6 @@ const htmlPreviewContent = ref('')
 const showMermaidPreview = ref(false)
 const mermaidPreviewContent = ref('')
 
-// 选中的文件夹路径
-const selectedFolderPath = ref<string>('')
-// 文件夹对话框状态
-const showFolderDialog = ref(false)
 // 设置弹出框状态
 const showSettingsPopover = ref(false)
 
@@ -131,6 +127,35 @@ const skillSelectorPopupQuery = ref('')  // Query from popup filter input
 const selectedSkillIndex = ref(0)
 const selectedSkill = ref<string | null>(null)  // Currently selected skill name for prefix
 const skillFilterInputRef = ref<HTMLInputElement | null>(null)
+
+// 支持的斜杠命令列表
+const slashCommands: SlashCommand[] = [
+  {
+    name: '/loop',
+    description: '创建定时任务',
+    usage: '/loop [时间] [任务描述]',
+    example: '/loop 5m 检查API状态'
+  }
+]
+
+const showSlashCommandSelector = ref(false)
+const slashCommandQuery = ref('')
+const slashCommandPopupQuery = ref('')
+const selectedCommandIndex = ref(0)
+const slashCommandFilterInputRef = ref<HTMLInputElement | null>(null)
+const slashCommandTriggered = ref(false) // 记录是否已触发过斜杠命令选择器
+
+// Filtered slash commands based on query
+const filteredSlashCommands = computed(() => {
+  const query = (slashCommandPopupQuery.value || slashCommandQuery.value).toLowerCase()
+  if (!query) {
+    return slashCommands
+  }
+  return slashCommands.filter(cmd =>
+    cmd.name.toLowerCase().includes(query) ||
+    cmd.description.toLowerCase().includes(query)
+  )
+})
 
 // Filtered skills based on query
 const filteredSkills = computed(() => {
@@ -155,12 +180,34 @@ function handleFilterKeydown(e: KeyboardEvent) {
   }
 }
 
-// Watch input changes to detect @ trigger
+// Watch input changes to detect @ and / triggers
 watch(() => props.input, (newValue) => {
+  // Reset slash command trigger when input is cleared
+  if (!newValue) {
+    slashCommandTriggered.value = false
+  }
+
   if (selectedSkill.value) {
     // If skill is already selected, don't trigger selector again
     return
   }
+
+  // Check for / slash command trigger (only when input is exactly "/" and not triggered before)
+  if (newValue === '/' && !slashCommandTriggered.value) {
+    slashCommandQuery.value = ''
+    slashCommandPopupQuery.value = ''
+    selectedCommandIndex.value = 0
+    slashCommandTriggered.value = true
+    showSlashCommandSelector.value = true
+    // Close skill selector if open
+    showSkillSelector.value = false
+    nextTick(() => {
+      slashCommandFilterInputRef.value?.focus()
+    })
+    return
+  }
+  showSlashCommandSelector.value = false
+  slashCommandPopupQuery.value = ''
 
   // Find @ symbol position
   const atIndex = newValue.lastIndexOf('@')
@@ -270,17 +317,6 @@ function closeImagePreview() {
   previewImageUrl.value = ''
 }
 
-// 提取关键词的简单函数
-function extractKeywords(content: string): string[] {
-  // 简单分词（中英文混合）
-  const words = content
-    .toLowerCase()
-    .split(/[\s\u4e00-\u9fa5,;.!?。，；！？、]+/)
-    .filter(w => w.length > 1)
-  // 去重并返回前 5 个
-  return Array.from(new Set(words)).slice(0, 5)
-}
-
 // 获取消息内容的字符串形式
 function getContentAsString(content: MessageContent): string {
   if (typeof content === 'string') return content
@@ -298,14 +334,6 @@ function isErrorMessage(message: Message): boolean {
   const contentStr = getContentAsString(message.content)
   const errorPrefixes = ['对话失败', '任务执行失败', 'API 请求失败', 'API request failed', 'Maximum context length', 'context length', 'tokens']
   return errorPrefixes.some(prefix => contentStr.includes(prefix))
-}
-
-// 打开保存到全局记忆对话框
-function openSaveToGlobalMemoryDialog(content: MessageContent) {
-  const contentStr = getContentAsString(content)
-  saveToGlobalMemoryContent.value = contentStr
-  saveToGlobalMemoryKeywords.value = extractKeywords(contentStr)
-  showSaveToGlobalMemoryDialog.value = true
 }
 
 // Refs
@@ -419,7 +447,7 @@ const md: MarkdownIt = new MarkdownIt({
       return md.utils.escapeHtml(str)
     }
   },
-})
+}).use(katex, { throwOnError: false, errorColor: ' #cc0000' })
 
 // Custom code block renderer with copy button
 md.renderer.rules.fence = (tokens: Token[], idx: number) => {
@@ -635,8 +663,45 @@ function handleUpdateInput(e: Event) {
   emit('update:input', target.value)
 }
 
-// Handle keyboard navigation in skill selector
+// Handle keyboard navigation in skill selector and slash command selector
 function handleKeydown(e: KeyboardEvent) {
+  // Handle slash command selector
+  if (showSlashCommandSelector.value) {
+    const commands = filteredSlashCommands.value
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      selectedCommandIndex.value = Math.min(selectedCommandIndex.value + 1, commands.length - 1)
+      scrollCommandIntoView()
+      return
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      selectedCommandIndex.value = Math.max(selectedCommandIndex.value - 1, 0)
+      scrollCommandIntoView()
+      return
+    } else if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      const cmd = commands[selectedCommandIndex.value]
+      if (cmd) {
+        selectSlashCommand(cmd)
+      }
+      return
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      showSlashCommandSelector.value = false
+      return
+    } else if (e.key === 'Tab') {
+      e.preventDefault()
+      const cmd = commands[selectedCommandIndex.value]
+      if (cmd) {
+        selectSlashCommand(cmd)
+      }
+      return
+    }
+    return
+  }
+
+  // Handle skill selector
   if (!showSkillSelector.value) {
     return
   }
@@ -679,6 +744,16 @@ function scrollSkillIntoView() {
   })
 }
 
+// Scroll selected command item into view
+function scrollCommandIntoView() {
+  nextTick(() => {
+    const selectedEl = document.querySelector('.slash-command-item.selected')
+    if (selectedEl) {
+      selectedEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }
+  })
+}
+
 // Select a skill and update input
 function selectSkill(skill: { name: string; description?: string }) {
   const currentValue = props.input
@@ -696,6 +771,18 @@ function selectSkill(skill: { name: string; description?: string }) {
       textareaRef.value?.focus()
     })
   }
+}
+
+// Select a slash command and update input
+function selectSlashCommand(cmd: SlashCommand) {
+  // Replace the current input with the command usage template
+  emit('update:input', cmd.usage)
+  showSlashCommandSelector.value = false
+
+  // Focus back to textarea
+  nextTick(() => {
+    textareaRef.value?.focus()
+  })
 }
 
 function openParamsDialog() {
@@ -769,6 +856,10 @@ function handleClickOutside(e: MouseEvent) {
   if (!target.closest('.skill-selector-popup') && !target.closest('.textarea')) {
     showSkillSelector.value = false
   }
+  // 关闭斜杠命令选择器（点击斜杠命令选择器外部时）
+  if (!target.closest('.slash-command-selector-popup') && !target.closest('.textarea')) {
+    showSlashCommandSelector.value = false
+  }
 }
 
 // 组件挂载时设置全局函数，卸载时清理
@@ -780,11 +871,6 @@ onMounted(async () => {
   ;(window as any).previewMermaid = function (btn: HTMLElement) {
     const base64Code = btn.getAttribute('data-mermaid-code') || ''
     openMermaidPreview(base64Code)
-  }
-  // 加载已保存的文件夹路径
-  const savedFolder = await storage.getSelectedFolder()
-  if (savedFolder) {
-    selectedFolderPath.value = savedFolder
   }
   // 加载技能列表
   await skillsManager.loadRegistry()
@@ -836,40 +922,6 @@ async function handleLinkClick(e: MouseEvent) {
       }
     }
   }
-}
-
-// 选择文件夹
-function handleSelectFolder() {
-  showFolderDialog.value = true
-}
-
-// 从对话框选择文件夹
-async function selectFolderFromDialog() {
-  if (window.electronAPI?.selectFolder) {
-    try {
-      const result = await window.electronAPI.selectFolder()
-      if (result.success && result.path) {
-        selectedFolderPath.value = result.path
-        await storage.saveSelectedFolder(result.path)
-        // 通知父组件文件夹已更改
-        emit('folder-changed', result.path)
-        // 清空助理选择
-        emit('clear-assistant')
-        showFolderDialog.value = false
-      }
-    } catch (err) {
-      console.error('Failed to select folder:', err)
-      alert('选择文件夹失败')
-    }
-  }
-}
-
-// 清除文件夹
-async function handleClearFolder() {
-  selectedFolderPath.value = ''
-  await storage.clearSelectedFolder()
-  emit('folder-changed', '')
-  showFolderDialog.value = false
 }
 
 // 格式化 token 数量显示
@@ -1106,9 +1158,6 @@ function scrollToBottom() {
                   <span v-if="copyStatus[i]?.md" class="success-icon">✓</span>
                   <span v-else>Copy Markdown</span>
                 </button>
-                <button class="copy-btn" @click="openSaveToGlobalMemoryDialog(m.content)" title="保存为全局记忆">
-                  + Global Memory
-                </button>
               </div>
             </div>
           </div>
@@ -1188,6 +1237,43 @@ function scrollToBottom() {
             </div>
           </div>
         </Transition>
+        <!-- Slash Command Selector Popup -->
+        <Transition name="skill-selector">
+          <div v-if="showSlashCommandSelector" class="slash-command-selector-popup">
+            <div class="slash-command-selector-header">
+              <span class="slash-command-selector-title">斜杠命令</span>
+              <span class="slash-command-selector-hint">↑↓ 选择 · Enter 确认 · Esc 关闭</span>
+            </div>
+            <div class="slash-command-selector-filter">
+              <input
+                type="text"
+                v-model="slashCommandPopupQuery"
+                class="slash-command-filter-input"
+                placeholder="搜索命令..."
+                ref="slashCommandFilterInputRef"
+                @keydown="handleFilterKeydown"
+              />
+            </div>
+            <div class="slash-command-selector-list" v-if="filteredSlashCommands.length > 0">
+              <button
+                v-for="(cmd, index) in filteredSlashCommands"
+                :key="cmd.name"
+                type="button"
+                class="slash-command-item"
+                :class="{ selected: index === selectedCommandIndex }"
+                @click="selectSlashCommand(cmd)"
+                @mouseenter="selectedCommandIndex = index"
+              >
+                <span class="slash-command-name">{{ cmd.name }}</span>
+                <span class="slash-command-desc">{{ cmd.description }}</span>
+                <span class="slash-command-usage">{{ cmd.usage }}</span>
+              </button>
+            </div>
+            <div v-else class="slash-command-selector-empty">
+              <span>没有找到匹配的命令</span>
+            </div>
+          </div>
+        </Transition>
         <!-- 图片预览区域 -->
         <div v-if="attachedImages.length > 0" class="image-preview-container">
           <div v-for="(img, index) in attachedImages" :key="index" class="image-preview-item">
@@ -1202,18 +1288,6 @@ function scrollToBottom() {
         </div>
         <!-- 操作栏 - 单行布局 -->
         <div class="action-bar">
-          <!-- 左侧：工作空间选择 -->
-          <button
-            type="button"
-            class="action-btn workspace-btn"
-            :class="{ active: selectedFolderPath }"
-            @click="handleSelectFolder"
-            :title="selectedFolderPath || '选择工作空间'"
-          >
-            <FolderIcon :size="16" />
-            <span class="btn-text">{{ selectedFolderPath ? (selectedFolderPath.split('/').pop() || selectedFolderPath.split('\\').pop()) : '工作空间' }}</span>
-          </button>
-
           <!-- 中间：模型选择器 -->
           <div class="settings-wrapper">
             <button
@@ -1369,15 +1443,6 @@ function scrollToBottom() {
       </div>
     </form>
 
-    <!-- 快速保存到全局记忆对话框 -->
-    <SaveToGlobalMemoryDialog
-      :show="showSaveToGlobalMemoryDialog"
-      :initial-content="saveToGlobalMemoryContent"
-      :initial-keywords="saveToGlobalMemoryKeywords"
-      @close="showSaveToGlobalMemoryDialog = false"
-      @saved="showSaveToGlobalMemoryDialog = false"
-    />
-
     <!-- HTML预览对话框 -->
     <HtmlPreviewDialog
       :show="showHtmlPreview"
@@ -1404,37 +1469,6 @@ function scrollToBottom() {
       </div>
     </Transition>
 
-    <!-- 文件夹选择对话框 -->
-    <Transition name="modal">
-      <div v-if="showFolderDialog" class="dialog-overlay" @click.self="showFolderDialog = false">
-        <div class="dialog-content folder-dialog">
-          <h3 class="folder-dialog-title">
-            <FolderIcon :size="20" />
-            选择文件夹
-          </h3>
-          <div v-if="selectedFolderPath" class="current-folder">
-            <span class="folder-label">当前选中的文件夹</span>
-            <span class="folder-path" :title="selectedFolderPath">{{ selectedFolderPath }}</span>
-          </div>
-          <div v-else class="no-folder">
-            <FolderOpenIcon :size="32" />
-            <span>暂未选择文件夹</span>
-          </div>
-          <div class="dialog-actions">
-            <button v-if="selectedFolderPath" type="button" class="dialog-btn danger" @click="handleClearFolder">
-              清除
-            </button>
-            <button type="button" class="dialog-btn primary" @click="selectFolderFromDialog">
-              {{ selectedFolderPath ? '更换文件夹' : '选择文件夹' }}
-            </button>
-            <button type="button" class="dialog-btn ghost" @click="showFolderDialog = false">
-              取消
-            </button>
-          </div>
-        </div>
-      </div>
-    </Transition>
-
     <!-- 删除消息确认对话框 -->
     <ConfirmDialog
       :show="showDeleteConfirmDialog"
@@ -1448,6 +1482,11 @@ function scrollToBottom() {
     />
   </main>
 </template>
+
+<style>
+/* KaTeX CSS for LaTeX rendering */
+@import 'katex/dist/katex.min.css';
+</style>
 
 <style scoped>
 .main {
@@ -2153,39 +2192,6 @@ function scrollToBottom() {
   flex-shrink: 0;
 }
 
-/* 工作空间按钮 */
-.workspace-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 10px;
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  color: var(--color-text-secondary);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-  max-width: 100px;
-  overflow: hidden;
-}
-
-.workspace-btn:hover {
-  border-color: var(--color-border-hover);
-  color: var(--color-text-primary);
-}
-
-.workspace-btn.active {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
-.workspace-btn .btn-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 /* 模型选择器 */
 .model-selector {
   display: flex;
@@ -2531,78 +2537,6 @@ function scrollToBottom() {
   max-width: 90vw;
   max-height: 90vh;
   overflow: auto;
-}
-
-.folder-dialog {
-  min-width: 400px;
-  max-width: 600px;
-}
-
-.folder-dialog h3 {
-  margin: 0 0 20px 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  text-align: center;
-}
-
-.folder-dialog-title {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-}
-
-.folder-dialog-title svg {
-  color: var(--color-primary);
-}
-
-.current-folder {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 16px;
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  margin-bottom: 20px;
-}
-
-.no-folder {
-  padding: 32px 16px;
-  background: var(--color-bg-tertiary);
-  border: 1px dashed var(--color-border);
-  border-radius: 8px;
-  margin-bottom: 20px;
-  color: var(--color-text-tertiary);
-  text-align: center;
-  font-size: 14px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
-
-.no-folder svg {
-  color: var(--color-text-tertiary);
-}
-
-.folder-dialog .folder-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.folder-dialog .folder-path {
-  font-size: 14px;
-  color: var(--color-text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: 'SF Mono', Monaco, 'Andale Mono', "JetBrains Mono", Menlo, Consolas, monospace;
-  word-break: break-all;
 }
 
 .dialog-actions {
@@ -3109,5 +3043,121 @@ function scrollToBottom() {
 
 .selected-skill-indicator button:hover {
   color: var(--color-error-text, #ef4444);
+}
+
+/* Slash Command Selector Popup */
+.slash-command-selector-popup {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  z-index: 100;
+  overflow: hidden;
+  max-height: 320px;
+}
+
+.slash-command-selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.slash-command-selector-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.slash-command-selector-hint {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.slash-command-selector-filter {
+  padding: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.slash-command-filter-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.slash-command-filter-input:focus {
+  border-color: var(--color-primary);
+}
+
+.slash-command-filter-input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.slash-command-selector-list {
+  max-height: 248px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px;
+}
+
+.slash-command-selector-empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+}
+
+.slash-command-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+  overflow: hidden;
+}
+
+.slash-command-item:hover,
+.slash-command-item.selected {
+  background: var(--color-bg-hover);
+}
+
+.slash-command-item.selected {
+  background: var(--color-bg-active, rgba(16, 163, 127, 0.1));
+}
+
+.slash-command-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-primary);
+  font-family: 'SF Mono', Monaco, 'Andale Mono', monospace;
+}
+
+.slash-command-desc {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.slash-command-usage {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  font-family: 'SF Mono', Monaco, 'Andale Mono', monospace;
 }
 </style>

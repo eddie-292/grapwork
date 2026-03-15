@@ -5,13 +5,16 @@ import MarkdownIt from 'markdown-it'
 import type Token from 'markdown-it/lib/token.mjs'
 import hljs from 'highlight.js'
 import type { ConfigList, AssistantList } from '../types/electron'
+import type { Workspace } from '../types/workspace'
 import { useGlobalMemory } from '../composables/useGlobalMemory'
 import { useMCP } from '../composables/useMCP'
 import { useSkills } from '../composables/useSkills'
+import { useLoop } from '../composables/useLoop'
+import type { LoopTask } from '../types/loop'
 import NormalChat from './NormalChat.vue'
 import WorkspaceView from './WorkspaceView.vue'
 import ChatTabBar from './ChatTabBar.vue'
-import SaveToGlobalMemoryDialog from './SaveToGlobalMemoryDialog.vue'
+import WorkspaceSwitcher from './WorkspaceSwitcher.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
 import MermaidDialog from './MermaidDialog.vue'
@@ -22,8 +25,6 @@ import XIcon from './icons/XIcon.vue'
 
 const router = useRouter()
 
-// 全局记忆管理器
-const globalMemoryManager = useGlobalMemory()
 
 // MCP 管理器
 const mcpManager = useMCP()
@@ -31,10 +32,8 @@ const mcpManager = useMCP()
 // Skills 管理器
 const skillsManager = useSkills()
 
-// 快速保存到全局记忆对话框状态
-const showSaveToGlobalMemoryDialog = ref(false)
-const saveToGlobalMemoryContent = ref('')
-const saveToGlobalMemoryKeywords = ref<string[]>([])
+// Loop 定时任务管理器
+const loopManager = useLoop()
 
 // HTML预览对话框状态
 const showHtmlPreview = ref(false)
@@ -266,6 +265,10 @@ const input = ref('')
 const controllers = ref<Record<string, AbortController>>({})
 const showSidebar = ref(true)
 
+// 工作空间状态
+const workspaceList = ref<Workspace[]>([])
+const currentWorkspaceId = ref<string | null>(null)
+
 // 用户名（用于侧边栏底部显示）
 const username = ref('')
 
@@ -344,17 +347,15 @@ async function scanDirectoryStructure(
 
     for (const item of displayItems) {
       if (item.type === 'directory') {
-        structure += `${indent}📁 ${item.name}/\n`
+        structure += `${indent} ${item.name}/\n`
         // 只有当未达到最大深度时才递归扫描子目录
         if (depth < maxDepth) {
           const subPath = currentPath ? `${currentPath}/${item.name}` : item.name
           structure += await scanDirectoryStructure(basePath, subPath, depth + 1, maxDepth)
         }
       } else {
-        // 显示文件，带扩展名图标
-        const ext = item.name.split('.').pop()?.toLowerCase() || ''
-        const icon = getFileIcon(ext)
-        structure += `${indent}${icon} ${item.name}\n`
+        // 显示文件
+        structure += `${indent}${item.name}\n`
       }
     }
 
@@ -367,35 +368,6 @@ async function scanDirectoryStructure(
     console.error('扫描目录结构失败:', error)
     return ''
   }
-}
-
-/**
- * 根据文件扩展名获取图标
- */
-function getFileIcon(ext: string): string {
-  const iconMap: Record<string, string> = {
-    'js': '📜', 'ts': '📜', 'jsx': '⚛️', 'tsx': '⚛️',
-    'vue': '💚', 'svelte': '🔶',
-    'py': '🐍', 'rb': '💎',
-    'java': '☕', 'kt': '☕', 'scala': '☕',
-    'go': '🔵', 'rs': '🦀',
-    'c': '🔵', 'cpp': '🔵', 'h': '📄',
-    'cs': '💜',
-    'php': '🐘',
-    'swift': '🍎', 'm': '🍎',
-    'json': '📋', 'yaml': '📋', 'yml': '📋', 'toml': '📋',
-    'xml': '📋', 'html': '🌐', 'css': '🎨', 'scss': '🎨', 'less': '🎨',
-    'md': '📝', 'txt': '📄', 'rst': '📝',
-    'sql': '🗃️', 'db': '🗃️', 'sqlite': '🗃️',
-    'sh': '💻', 'bash': '💻', 'zsh': '💻', 'ps1': '💻', 'bat': '💻',
-    'env': '🔐', 'gitignore': '🔐', 'dockerignore': '🔐',
-    'dockerfile': '🐳',
-    'png': '🖼️', 'jpg': '🖼️', 'jpeg': '🖼️', 'gif': '🖼️', 'svg': '🖼️', 'ico': '🖼️',
-    'pdf': '📕', 'doc': '📘', 'docx': '📘',
-    'zip': '📦', 'tar': '📦', 'gz': '📦', 'rar': '📦',
-    'mp3': '🎵', 'wav': '🎵', 'mp4': '🎬', 'avi': '🎬',
-  }
-  return iconMap[ext] || '📄'
 }
 
 /**
@@ -666,6 +638,13 @@ async function send(images: string[] = []) {
   const text = input.value.trim()
   if ((!text && images.length === 0) || (currentChat.value?.sending)) return
 
+  // 处理 /loop 指令
+  const loopResult = await handleLoopCommand(text)
+  if (loopResult) {
+    input.value = ''
+    return
+  }
+
   if (!activeConfig.value?.apiKey) {
     alert('请先配置并启用一个 LLM 接口')
     router.push('/settings')
@@ -681,6 +660,111 @@ async function send(images: string[] = []) {
 
   // 普通对话流程（默认）
   await executeNormalChat(text, images)
+}
+
+/**
+ * 处理 /loop 定时任务指令
+ * 格式: /loop [时间表达式] [任务描述]
+ * 示例: /loop 5m 检查API服务状态
+ */
+async function handleLoopCommand(text: string): Promise<boolean> {
+  // 匹配 /loop 指令
+  const loopMatch = text.match(/^\/loop\s+(\S+)\s+(.+)$/i)
+  if (!loopMatch) {
+    // 检查是否是 /loop 相关指令
+    if (text.match(/^\/loop\s*$/i)) {
+      // 显示帮助信息
+      addSystemMessage('**Loop 定时任务帮助**\n\n' +
+        '用法: `/loop [时间] [任务描述]`\n\n' +
+        '**时间表达式:**\n' +
+        '- `30s` - 30秒 (最小1分钟)\n' +
+        '- `5m` - 5分钟\n' +
+        '- `2h` - 2小时\n' +
+        '- `1d` - 1天\n\n' +
+        '**示例:**\n' +
+        '- `/loop 5m 检查API状态`\n' +
+        '- `/loop 1h 提醒我休息`\n' +
+        '- `/loop 1d 生成每日报告`')
+      return true
+    }
+    return false
+  }
+
+  const interval = loopMatch[1]
+  const description = loopMatch[2]
+
+  if (!interval || !description) {
+    return false
+  }
+
+  try {
+    // 解析时间表达式
+    const parsed = await loopManager.parseInterval(interval)
+    if (!parsed || !parsed.isValid) {
+      addSystemMessage(`❌ 时间表达式无效: "${interval}"\n\n支持格式: 30s, 5m, 2h, 1d (最小1分钟)`)
+      return true
+    }
+
+    // 创建定时任务
+    const task = await loopManager.createTask({
+      name: description,
+      description: `由对话创建: ${description}`,
+      interval: interval,
+      type: 'chat',
+      payload: {
+        prompt: description
+      },
+      maxRetries: 2,
+      retryDelay: 5000
+    })
+
+    if (task) {
+      const formatInterval = (ms: number): string => {
+        if (ms < 60000) return `${ms / 1000}秒`
+        if (ms < 3600000) return `${ms / 60000}分钟`
+        if (ms < 86400000) return `${ms / 3600000}小时`
+        return `${ms / 86400000}天`
+      }
+
+      const nextTime = new Date(Date.now() + parsed.milliseconds).toLocaleString('zh-CN')
+
+      addSystemMessage(
+        `✅ **定时任务已创建**\n\n` +
+        `**任务名称:** ${description}\n` +
+        `**执行间隔:** ${formatInterval(parsed.milliseconds)}\n` +
+        `**任务ID:** ${task.id}\n` +
+        `**下次执行:** ${nextTime}\n\n` +
+        `_任务将在后台自动执行，执行结果会通知您_`
+      )
+    } else {
+      addSystemMessage(`❌ 创建任务失败: ${loopManager.error || '未知错误'}`)
+    }
+  } catch (e: any) {
+    addSystemMessage(`❌ 处理指令失败: ${e?.message || '未知错误'}`)
+  }
+
+  return true
+}
+
+/**
+ * 添加系统消息到当前聊天
+ */
+function addSystemMessage(content: string) {
+  if (!currentChat.value) {
+    createNewChat()
+  }
+
+  const systemMessage = {
+    id: `sys-${Date.now()}`,
+    role: 'assistant' as const,
+    content: content,
+    timestamp: Date.now(),
+    isSystem: true
+  }
+
+  currentChat.value?.messages.push(systemMessage)
+  saveChatHistory()
+  scrollToBottom()
 }
 
 function cancel() {
@@ -749,26 +833,12 @@ async function executeNormalChat(text: string, images: string[] = []) {
       return msg
     })
 
-    // 确保全局记忆已加载（如果未加载则立即加载）
-    if (!globalMemoryManager.memory.value) {
-      await globalMemoryManager.load()
-    }
-
-    // 调试：检查全局记忆状态
-    ////console.log('[GlobalMemory] memory.value:', globalMemoryManager.memory.value)
-    ////console.log('[GlobalMemory] entries:', globalMemoryManager.entries.value)
-    ////console.log('[GlobalMemory] user message:', text)
-
-    // 生成智能匹配的全局记忆上下文
-    const globalMemoryContext = globalMemoryManager.generateInjectContext(text)
-    ////console.log('[GlobalMemory] generated context:', globalMemoryContext)
-
     // 生成 MCP tools 数组（如果有激活的工具）
     await mcpManager.loadServers()
     const mcpTools = mcpManager.generateOpenAITools()
     //console.log('[MCP] Active tools:', mcpTools.length)
 
-    // 构建 system prompt（合并 assistant system prompt 和 global memory）
+    // 构建 system prompt
     let systemPrompt = ''
     if (activeAssistant.value?.systemPrompt && activeAssistant.value.systemPrompt.trim()) {
       systemPrompt = activeAssistant.value.systemPrompt.trim()
@@ -777,9 +847,15 @@ async function executeNormalChat(text: string, images: string[] = []) {
       systemPrompt = storage.getDefaultAssistantPrompt()
     }
 
-    // 如果有全局记忆，追加到 system prompt
-    if (globalMemoryContext) {
-      systemPrompt += '\n\n' + globalMemoryContext + '\n\n请在回复时考虑这些偏好。'
+    // 注入 memory.md 路径信息
+    if (window.electronAPI?.getMemoryMdPath) {
+      try {
+        const memoryMdPath = await window.electronAPI.getMemoryMdPath()
+        const memoryContext = `\n## 记忆系统\n\n长期记忆文件 \`memory.md\` 的完整路径为：\n\`\`\`\n${memoryMdPath}\n\`\`\`\n\n你可以使用 \`read_file\` 工具读取此路径的文件来获取用户的历史偏好、重要信息等。也可以在适当的时候使用 \`write_file\` 工具向该文件追加新的记忆内容。`
+        systemPrompt += memoryContext
+      } catch (e) {
+        console.error('Failed to get memory.md path:', e)
+      }
     }
 
     // 加载 Skills 注册表并生成上下文
@@ -1619,12 +1695,17 @@ function resetParams() {
 }
 
 async function saveChatHistory() {
-  await storage.saveChatHistory(chatList.value)
+  if (!currentWorkspaceId.value) return
+  await storage.saveWorkspaceChatHistory(currentWorkspaceId.value, chatList.value)
 }
 
 async function loadChatHistory() {
+  if (!currentWorkspaceId.value) {
+    createNewChat()
+    return
+  }
   try {
-    const history = await storage.getChatHistory()
+    const history = await storage.getWorkspaceChatHistory(currentWorkspaceId.value)
     chatList.value = history
     if (chatList.value.length > 0) {
       currentChatId.value = chatList.value[0]?.id ?? null
@@ -1658,7 +1739,183 @@ function cancelLogout() {
   showLogoutConfirmDialog.value = false
 }
 
+// ==================== 工作空间管理 ====================
+
+// 从路径提取文件夹名称
+function extractFolderName(path: string): string {
+  if (!path) return '新工作空间'
+  const parts = path.replace(/\\/g, '/').split('/')
+  return parts[parts.length - 1] || '新工作空间'
+}
+
+// 从单工作空间迁移数据
+async function migrateFromSingleWorkspace(): Promise<boolean> {
+  const list = await storage.getWorkspaceList()
+  if (list.workspaces.length > 0) return false // 已迁移
+
+  const oldHistory = await storage.getChatHistory()
+  const oldFolder = await storage.getSelectedFolder()
+
+  if (oldHistory.length === 0 && !oldFolder) {
+    // 没有旧数据，创建空的默认工作空间
+    const defaultWorkspace: Workspace = {
+      id: 'default',
+      name: '默认工作空间',
+      folderPath: '',
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    }
+    await storage.saveWorkspaceList({
+      workspaces: [defaultWorkspace],
+      activeWorkspaceId: defaultWorkspace.id
+    })
+    return true
+  }
+
+  // 从旧数据迁移
+  const defaultWorkspace: Workspace = {
+    id: 'default',
+    name: '默认工作空间',
+    folderPath: oldFolder || '',
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  }
+
+  await storage.saveWorkspaceList({
+    workspaces: [defaultWorkspace],
+    activeWorkspaceId: defaultWorkspace.id
+  })
+
+  if (oldHistory.length > 0) {
+    await storage.saveWorkspaceChatHistory(defaultWorkspace.id, oldHistory)
+  }
+
+  return true
+}
+
+// 切换工作空间
+async function switchWorkspace(workspaceId: string) {
+  if (workspaceId === currentWorkspaceId.value) return
+
+  // 保存当前工作空间的聊天历史
+  await saveChatHistory()
+
+  // 切换工作空间
+  currentWorkspaceId.value = workspaceId
+  await storage.setActiveWorkspace(workspaceId)
+
+  // 更新文件夹路径
+  const workspace = workspaceList.value.find(w => w.id === workspaceId)
+  if (workspace) {
+    currentFolder.value = workspace.folderPath
+    mcpManager.setSelectedFolder(workspace.folderPath)
+    // 保存到存储
+    await storage.saveSelectedFolder(workspace.folderPath)
+  }
+
+  // 加载新工作空间的聊天历史
+  await loadChatHistory()
+
+  // 清除目录结构缓存
+  directoryStructureCache.value = ''
+  directoryStructureCacheTime.value = 0
+}
+
+// 创建新工作空间
+async function createWorkspace() {
+  try {
+    const result = await window.electronAPI?.selectFolder()
+    if (!result?.success || !result.path) return
+
+    // 检查是否已存在相同路径的工作空间
+    const exists = workspaceList.value.some(w => w.folderPath === result.path)
+    if (exists) {
+      alert('该文件夹已创建工作空间')
+      return
+    }
+
+    const newWorkspace: Workspace = {
+      id: Date.now().toString(),
+      name: extractFolderName(result.path),
+      folderPath: result.path,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    }
+
+    // 添加到列表
+    workspaceList.value.push(newWorkspace)
+    await storage.saveWorkspaceList({
+      workspaces: workspaceList.value,
+      activeWorkspaceId: currentWorkspaceId.value
+    })
+
+    // 切换到新工作空间
+    await switchWorkspace(newWorkspace.id)
+  } catch (e) {
+    console.error('Failed to create workspace:', e)
+  }
+}
+
+// 重命名工作空间
+async function renameWorkspace(workspaceId: string, newName: string) {
+  const workspace = workspaceList.value.find(w => w.id === workspaceId)
+  if (!workspace) return
+
+  workspace.name = newName
+  workspace.updatedAt = Date.now()
+
+  await storage.updateWorkspace(workspace)
+}
+
+// 删除工作空间
+async function deleteWorkspace(workspaceId: string) {
+  if (workspaceList.value.length <= 1) {
+    alert('至少需要保留一个工作空间')
+    return
+  }
+
+  if (!confirm('确定要删除此工作空间吗？该工作空间的所有聊天记录将被删除。')) {
+    return
+  }
+
+  // 如果删除的是当前工作空间，先切换到其他工作空间
+  if (workspaceId === currentWorkspaceId.value) {
+    const otherWorkspace = workspaceList.value.find(w => w.id !== workspaceId)
+    if (otherWorkspace) {
+      await switchWorkspace(otherWorkspace.id)
+    }
+  }
+
+  // 从列表中移除
+  workspaceList.value = workspaceList.value.filter(w => w.id !== workspaceId)
+  await storage.deleteWorkspace(workspaceId)
+}
+
+// 加载工作空间
+async function loadWorkspaces() {
+  await migrateFromSingleWorkspace()
+
+  const list = await storage.getWorkspaceList()
+  workspaceList.value = list.workspaces
+  currentWorkspaceId.value = list.activeWorkspaceId
+
+  // 如果没有激活的工作空间，选择第一个
+  if (!currentWorkspaceId.value && workspaceList.value.length > 0) {
+    currentWorkspaceId.value = workspaceList.value[0]?.id ?? null
+  }
+
+  // 设置当前文件夹
+  const activeWorkspace = workspaceList.value.find(w => w.id === currentWorkspaceId.value)
+  if (activeWorkspace) {
+    currentFolder.value = activeWorkspace.folderPath
+    mcpManager.setSelectedFolder(activeWorkspace.folderPath)
+  }
+}
+
 onMounted(async () => {
+  // 先加载工作空间（包含迁移逻辑）
+  await loadWorkspaces()
+  // 加载当前工作空间的聊天历史
   await loadChatHistory()
   await loadConfig()
   await loadAssistants()
@@ -1669,18 +1926,44 @@ onMounted(async () => {
   if (savedUsername) {
     username.value = savedUsername
   }
-  // 加载全局记忆
-  await globalMemoryManager.load()
-
-  // 加载选中的文件夹并同步到 mcpManager 和 currentFolder
-  const savedFolder = await storage.getSelectedFolder()
-  if (savedFolder) {
-    mcpManager.setSelectedFolder(savedFolder)
-    currentFolder.value = savedFolder
-  }
 
   // 设置命令确认回调
   mcpManager.setCommandConfirmCallback(handleCommandConfirm)
+
+  // 监听 Loop 任务执行完成事件
+  if (window.electronAPI?.onLoopTaskExecuted) {
+    window.electronAPI.onLoopTaskExecuted(({ taskId, execution }: { taskId: string; execution: any }) => {
+      const task = loopManager.tasks.value.find((t: LoopTask) => t.id === taskId)
+      if (task) {
+        const statusIcon = execution.status === 'success' ? '✅' : '❌'
+        const timeStr = new Date(execution.completedAt || Date.now()).toLocaleString('zh-CN')
+
+        let resultContent = ''
+        if (execution.status === 'success' && execution.result) {
+          if (execution.result.response) {
+            // Chat 类型任务
+            resultContent = `\n\n**响应:** ${execution.result.response}`
+          } else if (execution.result.stdout !== undefined) {
+            // Command 类型任务
+            resultContent = `\n\n**输出:**\n\`\`\`\n${execution.result.stdout}\n\`\`\``
+          } else if (execution.result.data) {
+            // API 类型任务
+            resultContent = `\n\n**结果:** ${JSON.stringify(execution.result.data, null, 2)}`
+          }
+        } else if (execution.error) {
+          resultContent = `\n\n**错误:** ${execution.error}`
+        }
+
+        addSystemMessage(
+          `${statusIcon} **定时任务执行完成**\n\n` +
+          `**任务:** ${task.name}\n` +
+          `**时间:** ${timeStr}\n` +
+          `**状态:** ${execution.status === 'success' ? '成功' : '失败'}` +
+          resultContent
+        )
+      }
+    })
+  }
 
   scrollToBottom()
 })
@@ -1688,6 +1971,10 @@ onMounted(async () => {
 onUnmounted(() => {
   // 清理命令确认回调
   mcpManager.setCommandConfirmCallback(null)
+  // 清理 Loop 任务执行监听
+  if (window.electronAPI?.removeLoopTaskExecutedListener) {
+    window.electronAPI.removeLoopTaskExecutedListener()
+  }
   // 中止所有正在进行的流式请求
   for (const id in controllers.value) {
     if (controllers.value[id]) {
@@ -1720,6 +2007,16 @@ function handleFolderChanged(path: string) {
     </div>
     <div class="container">
       <aside class="sidebar" :class="{ collapsed: !showSidebar }">
+        <!-- 工作空间切换器 -->
+        <WorkspaceSwitcher
+          :workspaces="workspaceList"
+          :active-id="currentWorkspaceId"
+          @switch="switchWorkspace"
+          @create="createWorkspace"
+          @rename="renameWorkspace"
+          @delete="deleteWorkspace"
+        />
+
         <!-- 工作空间内容 -->
         <div class="workspace-wrapper">
           <WorkspaceView :current-folder="currentFolder" />
@@ -1728,7 +2025,6 @@ function handleFolderChanged(path: string) {
         <!-- 侧边栏底部固定区域 -->
         <div class="sidebar-footer">
           <div class="user-info">
-            <div class="user-avatar">{{ username.charAt(0).toUpperCase() }}</div>
             <div class="user-details">
               <div class="user-name">{{ username }}</div>
             </div>
@@ -1923,14 +2219,6 @@ function handleFolderChanged(path: string) {
         </Transition>
       </Teleport>
 
-      <!-- 快速保存到全局记忆对话框 -->
-      <SaveToGlobalMemoryDialog
-        :show="showSaveToGlobalMemoryDialog"
-        :initial-content="saveToGlobalMemoryContent"
-        :initial-keywords="saveToGlobalMemoryKeywords"
-        @close="showSaveToGlobalMemoryDialog = false"
-        @saved="showSaveToGlobalMemoryDialog = false"
-      />
 
       <!-- HTML预览对话框 -->
       <HtmlPreviewDialog
@@ -2128,20 +2416,6 @@ function handleFolderChanged(path: string) {
   gap: 10px;
   flex: 1;
   min-width: 0;
-}
-
-.user-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: var(--color-primary);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  font-weight: 600;
-  flex-shrink: 0;
 }
 
 .user-details {

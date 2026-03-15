@@ -42,6 +42,7 @@
 - **Skills System** - Domain knowledge packages that can be injected into AI context
 - **Image Generator** - Multi-provider image generation (Zhipu GLM-Image, Qwen-Image, Qwen-Image-Edit)
 - **Workspace View** - Built-in file browser and management capabilities
+- **Cloud Sync** - Self-hosted sync server for cross-device configuration backup
 
 ### Tech Stack
 
@@ -184,6 +185,13 @@ npm run electron:build        # Full production build
 npm run generate-icons        # Generate app icons
 ```
 
+#### Documentation
+
+| Document | Description |
+|----------|-------------|
+| [CLAUDE.md](CLAUDE.md) | Developer guide for Claude Code |
+| [frontend/docs/SYNC_API_SPEC.md](frontend/docs/SYNC_API_SPEC.md) | Cloud Sync API specification |
+
 ### Important Notes
 
 1. **API Key Security** - Never commit your API keys to version control
@@ -235,6 +243,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **技能系统** - 领域知识包，可注入 AI 上下文
 - **图片生成** - 多提供商图片生成（智谱 GLM-Image、通义万相）
 - **工作区** - 内置文件浏览器和管理功能
+- **云同步** - 自建同步服务器，跨设备配置备份
 
 ### 技术栈
 
@@ -376,6 +385,13 @@ npm run build:electron:watch  # Electron 构建监听模式
 npm run electron:build        # 完整生产构建
 npm run generate-icons        # 生成应用图标
 ```
+
+#### 相关文档
+
+| 文档 | 说明 |
+|------|------|
+| [CLAUDE.md](CLAUDE.md) | 开发者指南 |
+| [SYNC_API_SPEC.md](frontend/docs/SYNC_API_SPEC.md) | 云同步接口规范 |
 
 ### 注意事项
 
