@@ -6,6 +6,7 @@ import type { MCPServer, MCPTransportType, MCPToolDefinition } from '../types/mc
 import ConfirmDialog from './ConfirmDialog.vue'
 import PlugIcon from './icons/PlugIcon.vue'
 import XIcon from './icons/XIcon.vue'
+import ChevronDownIcon from './icons/ChevronDownIcon.vue'
 
 const router = useRouter()
 const {
@@ -34,6 +35,9 @@ const installingDependenciesServerId = ref<string | null>(null)
 const toastError = ref<string | null>(null)
 const toastSuccess = ref<string | null>(null)
 let toastTimer: ReturnType<typeof setTimeout> | null = null
+
+// 展开/折叠状态 - 默认折叠，所以 Set 初始为空
+const expandedDetails = ref<Set<string>>(new Set())
 
 // 新建服务器表单数据
 const newServerForm = ref({
@@ -278,6 +282,20 @@ function goBack() {
 
 function getTransportLabel(type: MCPTransportType): string {
   return transportTypeOptions.find(opt => opt.value === type)?.label || type
+}
+
+// 切换服务器详情的展开/折叠状态
+function toggleDetails(serverId: string) {
+  if (expandedDetails.value.has(serverId)) {
+    expandedDetails.value.delete(serverId)
+  } else {
+    expandedDetails.value.add(serverId)
+  }
+}
+
+// 检查服务器详情是否展开
+function isDetailsExpanded(serverId: string): boolean {
+  return expandedDetails.value.has(serverId)
 }
 
 // 显示 toast 错误提示
@@ -815,7 +833,13 @@ async function importMCPConfig() {
 
           <p v-if="server.description" class="card-description">{{ server.description }}</p>
 
-          <div class="card-details">
+          <!-- 详情切换按钮 -->
+          <button class="details-toggle" @click="toggleDetails(server.id)">
+            <ChevronDownIcon :class="{ rotated: !isDetailsExpanded(server.id) }" />
+            <span>详细信息</span>
+          </button>
+
+          <div class="card-details" v-show="isDetailsExpanded(server.id)">
             <template v-if="server.transportType === 'stdio'">
               <div class="detail-item">
                 <span class="detail-label">命令:</span>
@@ -1074,11 +1098,43 @@ async function importMCPConfig() {
   line-height: 1.6;
 }
 
+/* 详情切换按钮样式 */
+.details-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  margin-bottom: 12px;
+  transition: all 0.2s;
+}
+
+.details-toggle:hover {
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border-hover);
+  color: var(--color-text-primary);
+}
+
+.details-toggle svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.2s;
+}
+
+.details-toggle svg.rotated {
+  transform: rotate(-90deg);
+}
+
 .card-details {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   padding: 12px;
   background: var(--color-bg-tertiary);
   border-radius: 8px;
