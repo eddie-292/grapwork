@@ -213,7 +213,7 @@ async function clearChatHistory() {
 
 .nav-item {
   display: flex;
-  align-items: center;
+  justify-content: center;
   gap: 12px;
   padding: 12px 16px;
   border: none;
