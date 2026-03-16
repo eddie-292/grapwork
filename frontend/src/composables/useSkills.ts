@@ -71,7 +71,7 @@ function createSkillsManager() {
 
       // Log scan errors
       if (result.errors.length > 0) {
-        console.warn('[Skills] Scan errors:', result.errors)
+        //console.warn('[Skills] Scan errors:', result.errors)
       }
 
       await saveRegistry()

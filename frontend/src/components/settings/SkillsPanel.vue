@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useSkills } from '@/composables/useSkills'
 import type { Skill, SkillMetadata } from '@/types/skill'
 import RefreshIcon from '@/components/icons/RefreshIcon.vue'
+import ChevronDownIcon from '@/components/icons/ChevronDownIcon.vue'
 
 const skillsManager = useSkills()
 
@@ -13,9 +14,36 @@ const editingSkill = ref<Skill | null>(null)
 const editBody = ref('')
 const showCreateForm = ref(false)
 const showEditModal = ref(false)
+const expandedDisabledSections = ref<Set<string>>(new Set())
 
 // Computed
 const { registry, loading, error, userSkills, publicSkills, installedSkills, exampleSkills } = skillsManager
+
+// Helper to split skills by active state
+function splitSkillsByActive(skills: SkillMetadata[]) {
+  const activeIds = registry.value?.activeSkillIds || []
+  const active = skills.filter(s => activeIds.includes(s.id))
+  const disabled = skills.filter(s => !activeIds.includes(s.id))
+  return { active, disabled }
+}
+
+// Helper to check if skill is active
+function isSkillActive(skillId: string): boolean {
+  return (registry.value?.activeSkillIds || []).includes(skillId)
+}
+
+// Toggle disabled section expansion
+function toggleDisabledSection(sectionKey: string) {
+  if (expandedDisabledSections.value.has(sectionKey)) {
+    expandedDisabledSections.value.delete(sectionKey)
+  } else {
+    expandedDisabledSections.value.add(sectionKey)
+  }
+}
+
+function isDisabledSectionExpanded(sectionKey: string): boolean {
+  return expandedDisabledSections.value.has(sectionKey)
+}
 
 // Methods
 async function handleCreateSkill() {
@@ -185,10 +213,10 @@ onMounted(() => {
         <p class="skill-path">{{ getLocationPath(userSkills) }}</p>
         <div class="skill-list">
           <div
-            v-for="skill in userSkills"
+            v-for="skill in splitSkillsByActive(userSkills).active"
             :key="skill.id"
             class="skill-card"
-            :class="{ active: registry.activeSkillIds.includes(skill.id) }"
+            :class="{ active: isSkillActive(skill.id) }"
           >
             <div class="skill-header">
               <span class="skill-name">{{ skill.name }}</span>
@@ -201,12 +229,51 @@ onMounted(() => {
               <button
                 @click="handleToggleActive(skill.id)"
                 class="toggle-btn"
-                :class="{ active: registry.activeSkillIds.includes(skill.id) }"
+                :class="{ active: isSkillActive(skill.id) }"
               >
-                {{ registry.activeSkillIds.includes(skill.id) ? '已启用' : '已禁用' }}
+                {{ isSkillActive(skill.id) ? '已启用' : '已禁用' }}
               </button>
               <button @click="handleEditSkill(skill)" class="edit-btn">编辑</button>
               <button @click="handleDeleteSkill(skill.id)" class="delete-btn">删除</button>
+            </div>
+          </div>
+          <!-- Disabled skills (collapsible) -->
+          <div
+            v-if="splitSkillsByActive(userSkills).disabled.length > 0"
+            class="disabled-skills-section"
+          >
+            <button
+              class="disabled-toggle"
+              @click="toggleDisabledSection('user')"
+            >
+              <ChevronDownIcon :class="{ rotated: !isDisabledSectionExpanded('user') }" />
+              <span>未启用 ({{ splitSkillsByActive(userSkills).disabled.length }})</span>
+            </button>
+            <div v-show="isDisabledSectionExpanded('user')" class="disabled-skill-list">
+              <div
+                v-for="skill in splitSkillsByActive(userSkills).disabled"
+                :key="skill.id"
+                class="skill-card disabled"
+              >
+                <div class="skill-header">
+                  <span class="skill-name">{{ skill.name }}</span>
+                  <span class="skill-badge" :class="getLocationClass(skill.location)">
+                    {{ getLocationLabel(skill.location) }}
+                  </span>
+                </div>
+                <p class="skill-description">{{ skill.description }}</p>
+                <div class="skill-actions">
+                  <button
+                    @click="handleToggleActive(skill.id)"
+                    class="toggle-btn"
+                    :class="{ active: isSkillActive(skill.id) }"
+                  >
+                    {{ isSkillActive(skill.id) ? '已启用' : '已禁用' }}
+                  </button>
+                  <button @click="handleEditSkill(skill)" class="edit-btn">编辑</button>
+                  <button @click="handleDeleteSkill(skill.id)" class="delete-btn">删除</button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -218,10 +285,10 @@ onMounted(() => {
         <p class="skill-path">{{ getLocationPath(installedSkills) }}</p>
         <div class="skill-list">
           <div
-            v-for="skill in installedSkills"
+            v-for="skill in splitSkillsByActive(installedSkills).active"
             :key="skill.id"
             class="skill-card"
-            :class="{ active: registry.activeSkillIds.includes(skill.id) }"
+            :class="{ active: isSkillActive(skill.id) }"
           >
             <div class="skill-header">
               <span class="skill-name">{{ skill.name }}</span>
@@ -234,11 +301,49 @@ onMounted(() => {
               <button
                 @click="handleToggleActive(skill.id)"
                 class="toggle-btn"
-                :class="{ active: registry.activeSkillIds.includes(skill.id) }"
+                :class="{ active: isSkillActive(skill.id) }"
               >
-                {{ registry.activeSkillIds.includes(skill.id) ? '已启用' : '已禁用' }}
+                {{ isSkillActive(skill.id) ? '已启用' : '已禁用' }}
               </button>
               <button @click="handleEditSkill(skill)" class="action-btn">查看</button>
+            </div>
+          </div>
+          <!-- Disabled skills (collapsible) -->
+          <div
+            v-if="splitSkillsByActive(installedSkills).disabled.length > 0"
+            class="disabled-skills-section"
+          >
+            <button
+              class="disabled-toggle"
+              @click="toggleDisabledSection('installed')"
+            >
+              <ChevronDownIcon :class="{ rotated: !isDisabledSectionExpanded('installed') }" />
+              <span>未启用 ({{ splitSkillsByActive(installedSkills).disabled.length }})</span>
+            </button>
+            <div v-show="isDisabledSectionExpanded('installed')" class="disabled-skill-list">
+              <div
+                v-for="skill in splitSkillsByActive(installedSkills).disabled"
+                :key="skill.id"
+                class="skill-card disabled"
+              >
+                <div class="skill-header">
+                  <span class="skill-name">{{ skill.name }}</span>
+                  <span class="skill-badge" :class="getLocationClass(skill.location)">
+                    {{ getLocationLabel(skill.location) }}
+                  </span>
+                </div>
+                <p class="skill-description">{{ skill.description }}</p>
+                <div class="skill-actions">
+                  <button
+                    @click="handleToggleActive(skill.id)"
+                    class="toggle-btn"
+                    :class="{ active: isSkillActive(skill.id) }"
+                  >
+                    {{ isSkillActive(skill.id) ? '已启用' : '已禁用' }}
+                  </button>
+                  <button @click="handleEditSkill(skill)" class="action-btn">查看</button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -250,10 +355,10 @@ onMounted(() => {
         <p class="skill-path">{{ getLocationPath(publicSkills) }}</p>
         <div class="skill-list">
           <div
-            v-for="skill in publicSkills"
+            v-for="skill in splitSkillsByActive(publicSkills).active"
             :key="skill.id"
             class="skill-card"
-            :class="{ active: registry.activeSkillIds.includes(skill.id) }"
+            :class="{ active: isSkillActive(skill.id) }"
           >
             <div class="skill-header">
               <span class="skill-name">{{ skill.name }}</span>
@@ -266,11 +371,49 @@ onMounted(() => {
               <button
                 @click="handleToggleActive(skill.id)"
                 class="toggle-btn"
-                :class="{ active: registry.activeSkillIds.includes(skill.id) }"
+                :class="{ active: isSkillActive(skill.id) }"
               >
-                {{ registry.activeSkillIds.includes(skill.id) ? '已启用' : '已禁用' }}
+                {{ isSkillActive(skill.id) ? '已启用' : '已禁用' }}
               </button>
               <button @click="handleEditSkill(skill)" class="action-btn">查看</button>
+            </div>
+          </div>
+          <!-- Disabled skills (collapsible) -->
+          <div
+            v-if="splitSkillsByActive(publicSkills).disabled.length > 0"
+            class="disabled-skills-section"
+          >
+            <button
+              class="disabled-toggle"
+              @click="toggleDisabledSection('public')"
+            >
+              <ChevronDownIcon :class="{ rotated: !isDisabledSectionExpanded('public') }" />
+              <span>未启用 ({{ splitSkillsByActive(publicSkills).disabled.length }})</span>
+            </button>
+            <div v-show="isDisabledSectionExpanded('public')" class="disabled-skill-list">
+              <div
+                v-for="skill in splitSkillsByActive(publicSkills).disabled"
+                :key="skill.id"
+                class="skill-card disabled"
+              >
+                <div class="skill-header">
+                  <span class="skill-name">{{ skill.name }}</span>
+                  <span class="skill-badge" :class="getLocationClass(skill.location)">
+                    {{ getLocationLabel(skill.location) }}
+                  </span>
+                </div>
+                <p class="skill-description">{{ skill.description }}</p>
+                <div class="skill-actions">
+                  <button
+                    @click="handleToggleActive(skill.id)"
+                    class="toggle-btn"
+                    :class="{ active: isSkillActive(skill.id) }"
+                  >
+                    {{ isSkillActive(skill.id) ? '已启用' : '已禁用' }}
+                  </button>
+                  <button @click="handleEditSkill(skill)" class="action-btn">查看</button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -282,10 +425,10 @@ onMounted(() => {
         <p class="skill-path">{{ getLocationPath(exampleSkills) }}</p>
         <div class="skill-list">
           <div
-            v-for="skill in exampleSkills"
+            v-for="skill in splitSkillsByActive(exampleSkills).active"
             :key="skill.id"
             class="skill-card"
-            :class="{ active: registry.activeSkillIds.includes(skill.id) }"
+            :class="{ active: isSkillActive(skill.id) }"
           >
             <div class="skill-header">
               <span class="skill-name">{{ skill.name }}</span>
@@ -298,18 +441,56 @@ onMounted(() => {
               <button
                 @click="handleToggleActive(skill.id)"
                 class="toggle-btn"
-                :class="{ active: registry.activeSkillIds.includes(skill.id) }"
+                :class="{ active: isSkillActive(skill.id) }"
               >
-                {{ registry.activeSkillIds.includes(skill.id) ? '已启用' : '已禁用' }}
+                {{ isSkillActive(skill.id) ? '已启用' : '已禁用' }}
               </button>
               <button @click="handleEditSkill(skill)" class="action-btn">查看</button>
+            </div>
+          </div>
+          <!-- Disabled skills (collapsible) -->
+          <div
+            v-if="splitSkillsByActive(exampleSkills).disabled.length > 0"
+            class="disabled-skills-section"
+          >
+            <button
+              class="disabled-toggle"
+              @click="toggleDisabledSection('examples')"
+            >
+              <ChevronDownIcon :class="{ rotated: !isDisabledSectionExpanded('examples') }" />
+              <span>未启用 ({{ splitSkillsByActive(exampleSkills).disabled.length }})</span>
+            </button>
+            <div v-show="isDisabledSectionExpanded('examples')" class="disabled-skill-list">
+              <div
+                v-for="skill in splitSkillsByActive(exampleSkills).disabled"
+                :key="skill.id"
+                class="skill-card disabled"
+              >
+                <div class="skill-header">
+                  <span class="skill-name">{{ skill.name }}</span>
+                  <span class="skill-badge" :class="getLocationClass(skill.location)">
+                    {{ getLocationLabel(skill.location) }}
+                  </span>
+                </div>
+                <p class="skill-description">{{ skill.description }}</p>
+                <div class="skill-actions">
+                  <button
+                    @click="handleToggleActive(skill.id)"
+                    class="toggle-btn"
+                    :class="{ active: isSkillActive(skill.id) }"
+                  >
+                    {{ isSkillActive(skill.id) ? '已启用' : '已禁用' }}
+                  </button>
+                  <button @click="handleEditSkill(skill)" class="action-btn">查看</button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Empty state -->
-      <div v-if="registry.skills.length === 0" class="empty-state">
+      <div v-if="registry.skills?.length === 0" class="empty-state">
         <p>暂无技能。创建一个新技能开始使用。</p>
       </div>
     </div>
@@ -568,6 +749,52 @@ onMounted(() => {
 .skill-actions {
   display: flex;
   gap: 8px;
+}
+
+/* Disabled skills section (collapsible) */
+.disabled-skills-section {
+  margin-top: 8px;
+}
+
+.disabled-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: none;
+  border: 1px dashed var(--color-border, #e5e7eb);
+  border-radius: 8px;
+  color: var(--color-text-secondary, #6b7280);
+  font-size: 13px;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.2s;
+}
+
+.disabled-toggle:hover {
+  background-color: var(--color-bg-secondary, #f7f7f8);
+  border-color: var(--color-border-focus, #ccc);
+}
+
+.disabled-toggle svg {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.2s;
+}
+
+.disabled-toggle svg.rotated {
+  transform: rotate(-90deg);
+}
+
+.disabled-skill-list {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skill-card.disabled {
+  opacity: 0.7;
 }
 
 .empty-state {
