@@ -1846,9 +1846,9 @@ function scrollToBottom() {
 }
 
 .copy-btn.copy-success {
-  background: linear-gradient(135deg, var(--color-bg-success) 0%, rgba(34, 197, 94, 0.15) 100%);
-  border-color: #22c55e;
-  color: #16a34a;
+  /* background: linear-gradient(135deg, var(--color-bg-success) 0%, rgba(34, 197, 94, 0.15) 100%); */
+  /* border-color: #22c55e;
+  color: #16a34a; */
 }
 
 .retry-btn {
@@ -2091,9 +2091,9 @@ function scrollToBottom() {
   align-items: center;
   gap: 4px;
   padding: 4px 10px;
-  background: var(--color-bg-tertiary);
+  /* background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: 6px; */
   font-size: 12px;
   margin-right: auto;
 }
