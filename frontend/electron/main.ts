@@ -1000,6 +1000,20 @@ const GLOBAL_MEMORY_PATH = path.join(app.getPath('userData'), 'global-memory.jso
 // memory.md 文件路径（用于 AI 记忆存储）
 const MEMORY_MD_PATH = path.join(app.getPath('userData'), 'memory.md')
 
+// 用户 skills 目录路径（用于创建 user skills）
+const USER_SKILLS_PATH = path.join(app.getPath('home'), '.agents', 'user', 'skills')
+
+// 检查路径是否在允许的目录内
+function isPathAllowed(targetPath: string, basePath: string): boolean {
+  const normalizedTarget = path.resolve(targetPath)
+  const normalizedBase = path.resolve(basePath)
+  return (
+    normalizedTarget.startsWith(normalizedBase) ||
+    normalizedTarget.startsWith(USER_SKILLS_PATH) ||
+    normalizedTarget === MEMORY_MD_PATH
+  )
+}
+
 // 初始化 memory.md 文件
 function initMemoryMd(): void {
   try {
@@ -1698,7 +1712,18 @@ ipcMain.handle('file-operation', async (_event, operation: string, args: Record<
 
     switch (operation) {
       case 'list_directory': {
-        const targetPath = resolveSafePath(itemPath || '.')
+        // 支持绝对路径和相对路径
+        const targetPath = (itemPath && path.isAbsolute(itemPath))
+          ? itemPath
+          : resolveSafePath(itemPath || '.')
+
+        // 对于绝对路径，验证是否在允许的目录内
+        if (itemPath && path.isAbsolute(itemPath) && !isPathAllowed(targetPath, basePath)) {
+          return {
+            success: false,
+            error: '路径必须在基础目录内'
+          }
+        }
 
         if (!fs.existsSync(targetPath)) {
           return {
@@ -1738,7 +1763,19 @@ ipcMain.handle('file-operation', async (_event, operation: string, args: Record<
           }
         }
 
-        const targetPath = resolveSafePath(path.join(itemPath || '', name))
+        // 支持绝对路径和相对路径
+        const fullPath = path.join(itemPath || '', name)
+        const targetPath = (itemPath && path.isAbsolute(itemPath))
+          ? fullPath
+          : resolveSafePath(fullPath)
+
+        // 对于绝对路径，验证是否在允许的目录内
+        if (itemPath && path.isAbsolute(itemPath) && !isPathAllowed(targetPath, basePath)) {
+          return {
+            success: false,
+            error: '路径必须在基础目录内'
+          }
+        }
 
         if (fs.existsSync(targetPath)) {
           return {
@@ -1766,8 +1803,23 @@ ipcMain.handle('file-operation', async (_event, operation: string, args: Record<
           }
         }
 
-        const sourcePath = resolveSafePath(itemPath)
-        const destPath = resolveSafePath(newPath)
+        // 支持绝对路径和相对路径
+        const sourcePath = path.isAbsolute(itemPath) ? itemPath : resolveSafePath(itemPath)
+        const destPath = path.isAbsolute(newPath) ? newPath : resolveSafePath(newPath)
+
+        // 对于绝对路径，验证是否在允许的目录内
+        if (path.isAbsolute(itemPath) && !isPathAllowed(sourcePath, basePath)) {
+          return {
+            success: false,
+            error: '源路径必须在基础目录内'
+          }
+        }
+        if (path.isAbsolute(newPath) && !isPathAllowed(destPath, basePath)) {
+          return {
+            success: false,
+            error: '目标路径必须在基础目录内'
+          }
+        }
 
         if (!fs.existsSync(sourcePath)) {
           return {
@@ -1802,8 +1854,23 @@ ipcMain.handle('file-operation', async (_event, operation: string, args: Record<
           }
         }
 
-        const sourcePath = resolveSafePath(itemPath)
-        const destPath = resolveSafePath(newPath)
+        // 支持绝对路径和相对路径
+        const sourcePath = path.isAbsolute(itemPath) ? itemPath : resolveSafePath(itemPath)
+        const destPath = path.isAbsolute(newPath) ? newPath : resolveSafePath(newPath)
+
+        // 对于绝对路径，验证是否在允许的目录内
+        if (path.isAbsolute(itemPath) && !isPathAllowed(sourcePath, basePath)) {
+          return {
+            success: false,
+            error: '源路径必须在基础目录内'
+          }
+        }
+        if (path.isAbsolute(newPath) && !isPathAllowed(destPath, basePath)) {
+          return {
+            success: false,
+            error: '目标路径必须在基础目录内'
+          }
+        }
 
         if (!fs.existsSync(sourcePath)) {
           return {
@@ -1909,8 +1976,13 @@ ipcMain.handle('file-operation', async (_event, operation: string, args: Record<
 
       case 'glob': {
         const { pattern = '' } = args
-        // 将相对路径解析为基于 basePath 的绝对路径
-        const searchPath = args.path ? path.resolve(basePath, args.path) : basePath
+        // 支持绝对路径和相对路径
+        let searchPath: string
+        if (args.path && path.isAbsolute(args.path)) {
+          searchPath = args.path
+        } else {
+          searchPath = args.path ? path.resolve(basePath, args.path) : basePath
+        }
 
         if (!pattern) {
           return {
@@ -1919,11 +1991,8 @@ ipcMain.handle('file-operation', async (_event, operation: string, args: Record<
           }
         }
 
-        // 验证搜索路径是否在基础路径内（使用规范化后的路径比较）
-        const normalizedBasePath = path.resolve(basePath)
-        const normalizedSearchPath = path.resolve(searchPath)
-        const relativePath = path.relative(normalizedBasePath, normalizedSearchPath)
-        if (relativePath.startsWith('..')) {
+        // 验证搜索路径是否在允许的目录内
+        if (!isPathAllowed(searchPath, basePath)) {
           return {
             success: false,
             error: '搜索路径必须在基础目录内'
@@ -1971,8 +2040,13 @@ ipcMain.handle('file-operation', async (_event, operation: string, args: Record<
 
       case 'grep': {
         const { pattern = '' } = args
-        // 将相对路径解析为基于 basePath 的绝对路径
-        const searchPath = args.path ? path.resolve(basePath, args.path) : basePath
+        // 支持绝对路径和相对路径
+        let searchPath: string
+        if (args.path && path.isAbsolute(args.path)) {
+          searchPath = args.path
+        } else {
+          searchPath = args.path ? path.resolve(basePath, args.path) : basePath
+        }
         const includePattern = args.include || ''
 
         if (!pattern) {
@@ -1982,11 +2056,8 @@ ipcMain.handle('file-operation', async (_event, operation: string, args: Record<
           }
         }
 
-        // 验证搜索路径是否在基础路径内（使用规范化后的路径比较）
-        const normalizedBasePath = path.resolve(basePath)
-        const normalizedSearchPath = path.resolve(searchPath)
-        const relativePath = path.relative(normalizedBasePath, normalizedSearchPath)
-        if (relativePath.startsWith('..')) {
+        // 验证搜索路径是否在允许的目录内
+        if (!isPathAllowed(searchPath, basePath)) {
           return {
             success: false,
             error: '搜索路径必须在基础目录内'
@@ -2153,8 +2224,8 @@ ipcMain.handle('file-operation', async (_event, operation: string, args: Record<
 
         const targetPath = path.isAbsolute(file_path) ? file_path : resolveSafePath(file_path)
 
-        // 对于绝对路径，验证是否在基础路径内（允许访问 memory.md）
-        if (path.isAbsolute(file_path) && !targetPath.startsWith(path.resolve(basePath)) && targetPath !== MEMORY_MD_PATH) {
+        // 对于绝对路径，验证是否在基础路径内（允许访问 memory.md 和 user skills 目录）
+        if (path.isAbsolute(file_path) && !targetPath.startsWith(path.resolve(basePath)) && targetPath !== MEMORY_MD_PATH && !targetPath.startsWith(USER_SKILLS_PATH)) {
           return {
             success: false,
             error: '文件路径必须在基础目录内'
@@ -2217,8 +2288,8 @@ ipcMain.handle('file-operation', async (_event, operation: string, args: Record<
 
         const targetPath = path.isAbsolute(file_path) ? file_path : resolveSafePath(file_path)
 
-        // 对于绝对路径，验证是否在基础路径内（允许访问 memory.md）
-        if (path.isAbsolute(file_path) && !targetPath.startsWith(path.resolve(basePath)) && targetPath !== MEMORY_MD_PATH) {
+        // 对于绝对路径，验证是否在基础路径内（允许访问 memory.md 和 user skills 目录）
+        if (path.isAbsolute(file_path) && !targetPath.startsWith(path.resolve(basePath)) && targetPath !== MEMORY_MD_PATH && !targetPath.startsWith(USER_SKILLS_PATH)) {
           return {
             success: false,
             error: '文件路径必须在基础目录内'
@@ -2453,14 +2524,14 @@ function getSkillsBasePath(): string {
 }
 
 // 获取所有 Skills 目录
-function getSkillsDirectories(): Record<SkillLocation, string> {
+function getSkillsDirectories(): Record<SkillLocation, string[]> {
   const base = getSkillsBasePath()
   const homePath = app.getPath('home')
   return {
-    public: path.join(base, 'public'),
-    examples: path.join(base, 'examples'),
-    user: path.join(base, 'user'),
-    installed: path.join(homePath, '.agents', 'skills')
+    public: [path.join(base, 'public')],
+    examples: [path.join(base, 'examples')],
+    user: [path.join(base, 'user'), path.join(homePath, '.agents', 'user', 'skills')],
+    installed: [path.join(homePath, '.agents', 'skills')]
   }
 }
 
@@ -2563,68 +2634,70 @@ ipcMain.handle('skills-scan', async (): Promise<SkillScanResult> => {
   const errors: string[] = []
   const dirs = getSkillsDirectories()
 
-  for (const [location, dirPath] of Object.entries(dirs)) {
-    try {
-      if (!fs.existsSync(dirPath)) {
-        fs.mkdirSync(dirPath, { recursive: true })
-        continue
-      }
-
-      const entries = fs.readdirSync(dirPath, { withFileTypes: true })
-
-      for (const entry of entries) {
-        if (!entry.isDirectory()) continue
-
-        const skillPath = path.join(dirPath, entry.name)
-        const skillMdPath = path.join(skillPath, 'SKILL.md')
-
-        // Skip directories without SKILL.md silently
-        if (!fs.existsSync(skillMdPath)) {
+  for (const [location, dirPaths] of Object.entries(dirs)) {
+    for (const dirPath of dirPaths) {
+      try {
+        if (!fs.existsSync(dirPath)) {
+          fs.mkdirSync(dirPath, { recursive: true })
           continue
         }
 
-        try {
-          const content = fs.readFileSync(skillMdPath, 'utf-8')
-          const { frontmatter, error } = parseSkillFrontmatter(content)
+        const entries = fs.readdirSync(dirPath, { withFileTypes: true })
 
-          if (error || !frontmatter) {
-            errors.push(`Skill "${entry.name}" parse error: ${error}`)
+        for (const entry of entries) {
+          if (!entry.isDirectory()) continue
+
+          const skillPath = path.join(dirPath, entry.name)
+          const skillMdPath = path.join(skillPath, 'SKILL.md')
+
+          // Skip directories without SKILL.md silently
+          if (!fs.existsSync(skillMdPath)) {
             continue
           }
 
-          const validation = validateSkillFrontmatter(frontmatter)
-          if (!validation.valid) {
-            errors.push(`Skill "${entry.name}" validation failed: ${validation.errors.join('; ')}`)
-            continue
+          try {
+            const content = fs.readFileSync(skillMdPath, 'utf-8')
+            const { frontmatter, error } = parseSkillFrontmatter(content)
+
+            if (error || !frontmatter) {
+              errors.push(`Skill "${entry.name}" parse error: ${error}`)
+              continue
+            }
+
+            const validation = validateSkillFrontmatter(frontmatter)
+            if (!validation.valid) {
+              errors.push(`Skill "${entry.name}" validation failed: ${validation.errors.join('; ')}`)
+              continue
+            }
+
+            // Use folder name (entry.name) for skillId to ensure correct path reconstruction
+            // frontmatter.name may differ from folder name (e.g., folder: seo-1.0.3, frontmatter: seo)
+            const skillId = `${location}-${entry.name}`
+            const stats = fs.statSync(skillMdPath)
+
+            skills.push({
+              id: skillId,
+              name: frontmatter.name,
+              description: frontmatter.description,
+              location: location as SkillLocation,
+              path: skillPath,
+              enabled: true,
+              createdAt: stats.birthtimeMs,
+              updatedAt: stats.mtimeMs,
+              version: frontmatter.version,
+              author: frontmatter.author,
+              tags: frontmatter.tags,
+              triggers: frontmatter.triggers,
+              isLoaded: false,
+              hasError: false
+            })
+          } catch (e) {
+            errors.push(`Skill "${entry.name}" read error: ${e}`)
           }
-
-          // Use folder name (entry.name) for skillId to ensure correct path reconstruction
-          // frontmatter.name may differ from folder name (e.g., folder: seo-1.0.3, frontmatter: seo)
-          const skillId = `${location}-${entry.name}`
-          const stats = fs.statSync(skillMdPath)
-
-          skills.push({
-            id: skillId,
-            name: frontmatter.name,
-            description: frontmatter.description,
-            location: location as SkillLocation,
-            path: skillPath,
-            enabled: true,
-            createdAt: stats.birthtimeMs,
-            updatedAt: stats.mtimeMs,
-            version: frontmatter.version,
-            author: frontmatter.author,
-            tags: frontmatter.tags,
-            triggers: frontmatter.triggers,
-            isLoaded: false,
-            hasError: false
-          })
-        } catch (e) {
-          errors.push(`Skill "${entry.name}" read error: ${e}`)
         }
+      } catch (e) {
+        errors.push(`Failed to scan ${location} directory: ${e}`)
       }
-    } catch (e) {
-      errors.push(`Failed to scan ${location} directory: ${e}`)
     }
   }
 
@@ -2647,10 +2720,20 @@ ipcMain.handle('skills-load', async (_event, skillId: string): Promise<SkillLoad
     const skillName = skillId.slice(firstDashIndex + 1)
 
     const dirs = getSkillsDirectories()
-    const skillPath = path.join(dirs[location], skillName)
-    const skillMdPath = path.join(skillPath, 'SKILL.md')
+    // 在该 location 的所有路径中查找 skill
+    let skillPath: string | null = null
+    let skillMdPath: string | null = null
+    for (const dirPath of dirs[location]) {
+      const potentialPath = path.join(dirPath, skillName)
+      const potentialMdPath = path.join(potentialPath, 'SKILL.md')
+      if (fs.existsSync(potentialMdPath)) {
+        skillPath = potentialPath
+        skillMdPath = potentialMdPath
+        break
+      }
+    }
 
-    if (!fs.existsSync(skillMdPath)) {
+    if (!skillPath || !skillMdPath) {
       return { success: false, error: 'SKILL.md not found' }
     }
 
@@ -2702,12 +2785,16 @@ ipcMain.handle('skills-create', async (_event, name: string, description: string
   }
 
   const dirs = getSkillsDirectories()
-  const skillPath = path.join(dirs.user, name)
+  // 在第一个 user 路径（应用内）创建新技能
+  const skillPath = path.join(dirs.user[0], name)
   const skillMdPath = path.join(skillPath, 'SKILL.md')
 
-  // 检查是否已存在
-  if (fs.existsSync(skillPath)) {
-    return { success: false, error: 'Skill with this name already exists' }
+  // 检查是否已在任一 user 路径中存在
+  for (const userDir of dirs.user) {
+    const existingPath = path.join(userDir, name)
+    if (fs.existsSync(existingPath)) {
+      return { success: false, error: 'Skill with this name already exists' }
+    }
   }
 
   try {
@@ -2765,9 +2852,18 @@ ipcMain.handle('skills-update', async (_event, skillId: string, body: string): P
 
   const skillName = skillId.slice(firstDashIndex + 1)
   const dirs = getSkillsDirectories()
-  const skillMdPath = path.join(dirs.user, skillName, 'SKILL.md')
 
-  if (!fs.existsSync(skillMdPath)) {
+  // 在所有 user 路径中查找 skill
+  let skillMdPath: string | null = null
+  for (const userDir of dirs.user) {
+    const potentialPath = path.join(userDir, skillName, 'SKILL.md')
+    if (fs.existsSync(potentialPath)) {
+      skillMdPath = potentialPath
+      break
+    }
+  }
+
+  if (!skillMdPath) {
     return { success: false, error: 'SKILL.md not found' }
   }
 
@@ -2810,9 +2906,18 @@ ipcMain.handle('skills-delete', async (_event, skillId: string): Promise<{ succe
 
   const skillName = skillId.slice(firstDashIndex + 1)
   const dirs = getSkillsDirectories()
-  const skillPath = path.join(dirs.user, skillName)
 
-  if (!fs.existsSync(skillPath)) {
+  // 在所有 user 路径中查找 skill
+  let skillPath: string | null = null
+  for (const userDir of dirs.user) {
+    const potentialPath = path.join(userDir, skillName)
+    if (fs.existsSync(potentialPath)) {
+      skillPath = potentialPath
+      break
+    }
+  }
+
+  if (!skillPath) {
     return { success: false, error: 'Skill not found' }
   }
 

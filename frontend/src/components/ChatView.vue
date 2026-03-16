@@ -1197,6 +1197,7 @@ async function executeNormalChat(text: string, images: string[] = []) {
         last.content = '对话已取消'
       } else {
         last.content = '对话失败: ' + (err instanceof Error ? err.message : '未知错误')
+        last.isError = true
       }
     }
   } finally {
@@ -1475,6 +1476,7 @@ async function continueChatAfterToolCalls(messages: any[], mcpTools: any[]) {
         msg.content = '对话已取消'
       } else {
         msg.content = '对话失败: ' + (err instanceof Error ? err.message : '未知错误')
+        msg.isError = true
       }
     }
   } finally {
@@ -1592,6 +1594,61 @@ function deleteMessage(messageIndex: number) {
 
   // 保存历史
   saveChatHistory()
+}
+
+// 重试失败的消息
+async function retryMessage(messageIndex: number) {
+  if (!currentChat.value) return
+
+  const messages = currentChat.value.messages
+  if (messageIndex < 0 || messageIndex >= messages.length) return
+
+  const failedMessage = messages[messageIndex]
+  if (!failedMessage) return
+
+  // 确保是错误消息
+  if (!(failedMessage as any).isError && !isErrorMessage(failedMessage)) return
+
+  // 查找失败消息之前的用户消息
+  let userMessageIndex = messageIndex - 1
+  while (userMessageIndex >= 0 && messages[userMessageIndex]?.role !== 'user') {
+    userMessageIndex--
+  }
+
+  if (userMessageIndex < 0) return
+
+  const userMessage = messages[userMessageIndex]
+  if (!userMessage) return
+
+  // 保存用户消息内容
+  const userContent = userMessage.content
+  const userImages = (userMessage as any).images || []
+
+  // 删除从用户消息开始的所有消息
+  messages.splice(userMessageIndex)
+
+  // 清理相关的 reasoning 状态
+  for (let i = userMessageIndex; i < messages.length + 100; i++) {
+    delete reasoningExpanded.value[i]
+    delete reasoningStartTime.value[i]
+  }
+
+  // 保存历史
+  saveChatHistory()
+
+  // 重新发送消息
+  await executeNormalChat(
+    typeof userContent === 'string' ? userContent : '',
+    userImages
+  )
+}
+
+// 检测消息是否为错误消息
+function isErrorMessage(message: any): boolean {
+  if (message.isError) return true
+  const contentStr = typeof message.content === 'string' ? message.content : ''
+  const errorPrefixes = ['对话失败', '任务执行失败', 'API 请求失败', 'API request failed', 'Maximum context length', 'context length', 'tokens']
+  return errorPrefixes.some(prefix => contentStr.includes(prefix))
 }
 
 function changeAssistant(assistantId: string) {
@@ -2073,6 +2130,7 @@ function handleFolderChanged(path: string) {
           @folder-changed="handleFolderChanged"
           @update:enable-thinking="handleUpdateEnableThinking"
           @delete-message="deleteMessage"
+          @retry-message="retryMessage"
           ref="normalChatRef"
         />
       </div>
@@ -2255,6 +2313,7 @@ function handleFolderChanged(path: string) {
         type="danger"
         :show-auto-allow="true"
         :auto-allow-checked="commandAutoAllow"
+        :close-on-click-overlay="false"
         @confirm="onCommandConfirm"
         @cancel="onCommandCancel"
         @update:auto-allow-checked="onCommandAutoAllowUpdate"

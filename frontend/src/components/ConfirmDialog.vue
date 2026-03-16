@@ -12,6 +12,7 @@ interface Props {
   type?: 'danger' | 'warning' | 'info'
   showAutoAllow?: boolean
   autoAllowChecked?: boolean
+  closeOnClickOverlay?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -20,7 +21,8 @@ const props = withDefaults(defineProps<Props>(), {
   cancelText: '取消',
   type: 'warning',
   showAutoAllow: false,
-  autoAllowChecked: false
+  autoAllowChecked: false,
+  closeOnClickOverlay: true
 })
 
 const iconComponent = computed(() => {
@@ -39,7 +41,7 @@ const iconComponent = computed(() => {
 
 <template>
   <Transition name="modal">
-    <div class="modal-overlay" v-if="show" @click.self="$emit('cancel')">
+    <div class="modal-overlay" v-if="show" @click.self="closeOnClickOverlay && $emit('cancel')">
       <div class="modal-content confirm-modal">
         <div class="confirm-icon">
           <component :is="iconComponent" :size="48" />

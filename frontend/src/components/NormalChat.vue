@@ -96,6 +96,7 @@ const emit = defineEmits<{
   'folder-changed': [path: string]
   'update:enable-thinking': [value: boolean]  // 更新思考模式
   'delete-message': [index: number]  // 删除消息
+  'retry-message': [index: number]  // 重试消息
 }>()
 
 // 思考模式
@@ -1150,6 +1151,10 @@ function scrollToBottom() {
               <!-- 渲染输出内容 -->
               <div class="msg-bubble" v-html="render(getContentAsString(m.content))" />
               <div class="msg-actions" v-if="m.copyable !== false">
+                <!-- 重试按钮：仅在错误消息时显示 -->
+                <button v-if="isErrorMessage(m) && m.role === 'assistant'" class="retry-btn" @click="emit('retry-message', i)" title="重试">
+                  重试
+                </button>
                 <button class="copy-btn" :class="{ 'copy-success': copyStatus[i]?.text }" @click="handleCopyText(m, i)" title="复制文本">
                   <span v-if="copyStatus[i]?.text" class="success-icon">✓</span>
                   <span v-else>Copy Text</span>
@@ -1867,6 +1872,30 @@ function scrollToBottom() {
   background: linear-gradient(135deg, var(--color-bg-success) 0%, rgba(34, 197, 94, 0.15) 100%);
   border-color: #22c55e;
   color: #16a34a;
+}
+
+.retry-btn {
+  background: var(--color-bg-primary);
+  border: 1px solid #dc2626;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #dc2626;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.retry-btn:hover {
+  background: #dc2626;
+  color: #fff;
+}
+
+.retry-btn:active {
+  transform: scale(0.98);
 }
 
 .dark-mode .copy-btn.copy-success {
