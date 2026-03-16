@@ -976,6 +976,7 @@ defineExpose({
 
 .workspace-btns {
   display: flex;
+  gap: 6px;
 }
 
 /* refresh-btn styles moved to global style.css */
@@ -1050,7 +1051,7 @@ defineExpose({
 }
 
 .breadcrumb-item.root:hover {
-  color: #0f8f6d;
+  color: #000000;
 }
 
 .breadcrumb-item span:not(.breadcrumb-separator) {
@@ -1059,7 +1060,7 @@ defineExpose({
 }
 
 .breadcrumb-item span:not(.breadcrumb-separator):hover {
-  color: #0f8f6d;
+  color: #000000;
 }
 
 .breadcrumb-separator {

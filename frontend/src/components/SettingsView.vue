@@ -265,7 +265,7 @@ async function clearChatHistory() {
   flex: 1;
   padding: 20px;
   overflow: auto;
-  height: calc(100vh - 80px);
+  height: calc(100vh - 84px);
 }
 
 .tab-content {

@@ -2,51 +2,77 @@
   /* Force light mode - ignore system dark mode preference */
   color-scheme: light only;
 
-  /* Theme Colors - Light Mode */
-  --color-primary: #333;
-  --color-primary-hover: #555;
-  --color-secondary: #f5f5f5;
-  --color-secondary-hover: #ebebeb;
+  /* Apple-like Color Palette - Refined & Premium */
+  --color-primary: #007aff;
+  --color-primary-hover: #0056cc;
+  --color-primary-light: rgba(0, 122, 255, 0.1);
+  --color-secondary: #f2f2f7;
+  --color-secondary-hover: #e5e5ea;
   --color-ghost: transparent;
-  --color-ghost-hover: rgba(0, 0, 0, 0.05);
-  --color-ghost-active: rgba(0, 0, 0, 0.1);
-  --color-danger: #ef4444;
-  --color-danger-hover: #dc2626;
-  --color-danger-bg: #fef2f2;
-  --color-button-disabled: #ccc;
-  --color-link: #4a90d9;
-  --color-recording: #fee;
-  --color-recording-border: #fcc;
-  --color-recording-text: #c00;
+  --color-ghost-hover: rgba(0, 122, 255, 0.08);
+  --color-ghost-active: rgba(0, 122, 255, 0.15);
+  --color-danger: #ff3b30;
+  --color-danger-hover: #d32f2f;
+  --color-danger-bg: rgba(255, 59, 48, 0.1);
+  --color-button-disabled: #c7c7cc;
+  --color-link: #007aff;
+  --color-recording: #fff5f5;
+  --color-recording-border: #ffcccb;
+  --color-recording-text: #cc0000;
 
-  /* Text Colors */
-  --color-text-primary: #333;
-  --color-text-secondary: #666;
-  --color-text-tertiary: #888;
+  /* Text Colors - Apple style */
+  --color-text-primary: #1d1d1f;
+  --color-text-secondary: #86868b;
+  --color-text-tertiary: #a1a1a6;
   --color-text-on-primary: #ffffff;
 
-  /* Border Colors */
-  --color-border: #eee;
-  --color-border-hover: #ccc;
+  /* Border Colors - Subtle */
+  --color-border: rgba(60, 60, 67, 0.12);
+  --color-border-hover: rgba(60, 60, 67, 0.29);
 
-  /* Background Colors */
+  /* Background Colors - Clean Apple style */
   --color-bg-primary: #ffffff;
-  --color-bg-secondary: #fafafa;
-  --color-bg-tertiary: #f9fafb;
-  --color-bg-hover: #f0f0f0;
-  --color-bg-success: #dcfce7;
-  --color-bg-warning: #fef3c7;
-  --color-bg-info: #dbeafe;
+  --color-bg-secondary: #fbfbfd;
+  --color-bg-tertiary: #f5f5f7;
+  --color-bg-hover: rgba(0, 122, 255, 0.05);
+  --color-bg-success: rgba(52, 199, 89, 0.15);
+  --color-bg-warning: rgba(255, 204, 0, 0.15);
+  --color-bg-info: rgba(0, 122, 255, 0.1);
 
-  /* Status Colors */
-  --color-status-working: #4a90d9;
-  --color-status-working-bg: #e8f4fd;
-  --color-status-completed: #16a34a;
-  --color-status-completed-bg: #dcfce7;
-  --color-status-failed: #dc2626;
-  --color-status-failed-bg: #fee2e2;
-  --color-status-idle: #6b7280;
-  --color-status-idle-bg: #f3f4f6;
+  /* Status Colors - Apple style */
+  --color-status-working: #007aff;
+  --color-status-working-bg: rgba(0, 122, 255, 0.1);
+  --color-status-completed: #34c759;
+  --color-status-completed-bg: rgba(52, 199, 89, 0.15);
+  --color-status-failed: #ff3b30;
+  --color-status-failed-bg: rgba(255, 59, 48, 0.1);
+  --color-status-idle: #8e8e93;
+  --color-status-idle-bg: rgba(142, 142, 147, 0.12);
+
+  /* Apple Glassmorphism */
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.24);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  --glass-blur: blur(20px);
+
+  /* Shadows - Apple style */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.12);
+  --shadow-xl: 0 24px 60px rgba(0, 0, 0, 0.16);
+
+  /* Border Radius - Apple style */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* Transitions - Smooth Apple animations */
+  --transition-fast: 150ms cubic-bezier(0.25, 0.1, 0.25, 1);
+  --transition-normal: 250ms cubic-bezier(0.25, 0.1, 0.25, 1);
+  --transition-smooth: 350ms cubic-bezier(0.25, 0.1, 0.25, 1);
+  --transition-spring: 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
 
   /* Font Sizes - Standard */
   --font-size-panel-title: 14px;
@@ -63,7 +89,7 @@
   --line-height-title: 1.3;
 
   /* Base Styles */
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', 'Segoe UI', Roboto, sans-serif;
   line-height: 1.5;
   font-weight: 400;
   color: var(--color-text-primary);
@@ -118,22 +144,23 @@ a:hover {
 }
 
 /* ============================================
-   GLOBAL BUTTON STYLES
+   GLOBAL BUTTON STYLES - Apple Style
    ============================================ */
 
 /* Base Button */
 .btn {
-  padding: 10px 12px;
+  padding: 10px 16px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   font-weight: 500;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
   font-size: 13px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
+  box-shadow: var(--shadow-sm);
 }
 
 /* Focus Visible */
@@ -151,27 +178,32 @@ button:disabled {
   pointer-events: none;
 }
 
-/* Primary Button */
+/* Primary Button - Apple Blue */
 .btn.primary,
 .btn-primary,
 .login-btn {
   background: var(--color-primary);
   color: var(--color-text-on-primary);
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
 }
 .btn.primary:hover,
 .btn-primary:hover,
 .login-btn:hover {
   background: var(--color-primary-hover);
+  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.35);
+  transform: translateY(-1px);
 }
 .btn.primary:active,
 .btn-primary:active,
 .login-btn:active {
-  transform: scale(0.98);
+  transform: scale(0.98) translateY(0);
+  box-shadow: 0 1px 4px rgba(0, 122, 255, 0.2);
 }
 .btn.primary:disabled,
 .btn-primary:disabled,
 .login-btn:disabled {
   background: var(--color-button-disabled);
+  box-shadow: none;
 }
 
 /* Circular Primary Button (44px x 44px) */
@@ -183,20 +215,23 @@ button:disabled {
   border-radius: 50%;
 }
 
-/* Secondary Button (Cancel/No) */
+/* Secondary Button - Apple Style */
 .btn.secondary,
 .btn-secondary,
 .btn.no {
   background: var(--color-secondary);
   color: var(--color-text-primary);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
+  box-shadow: none;
 }
 .btn.secondary:hover,
 .btn-secondary:hover,
 .btn.no:hover {
-  background: #eee;
+  background: var(--color-secondary-hover);
   border-color: var(--color-border-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Ghost Button */
@@ -205,17 +240,20 @@ button:disabled {
   background: var(--color-ghost);
   color: var(--color-text-primary);
   border: 1px solid transparent;
+  box-shadow: none;
 }
 .btn.ghost:hover,
 .btn-ghost:hover {
   background: var(--color-ghost-hover);
+  transform: translateY(-1px);
 }
 .btn.ghost:active,
 .btn-ghost:active {
   background: var(--color-ghost-active);
+  transform: scale(0.98);
 }
 
-/* Danger Button */
+/* Danger Button - Apple Red */
 .btn.danger,
 .btn-danger,
 .btn.del,
@@ -223,6 +261,7 @@ button:disabled {
   background: transparent;
   border: 1px solid var(--color-border);
   color: var(--color-text-secondary);
+  box-shadow: none;
 }
 .btn.danger:hover,
 .btn-danger:hover,
@@ -231,67 +270,84 @@ button:disabled {
   border-color: var(--color-danger);
   color: var(--color-danger);
   background: var(--color-danger-bg);
+  transform: translateY(-1px);
 }
 
 /* Yes Button (Confirm) */
 .btn.yes {
   background: var(--color-primary);
   color: var(--color-text-on-primary);
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
 }
 .btn.yes:hover {
   background: var(--color-primary-hover);
+  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.35);
+  transform: translateY(-1px);
 }
 
 /* Small Button */
 .btn.small {
   padding: 6px 12px;
-  font-size: 13px;
+  font-size: 12px;
 }
 
-/* Icon Button */
+/* Icon Button - Apple Style */
 .btn-icon {
-  padding: 8px;
-  background: transparent;
+  padding: 10px;
+  background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
   color: var(--color-text-secondary);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  box-shadow: var(--shadow-sm);
 }
 .btn-icon:hover {
   border-color: var(--color-primary);
   color: var(--color-primary);
+  background: var(--color-bg-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+.btn-icon:active {
+  transform: scale(0.95);
 }
 
 /* Dialog Button */
 .dialog-btn {
-  padding: 10px 12px;
+  padding: 10px 16px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   font-weight: 500;
   transition: all 0.2s;
   font-size: 13px;
 }
 
-/* Action Buttons */
+/* Action Buttons - Apple Style */
 .action-btn {
-  padding: 6px 12px;
-  border-radius: 8px;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
   border: 1px solid var(--color-border);
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
+  box-shadow: var(--shadow-sm);
 }
 .action-btn:hover {
   border-color: var(--color-primary);
   color: var(--color-primary);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+.action-btn:active {
+  transform: scale(0.98);
 }
 .action-btn.delete:hover,
 .action-btn.delete-btn:hover {
@@ -300,52 +356,72 @@ button:disabled {
   background: var(--color-danger-bg);
 }
 
-/* Back Button */
+/* Back Button - Apple Style */
 .back-btn {
-  padding: 8px 16px;
-  background: transparent;
+  padding: 10px 18px;
+  background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--color-text-secondary);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
   font-size: 14px;
+  box-shadow: var(--shadow-sm);
 }
 .back-btn:hover {
   border-color: var(--color-primary);
   color: var(--color-primary);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+.back-btn:active {
+  transform: scale(0.98);
 }
 
-/* Add Button */
+/* Add Button - Apple Style */
 .add-btn {
-  padding: 8px 16px;
+  padding: 10px 18px;
   background: var(--color-primary);
   color: var(--color-text-on-primary);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
   font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
 }
 .add-btn:hover {
   background: var(--color-primary-hover);
+  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.35);
+  transform: translateY(-1px);
+}
+.add-btn:active {
+  transform: scale(0.98);
 }
 
-/* Edit/Delete Action Buttons */
+/* Edit/Delete Action Buttons - Apple Style */
 .edit-btn,
 .delete-btn {
-  padding: 6px 12px;
-  border-radius: 8px;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
   font-size: 13px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
   border: 1px solid var(--color-border);
   background: var(--color-bg-primary);
   color: var(--color-text-secondary);
+  box-shadow: var(--shadow-sm);
 }
 .edit-btn:hover {
   border-color: var(--color-primary);
   color: var(--color-primary);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+.edit-btn:active,
+.delete-btn:active {
+  transform: scale(0.98);
 }
 .delete-btn:hover {
   border-color: var(--color-danger);
@@ -353,88 +429,113 @@ button:disabled {
   background: var(--color-danger-bg);
 }
 
-/* Close Button */
+/* Close Button - Apple Style */
 .close-btn {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
   background: var(--color-bg-primary);
   color: var(--color-text-secondary);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  font-size: 18px;
   line-height: 1;
+  box-shadow: var(--shadow-sm);
 }
 .close-btn:hover {
   border-color: var(--color-danger);
   color: var(--color-danger);
+  background: var(--color-danger-bg);
+  transform: scale(1.05);
 }
 
-/* Confirm/Cancel/Continue Buttons */
+/* Confirm/Cancel/Continue Buttons - Apple Style */
 .confirm-btn {
-  padding: 10px 12px;
+  padding: 12px 20px;
   background: var(--color-primary);
   color: var(--color-text-on-primary);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
 }
 .confirm-btn:hover {
   background: var(--color-primary-hover);
+  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.35);
+  transform: translateY(-1px);
+}
+.confirm-btn:active {
+  transform: scale(0.98);
 }
 
 .cancel-btn {
-  padding: 10px 12px;
-  background: var(--color-secondary);
+  padding: 12px 20px;
+  background: var(--color-bg-primary);
   color: var(--color-text-primary);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
+  font-weight: 500;
+  box-shadow: var(--shadow-sm);
 }
 .cancel-btn:hover {
-  background: var(--color-secondary-hover);
+  background: var(--color-secondary);
+  border-color: var(--color-border-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+.cancel-btn:active {
+  transform: scale(0.98);
 }
 
 .revise-btn,
 .continue-btn {
-  padding: 10px 12px;
+  padding: 12px 20px;
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
+  font-weight: 500;
+  box-shadow: var(--shadow-sm);
 }
 .revise-btn:hover,
 .continue-btn:hover {
   border-color: var(--color-primary);
   color: var(--color-primary);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }
 
-/* Toggle Buttons */
+/* Toggle Buttons - Apple Style */
 .toggle-btn,
 .enable-btn,
 .mode-switcher-btn {
-  padding: 6px 12px;
-  border-radius: 8px;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
   font-size: 13px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
   border: 1px solid var(--color-border);
   background: var(--color-bg-primary);
   color: var(--color-text-secondary);
+  box-shadow: var(--shadow-sm);
 }
 .toggle-btn:hover,
 .enable-btn:hover,
 .mode-switcher-btn:hover {
   border-color: var(--color-primary);
   color: var(--color-primary);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }
 .toggle-btn.active,
 .enable-btn.active,
@@ -442,20 +543,27 @@ button:disabled {
   background: var(--color-primary);
   color: var(--color-text-on-primary);
   border-color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
+}
+.toggle-btn.active:hover,
+.enable-btn.active:hover,
+.mode-switcher-btn.active:hover {
+  background: var(--color-primary-hover);
+  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.35);
 }
 
-/* Copy Button */
+/* Copy Button - Apple Style */
 .copy-btn,
 .code-copy-btn,
 .tool-action-btn {
-  padding: 4px 8px;
-  border-radius: 6px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
   font-size: 12px;
   background: var(--color-bg-tertiary);
   color: var(--color-text-secondary);
   border: 1px solid var(--color-border);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
 }
 .copy-btn:hover,
 .code-copy-btn:hover,
@@ -463,62 +571,67 @@ button:disabled {
   border-color: var(--color-primary);
   color: var(--color-primary);
   background: var(--color-bg-primary);
+  transform: translateY(-1px);
 }
 
-/* Code Preview Button */
+/* Code Preview Button - Apple Style */
 .code-preview-btn {
-  padding: 4px 8px;
-  border-radius: 6px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
   font-size: 12px;
   background: var(--color-bg-tertiary);
   color: var(--color-text-secondary);
   border: 1px solid var(--color-border);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
   margin-left: 4px;
 }
 .code-preview-btn:hover {
   border-color: var(--color-primary);
   color: var(--color-primary);
   background: var(--color-bg-primary);
+  transform: translateY(-1px);
 }
 
-/* Working Memory Toggle */
+/* Working Memory Toggle - Apple Style */
 .wm-toggle-btn {
-  padding: 4px 10px;
-  border-radius: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
   font-size: 12px;
   background: var(--color-bg-tertiary);
   color: var(--color-text-secondary);
   border: 1px solid var(--color-border);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
 }
 .wm-toggle-btn:hover {
   border-color: var(--color-primary);
   color: var(--color-primary);
+  transform: translateY(-1px);
 }
 .wm-toggle-btn.active {
   background: var(--color-primary);
   color: var(--color-text-on-primary);
   border-color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
 }
 
-/* Working Memory Action Buttons */
+/* Working Memory Action Buttons - Apple Style */
 .wm-action-btn,
 .task-action-btn {
-  padding: 4px;
-  border-radius: 6px;
+  padding: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-text-secondary);
   border: 1px solid transparent;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
 }
 .wm-action-btn:hover,
 .task-action-btn:hover {
-  background: var(--color-bg-tertiary);
+  background: var(--color-bg-hover);
   color: var(--color-primary);
+  transform: scale(1.1);
 }
 .wm-action-btn.delete:hover,
 .task-action-btn.delete:hover {
@@ -532,14 +645,14 @@ button:disabled {
   color: var(--color-text-primary);
 }
 
-/* Working Memory Edit Buttons */
+/* Working Memory Edit Buttons - Apple Style */
 .wm-edit-btn,
 .task-edit-btn {
-  padding: 4px 8px;
-  border-radius: 6px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
   font-size: 12px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
   border: 1px solid var(--color-border);
 }
 .wm-edit-btn.save,
@@ -547,6 +660,7 @@ button:disabled {
   background: var(--color-primary);
   color: var(--color-text-on-primary);
   border-color: var(--color-primary);
+  box-shadow: 0 2px 6px rgba(0, 122, 255, 0.2);
 }
 .wm-edit-btn.cancel,
 .task-edit-btn.cancel {
@@ -557,13 +671,16 @@ button:disabled {
 .wm-edit-btn.save:hover,
 .task-edit-btn.save:hover {
   background: var(--color-primary-hover);
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+  transform: translateY(-1px);
 }
 .wm-edit-btn.cancel:hover,
 .task-edit-btn.cancel:hover {
   background: var(--color-secondary-hover);
+  transform: translateY(-1px);
 }
 
-/* Settings/Refresh/Retry Buttons */
+/* Settings/Refresh/Retry Buttons - Apple Style */
 .settings-btn,
 .refresh-btn,
 .retry-btn,
@@ -575,16 +692,17 @@ button:disabled {
 .params-btn,
 .folder-btn,
 .logout-btn {
-  padding: 8px;
-  border-radius: 8px;
-  background: transparent;
-  border: 1px solid transparent;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
   color: var(--color-text-secondary);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  box-shadow: var(--shadow-sm);
 }
 .settings-btn:hover,
 .refresh-btn:hover,
@@ -593,9 +711,20 @@ button:disabled {
 .mcp-btn:hover,
 .toggle-sidebar-btn:hover,
 .new-chat-btn:hover {
-  background: var(--color-bg-tertiary);
+  background: var(--color-bg-hover);
   color: var(--color-primary);
-  border-color: var(--color-border);
+  border-color: var(--color-primary);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+.settings-btn:active,
+.refresh-btn:active,
+.retry-btn:active,
+.assistant-btn:active,
+.mcp-btn:active,
+.toggle-sidebar-btn:active,
+.new-chat-btn:active {
+  transform: scale(0.95);
 }
 .clear-btn:hover {
   color: var(--color-danger);
@@ -608,23 +737,24 @@ button:disabled {
   background: var(--color-danger-bg);
 }
 
-/* Delete Chat Button */
+/* Delete Chat Button - Apple Style */
 .delete-chat-btn {
-  padding: 4px;
-  border-radius: 6px;
+  padding: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   border: 1px solid transparent;
   color: var(--color-text-tertiary);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
   opacity: 0;
 }
 .delete-chat-btn:hover {
   color: var(--color-danger);
   background: var(--color-danger-bg);
+  transform: scale(1.1);
 }
 
-/* Avatar Button */
+/* Avatar Button - Apple Style */
 .avatar-btn {
   width: 40px;
   height: 40px;
@@ -632,30 +762,34 @@ button:disabled {
   background: var(--color-bg-tertiary);
   border: 2px solid var(--color-border);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
   font-size: 20px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  box-shadow: var(--shadow-sm);
 }
 .avatar-btn:hover {
   border-color: var(--color-primary);
+  transform: scale(1.05);
+  box-shadow: var(--shadow-md);
 }
 
-/* Close Revision Button */
+/* Close Revision Button - Apple Style */
 .close-revision-btn {
-  padding: 4px;
-  border-radius: 6px;
+  padding: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   border: 1px solid transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
 }
 .close-revision-btn:hover {
   background: var(--color-danger-bg);
   color: var(--color-danger);
   border-color: var(--color-danger);
+  transform: scale(1.1);
 }
 
 /* Submit Revision Button */
@@ -1829,13 +1963,272 @@ button:disabled {
   transition: transform 150ms ease-out;
 }
 
-/* Page Transitions */
+/* Page Transitions - Apple Style */
 .page-enter-active,
 .page-leave-active {
-  transition: opacity 200ms ease-out;
+  transition: all 300ms cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
-.page-enter-from,
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
 .page-leave-to {
   opacity: 0;
+  transform: translateY(-8px);
+}
+
+/* ============================================
+   APPLE-STYLE GLOBAL ENHANCEMENTS
+   ============================================ */
+
+/* Global smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Enhanced focus states */
+*:focus {
+  outline: none;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Smooth input transitions */
+input,
+textarea,
+select {
+  transition: all var(--transition-normal);
+}
+
+/* Input focus glow effect */
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--color-primary);
+}
+
+/* Card hover effects */
+.card,
+.entry-card,
+.assistant-card,
+.server-card,
+.config-item {
+  transition: all var(--transition-normal);
+}
+
+.card:hover,
+.entry-card:hover,
+.assistant-card:hover,
+.server-card:hover,
+.config-item:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* List item animations */
+.list-item {
+  transition: all var(--transition-normal);
+}
+
+.list-item:hover {
+  background: var(--color-bg-hover);
+}
+
+/* Sidebar transitions */
+.sidebar,
+.settings-sidebar {
+  transition: all var(--transition-smooth);
+}
+
+/* Tooltip style */
+.tooltip {
+  background: var(--color-text-primary);
+  color: var(--color-bg-primary);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  pointer-events: none;
+}
+
+.tooltip.visible {
+  opacity: 1;
+}
+
+/* Loading spinner - Apple style */
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Skeleton loading - Apple style */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-tertiary) 25%,
+    var(--color-bg-secondary) 50%,
+    var(--color-bg-tertiary) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-sm);
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Smooth scrollbar - Apple style */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-hover);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-tertiary);
+}
+
+/* Selection color - Default system style */
+/* ::selection {
+  background: var(--color-primary-light);
+  color: var(--color-text-primary);
+} */
+
+/* Glassmorphism utility class */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+/* Smooth reveal animations */
+.reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all var(--transition-smooth);
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Staggered animation delays */
+.stagger-1 { transition-delay: 50ms; }
+.stagger-2 { transition-delay: 100ms; }
+.stagger-3 { transition-delay: 150ms; }
+.stagger-4 { transition-delay: 200ms; }
+.stagger-5 { transition-delay: 250ms; }
+
+/* Pulse animation for notifications */
+.pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Bounce animation for interactive elements */
+.bounce {
+  animation: bounce 0.5s ease-out;
+}
+
+@keyframes bounce {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Slide in from right */
+.slide-in-right {
+  animation: slideInRight var(--transition-normal) forwards;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Slide in from left */
+.slide-in-left {
+  animation: slideInLeft var(--transition-normal) forwards;
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Scale in animation */
+.scale-in {
+  animation: scaleIn var(--transition-spring) forwards;
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
