@@ -114,7 +114,6 @@ const showMermaidPreview = ref(false)
 const mermaidPreviewContent = ref('')
 
 // 设置弹出框状态
-const showSettingsPopover = ref(false)
 
 // 删除确认对话框状态
 const showDeleteConfirmDialog = ref(false)
@@ -800,15 +799,13 @@ function changeConfig(e: Event) {
   emit('change-config', target.value)
 }
 
-// 处理助手和模型选择变化（关闭弹出框）
+// 处理助手和模型选择变化
 function handleAssistantChange(e: Event) {
   changeAssistant(e)
-  showSettingsPopover.value = false
 }
 
 function handleConfigChange(e: Event) {
   changeConfig(e)
-  showSettingsPopover.value = false
 }
 
 // 计算当前助手名称
@@ -847,12 +844,9 @@ function openMermaidPreview(base64Code: string) {
   showMermaidPreview.value = true
 }
 
-// 点击外部关闭设置弹出框
+// 点击外部关闭技能选择器
 function handleClickOutside(e: MouseEvent) {
   const target = e.target as HTMLElement
-  if (!target.closest('.settings-wrapper')) {
-    showSettingsPopover.value = false
-  }
   // 关闭技能选择器（点击技能选择器外部时）
   if (!target.closest('.skill-selector-popup') && !target.closest('.textarea')) {
     showSkillSelector.value = false
@@ -1293,43 +1287,26 @@ function scrollToBottom() {
         </div>
         <!-- 操作栏 - 单行布局 -->
         <div class="action-bar">
-          <!-- 中间：模型选择器 -->
+          <!-- 中间：助手和模型选择器 -->
           <div class="settings-wrapper">
-            <button
-              type="button"
-              class="model-selector"
-              @click.stop="showSettingsPopover = !showSettingsPopover"
-              :title="`${currentAssistantName} / ${currentConfigName}`"
+            <select
+              :disabled="(currentChat?.messages?.length ?? 0) > 0"
+              :value="currentChat?.assistantId || ''"
+              @change="handleAssistantChange"
+              class="inline-select assistant-select"
+              :title="currentAssistantName"
             >
-              <span class="model-name">{{ currentConfigName }}</span>
-              <ChevronDownIcon :size="12" />
-            </button>
-            <!-- 模型选择弹出框 -->
-            <div v-if="showSettingsPopover" class="settings-popover" @click.stop>
-              <div class="popover-li">
-                <label>助手</label>
-                <select
-                  :disabled="(currentChat?.messages?.length ?? 0) > 0"
-                  :value="currentChat?.assistantId || ''"
-                  @change="handleAssistantChange"
-                  class="popover-select"
-                >
-                  <option value="">默认</option>
-                  <option v-for="assistant in assistantList.assistants" :key="assistant.id" :value="assistant.id">
-                    {{ assistant.name }}
-                  </option>
-                </select>
-              </div>
-              <div class="popover-li">
-                <label>模型</label>
-                <select :value="currentChat?.configId ?? ''" @change="handleConfigChange" class="popover-select">
-                  <option value="">选择模型</option>
-                  <option v-for="(config, index) in configList.configs" :key="index" :value="index">
-                    {{ config.name || config.model }}
-                  </option>
-                </select>
-              </div>
-            </div>
+              <option value="">默认助手</option>
+              <option v-for="assistant in assistantList.assistants" :key="assistant.id" :value="assistant.id">
+                {{ assistant.name }}
+              </option>
+            </select>
+            <select :value="currentChat?.configId ?? ''" @change="handleConfigChange" class="inline-select" :title="currentConfigName">
+              <option value="">选择模型</option>
+              <option v-for="(config, index) in configList.configs" :key="index" :value="index">
+                {{ config.name || config.model }}
+              </option>
+            </select>
           </div>
 
           <!-- 右侧：操作按钮组 -->
@@ -2064,53 +2041,49 @@ function scrollToBottom() {
   position: relative;
   flex: 1;
   display: flex;
-  justify-content: center;
+  align-items: center;
+  gap: 8px;
 }
 
-/* 设置弹出框样式 */
-.settings-popover {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 12px;
-  min-width: 180px;
-  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.3);
-  z-index: 100;
-}
-
-.popover-li {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.popover-li + .popover-li {
-  margin-top: 12px;
-}
-
-.popover-li label {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  font-weight: 500;
-}
-
-.popover-select {
+/* 内联选择器样式 */
+.inline-select {
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: 6px;
-  padding: 6px 8px;
+  padding: 6px 12px;
   font-size: 13px;
   cursor: pointer;
   color: var(--color-text-primary);
+  max-width: 140px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
-.popover-select:focus {
+.inline-select:focus {
   outline: none;
   border-color: var(--color-primary);
+}
+
+.inline-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.inline-select.assistant-select {
+  /* background: #f0fdf4;
+  color: #166534;
+  border-color: #86efac; */
+}
+
+.inline-select.assistant-select:hover:not(:disabled) {
+  /* background: #dcfce7;
+  border-color: #22c55e; */
+}
+
+.inline-select.assistant-select:focus {
+  /* border-color: #22c55e;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2); */
 }
 
 .token-stats {
@@ -2138,51 +2111,6 @@ function scrollToBottom() {
   color: var(--color-text-tertiary);
   font-size: 11px;
   margin-left: 2px;
-}
-
-.assistant-select {
-  background: #f0fdf4;
-  color: #166534;
-  border: 1px solid #86efac;
-  border-radius: 6px;
-  padding: 4px 8px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.assistant-select:hover {
-  background: #dcfce7;
-  border-color: #22c55e;
-}
-
-.assistant-select:focus {
-  outline: none;
-  border-color: #22c55e;
-  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
-}
-
-.config-select {
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  padding: 4px 8px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.config-select:hover {
-  background: var(--color-bg-primary);
-  border-color: var(--color-border);
-}
-
-.config-select:focus {
-  outline: none;
-  border-color: var(--color-border);
-  box-shadow: 0 0 0 2px rgba(161, 161, 161, 0.2);
 }
 
 .composer {
@@ -2219,30 +2147,6 @@ function scrollToBottom() {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
-}
-
-/* 模型选择器 */
-.model-selector {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  color: var(--color-text-secondary);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.model-selector:hover {
-  color: var(--color-text-primary);
-  background: var(--color-bg-tertiary);
-}
-
-.model-name {
-  font-weight: 500;
 }
 
 /* 操作按钮组 */

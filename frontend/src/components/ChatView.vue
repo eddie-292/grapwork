@@ -2900,8 +2900,8 @@ function handleFolderChanged(path: string) {
 }
 
 .msg-bubble :deep(.code-preview-btn:hover) {
-  background: #0d8a6c;
-  border-color: #0d8a6c;
+  /* background: #0d8a6c;
+  border-color: #0d8a6c; */
 }
 
 .msg-bubble :deep(.code-mermaid-btn) {
@@ -3232,7 +3232,7 @@ function handleFolderChanged(path: string) {
 }
 
 .param-range::-webkit-slider-thumb:hover {
-  background: #0d8a6c;
+  /* background: #0d8a6c; */
 }
 
 .param-number {
