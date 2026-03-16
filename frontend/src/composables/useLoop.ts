@@ -2,7 +2,7 @@
  * Loop 定时任务管理 Composable
  * 遵循 useMCP.ts 和 useSkills.ts 的模式
  */
-import { ref, computed, toRaw, onUnmounted } from 'vue'
+import { ref, computed, toRaw } from 'vue'
 import type {
   LoopTask,
   CreateLoopTaskParams,
@@ -381,25 +381,4 @@ export function useLoop() {
     loopManager = createLoopManager()
   }
   return loopManager
-}
-
-// 声明 window.electronAPI 扩展
-declare global {
-  interface Window {
-    electronAPI: {
-      // ... 现有 API
-      loopListTasks?: () => Promise<{ success: boolean; tasks: LoopTask[]; error?: string }>
-      loopGetTask?: (taskId: string) => Promise<{ success: boolean; task?: LoopTask; error?: string }>
-      loopCreateTask?: (params: CreateLoopTaskParams) => Promise<{ success: boolean; task?: LoopTask; error?: string }>
-      loopUpdateTask?: (taskId: string, params: UpdateLoopTaskParams) => Promise<{ success: boolean; task?: LoopTask; error?: string }>
-      loopDeleteTask?: (taskId: string) => Promise<{ success: boolean; error?: string }>
-      loopPauseTask?: (taskId: string) => Promise<{ success: boolean; error?: string }>
-      loopResumeTask?: (taskId: string) => Promise<{ success: boolean; error?: string }>
-      loopExecuteNow?: (taskId: string) => Promise<{ success: boolean; execution?: LoopTaskExecution; error?: string }>
-      loopParseInterval?: (expression: string) => Promise<{ success: boolean; parsed?: ParsedTimeExpression; error?: string }>
-      loopGetStatus?: () => Promise<{ success: boolean; status?: LoopSchedulerStatus; error?: string }>
-      onLoopTaskExecuted?: (callback: (data: { taskId: string; execution: LoopTaskExecution }) => void) => void
-      removeLoopTaskExecutedListener?: () => void
-    }
-  }
 }

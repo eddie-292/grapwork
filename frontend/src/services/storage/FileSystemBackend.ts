@@ -30,9 +30,6 @@ export class FileSystemBackend implements IStorageBackend {
         case 'llm-config-list':
           data = await window.electronAPI!.getConfig();
           break;
-        case 'global-memory':
-          data = await window.electronAPI!.getGlobalMemory();
-          break;
         default:
           return { success: false, error: `Key "${key}" not supported in FileSystem backend` };
       }
@@ -51,9 +48,6 @@ export class FileSystemBackend implements IStorageBackend {
       switch (key) {
         case 'llm-config-list':
           await window.electronAPI!.saveConfig(value as any);
-          break;
-        case 'global-memory':
-          await window.electronAPI!.saveGlobalMemory(value as any);
           break;
         default:
           return { success: false, error: `Key "${key}" not supported in FileSystem backend` };
@@ -88,7 +82,7 @@ export class FileSystemBackend implements IStorageBackend {
 
   async keys(): Promise<string[]> {
     // FileSystem 后端支持的键列表
-    return ['llm-config-list', 'global-memory'];
+    return ['llm-config-list'];
   }
 
   async clear(): Promise<StorageResult<void>> {
