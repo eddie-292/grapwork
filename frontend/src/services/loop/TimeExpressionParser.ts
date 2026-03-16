@@ -58,7 +58,7 @@ export class TimeExpressionParser {
 
     // 标准格式: 数字 + 单位 (如 30s, 5m, 2h, 1d)
     const standardMatch = lowercased.match(/^(\d+(?:\.\d+)?)\s*([smhd])$/)
-    if (standardMatch) {
+    if (standardMatch && standardMatch[1] && standardMatch[2]) {
       return this.createResult(
         parseFloat(standardMatch[1]),
         standardMatch[2] as TimeUnitType
@@ -67,16 +67,20 @@ export class TimeExpressionParser {
 
     // 中文格式: 数字 + 中文单位 (如 30秒, 5分钟)
     const chineseMatch = trimmed.match(/^(\d+(?:\.\d+)?)\s*(秒|秒钟|分钟|分|小时|时|天|日)$/)
-    if (chineseMatch) {
+    if (chineseMatch && chineseMatch[1] && chineseMatch[2]) {
       const unit = CHINESE_UNIT_MAP[chineseMatch[2]]
-      return this.createResult(parseFloat(chineseMatch[1]), unit)
+      if (unit) {
+        return this.createResult(parseFloat(chineseMatch[1]), unit)
+      }
     }
 
     // 英文完整格式 (如 30 seconds, 5 minutes)
     const englishMatch = lowercased.match(/^(\d+(?:\.\d+)?)\s*(second|minute|hour|day)s?$/)
-    if (englishMatch) {
+    if (englishMatch && englishMatch[1] && englishMatch[2]) {
       const unit = ENGLISH_UNIT_MAP[englishMatch[2]]
-      return this.createResult(parseFloat(englishMatch[1]), unit)
+      if (unit) {
+        return this.createResult(parseFloat(englishMatch[1]), unit)
+      }
     }
 
     // 解析失败

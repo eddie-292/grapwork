@@ -141,7 +141,6 @@ const {
   resumeTask,
   executeNow,
   deleteTask,
-  updateTask,
   getDefaultConfig,
   setDefaultConfig,
   onTaskExecuted
@@ -229,25 +228,6 @@ async function handleDelete(taskId: string) {
     await deleteTask(taskId)
     await loadTasks()
     await getStatus()
-  } finally {
-    actionLoading.value[taskId] = false
-  }
-}
-
-// 修改任务配置
-async function handleConfigChange(taskId: string, configIndexStr: string) {
-  const configIndex = parseInt(configIndexStr, 10)
-
-  actionLoading.value[taskId] = true
-  try {
-    await updateTask(taskId, {
-      payload: {
-        configIndex: configIndex === -1 ? undefined : configIndex
-      }
-    })
-    await loadTasks()
-  } catch (e: any) {
-    alert('更新配置失败: ' + (e?.message || '未知错误'))
   } finally {
     actionLoading.value[taskId] = false
   }
