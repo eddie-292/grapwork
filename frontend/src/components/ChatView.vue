@@ -982,6 +982,8 @@ async function executeNormalChat(text: string, images: string[] = []) {
     const currentToolCallsMap: Map<number, any> = new Map()
     // 跟踪已添加"准备中"消息的 tool call index
     const preparingToolCallIndexes: Set<number> = new Set()
+    // 跟踪当前请求的 usage 是否已处理（防止重复累加）
+    let currentRequestUsageProcessed = false
 
     while (true) {
       const { done, value } = await reader.read()
@@ -1079,23 +1081,32 @@ async function executeNormalChat(text: string, images: string[] = []) {
           }
 
           // 解析 token 使用统计（流式响应的最后一个 chunk 包含 usage）
+          // 注意：某些 API 可能在多个 chunk 中返回 usage，只在第一次遇到时累加
           const usage = json?.usage
           if (usage && currentChat.value) {
-            const promptTokens = usage.prompt_tokens ?? 0
-            const completionTokens = usage.completion_tokens ?? 0
-            const totalTokens = usage.total_tokens ?? 0
+            // 检查 finish_reason 是否存在（表示流结束）
+            // 或者检查 usage 是否有实际值且当前请求尚未处理过 usage
+            const finishReason = json?.choices?.[0]?.finish_reason
+            const hasValidUsage = (usage.prompt_tokens > 0 || usage.completion_tokens > 0)
 
-            // 累加到会话的 usage 统计
-            if (!currentChat.value.usage) {
-              currentChat.value.usage = {
-                promptTokens: 0,
-                completionTokens: 0,
-                totalTokens: 0
+            if ((finishReason || hasValidUsage) && !currentRequestUsageProcessed) {
+              currentRequestUsageProcessed = true
+              const promptTokens = usage.prompt_tokens ?? 0
+              const completionTokens = usage.completion_tokens ?? 0
+              const totalTokens = usage.total_tokens ?? 0
+
+              // 累加到会话的 usage 统计
+              if (!currentChat.value.usage) {
+                currentChat.value.usage = {
+                  promptTokens: 0,
+                  completionTokens: 0,
+                  totalTokens: 0
+                }
               }
+              currentChat.value.usage.promptTokens += promptTokens
+              currentChat.value.usage.completionTokens += completionTokens
+              currentChat.value.usage.totalTokens += totalTokens
             }
-            currentChat.value.usage.promptTokens += promptTokens
-            currentChat.value.usage.completionTokens += completionTokens
-            currentChat.value.usage.totalTokens += totalTokens
           }
         } catch {
         }
@@ -1200,6 +1211,15 @@ async function executeNormalChat(text: string, images: string[] = []) {
         last.isError = true
       }
     }
+    // 重置所有处于 running 状态的工具调用状态
+    currentMessages.forEach(m => {
+      if (m.role === 'tool' && m.toolStatus === 'running') {
+        m.toolStatus = 'error'
+        if (!m.content || m.content === '正在处理...') {
+          m.content = err instanceof Error && err.name === 'AbortError' ? '对话已取消' : '对话中断'
+        }
+      }
+    })
   } finally {
     if (currentChat.value) {
       currentChat.value.sending = false
@@ -1479,6 +1499,15 @@ async function continueChatAfterToolCalls(messages: any[], mcpTools: any[]) {
         msg.isError = true
       }
     }
+    // 重置所有处于 running 状态的工具调用状态
+    messages.forEach(m => {
+      if (m.role === 'tool' && m.toolStatus === 'running') {
+        m.toolStatus = 'error'
+        if (!m.content || m.content === '正在处理...') {
+          m.content = err instanceof Error && err.name === 'AbortError' ? '对话已取消' : '对话中断'
+        }
+      }
+    })
   } finally {
     chat.sending = false
     delete controllers.value[chat.id]
