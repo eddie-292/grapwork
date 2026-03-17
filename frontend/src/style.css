@@ -100,6 +100,73 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ============================================
+   PARCHMENT THEME - 羊皮纸配色
+   温暖复古的羊皮纸风格
+   ============================================ */
+:root[data-theme="parchment"] {
+  color-scheme: light only;
+
+  /* 羊皮纸主题色 - 温暖的深棕色 */
+  --color-primary: #8b5a2b;
+  --color-primary-hover: #6b4423;
+  --color-primary-light: rgba(139, 90, 43, 0.12);
+  --color-secondary: #e8dcc4;
+  --color-secondary-hover: #d9c9a8;
+  --color-ghost: transparent;
+  --color-ghost-hover: rgba(139, 90, 43, 0.08);
+  --color-ghost-active: rgba(139, 90, 43, 0.15);
+  --color-danger: #a0522d;
+  --color-danger-hover: #8b4423;
+  --color-danger-bg: rgba(160, 82, 45, 0.12);
+  --color-button-disabled: #b8a88a;
+  --color-link: #8b5a2b;
+  --color-recording: #faf6f0;
+  --color-recording-border: #d4c4a0;
+  --color-recording-text: #8b4423;
+
+  /* 羊皮纸文字颜色 - 深棕色系 */
+  --color-text-primary: #3d2914;
+  --color-text-secondary: #6b5344;
+  --color-text-tertiary: #8b7355;
+  --color-text-on-primary: #f5f0e6;
+
+  /* 羊皮纸边框颜色 */
+  --color-border: rgba(139, 90, 43, 0.2);
+  --color-border-hover: rgba(139, 90, 43, 0.4);
+
+  /* 羊皮纸背景颜色 - 温暖的米黄色调 */
+  --color-bg-primary: #f5f0e6;
+  --color-bg-secondary: #efe4d0;
+  --color-bg-tertiary: #e8dcc4;
+  --color-bg-hover: rgba(139, 90, 43, 0.06);
+  --color-bg-success: rgba(101, 67, 33, 0.12);
+  --color-bg-warning: rgba(193, 154, 107, 0.2);
+  --color-bg-info: rgba(139, 90, 43, 0.1);
+
+  /* 羊皮纸状态颜色 */
+  --color-status-working: #8b5a2b;
+  --color-status-working-bg: rgba(139, 90, 43, 0.12);
+  --color-status-completed: #5d7a3c;
+  --color-status-completed-bg: rgba(93, 122, 60, 0.15);
+  --color-status-failed: #a0522d;
+  --color-status-failed-bg: rgba(160, 82, 45, 0.12);
+  --color-status-idle: #8b7355;
+  --color-status-idle-bg: rgba(139, 115, 85, 0.15);
+
+  /* 羊皮纸玻璃态效果 */
+  --glass-bg: rgba(245, 240, 230, 0.82);
+  --glass-border: rgba(245, 240, 230, 0.4);
+  --glass-shadow: 0 8px 32px rgba(139, 90, 43, 0.1);
+  --glass-blur: blur(20px);
+
+  /* 羊皮纸阴影 - 温暖的棕色调 */
+  --shadow-sm: 0 1px 2px rgba(139, 90, 43, 0.06);
+  --shadow-md: 0 4px 12px rgba(139, 90, 43, 0.1);
+  --shadow-lg: 0 12px 40px rgba(139, 90, 43, 0.15);
+  --shadow-xl: 0 24px 60px rgba(139, 90, 43, 0.2);
+}
+
 * {
   box-sizing: border-box;
 }

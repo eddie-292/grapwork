@@ -360,6 +360,22 @@ export class StorageService {
   }
 
   /**
+   * 获取 UI 主题
+   */
+  async getUITheme(): Promise<string | null> {
+    const result = await this.get<string>(StorageKey.UI_THEME);
+    return result.data ?? null;
+  }
+
+  /**
+   * 保存 UI 主题
+   */
+  async saveUITheme(theme: string): Promise<boolean> {
+    const result = await this.set(StorageKey.UI_THEME, theme);
+    return result.success;
+  }
+
+  /**
    * 获取用户登录状态
    */
   async getIsLoggedIn(): Promise<boolean> {

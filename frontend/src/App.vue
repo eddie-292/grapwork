@@ -1,4 +1,14 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
+import { storage } from './services/StorageService'
+
+// 在应用启动时加载保存的 UI 主题
+onMounted(async () => {
+  const savedTheme = await storage.getUITheme()
+  if (savedTheme && savedTheme !== 'default') {
+    document.documentElement.setAttribute('data-theme', savedTheme)
+  }
+})
 </script>
 
 <template>
