@@ -19,7 +19,6 @@ import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
 import MermaidDialog from './MermaidDialog.vue'
 import { storage } from '../services/StorageService'
 import SettingsIcon from './icons/SettingsIcon.vue'
-import LogoutIcon from './icons/LogoutIcon.vue'
 import XIcon from './icons/XIcon.vue'
 
 const router = useRouter()
@@ -41,9 +40,6 @@ const htmlPreviewContent = ref('')
 // Mermaid预览对话框状态
 const showMermaidPreview = ref(false)
 const mermaidPreviewContent = ref('')
-
-// 退出登录确认对话框状态
-const showLogoutConfirmDialog = ref(false)
 
 // 命令确认对话框状态
 const showCommandConfirmDialog = ref(false)
@@ -634,9 +630,17 @@ async function loadAssistants() {
 }
 
 
-async function send(images: string[] = []) {
+// 文本文件类型定义
+interface AttachedFile {
+  name: string
+  content: string
+  type: string
+  size: number
+}
+
+async function send(images: string[] = [], files: AttachedFile[] = []) {
   const text = input.value.trim()
-  if ((!text && images.length === 0) || (currentChat.value?.sending)) return
+  if ((!text && images.length === 0 && files.length === 0) || (currentChat.value?.sending)) return
 
   // 处理 /loop 指令
   const loopResult = await handleLoopCommand(text)
@@ -659,7 +663,7 @@ async function send(images: string[] = []) {
   scrollToBottom()
 
   // 普通对话流程（默认）
-  await executeNormalChat(text, images)
+  await executeNormalChat(text, images, files)
 }
 
 /**
@@ -775,17 +779,28 @@ function cancel() {
 }
 
 // 执行普通对话
-async function executeNormalChat(text: string, images: string[] = []) {
+async function executeNormalChat(text: string, images: string[] = [], files: AttachedFile[] = []) {
+  // 格式化文本文件内容（用于发送给 LLM）
+  let formattedText = text
+  if (files.length > 0) {
+    const fileContents = files.map(file => {
+      return `\n\n---\n**文件: ${file.name}**\n\`\`\`\n${file.content}\n\`\`\``
+    }).join('')
+    formattedText = text + fileContents
+  }
+
   if (currentChat.value) {
     if (currentChat.value.messages.length === 0) {
-      updateChatTitle(currentChat.value.id, text, images.length > 0)
+      updateChatTitle(currentChat.value.id, text, images.length > 0 || files.length > 0)
     }
-    // 构建用户消息，如果有图片则使用数组格式
+    // 构建用户消息，存储格式化文本和文件信息
+    // content 存储完整内容（发送给 LLM），files 用于 UI 折叠显示
     const userMessage: any = {
       role: 'user',
-      content: text,
+      content: formattedText,
       reasoning: '',
-      images: images.length > 0 ? images : undefined
+      images: images.length > 0 ? images : undefined,
+      files: files.length > 0 ? files : undefined
     }
     currentChat.value.messages.push(userMessage)
     const assistantIndex = currentChat.value.messages.length
@@ -1804,25 +1819,11 @@ async function loadChatHistory() {
   }
 }
 
-function logout() {
-  showLogoutConfirmDialog.value = true
-}
-
 // 双击拖动区域切换窗口最大化
 async function handleDragAreaDoubleClick() {
   if (window.electronAPI?.windowMaximize) {
     await window.electronAPI.windowMaximize()
   }
-}
-
-async function confirmLogout() {
-  await storage.clearLoginInfo()
-  router.push('/login')
-  showLogoutConfirmDialog.value = false
-}
-
-function cancelLogout() {
-  showLogoutConfirmDialog.value = false
 }
 
 // ==================== 工作空间管理 ====================
@@ -2119,9 +2120,6 @@ function handleFolderChanged(path: string) {
             <button class="footer-btn" @click="router.push('/settings')" title="设置">
               <SettingsIcon :size="18" />
             </button>
-            <button class="footer-btn" @click="logout" title="退出登录">
-              <LogoutIcon :size="18" />
-            </button>
           </div>
         </div>
       </aside>
@@ -2149,7 +2147,8 @@ function handleFolderChanged(path: string) {
           :config-list="configList"
           :usage="currentChat?.usage"
           :enable-thinking="activeConfig?.enable_thinking ?? false"
-          @send="(images) => send(images)"
+          :workspace-folder="currentFolder"
+          @send="(images, files) => send(images, files)"
           @cancel="cancel"
           @update:input="input = $event"
           @toggle-reasoning="toggleReasoning"
@@ -2319,18 +2318,6 @@ function handleFolderChanged(path: string) {
         :show="showMermaidPreview"
         :mermaid-content="mermaidPreviewContent"
         @close="showMermaidPreview = false"
-      />
-
-      <!-- 退出登录确认对话框 -->
-      <ConfirmDialog
-        :show="showLogoutConfirmDialog"
-        title="退出登录"
-        message="确定要退出登录吗？"
-        confirm-text="确认退出"
-        cancel-text="取消"
-        type="warning"
-        @confirm="confirmLogout"
-        @cancel="cancelLogout"
       />
 
       <!-- 命令执行确认对话框 -->

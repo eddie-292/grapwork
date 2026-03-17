@@ -21,13 +21,15 @@
 
 ## English
 
-### Introduction
+---
+
+## Part 1: What GrapWork Can Do
+
+### Overview
 
 **GrapWork** is a powerful cross-platform desktop AI Agent assistant that supports any OpenAI-compatible LLM API and provides a rich set of features for AI-powered productivity.
 
-### Features
-
-#### Core Features
+### Core Features
 
 - **Multi-LLM Support** - Compatible with any OpenAI-compatible API (OpenAI, Claude, DeepSeek, Qwen, etc.)
 - **Multi-Tab Chat** - Manage multiple conversations with tabbed interface and search functionality
@@ -35,7 +37,7 @@
 - **Markdown Rendering** - Full markdown support with syntax highlighting and Mermaid diagrams
 - **Copy Options** - Copy AI responses as plain text or formatted Markdown with one click
 
-#### Advanced Features
+### Advanced Features
 
 - **Global Memory** - Persistent knowledge storage with smart keyword-based context injection
 - **Assistant System** - Custom AI assistants with personalized system prompts
@@ -44,6 +46,30 @@
 - **Image Generator** - Multi-provider image generation (Zhipu GLM-Image, Qwen-Image, Qwen-Image-Edit)
 - **Workspace View** - Built-in file browser and management capabilities
 - **Cloud Sync** - Self-hosted sync server for cross-device configuration backup
+
+### Screenshots
+
+| Main Interface | Generate Image |
+|:--------------:|:--------------:|
+| ![Main Interface](homepage/image/openchat_use_cases/soft.png) | ![Generate Image](homepage/image/openchat_use_cases/generate_image.png) |
+
+| File Organization | Send Email |
+|:-----------------:|:----------:|
+| ![File Organization](homepage/image/openchat_use_cases/整理目录文件.png) | ![Send Email](homepage/image/openchat_use_cases/发送邮件.png) |
+
+### Use Cases
+
+| Generate Excel | Generate PDF |
+|:--------------:|:------------:|
+| ![Excel Command](homepage/image/openchat_use_cases/Generate_Excel_case/下达指令截图.png) | ![PDF Result](homepage/image/openchat_use_cases/Generate_PDF_case/成果.png) |
+
+| Generate Word | Generate PPT |
+|:-------------:|:------------:|
+| ![Word Result](homepage/image/openchat_use_cases/Generate_word_case/成果截图.png) | ![PPT Result](homepage/image/openchat_use_cases/Generate_PPT_case/PPT成果截图.png) |
+
+---
+
+## Part 2: Installation & Technical Details
 
 ### Tech Stack
 
@@ -78,7 +104,7 @@ Since the app is not notarized by Apple, you may encounter a "file is damaged" w
 **Method 1: System Settings**
 1. Right-click the app and select "Open"
 2. Click "Open" in the dialog
-3. Or go to**System Settings → Privacy & Security** → Click "Open Anyway"
+3. Or go to **System Settings → Privacy & Security** → Click "Open Anyway"
 
 **Method 2: Terminal Command**
 ```bash
@@ -131,26 +157,6 @@ Per-chat OpenAI-compatible parameters:
 | presence_penalty | -2.0 - 2.0 | 0 |
 | frequency_penalty | -2.0 - 2.0 | 0 |
 | seed | integer | - |
-
-### Screenshots
-
-| Main Interface | Generate Image |
-|:--------------:|:--------------:|
-| ![Main Interface](homepage/image/openchat_use_cases/soft.png) | ![Generate Image](homepage/image/openchat_use_cases/generate_image.png) |
-
-| File Organization | Send Email |
-|:-----------------:|:----------:|
-| ![File Organization](homepage/image/openchat_use_cases/整理目录文件.png) | ![Send Email](homepage/image/openchat_use_cases/Send_email/发送指令.png) |
-
-### Use Cases
-
-| Generate Excel | Generate PDF |
-|:--------------:|:------------:|
-| ![Excel Command](homepage/image/openchat_use_cases/Generate_Excel_case/下达指令截图.png) | ![PDF Result](homepage/image/openchat_use_cases/Generate_PDF_case/成果.png) |
-
-| Generate Word | Generate PPT |
-|:-------------:|:------------:|
-| ![Word Result](homepage/image/openchat_use_cases/Generate_word_case/成果截图.png) | ![PPT Result](homepage/image/openchat_use_cases/Generate_PPT_case/PPT成果截图.png) |
 
 ### Development
 
@@ -223,13 +229,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 简体中文
 
-### 简介
+---
+
+## 第一部分：GrapWork 能做什么
+
+### 概述
 
 **GrapWork** 是一款跨平台桌面 AI Agent 助手。支持任意兼容 OpenAI 格式的 LLM API，提供丰富的 AI 生产力功能。
 
-### 功能特性
-
-#### 核心功能
+### 核心功能
 
 - **多模型支持** - 兼容任意 OpenAI 格式 API（OpenAI、Claude、DeepSeek、通义千问等）
 - **多标签对话** - 标签式会话管理，支持搜索功能
@@ -237,7 +245,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Markdown 渲染** - 完整 Markdown 支持，代码高亮，Mermaid 图表
 - **复制选项** - 一键复制 AI 回复内容，支持纯文本或 Markdown 格式
 
-#### 高级功能
+### 高级功能
 
 - **全局记忆** - 持久化知识存储，智能关键词匹配自动注入上下文
 - **助理系统** - 自定义 AI 助理，个性化系统提示词
@@ -246,6 +254,30 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **图片生成** - 多提供商图片生成（智谱 GLM-Image、通义万相）
 - **工作区** - 内置文件浏览器和管理功能
 - **云同步** - 自建同步服务器，跨设备配置备份
+
+### 截图展示
+
+| 主界面 | 图片生成 |
+|:------:|:--------:|
+| ![主界面](homepage/image/openchat_use_cases/soft.png) | ![图片生成](homepage/image/openchat_use_cases/generate_image.png) |
+
+| 文件整理 | 发送邮件 |
+|:--------:|:--------:|
+| ![文件整理](homepage/image/openchat_use_cases/整理目录文件.png) | ![发送邮件](homepage/image/openchat_use_cases/发送邮件.png) |
+
+### 使用案例
+
+| 生成 Excel | 生成 PDF |
+|:----------:|:--------:|
+| ![Excel指令](homepage/image/openchat_use_cases/Generate_Excel_case/下达指令截图.png) | ![PDF成果](homepage/image/openchat_use_cases/Generate_PDF_case/成果.png) |
+
+| 生成 Word | 生成 PPT |
+|:---------:|:--------:|
+| ![Word成果](homepage/image/openchat_use_cases/Generate_word_case/成果截图.png) | ![PPT成果](homepage/image/openchat_use_cases/Generate_PPT_case/PPT成果截图.png) |
+
+---
+
+## 第二部分：安装与技术细节
 
 ### 技术栈
 
@@ -275,7 +307,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ##### macOS 安装说明
 
-由于应用未经Apple 公证，首次打开可能会提示"文件已损坏"。请使用以下方法解决：
+由于应用未经 Apple 公证，首次打开可能会提示"文件已损坏"。请使用以下方法解决：
 
 **方法一：系统设置**
 1. 右键点击应用，选择"打开"
@@ -333,26 +365,6 @@ npm run electron:build:all    # 构建所有平台
 | presence_penalty | -2.0 - 2.0 | 0 |
 | frequency_penalty | -2.0 - 2.0 | 0 |
 | seed | 整数 | - |
-
-### 截图展示
-
-| 主界面 | 图片生成 |
-|:------:|:--------:|
-| ![主界面](homepage/image/openchat_use_cases/soft.png) | ![图片生成](homepage/image/openchat_use_cases/generate_image.png) |
-
-| 文件整理 | 发送邮件 |
-|:--------:|:--------:|
-| ![文件整理](homepage/image/openchat_use_cases/整理目录文件.png) | ![发送邮件](homepage/image/openchat_use_cases/Send_email/发送指令.png) |
-
-### 使用案例
-
-| 生成 Excel | 生成 PDF |
-|:----------:|:--------:|
-| ![Excel指令](homepage/image/openchat_use_cases/Generate_Excel_case/下达指令截图.png) | ![PDF成果](homepage/image/openchat_use_cases/Generate_PDF_case/成果.png) |
-
-| 生成 Word | 生成 PPT |
-|:---------:|:--------:|
-| ![Word成果](homepage/image/openchat_use_cases/Generate_word_case/成果截图.png) | ![PPT成果](homepage/image/openchat_use_cases/Generate_PPT_case/PPT成果截图.png) |
 
 ### 开发指南
 

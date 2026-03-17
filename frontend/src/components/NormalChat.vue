@@ -51,6 +51,8 @@ export type Message = {
   isError?: boolean
   // 图片附件（用于UI显示）
   images?: string[]
+  // 文本文件附件（用于UI显示）
+  files?: AttachedFile[]
 }
 
 // Token 使用统计类型
@@ -80,13 +82,14 @@ interface Props {
   configList: any
   usage?: TokenUsage  // 添加 token 使用统计
   enableThinking?: boolean  // 启用思考模式
+  workspaceFolder?: string  // 工作空间目录路径
 }
 
 const props = defineProps<Props>()
 
 // Emits
 const emit = defineEmits<{
-  send: [images: string[]]
+  send: [images: string[], files: AttachedFile[]]
   cancel: []
   'update:input': [value: string]
   'toggle-reasoning': [index: number]
@@ -104,6 +107,11 @@ const emit = defineEmits<{
 const enableThinking = computed(() => props.enableThinking ?? false)
 function handleThinkingToggle() {
   emit('update:enable-thinking', !enableThinking.value)
+}
+
+// 打开生图模式窗口
+function openImageGenerator() {
+  window.electronAPI?.openImageGeneratorWindow()
 }
 
 // HTML预览对话框状态
@@ -146,6 +154,21 @@ const selectedCommandIndex = ref(0)
 const slashCommandFilterInputRef = ref<HTMLInputElement | null>(null)
 const slashCommandTriggered = ref(false) // 记录是否已触发过斜杠命令选择器
 
+// 文件引用选择器状态（# 触发）
+interface FileItem {
+  name: string
+  type: 'file' | 'directory'
+  path: string
+}
+const showFileSelector = ref(false)
+const fileSelectorQuery = ref('')
+const fileSelectorPopupQuery = ref('')
+const selectedFileIndex = ref(0)
+const fileSelectorFilterInputRef = ref<HTMLInputElement | null>(null)
+const fileSelectorTriggered = ref(false)
+const workspaceFiles = ref<FileItem[]>([])
+const isLoadingFiles = ref(false)
+
 // Filtered slash commands based on query
 const filteredSlashCommands = computed(() => {
   const query = (slashCommandPopupQuery.value || slashCommandQuery.value).toLowerCase()
@@ -174,6 +197,73 @@ const filteredSkills = computed(() => {
     .slice(0, 8)
 })
 
+// Filtered files based on query
+const filteredFiles = computed(() => {
+  const query = (fileSelectorPopupQuery.value || fileSelectorQuery.value).toLowerCase()
+  let files = workspaceFiles.value
+
+  // 只显示文件，不显示目录
+  files = files.filter(f => f.type === 'file')
+
+  if (!query) {
+    return files.slice(0, 20)  // Show top 20 files when no query
+  }
+  return files
+    .filter(file => file.name.toLowerCase().includes(query))
+    .slice(0, 20)
+})
+
+// 加载工作空间目录文件
+async function loadWorkspaceFiles(dirPath: string) {
+  if (!dirPath || !window.electronAPI?.readDirectory) {
+    workspaceFiles.value = []
+    return
+  }
+
+  isLoadingFiles.value = true
+  try {
+    const result = await window.electronAPI.readDirectory(dirPath)
+    if (result.success && result.items) {
+      // 递归加载子目录的文件
+      const allFiles: FileItem[] = []
+
+      async function scanDirectory(path: string, depth: number = 0) {
+        if (depth > 3) return // 限制递归深度
+
+        const dirResult = await window.electronAPI!.readDirectory(path)
+        if (dirResult.success && dirResult.items) {
+          for (const item of dirResult.items) {
+            const itemPath = `${path}/${item.name}`
+            // 忽略隐藏文件和目录
+            if (item.name.startsWith('.')) continue
+            // 忽略 node_modules
+            if (item.name === 'node_modules') continue
+
+            allFiles.push({
+              name: item.name,
+              type: item.type,
+              path: itemPath
+            })
+
+            // 如果是目录，递归扫描
+            if (item.type === 'directory' && depth < 3) {
+              await scanDirectory(itemPath, depth + 1)
+            }
+          }
+        }
+      }
+
+      await scanDirectory(dirPath)
+      workspaceFiles.value = allFiles
+    }
+  } catch (e) {
+    console.error('Failed to load workspace files:', e)
+    workspaceFiles.value = []
+  } finally {
+    isLoadingFiles.value = false
+  }
+}
+
 // Handle keyboard events in the filter input
 function handleFilterKeydown(e: KeyboardEvent) {
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === 'Escape' || e.key === 'Tab') {
@@ -186,6 +276,7 @@ watch(() => props.input, (newValue) => {
   // Reset slash command trigger when input is cleared
   if (!newValue) {
     slashCommandTriggered.value = false
+    fileSelectorTriggered.value = false
   }
 
   if (selectedSkill.value) {
@@ -200,8 +291,9 @@ watch(() => props.input, (newValue) => {
     selectedCommandIndex.value = 0
     slashCommandTriggered.value = true
     showSlashCommandSelector.value = true
-    // Close skill selector if open
+    // Close other selectors
     showSkillSelector.value = false
+    showFileSelector.value = false
     nextTick(() => {
       slashCommandFilterInputRef.value?.focus()
     })
@@ -209,6 +301,34 @@ watch(() => props.input, (newValue) => {
   }
   showSlashCommandSelector.value = false
   slashCommandPopupQuery.value = ''
+
+  // Check for # file selector trigger
+  const hashIndex = newValue.lastIndexOf('#')
+  if (hashIndex !== -1 && props.workspaceFolder) {
+    const charBefore = hashIndex > 0 ? newValue[hashIndex - 1] : ' '
+    if (charBefore === ' ' || charBefore === '\n' || hashIndex === 0) {
+      const textAfterHash = newValue.slice(hashIndex + 1)
+      if (!textAfterHash.includes(' ') && !textAfterHash.includes('\n')) {
+        fileSelectorQuery.value = textAfterHash
+        fileSelectorPopupQuery.value = ''
+        selectedFileIndex.value = 0
+        showFileSelector.value = true
+        // Close other selectors
+        showSkillSelector.value = false
+        showSlashCommandSelector.value = false
+        // Load files if not loaded yet
+        if (workspaceFiles.value.length === 0) {
+          loadWorkspaceFiles(props.workspaceFolder)
+        }
+        nextTick(() => {
+          fileSelectorFilterInputRef.value?.focus()
+        })
+        return
+      }
+    }
+  }
+  showFileSelector.value = false
+  fileSelectorPopupQuery.value = ''
 
   // Find @ symbol position
   const atIndex = newValue.lastIndexOf('@')
@@ -224,6 +344,9 @@ watch(() => props.input, (newValue) => {
         skillSelectorPopupQuery.value = ''  // Reset popup query
         selectedSkillIndex.value = 0
         showSkillSelector.value = true
+        // Close other selectors
+        showFileSelector.value = false
+        showSlashCommandSelector.value = false
         // Focus the filter input after popup opens
         nextTick(() => {
           skillFilterInputRef.value?.focus()
@@ -236,9 +359,43 @@ watch(() => props.input, (newValue) => {
   skillSelectorPopupQuery.value = ''  // Reset popup query when closing
 })
 
+// 文本文件类型定义
+interface AttachedFile {
+  name: string
+  content: string  // 文件内容
+  type: string     // 文件 MIME 类型
+  size: number     // 文件大小（字节）
+}
+
+// 支持的文本文件扩展名
+const TEXT_FILE_EXTENSIONS = ['.md', '.json', '.txt', '.csv', '.xml', '.yaml', '.yml', '.log', '.ini', '.cfg', '.conf']
+
 // 图片附件相关
 const attachedImages = ref<string[]>([])
+// 文本文件附件相关
+const attachedFiles = ref<AttachedFile[]>([])
 const fileInputRef = ref<HTMLInputElement | null>(null)
+
+// 拖拽状态
+const isDragging = ref(false)
+
+// 检查文件是否为支持的文本文件
+function isTextFile(file: File): boolean {
+  const fileName = file.name.toLowerCase()
+  // 检查扩展名
+  if (TEXT_FILE_EXTENSIONS.some(ext => fileName.endsWith(ext))) {
+    return true
+  }
+  // 检查 MIME 类型
+  if (file.type.startsWith('text/') || file.type === 'application/json' || file.type === 'application/xml') {
+    return true
+  }
+  // 如果 MIME 类型为空但扩展名看起来像文本文件
+  if (!file.type && TEXT_FILE_EXTENSIONS.some(ext => fileName.endsWith(ext))) {
+    return true
+  }
+  return false
+}
 
 // 划词引用相关
 const quoteToolbarVisible = ref(false)
@@ -347,7 +504,7 @@ function handleImageSelect(event: Event) {
   target.value = ''
 }
 
-// 处理粘贴事件（支持粘贴图片）
+// 处理粘贴事件（支持粘贴图片和文本文件）
 function handlePaste(event: ClipboardEvent) {
   const items = event.clipboardData?.items
   if (!items) return
@@ -367,8 +524,91 @@ function handlePaste(event: ClipboardEvent) {
         }
       }
       reader.readAsDataURL(file)
+    } else if (item.kind === 'file') {
+      const file = item.getAsFile()
+      if (file && isTextFile(file)) {
+        event.preventDefault()
+        processTextFile(file)
+      }
     }
   }
+}
+
+// 处理拖拽进入
+function handleDragEnter(event: DragEvent) {
+  event.preventDefault()
+  event.stopPropagation()
+  isDragging.value = true
+}
+
+// 处理拖拽悬停
+function handleDragOver(event: DragEvent) {
+  event.preventDefault()
+  event.stopPropagation()
+  isDragging.value = true
+}
+
+// 处理拖拽离开
+function handleDragLeave(event: DragEvent) {
+  event.preventDefault()
+  event.stopPropagation()
+  // 检查是否真的离开了输入区域
+  const relatedTarget = event.relatedTarget as Node
+  const currentTarget = event.currentTarget as Node
+  if (relatedTarget && currentTarget.contains(relatedTarget)) {
+    return
+  }
+  isDragging.value = false
+}
+
+// 处理文件放下
+function handleDrop(event: DragEvent) {
+  event.preventDefault()
+  event.stopPropagation()
+  isDragging.value = false
+
+  const files = event.dataTransfer?.files
+  if (!files || files.length === 0) return
+
+  for (const file of Array.from(files)) {
+    if (file.type.startsWith('image/')) {
+      // 处理图片
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const result = e.target?.result as string
+        if (result && !attachedImages.value.includes(result)) {
+          attachedImages.value.push(result)
+        }
+      }
+      reader.readAsDataURL(file)
+    } else if (isTextFile(file)) {
+      // 处理文本文件
+      processTextFile(file)
+    }
+  }
+}
+
+// 处理文本文件
+function processTextFile(file: File) {
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    const content = e.target?.result as string
+    if (content) {
+      // 检查是否已存在同名文件
+      if (!attachedFiles.value.some(f => f.name === file.name)) {
+        attachedFiles.value.push({
+          name: file.name,
+          content: content,
+          type: file.type || 'text/plain',
+          size: file.size
+        })
+      }
+    }
+  }
+  reader.onerror = () => {
+    console.error(`Failed to read file: ${file.name}`)
+  }
+  reader.readAsText(file)
 }
 
 // 移除图片
@@ -376,9 +616,26 @@ function removeImage(index: number) {
   attachedImages.value.splice(index, 1)
 }
 
+// 移除文本文件
+function removeFile(index: number) {
+  attachedFiles.value.splice(index, 1)
+}
+
 // 清空所有图片
 function clearImages() {
   attachedImages.value = []
+}
+
+// 清空所有文本文件
+function clearFiles() {
+  attachedFiles.value = []
+}
+
+// 格式化文件大小
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
 // 图片预览对话框
@@ -393,6 +650,34 @@ function openImagePreview(url: string) {
 function closeImagePreview() {
   showImagePreview.value = false
   previewImageUrl.value = ''
+}
+
+// 文件展开状态跟踪（按消息索引和文件索引）
+const expandedFiles = ref<Record<string, boolean>>({})
+
+// 切换文件展开/折叠状态
+function toggleFileExpanded(messageIndex: number, fileIndex: number) {
+  const key = `${messageIndex}-${fileIndex}`
+  expandedFiles.value[key] = !expandedFiles.value[key]
+}
+
+// 检查文件是否展开
+function isFileExpanded(messageIndex: number, fileIndex: number): boolean {
+  return expandedFiles.value[`${messageIndex}-${fileIndex}`] ?? false
+}
+
+// 获取显示用的消息文本（如果有文件，只显示原始用户输入部分）
+function getDisplayContent(message: Message, _messageIndex: number): string {
+  if (message.files && message.files.length > 0) {
+    // 如果有文件，需要从 content 中提取原始文本部分
+    // content 的格式是: 原始文本 + "\n\n---\n**文件: xxx**\n```..."
+    const content = getContentAsString(message.content)
+    const separatorIndex = content.indexOf('\n\n---\n**文件:')
+    if (separatorIndex !== -1) {
+      return content.substring(0, separatorIndex).trim()
+    }
+  }
+  return getContentAsString(message.content)
 }
 
 // 获取消息内容的字符串形式
@@ -755,6 +1040,7 @@ function handleSend(e: Event) {
   }
 
   const images = [...attachedImages.value]
+  const files = [...attachedFiles.value]
 
   // If skill is selected, emit with skill prefix
   const skill = selectedSkill.value
@@ -763,9 +1049,10 @@ function handleSend(e: Event) {
     emit('update:input', `使用 ${skill} 技能：${message}`)
   }
 
-  emit('send', images)
-  // 发送后清空图片和选中的技能
+  emit('send', images, files)
+  // 发送后清空图片、文件和选中的技能
   clearImages()
+  clearFiles()
   selectedSkill.value = null
 }
 
@@ -810,6 +1097,42 @@ function handleKeydown(e: KeyboardEvent) {
       const cmd = commands[selectedCommandIndex.value]
       if (cmd) {
         selectSlashCommand(cmd)
+      }
+      return
+    }
+    return
+  }
+
+  // Handle file selector
+  if (showFileSelector.value) {
+    const files = filteredFiles.value
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      selectedFileIndex.value = Math.min(selectedFileIndex.value + 1, files.length - 1)
+      scrollFileIntoView()
+      return
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      selectedFileIndex.value = Math.max(selectedFileIndex.value - 1, 0)
+      scrollFileIntoView()
+      return
+    } else if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      const file = files[selectedFileIndex.value]
+      if (file) {
+        selectFile(file)
+      }
+      return
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      showFileSelector.value = false
+      return
+    } else if (e.key === 'Tab') {
+      e.preventDefault()
+      const file = files[selectedFileIndex.value]
+      if (file) {
+        selectFile(file)
       }
       return
     }
@@ -869,6 +1192,16 @@ function scrollCommandIntoView() {
   })
 }
 
+// Scroll selected file item into view
+function scrollFileIntoView() {
+  nextTick(() => {
+    const selectedEl = document.querySelector('.file-item.selected')
+    if (selectedEl) {
+      selectedEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }
+  })
+}
+
 // Select a skill and update input
 function selectSkill(skill: { name: string; description?: string }) {
   const currentValue = props.input
@@ -898,6 +1231,37 @@ function selectSlashCommand(cmd: SlashCommand) {
   nextTick(() => {
     textareaRef.value?.focus()
   })
+}
+
+// Select a file and insert reference
+async function selectFile(file: FileItem) {
+  const currentValue = props.input
+  const hashIndex = currentValue.lastIndexOf('#')
+  if (hashIndex !== -1) {
+    // Remove the #query part and add file reference
+    const beforeHash = currentValue.slice(0, hashIndex)
+    // 获取相对于工作空间的相对路径
+    const relativePath = getRelativePath(file.path)
+
+    // 在新行添加文件引用
+    const newInput = beforeHash.trim() + `\n\n文件: ${relativePath}\n`
+    emit('update:input', newInput)
+    showFileSelector.value = false
+
+    // Focus back to textarea
+    nextTick(() => {
+      textareaRef.value?.focus()
+    })
+  }
+}
+
+// Get relative path from workspace folder
+function getRelativePath(fullPath: string): string {
+  const workspacePath = props.workspaceFolder || ''
+  if (workspacePath && fullPath.startsWith(workspacePath)) {
+    return fullPath.slice(workspacePath.length + 1)  // +1 to remove leading slash
+  }
+  return fullPath
 }
 
 function openParamsDialog() {
@@ -969,6 +1333,10 @@ function handleClickOutside(e: MouseEvent) {
   // 关闭斜杠命令选择器（点击斜杠命令选择器外部时）
   if (!target.closest('.slash-command-selector-popup') && !target.closest('.textarea')) {
     showSlashCommandSelector.value = false
+  }
+  // 关闭文件选择器（点击文件选择器外部时）
+  if (!target.closest('.file-selector-popup') && !target.closest('.textarea')) {
+    showFileSelector.value = false
   }
 }
 
@@ -1128,7 +1496,7 @@ function scrollToBottom() {
       <div v-if="messages.length === 0" class="welcome">
         <div class="welcome-hero">
           <h2 class="welcome-title">GrapWork</h2>
-          <p class="welcome-subtitle">跨平台桌面 AI Agent 助手</p>
+          <p class="welcome-subtitle">你好，有什么可以帮你的？</p>
         </div>
 
         <div class="welcome-features">
@@ -1140,8 +1508,8 @@ function scrollToBottom() {
                 <path d="M9 12l2 2 4-4"/>
               </svg>
             </div>
-            <h3>任务分解</h3>
-            <p>复杂任务自动拆解为可执行步骤</p>
+            <h3>智能助手</h3>
+            <p>帮你处理工作、学习中的各种问题</p>
           </div>
           <div class="feature-card">
             <div class="feature-icon tool-icon">
@@ -1149,8 +1517,8 @@ function scrollToBottom() {
                 <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>
               </svg>
             </div>
-            <h3>工具调用</h3>
-            <p>MCP 协议支持丰富的工具扩展</p>
+            <h3>实用工具</h3>
+            <p>查邮件、写文档、整理文件都能搞定</p>
           </div>
           <div class="feature-card">
             <div class="feature-icon memory-icon">
@@ -1160,40 +1528,52 @@ function scrollToBottom() {
                 <circle cx="12" cy="12" r="6"/>
               </svg>
             </div>
-            <h3>持久记忆</h3>
-            <p>全局记忆存储用户偏好与知识</p>
+            <h3>记性好</h3>
+            <p>记住你的偏好，越用越懂你</p>
+          </div>
+          <div class="feature-card" @click="openImageGenerator" style="cursor: pointer;">
+            <div class="feature-icon image-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+              </svg>
+            </div>
+            <h3>创意画笔</h3>
+            <p>AI 帮你生成精美图片</p>
           </div>
         </div>
 
         <div class="welcome-prompts">
-          <p class="prompts-label">试试这些</p>
+          <p class="prompts-label">你可以这样问我</p>
           <div class="prompts-grid">
-            <button class="prompt-card" @click="emit('update:input', '帮我分析这个项目的代码结构')">
+            <button class="prompt-card" @click="emit('update:input', '帮我写一封请假邮件')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
               </svg>
-              <span class="prompt-text">分析项目代码结构</span>
+              <span class="prompt-text">帮我写一封请假邮件</span>
             </button>
-            <button class="prompt-card" @click="emit('update:input', '帮我写一个 Python 脚本来处理 Excel 文件')">
+            <button class="prompt-card" @click="emit('update:input', '帮我总结这篇文章的要点')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
               </svg>
-              <span class="prompt-text">编写数据处理脚本</span>
+              <span class="prompt-text">帮我总结这篇文章的要点</span>
             </button>
-            <button class="prompt-card" @click="emit('update:input', '帮我优化这个函数的性能')">
+            <button class="prompt-card" @click="emit('update:input', '帮我翻译这段英文')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
               </svg>
-              <span class="prompt-text">优化代码性能</span>
+              <span class="prompt-text">帮我翻译这段英文</span>
             </button>
             <button class="prompt-card" @click="emit('update:input', '查看我的未读邮件')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
                 <polyline points="22,6 12,13 2,6"/>
               </svg>
-              <span class="prompt-text">查看未读邮件</span>
+              <span class="prompt-text">查看我的未读邮件</span>
             </button>
-            <button class="prompt-card" @click="emit('update:input', '发送明日会议邀请邮件')">
+            <button class="prompt-card" @click="emit('update:input', '帮我做一个周计划表')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
                 <line x1="16" y1="2" x2="16" y2="6"/>
@@ -1202,15 +1582,13 @@ function scrollToBottom() {
                 <line x1="12" y1="14" x2="16" y2="14"/>
                 <line x1="12" y1="18" x2="16" y2="18"/>
               </svg>
-              <span class="prompt-text">发送会议邀请</span>
+              <span class="prompt-text">帮我做一个周计划表</span>
             </button>
-            <button class="prompt-card" @click="emit('update:input', '帮我整理当前目录下的文件')">
+            <button class="prompt-card" @click="emit('update:input', '给我推荐几道家常菜')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-                <line x1="12" y1="11" x2="12" y2="17"/>
-                <line x1="9" y1="14" x2="15" y2="14"/>
+                <path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/>
               </svg>
-              <span class="prompt-text">整理目录文件</span>
+              <span class="prompt-text">给我推荐几道家常菜</span>
             </button>
           </div>
         </div>
@@ -1281,8 +1659,42 @@ function scrollToBottom() {
               <div v-if="m.role === 'user' && m.images && m.images.length > 0" class="message-images">
                 <img v-for="(img, imgIndex) in m.images" :key="imgIndex" :src="img" class="message-image clickable" @click="openImagePreview(img)" />
               </div>
+              <!-- 用户消息文件预览（折叠卡片） -->
+              <div v-if="m.role === 'user' && m.files && m.files.length > 0" class="message-files">
+                <div v-for="(file, fileIndex) in m.files" :key="fileIndex" class="message-file-card">
+                  <div class="file-card-header" @click="toggleFileExpanded(i, fileIndex)">
+                    <div class="file-card-icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                      </svg>
+                    </div>
+                    <div class="file-card-info">
+                      <span class="file-card-name">{{ file.name }}</span>
+                      <span class="file-card-size">{{ formatFileSize(file.size) }}</span>
+                    </div>
+                    <svg
+                      class="file-card-chevron"
+                      :class="{ expanded: isFileExpanded(i, fileIndex) }"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      width="16"
+                      height="16"
+                    >
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </div>
+                  <div v-if="isFileExpanded(i, fileIndex)" class="file-card-content">
+                    <pre><code>{{ file.content }}</code></pre>
+                  </div>
+                </div>
+              </div>
               <!-- 渲染输出内容 -->
-              <div class="msg-bubble" v-html="render(getContentAsString(m.content))" @mouseup="(e) => handleTextSelection(e, i, m.role as 'user' | 'assistant')" />
+              <div class="msg-bubble" v-html="render(m.files && m.files.length > 0 ? getDisplayContent(m, i) : getContentAsString(m.content))" @mouseup="(e) => handleTextSelection(e, i, m.role as 'user' | 'assistant')" />
               <div class="msg-actions" v-if="m.copyable !== false">
                 <!-- 重试按钮：仅在错误消息时显示 -->
                 <button v-if="isErrorMessage(m) && m.role === 'assistant'" class="retry-btn" @click="emit('retry-message', i)" title="重试">
@@ -1316,7 +1728,14 @@ function scrollToBottom() {
         </div>
       </div>
 
-      <div class="composer">
+      <div
+        class="composer"
+        :class="{ 'drag-over': isDragging }"
+        @dragenter="handleDragEnter"
+        @dragover="handleDragOver"
+        @dragleave="handleDragLeave"
+        @drop="handleDrop"
+      >
         <!-- Selected skill indicator -->
         <div v-if="selectedSkill" class="selected-skill-indicator">
           <span>使用 {{ selectedSkill }} 技能</span>
@@ -1336,13 +1755,24 @@ function scrollToBottom() {
         <textarea
           :value="input"
           class="textarea"
-          placeholder="输入消息（@ 技能 / 命令），回车发送，Shift+Enter 换行（支持粘贴图片）"
+          :placeholder="'输入消息（@ 技能 / 命令 # 文件引用），回车发送，Shift+Enter 换行（支持粘贴/拖入图片和文本文件）'"
           @keydown.enter.exact.prevent="handleSend"
           @keydown="handleKeydown"
           @input="handleUpdateInput"
           @paste="handlePaste"
           ref="textareaRef"
         />
+        <!-- 拖拽提示遮罩 -->
+        <div v-if="isDragging" class="drag-overlay">
+          <div class="drag-hint">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            <span>拖放图片或文本文件到此处</span>
+          </div>
+        </div>
         <!-- Skill Selector Popup -->
         <Transition name="skill-selector">
           <div v-if="showSkillSelector" class="skill-selector-popup">
@@ -1416,11 +1846,77 @@ function scrollToBottom() {
             </div>
           </div>
         </Transition>
+        <!-- File Selector Popup (# trigger) -->
+        <Transition name="skill-selector">
+          <div v-if="showFileSelector" class="file-selector-popup">
+            <div class="file-selector-header">
+              <span class="file-selector-title">选择文件引用</span>
+              <span class="file-selector-hint">↑↓ 选择 · Enter 确认 · Esc 关闭</span>
+            </div>
+            <div class="file-selector-filter">
+              <input
+                type="text"
+                v-model="fileSelectorPopupQuery"
+                class="file-filter-input"
+                placeholder="搜索文件..."
+                ref="fileSelectorFilterInputRef"
+                @keydown="handleFilterKeydown"
+              />
+            </div>
+            <div class="file-selector-list" v-if="filteredFiles.length > 0">
+              <button
+                v-for="(file, index) in filteredFiles"
+                :key="file.path"
+                type="button"
+                class="file-item"
+                :class="{ selected: index === selectedFileIndex }"
+                @click="selectFile(file)"
+                @mouseenter="selectedFileIndex = index"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" class="file-item-icon">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+                <span class="file-item-name">{{ file.name }}</span>
+                <span class="file-item-path">{{ getRelativePath(file.path) }}</span>
+              </button>
+            </div>
+            <div v-else-if="isLoadingFiles" class="file-selector-loading">
+              <span>加载中...</span>
+            </div>
+            <div v-else class="file-selector-empty">
+              <span>{{ workspaceFolder ? '没有找到匹配的文件' : '请先设置工作空间目录' }}</span>
+            </div>
+          </div>
+        </Transition>
         <!-- 图片预览区域 -->
         <div v-if="attachedImages.length > 0" class="image-preview-container">
           <div v-for="(img, index) in attachedImages" :key="index" class="image-preview-item">
             <img :src="img" class="image-preview-thumb" />
             <button type="button" class="image-remove-btn" @click="removeImage(index)" title="移除图片">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <!-- 文本文件预览区域 -->
+        <div v-if="attachedFiles.length > 0" class="file-preview-container">
+          <div v-for="(file, index) in attachedFiles" :key="index" class="file-preview-item">
+            <div class="file-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+              </svg>
+            </div>
+            <div class="file-info">
+              <span class="file-name" :title="file.name">{{ file.name }}</span>
+              <span class="file-size">{{ formatFileSize(file.size) }}</span>
+            </div>
+            <button type="button" class="file-remove-btn" @click="removeFile(index)" title="移除文件">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
                 <line x1="18" y1="6" x2="6" y2="18"></line>
                 <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -1683,7 +2179,7 @@ function scrollToBottom() {
 /* Feature Cards */
 .welcome-features {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 16px;
   width: 100%;
   max-width: 680px;
@@ -1720,17 +2216,22 @@ function scrollToBottom() {
 }
 
 .task-icon {
-  background: linear-gradient(135deg, #555 0%, #333 100%);
+  background: #555;
   color: white;
 }
 
 .tool-icon {
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  background: #6366f1;
   color: white;
 }
 
 .memory-icon {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  background: #f59e0b;
+  color: white;
+}
+
+.image-icon {
+  background: #10b981;
   color: white;
 }
 
@@ -2970,6 +3471,113 @@ function scrollToBottom() {
   background: rgba(239, 68, 68, 0.9);
 }
 
+/* 文本文件预览容器 */
+.file-preview-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.file-preview-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--color-bg-tertiary, #f5f5f7);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  max-width: 250px;
+}
+
+.file-icon {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+.file-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.file-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-size {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.file-remove-btn {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.file-remove-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+/* 拖拽状态样式 */
+.composer.drag-over {
+  position: relative;
+}
+
+.composer.drag-over .textarea {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.drag-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 122, 255, 0.08);
+  border: 2px dashed var(--color-primary);
+  border-radius: 12px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.drag-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--color-primary);
+}
+
+.drag-hint svg {
+  opacity: 0.8;
+}
+
+.drag-hint span {
+  font-size: 14px;
+  font-weight: 500;
+}
+
 /* 消息中的图片 */
 .message-images {
   display: flex;
@@ -2994,6 +3602,94 @@ function scrollToBottom() {
 .message-image.clickable:hover {
   transform: scale(1.02);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* 消息中的文件卡片 */
+.message-files {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+  max-width: 400px;
+}
+
+.message-file-card {
+  background: var(--color-bg-tertiary, #f5f5f7);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.file-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s;
+}
+
+.file-card-header:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.file-card-icon {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+.file-card-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.file-card-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-card-size {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.file-card-chevron {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  transition: transform 0.2s;
+}
+
+.file-card-chevron.expanded {
+  transform: rotate(180deg);
+}
+
+.file-card-content {
+  border-top: 1px solid var(--color-border);
+  background: rgba(0, 0, 0, 0.02);
+  max-height: 200px;
+  overflow: auto;
+}
+
+.file-card-content pre {
+  margin: 0;
+  padding: 12px;
+  font-family: 'SF Mono', Monaco, 'Andale Mono', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.file-card-content code {
+  color: var(--color-text-primary);
 }
 
 /* 图片预览对话框 */
@@ -3316,6 +4012,128 @@ function scrollToBottom() {
   font-size: 11px;
   color: var(--color-text-tertiary);
   font-family: 'SF Mono', Monaco, 'Andale Mono', monospace;
+}
+
+/* File Selector Popup (# trigger) */
+.file-selector-popup {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  z-index: 100;
+  overflow: hidden;
+  max-height: 320px;
+}
+
+.file-selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.file-selector-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.file-selector-hint {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.file-selector-filter {
+  padding: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.file-filter-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.file-filter-input:focus {
+  border-color: var(--color-primary);
+}
+
+.file-filter-input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.file-selector-list {
+  max-height: 248px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px;
+}
+
+.file-selector-empty,
+.file-selector-loading {
+  padding: 20px;
+  text-align: center;
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+  overflow: hidden;
+}
+
+.file-item:hover,
+.file-item.selected {
+  background: var(--color-bg-hover);
+}
+
+.file-item.selected {
+  background: var(--color-bg-active, rgba(16, 163, 127, 0.1));
+}
+
+.file-item-icon {
+  flex-shrink: 0;
+  color: var(--color-text-tertiary);
+}
+
+.file-item-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-item-path {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
 }
 
 /* 引用工具栏样式 */
