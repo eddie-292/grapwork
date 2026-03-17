@@ -13,7 +13,6 @@ release/
 .env.local
 .env.*.local
 
-CLAUDE.md
 .claude
 
 # IDE

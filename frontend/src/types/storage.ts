@@ -13,6 +13,9 @@ export const StorageKey = {
   LLM_CONFIG_LIST: 'llm-config-list',
   HIGHLIGHT_THEME: 'highlight-theme',
 
+  // UI 主题
+  UI_THEME: 'ui-theme',
+
   // 助理系统
   ASSISTANT_LIST: 'assistant-list',
   ACTIVE_ASSISTANT_INDEX: 'active-assistant-index',

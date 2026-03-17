@@ -15,6 +15,7 @@ import CheckIcon from './icons/CheckIcon.vue'
 import XIcon from './icons/XIcon.vue'
 import ArrowUpIcon from './icons/ArrowUpIcon.vue'
 import SettingsIcon from './icons/SettingsIcon.vue'
+import GrapeIcon from './icons/GrapeIcon.vue'
 
 type Role = 'user' | 'assistant' | 'system' | 'tool'
 
@@ -96,6 +97,7 @@ const emit = defineEmits<{
   'folder-changed': [path: string]
   'update:enable-thinking': [value: boolean]  // 更新思考模式
   'delete-message': [index: number]  // 删除消息
+  'retry-message': [index: number]  // 重试消息
 }>()
 
 // 思考模式
@@ -113,7 +115,6 @@ const showMermaidPreview = ref(false)
 const mermaidPreviewContent = ref('')
 
 // 设置弹出框状态
-const showSettingsPopover = ref(false)
 
 // 删除确认对话框状态
 const showDeleteConfirmDialog = ref(false)
@@ -238,6 +239,83 @@ watch(() => props.input, (newValue) => {
 // 图片附件相关
 const attachedImages = ref<string[]>([])
 const fileInputRef = ref<HTMLInputElement | null>(null)
+
+// 划词引用相关
+const quoteToolbarVisible = ref(false)
+const quoteToolbarPosition = ref({ x: 0, y: 0 })
+const selectedQuoteText = ref('')
+const quoteToolbarRef = ref<HTMLDivElement | null>(null)
+
+// 处理文本选择
+function handleTextSelection(_event: MouseEvent, _messageIndex: number, _role: 'user' | 'assistant') {
+  const selection = window.getSelection()
+  if (!selection || selection.isCollapsed) {
+    quoteToolbarVisible.value = false
+    return
+  }
+
+  const selectedText = selection.toString().trim()
+  if (!selectedText) {
+    quoteToolbarVisible.value = false
+    return
+  }
+
+  // 获取选区的位置
+  const range = selection.getRangeAt(0)
+  const rect = range.getBoundingClientRect()
+
+  // 计算工具栏位置（选区上方居中）
+  const toolbarWidth = 80 // 工具栏大致宽度
+  const x = rect.left + rect.width / 2 - toolbarWidth / 2
+  const y = rect.top - 8 // 选区上方8px
+
+  selectedQuoteText.value = selectedText
+  quoteToolbarPosition.value = { x, y }
+  quoteToolbarVisible.value = true
+}
+
+// 插入引用到输入框
+function insertQuote() {
+  if (!selectedQuoteText.value) return
+
+  const quoteText = `> ${selectedQuoteText.value}\n\n`
+
+  // 在当前输入框内容后添加引用
+  const currentInput = props.input
+  const newInput = currentInput ? `${currentInput}\n${quoteText}` : quoteText
+
+  emit('update:input', newInput)
+
+  // 隐藏工具栏
+  quoteToolbarVisible.value = false
+
+  // 清除选择
+  window.getSelection()?.removeAllRanges()
+
+  // 聚焦到输入框
+  nextTick(() => {
+    textareaRef.value?.focus()
+  })
+}
+
+// 点击其他地方隐藏引用工具栏
+function handleDocumentClick(event: MouseEvent) {
+  if (!quoteToolbarVisible.value) return
+
+  const target = event.target as Node
+
+  // 如果点击在工具栏内，不隐藏
+  if (quoteToolbarRef.value && quoteToolbarRef.value.contains(target)) {
+    return
+  }
+
+  // 如果点击在消息气泡内，不隐藏（用户可能正在选择文本）
+  if (target instanceof Element && target.closest('.msg-bubble')) {
+    return
+  }
+
+  quoteToolbarVisible.value = false
+}
 
 // 选择图片
 function handleSelectImages() {
@@ -364,7 +442,7 @@ let resizeObserver: ResizeObserver | null = null
 const reasoningExpanded = ref<Record<number, boolean>>({})
 const reasoningStartTime = ref<Record<number, number>>({})
 const toolResultExpanded = ref<Record<number, boolean>>({})
-const copyStatus = ref<Record<number, { text?: boolean; md?: boolean }>>({})
+const copyStatus = ref<Record<number, { text?: boolean; md?: boolean; html?: boolean }>>({})
 
 // 获取工具名称（优先使用 toolName 字段，否则从 tool_calls 中查找）
 function getToolName(message: Message, messages: Message[]): string {
@@ -560,6 +638,43 @@ function handleCopyMarkdown(m: any, i: number) {
       }, 2000)
     }
   })
+}
+
+function handleExportHtml(m: any, i: number) {
+  const content = getContentAsString(m.content)
+  const htmlContent = render(content)
+  const fullHtml = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exported Message</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; line-height: 1.6; }
+    pre { background: #f5f5f5; padding: 12px; border-radius: 6px; overflow-x: auto; }
+    code { font-family: 'SF Mono', Monaco, 'Andale Mono', monospace; font-size: 14px; }
+    blockquote { border-left: 4px solid #007aff; margin: 0; padding-left: 16px; color: #666; }
+  </style>
+</head>
+<body>
+${htmlContent}
+</body>
+</html>`
+
+  const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `message-${Date.now()}.html`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+
+  copyStatus.value[i] = { ...copyStatus.value[i], html: true }
+  setTimeout(() => {
+    copyStatus.value[i] = { ...copyStatus.value[i], html: false }
+  }, 2000)
 }
 
 function toggleReasoning(index: number) {
@@ -799,15 +914,13 @@ function changeConfig(e: Event) {
   emit('change-config', target.value)
 }
 
-// 处理助手和模型选择变化（关闭弹出框）
+// 处理助手和模型选择变化
 function handleAssistantChange(e: Event) {
   changeAssistant(e)
-  showSettingsPopover.value = false
 }
 
 function handleConfigChange(e: Event) {
   changeConfig(e)
-  showSettingsPopover.value = false
 }
 
 // 计算当前助手名称
@@ -846,12 +959,9 @@ function openMermaidPreview(base64Code: string) {
   showMermaidPreview.value = true
 }
 
-// 点击外部关闭设置弹出框
+// 点击外部关闭技能选择器
 function handleClickOutside(e: MouseEvent) {
   const target = e.target as HTMLElement
-  if (!target.closest('.settings-wrapper')) {
-    showSettingsPopover.value = false
-  }
   // 关闭技能选择器（点击技能选择器外部时）
   if (!target.closest('.skill-selector-popup') && !target.closest('.textarea')) {
     showSkillSelector.value = false
@@ -876,6 +986,8 @@ onMounted(async () => {
   await skillsManager.loadRegistry()
   // 添加点击外部关闭弹出框的事件监听
   document.addEventListener('click', handleClickOutside)
+  // 添加点击隐藏引用工具栏的事件监听
+  document.addEventListener('click', handleDocumentClick)
 
   // 初始化高度计算
   updateMessagesHeight()
@@ -898,6 +1010,7 @@ onUnmounted(() => {
   delete (window as any).previewMermaid
   // 移除事件监听
   document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('click', handleDocumentClick)
   window.removeEventListener('resize', updateMessagesHeight)
 
   // 清理 ResizeObserver
@@ -992,6 +1105,25 @@ function scrollToBottom() {
         </svg>
       </button>
     </Transition>
+    <!-- 引用工具栏 -->
+    <Teleport to="body">
+      <Transition name="quote-toolbar">
+        <div
+          v-if="quoteToolbarVisible"
+          ref="quoteToolbarRef"
+          class="quote-toolbar"
+          :style="{ left: quoteToolbarPosition.x + 'px', top: quoteToolbarPosition.y + 'px' }"
+        >
+          <button class="quote-btn" @click="insertQuote" title="引用选中的文本">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+              <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V21c0 1 0 1 1 1z"/>
+              <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/>
+            </svg>
+            <span>引用</span>
+          </button>
+        </div>
+      </Transition>
+    </Teleport>
     <div id="messages_dev" class="messages" ref="messagesRef" @scroll="handleMessagesScroll" @click="handleLinkClick">
       <div v-if="messages.length === 0" class="welcome">
         <div class="welcome-hero">
@@ -1137,7 +1269,9 @@ function scrollToBottom() {
               <button class="reasoning-toggle" @click="toggleReasoning(i)">
                 <ChevronDownIcon v-if="reasoningExpanded[i]" :size="10" />
                 <ChevronRightIcon v-else :size="10" />
-                <span v-if="sending && i === messages.length - 1 && m.role === 'assistant'" class="reasoning-spinner"></span>
+                <span v-if="sending && i === messages.length - 1 && m.role === 'assistant'" class="grape-spinner">
+                  <GrapeIcon :size="16" />
+                </span>
                 <span>思考</span>
               </button>
               <div v-show="reasoningExpanded[i]" class="msg-reasoning-bubble" v-html="render(m.reasoning || '')" />
@@ -1148,8 +1282,16 @@ function scrollToBottom() {
                 <img v-for="(img, imgIndex) in m.images" :key="imgIndex" :src="img" class="message-image clickable" @click="openImagePreview(img)" />
               </div>
               <!-- 渲染输出内容 -->
-              <div class="msg-bubble" v-html="render(getContentAsString(m.content))" />
+              <div class="msg-bubble" v-html="render(getContentAsString(m.content))" @mouseup="(e) => handleTextSelection(e, i, m.role as 'user' | 'assistant')" />
               <div class="msg-actions" v-if="m.copyable !== false">
+                <!-- 重试按钮：仅在错误消息时显示 -->
+                <button v-if="isErrorMessage(m) && m.role === 'assistant'" class="retry-btn" @click="emit('retry-message', i)" title="重试">
+                  重试
+                </button>
+                <button class="copy-btn" :class="{ 'copy-success': copyStatus[i]?.html }" @click="handleExportHtml(m, i)" title="导出 HTML">
+                  <span v-if="copyStatus[i]?.html" class="success-icon">✓</span>
+                  <span v-else>Export HTML</span>
+                </button>
                 <button class="copy-btn" :class="{ 'copy-success': copyStatus[i]?.text }" @click="handleCopyText(m, i)" title="复制文本">
                   <span v-if="copyStatus[i]?.text" class="success-icon">✓</span>
                   <span v-else>Copy Text</span>
@@ -1194,7 +1336,7 @@ function scrollToBottom() {
         <textarea
           :value="input"
           class="textarea"
-          placeholder="输入消息，回车发送，Shift+Enter 换行（支持粘贴图片）"
+          placeholder="输入消息（@ 技能 / 命令），回车发送，Shift+Enter 换行（支持粘贴图片）"
           @keydown.enter.exact.prevent="handleSend"
           @keydown="handleKeydown"
           @input="handleUpdateInput"
@@ -1288,43 +1430,26 @@ function scrollToBottom() {
         </div>
         <!-- 操作栏 - 单行布局 -->
         <div class="action-bar">
-          <!-- 中间：模型选择器 -->
+          <!-- 中间：助手和模型选择器 -->
           <div class="settings-wrapper">
-            <button
-              type="button"
-              class="model-selector"
-              @click.stop="showSettingsPopover = !showSettingsPopover"
-              :title="`${currentAssistantName} / ${currentConfigName}`"
+            <select
+              :disabled="(currentChat?.messages?.length ?? 0) > 0"
+              :value="currentChat?.assistantId || ''"
+              @change="handleAssistantChange"
+              class="inline-select assistant-select"
+              :title="currentAssistantName"
             >
-              <span class="model-name">{{ currentConfigName }}</span>
-              <ChevronDownIcon :size="12" />
-            </button>
-            <!-- 模型选择弹出框 -->
-            <div v-if="showSettingsPopover" class="settings-popover" @click.stop>
-              <div class="popover-li">
-                <label>助手</label>
-                <select
-                  :disabled="(currentChat?.messages?.length ?? 0) > 0"
-                  :value="currentChat?.assistantId || ''"
-                  @change="handleAssistantChange"
-                  class="popover-select"
-                >
-                  <option value="">默认</option>
-                  <option v-for="assistant in assistantList.assistants" :key="assistant.id" :value="assistant.id">
-                    {{ assistant.name }}
-                  </option>
-                </select>
-              </div>
-              <div class="popover-li">
-                <label>模型</label>
-                <select :value="currentChat?.configId ?? ''" @change="handleConfigChange" class="popover-select">
-                  <option value="">选择模型</option>
-                  <option v-for="(config, index) in configList.configs" :key="index" :value="index">
-                    {{ config.name || config.model }}
-                  </option>
-                </select>
-              </div>
-            </div>
+              <option value="">默认助手</option>
+              <option v-for="assistant in assistantList.assistants" :key="assistant.id" :value="assistant.id">
+                {{ assistant.name }}
+              </option>
+            </select>
+            <select :value="currentChat?.configId ?? ''" @change="handleConfigChange" class="inline-select" :title="currentConfigName">
+              <option value="">选择模型</option>
+              <option v-for="(config, index) in configList.configs" :key="index" :value="index">
+                {{ config.name || config.model }}
+              </option>
+            </select>
           </div>
 
           <!-- 右侧：操作按钮组 -->
@@ -1426,7 +1551,7 @@ function scrollToBottom() {
               @click="handleCancel"
               title="取消"
             >
-              <XIcon :size="16" />
+              X
             </button>
 
             <!-- 发送按钮 -->
@@ -1723,6 +1848,18 @@ function scrollToBottom() {
 .msg-row {
   display: flex;
   padding: 14px 0;
+  animation: msg-fade-in 0.3s ease-out;
+}
+
+@keyframes msg-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .msg-row.assistant {
@@ -1775,6 +1912,19 @@ function scrollToBottom() {
   padding: 12px 16px;
   border-radius: 8px;
   margin-bottom: 12px;
+  animation: bubble-fade-in 0.3s ease-out;
+}
+
+@keyframes bubble-fade-in {
+  from {
+    opacity: 0;
+    transform: scaleY(0.95);
+    transform-origin: top;
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
 }
 
 .reasoning-section {
@@ -1800,6 +1950,32 @@ function scrollToBottom() {
 
 .reasoning-toggle span:first-child {
   font-size: 10px;
+}
+
+/* 葡萄滚动动画 */
+.grape-spinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  animation: grape-roll 1.2s ease-in-out infinite;
+}
+
+@keyframes grape-roll {
+  0% {
+    transform: rotate(0deg) translateX(0);
+  }
+  25% {
+    transform: rotate(90deg) translateX(2px);
+  }
+  50% {
+    transform: rotate(180deg) translateX(0);
+  }
+  75% {
+    transform: rotate(270deg) translateX(-2px);
+  }
+  100% {
+    transform: rotate(360deg) translateX(0);
+  }
 }
 
 .msg-row.user .msg-bubble {
@@ -1864,9 +2040,33 @@ function scrollToBottom() {
 }
 
 .copy-btn.copy-success {
-  background: linear-gradient(135deg, var(--color-bg-success) 0%, rgba(34, 197, 94, 0.15) 100%);
-  border-color: #22c55e;
-  color: #16a34a;
+  /* background: linear-gradient(135deg, var(--color-bg-success) 0%, rgba(34, 197, 94, 0.15) 100%); */
+  /* border-color: #22c55e;
+  color: #16a34a; */
+}
+
+.retry-btn {
+  background: var(--color-bg-primary);
+  border: 1px solid #dc2626;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #dc2626;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.retry-btn:hover {
+  background: #dc2626;
+  color: #fff;
+}
+
+.retry-btn:active {
+  transform: scale(0.98);
 }
 
 .dark-mode .copy-btn.copy-success {
@@ -1904,6 +2104,20 @@ function scrollToBottom() {
 
 .msg-bubble :deep(p:last-child) {
   margin-bottom: 0;
+}
+
+.msg-bubble :deep(blockquote) {
+  margin: 8px 0;
+  padding: 8px 12px 8px 16px;
+  border-left: 3px solid var(--color-primary);
+  background: var(--color-bg-secondary);
+  border-radius: 0 6px 6px 0;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.msg-bubble :deep(blockquote p) {
+  margin: 0;
 }
 
 .msg-bubble :deep(pre) {
@@ -2035,53 +2249,49 @@ function scrollToBottom() {
   position: relative;
   flex: 1;
   display: flex;
-  justify-content: center;
+  align-items: center;
+  gap: 8px;
 }
 
-/* 设置弹出框样式 */
-.settings-popover {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 12px;
-  min-width: 180px;
-  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.3);
-  z-index: 100;
-}
-
-.popover-li {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.popover-li + .popover-li {
-  margin-top: 12px;
-}
-
-.popover-li label {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  font-weight: 500;
-}
-
-.popover-select {
+/* 内联选择器样式 */
+.inline-select {
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: 6px;
-  padding: 6px 8px;
+  padding: 6px 12px;
   font-size: 13px;
   cursor: pointer;
   color: var(--color-text-primary);
+  max-width: 140px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
-.popover-select:focus {
+.inline-select:focus {
   outline: none;
   border-color: var(--color-primary);
+}
+
+.inline-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.inline-select.assistant-select {
+  /* background: #f0fdf4;
+  color: #166534;
+  border-color: #86efac; */
+}
+
+.inline-select.assistant-select:hover:not(:disabled) {
+  /* background: #dcfce7;
+  border-color: #22c55e; */
+}
+
+.inline-select.assistant-select:focus {
+  /* border-color: #22c55e;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2); */
 }
 
 .token-stats {
@@ -2089,9 +2299,9 @@ function scrollToBottom() {
   align-items: center;
   gap: 4px;
   padding: 4px 10px;
-  background: var(--color-bg-tertiary);
+  /* background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: 6px; */
   font-size: 12px;
   margin-right: auto;
 }
@@ -2109,51 +2319,6 @@ function scrollToBottom() {
   color: var(--color-text-tertiary);
   font-size: 11px;
   margin-left: 2px;
-}
-
-.assistant-select {
-  background: #f0fdf4;
-  color: #166534;
-  border: 1px solid #86efac;
-  border-radius: 6px;
-  padding: 4px 8px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.assistant-select:hover {
-  background: #dcfce7;
-  border-color: #22c55e;
-}
-
-.assistant-select:focus {
-  outline: none;
-  border-color: #22c55e;
-  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
-}
-
-.config-select {
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  padding: 4px 8px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.config-select:hover {
-  background: var(--color-bg-primary);
-  border-color: var(--color-border);
-}
-
-.config-select:focus {
-  outline: none;
-  border-color: var(--color-border);
-  box-shadow: 0 0 0 2px rgba(161, 161, 161, 0.2);
 }
 
 .composer {
@@ -2190,30 +2355,6 @@ function scrollToBottom() {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
-}
-
-/* 模型选择器 */
-.model-selector {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  color: var(--color-text-secondary);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.model-selector:hover {
-  color: var(--color-text-primary);
-  background: var(--color-bg-tertiary);
-}
-
-.model-name {
-  font-weight: 500;
 }
 
 /* 操作按钮组 */
@@ -2335,6 +2476,18 @@ function scrollToBottom() {
   overflow: hidden;
   margin-bottom: 8px;
   max-width: 900px;
+  animation: card-slide-in 0.3s ease-out;
+}
+
+@keyframes card-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .tool-result-header {
@@ -2374,6 +2527,7 @@ function scrollToBottom() {
   padding: 4px 10px;
   border-radius: 12px;
   font-weight: 500;
+  transition: all 0.3s ease;
 }
 
 /* 执行中状态 */
@@ -2388,7 +2542,7 @@ function scrollToBottom() {
   border: 2px solid #2563eb;
   border-top-color: transparent;
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  animation: spin-smooth 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
 /* 准备中状态 */
@@ -2402,11 +2556,14 @@ function scrollToBottom() {
   border: 2px solid #d97706;
   border-top-color: transparent;
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  animation: spin-smooth 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
-@keyframes spin {
-  to {
+@keyframes spin-smooth {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
     transform: rotate(360deg);
   }
 }
@@ -3159,5 +3316,51 @@ function scrollToBottom() {
   font-size: 11px;
   color: var(--color-text-tertiary);
   font-family: 'SF Mono', Monaco, 'Andale Mono', monospace;
+}
+
+/* 引用工具栏样式 */
+.quote-toolbar {
+  position: fixed;
+  z-index: 10000;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 4px;
+  transform: translateY(-100%);
+}
+
+.quote-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--color-text-primary);
+  transition: background 0.15s;
+}
+
+.quote-btn:hover {
+  background: var(--color-bg-hover);
+}
+
+.quote-btn svg {
+  color: var(--color-primary);
+}
+
+/* 引用工具栏动画 */
+.quote-toolbar-enter-active,
+.quote-toolbar-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.quote-toolbar-enter-from,
+.quote-toolbar-leave-to {
+  opacity: 0;
+  transform: translateY(-100%) scale(0.95);
 }
 </style>

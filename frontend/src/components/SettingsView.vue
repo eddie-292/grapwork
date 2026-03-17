@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import LLMConfigPanel from './settings/LLMConfigPanel.vue'
 import CodeHighlightThemePanel from './settings/CodeHighlightThemePanel.vue'
+import UIThemePanel from './settings/UIThemePanel.vue'
 import AssistantView from './AssistantView.vue'
 import MCPView from './MCPView.vue'
 import ChangelogView from './ChangelogView.vue'
@@ -22,11 +23,12 @@ import CloudSyncPanel from './settings/CloudSyncPanel.vue'
 import CloudIcon from './icons/CloudIcon.vue'
 import ClockIcon from './icons/ClockIcon.vue'
 import LoopView from './LoopView.vue'
+import PaintbrushIcon from './icons/PaintbrushIcon.vue'
 
 const router = useRouter()
 const route = useRoute()
 
-type SettingsTab = 'llm' | 'theme' | 'assistants' | 'mcp' | 'skills' | 'teams' | 'environment' | 'changelog' | 'sync' | 'loop'
+type SettingsTab = 'llm' | 'ui-theme' | 'theme' | 'assistants' | 'mcp' | 'skills' | 'teams' | 'environment' | 'changelog' | 'sync' | 'loop'
 
 // 从 query 参数获取当前标签，默认为 llm
 const activeTab = ref<SettingsTab>((route.query.tab as SettingsTab) || 'llm')
@@ -41,6 +43,7 @@ watch(() => route.query.tab, (newTab) => {
 // 导航项配置
 const navItems = computed(() => [
   { id: 'llm' as SettingsTab, label: 'LLM 接口配置', icon: 'plug' },
+  { id: 'ui-theme' as SettingsTab, label: '界面主题', icon: 'paintbrush' },
   { id: 'theme' as SettingsTab, label: '代码高亮主题', icon: 'palette' },
   { id: 'assistants' as SettingsTab, label: '社区助理', icon: 'robot' },
   { id: 'mcp' as SettingsTab, label: 'MCP 服务器', icon: 'zap' },
@@ -91,6 +94,7 @@ async function clearChatHistory() {
           >
             <span class="nav-icon">
               <PlugIcon v-if="item.icon === 'plug'" :size="18" />
+              <PaintbrushIcon v-else-if="item.icon === 'paintbrush'" :size="18" />
               <PaletteIcon v-else-if="item.icon === 'palette'" :size="18" />
               <RobotIcon v-else-if="item.icon === 'robot'" :size="18" />
               <ZapIcon v-else-if="item.icon === 'zap'" :size="18" />
@@ -122,6 +126,9 @@ async function clearChatHistory() {
           <div :key="activeTab" class="tab-content">
             <!-- LLM 接口配置 -->
             <LLMConfigPanel v-if="activeTab === 'llm'" />
+
+            <!-- 界面主题 -->
+            <UIThemePanel v-else-if="activeTab === 'ui-theme'" />
 
             <!-- 代码高亮主题 -->
             <CodeHighlightThemePanel v-else-if="activeTab === 'theme'" />
@@ -213,7 +220,7 @@ async function clearChatHistory() {
 
 .nav-item {
   display: flex;
-  align-items: center;
+  justify-content: center;
   gap: 12px;
   padding: 12px 16px;
   border: none;
@@ -265,7 +272,7 @@ async function clearChatHistory() {
   flex: 1;
   padding: 20px;
   overflow: auto;
-  height: calc(100vh - 80px);
+  height: calc(100vh - 84px);
 }
 
 .tab-content {

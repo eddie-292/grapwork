@@ -355,7 +355,6 @@ function truncateText(text: string, maxLength: number): string {
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
   display: flex;
   align-items: center;
   justify-content: center;
