@@ -2106,6 +2106,20 @@ function scrollToBottom() {
   margin-bottom: 0;
 }
 
+.msg-bubble :deep(blockquote) {
+  margin: 8px 0;
+  padding: 8px 12px 8px 16px;
+  border-left: 3px solid var(--color-primary);
+  background: var(--color-bg-secondary);
+  border-radius: 0 6px 6px 0;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.msg-bubble :deep(blockquote p) {
+  margin: 0;
+}
+
 .msg-bubble :deep(pre) {
   background: var(--color-bg-tertiary);
   border-radius: 8px;
