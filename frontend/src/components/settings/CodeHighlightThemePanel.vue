@@ -39,7 +39,7 @@ watch(selectedHighlightTheme, async (newTheme) => {
   renderVersion.value++
   // 自动保存主题
   await storage.saveHighlightTheme(newTheme)
-  message.value = '主题已应用'
+  //message.value = '主题已应用'
   setTimeout(() => {
     message.value = ''
   }, 2000)

@@ -35,7 +35,7 @@ watch(selectedTheme, async (newTheme) => {
   applyTheme(newTheme)
   // 保存主题
   await storage.saveUITheme(newTheme)
-  message.value = '主题已应用'
+  //message.value = '主题已应用'
   setTimeout(() => {
     message.value = ''
   }, 2000)
