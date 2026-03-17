@@ -140,7 +140,7 @@ Per-chat OpenAI-compatible parameters:
 
 | File Organization | Send Email |
 |:-----------------:|:----------:|
-| ![File Organization](homepage/image/openchat_use_cases/整理目录文件.png) | ![Send Email](homepage/image/openchat_use_cases/Send_email/发送指令.png) |
+| ![File Organization](homepage/image/openchat_use_cases/整理目录文件.png) | ![Send Email](homepage/image/openchat_use_cases/发送邮件.png) |
 
 ### Use Cases
 
@@ -342,7 +342,7 @@ npm run electron:build:all    # 构建所有平台
 
 | 文件整理 | 发送邮件 |
 |:--------:|:--------:|
-| ![文件整理](homepage/image/openchat_use_cases/整理目录文件.png) | ![发送邮件](homepage/image/openchat_use_cases/Send_email/发送指令.png) |
+| ![文件整理](homepage/image/openchat_use_cases/整理目录文件.png) | ![发送邮件](homepage/image/openchat_use_cases/发送邮件.png) |
 
 ### 使用案例
 
