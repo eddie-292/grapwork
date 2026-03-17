@@ -51,6 +51,8 @@ export type Message = {
   isError?: boolean
   // 图片附件（用于UI显示）
   images?: string[]
+  // 文本文件附件（用于UI显示）
+  files?: AttachedFile[]
 }
 
 // Token 使用统计类型
@@ -527,6 +529,34 @@ function openImagePreview(url: string) {
 function closeImagePreview() {
   showImagePreview.value = false
   previewImageUrl.value = ''
+}
+
+// 文件展开状态跟踪（按消息索引和文件索引）
+const expandedFiles = ref<Record<string, boolean>>({})
+
+// 切换文件展开/折叠状态
+function toggleFileExpanded(messageIndex: number, fileIndex: number) {
+  const key = `${messageIndex}-${fileIndex}`
+  expandedFiles.value[key] = !expandedFiles.value[key]
+}
+
+// 检查文件是否展开
+function isFileExpanded(messageIndex: number, fileIndex: number): boolean {
+  return expandedFiles.value[`${messageIndex}-${fileIndex}`] ?? false
+}
+
+// 获取显示用的消息文本（如果有文件，只显示原始用户输入部分）
+function getDisplayContent(message: Message, messageIndex: number): string {
+  if (message.files && message.files.length > 0) {
+    // 如果有文件，需要从 content 中提取原始文本部分
+    // content 的格式是: 原始文本 + "\n\n---\n**文件: xxx**\n```..."
+    const content = getContentAsString(message.content)
+    const separatorIndex = content.indexOf('\n\n---\n**文件:')
+    if (separatorIndex !== -1) {
+      return content.substring(0, separatorIndex).trim()
+    }
+  }
+  return getContentAsString(message.content)
 }
 
 // 获取消息内容的字符串形式
@@ -1416,8 +1446,42 @@ function scrollToBottom() {
               <div v-if="m.role === 'user' && m.images && m.images.length > 0" class="message-images">
                 <img v-for="(img, imgIndex) in m.images" :key="imgIndex" :src="img" class="message-image clickable" @click="openImagePreview(img)" />
               </div>
+              <!-- 用户消息文件预览（折叠卡片） -->
+              <div v-if="m.role === 'user' && m.files && m.files.length > 0" class="message-files">
+                <div v-for="(file, fileIndex) in m.files" :key="fileIndex" class="message-file-card">
+                  <div class="file-card-header" @click="toggleFileExpanded(i, fileIndex)">
+                    <div class="file-card-icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                      </svg>
+                    </div>
+                    <div class="file-card-info">
+                      <span class="file-card-name">{{ file.name }}</span>
+                      <span class="file-card-size">{{ formatFileSize(file.size) }}</span>
+                    </div>
+                    <svg
+                      class="file-card-chevron"
+                      :class="{ expanded: isFileExpanded(i, fileIndex) }"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      width="16"
+                      height="16"
+                    >
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </div>
+                  <div v-if="isFileExpanded(i, fileIndex)" class="file-card-content">
+                    <pre><code>{{ file.content }}</code></pre>
+                  </div>
+                </div>
+              </div>
               <!-- 渲染输出内容 -->
-              <div class="msg-bubble" v-html="render(getContentAsString(m.content))" @mouseup="(e) => handleTextSelection(e, i, m.role as 'user' | 'assistant')" />
+              <div class="msg-bubble" v-html="render(m.files && m.files.length > 0 ? getDisplayContent(m, i) : getContentAsString(m.content))" @mouseup="(e) => handleTextSelection(e, i, m.role as 'user' | 'assistant')" />
               <div class="msg-actions" v-if="m.copyable !== false">
                 <!-- 重试按钮：仅在错误消息时显示 -->
                 <button v-if="isErrorMessage(m) && m.role === 'assistant'" class="retry-btn" @click="emit('retry-message', i)" title="重试">
@@ -3277,6 +3341,94 @@ function scrollToBottom() {
 .message-image.clickable:hover {
   transform: scale(1.02);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* 消息中的文件卡片 */
+.message-files {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+  max-width: 400px;
+}
+
+.message-file-card {
+  background: var(--color-bg-tertiary, #f5f5f7);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.file-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s;
+}
+
+.file-card-header:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.file-card-icon {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+.file-card-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.file-card-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-card-size {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.file-card-chevron {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  transition: transform 0.2s;
+}
+
+.file-card-chevron.expanded {
+  transform: rotate(180deg);
+}
+
+.file-card-content {
+  border-top: 1px solid var(--color-border);
+  background: rgba(0, 0, 0, 0.02);
+  max-height: 200px;
+  overflow: auto;
+}
+
+.file-card-content pre {
+  margin: 0;
+  padding: 12px;
+  font-family: 'SF Mono', Monaco, 'Andale Mono', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.file-card-content code {
+  color: var(--color-text-primary);
 }
 
 /* 图片预览对话框 */

@@ -780,7 +780,7 @@ function cancel() {
 
 // 执行普通对话
 async function executeNormalChat(text: string, images: string[] = [], files: AttachedFile[] = []) {
-  // 格式化文本文件内容
+  // 格式化文本文件内容（用于发送给 LLM）
   let formattedText = text
   if (files.length > 0) {
     const fileContents = files.map(file => {
@@ -793,12 +793,14 @@ async function executeNormalChat(text: string, images: string[] = [], files: Att
     if (currentChat.value.messages.length === 0) {
       updateChatTitle(currentChat.value.id, text, images.length > 0 || files.length > 0)
     }
-    // 构建用户消息，如果有图片则使用数组格式
+    // 构建用户消息，存储格式化文本和文件信息
+    // content 存储完整内容（发送给 LLM），files 用于 UI 折叠显示
     const userMessage: any = {
       role: 'user',
       content: formattedText,
       reasoning: '',
-      images: images.length > 0 ? images : undefined
+      images: images.length > 0 ? images : undefined,
+      files: files.length > 0 ? files : undefined
     }
     currentChat.value.messages.push(userMessage)
     const assistantIndex = currentChat.value.messages.length
