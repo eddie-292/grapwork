@@ -15,6 +15,7 @@ import CheckIcon from './icons/CheckIcon.vue'
 import XIcon from './icons/XIcon.vue'
 import ArrowUpIcon from './icons/ArrowUpIcon.vue'
 import SettingsIcon from './icons/SettingsIcon.vue'
+import GrapeIcon from './icons/GrapeIcon.vue'
 
 type Role = 'user' | 'assistant' | 'system' | 'tool'
 
@@ -1132,7 +1133,9 @@ function scrollToBottom() {
               <button class="reasoning-toggle" @click="toggleReasoning(i)">
                 <ChevronDownIcon v-if="reasoningExpanded[i]" :size="10" />
                 <ChevronRightIcon v-else :size="10" />
-                <span v-if="sending && i === messages.length - 1 && m.role === 'assistant'" class="reasoning-spinner"></span>
+                <span v-if="sending && i === messages.length - 1 && m.role === 'assistant'" class="grape-spinner">
+                  <GrapeIcon :size="16" />
+                </span>
                 <span>思考</span>
               </button>
               <div v-show="reasoningExpanded[i]" class="msg-reasoning-bubble" v-html="render(m.reasoning || '')" />
@@ -1705,6 +1708,18 @@ function scrollToBottom() {
 .msg-row {
   display: flex;
   padding: 14px 0;
+  animation: msg-fade-in 0.3s ease-out;
+}
+
+@keyframes msg-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .msg-row.assistant {
@@ -1757,6 +1772,19 @@ function scrollToBottom() {
   padding: 12px 16px;
   border-radius: 8px;
   margin-bottom: 12px;
+  animation: bubble-fade-in 0.3s ease-out;
+}
+
+@keyframes bubble-fade-in {
+  from {
+    opacity: 0;
+    transform: scaleY(0.95);
+    transform-origin: top;
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
 }
 
 .reasoning-section {
@@ -1782,6 +1810,32 @@ function scrollToBottom() {
 
 .reasoning-toggle span:first-child {
   font-size: 10px;
+}
+
+/* 葡萄滚动动画 */
+.grape-spinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  animation: grape-roll 1.2s ease-in-out infinite;
+}
+
+@keyframes grape-roll {
+  0% {
+    transform: rotate(0deg) translateX(0);
+  }
+  25% {
+    transform: rotate(90deg) translateX(2px);
+  }
+  50% {
+    transform: rotate(180deg) translateX(0);
+  }
+  75% {
+    transform: rotate(270deg) translateX(-2px);
+  }
+  100% {
+    transform: rotate(360deg) translateX(0);
+  }
 }
 
 .msg-row.user .msg-bubble {
@@ -2268,6 +2322,18 @@ function scrollToBottom() {
   overflow: hidden;
   margin-bottom: 8px;
   max-width: 900px;
+  animation: card-slide-in 0.3s ease-out;
+}
+
+@keyframes card-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .tool-result-header {
@@ -2307,6 +2373,7 @@ function scrollToBottom() {
   padding: 4px 10px;
   border-radius: 12px;
   font-weight: 500;
+  transition: all 0.3s ease;
 }
 
 /* 执行中状态 */
@@ -2321,7 +2388,7 @@ function scrollToBottom() {
   border: 2px solid #2563eb;
   border-top-color: transparent;
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  animation: spin-smooth 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
 /* 准备中状态 */
@@ -2335,11 +2402,14 @@ function scrollToBottom() {
   border: 2px solid #d97706;
   border-top-color: transparent;
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  animation: spin-smooth 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
-@keyframes spin {
-  to {
+@keyframes spin-smooth {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
     transform: rotate(360deg);
   }
 }
