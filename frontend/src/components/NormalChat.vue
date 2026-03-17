@@ -86,7 +86,7 @@ const props = defineProps<Props>()
 
 // Emits
 const emit = defineEmits<{
-  send: [images: string[]]
+  send: [images: string[], files: AttachedFile[]]
   cancel: []
   'update:input': [value: string]
   'toggle-reasoning': [index: number]
@@ -236,9 +236,43 @@ watch(() => props.input, (newValue) => {
   skillSelectorPopupQuery.value = ''  // Reset popup query when closing
 })
 
+// 文本文件类型定义
+interface AttachedFile {
+  name: string
+  content: string  // 文件内容
+  type: string     // 文件 MIME 类型
+  size: number     // 文件大小（字节）
+}
+
+// 支持的文本文件扩展名
+const TEXT_FILE_EXTENSIONS = ['.md', '.json', '.txt', '.csv', '.xml', '.yaml', '.yml', '.log', '.ini', '.cfg', '.conf']
+
 // 图片附件相关
 const attachedImages = ref<string[]>([])
+// 文本文件附件相关
+const attachedFiles = ref<AttachedFile[]>([])
 const fileInputRef = ref<HTMLInputElement | null>(null)
+
+// 拖拽状态
+const isDragging = ref(false)
+
+// 检查文件是否为支持的文本文件
+function isTextFile(file: File): boolean {
+  const fileName = file.name.toLowerCase()
+  // 检查扩展名
+  if (TEXT_FILE_EXTENSIONS.some(ext => fileName.endsWith(ext))) {
+    return true
+  }
+  // 检查 MIME 类型
+  if (file.type.startsWith('text/') || file.type === 'application/json' || file.type === 'application/xml') {
+    return true
+  }
+  // 如果 MIME 类型为空但扩展名看起来像文本文件
+  if (!file.type && TEXT_FILE_EXTENSIONS.some(ext => fileName.endsWith(ext))) {
+    return true
+  }
+  return false
+}
 
 // 划词引用相关
 const quoteToolbarVisible = ref(false)
@@ -347,7 +381,7 @@ function handleImageSelect(event: Event) {
   target.value = ''
 }
 
-// 处理粘贴事件（支持粘贴图片）
+// 处理粘贴事件（支持粘贴图片和文本文件）
 function handlePaste(event: ClipboardEvent) {
   const items = event.clipboardData?.items
   if (!items) return
@@ -367,8 +401,91 @@ function handlePaste(event: ClipboardEvent) {
         }
       }
       reader.readAsDataURL(file)
+    } else if (item.kind === 'file') {
+      const file = item.getAsFile()
+      if (file && isTextFile(file)) {
+        event.preventDefault()
+        processTextFile(file)
+      }
     }
   }
+}
+
+// 处理拖拽进入
+function handleDragEnter(event: DragEvent) {
+  event.preventDefault()
+  event.stopPropagation()
+  isDragging.value = true
+}
+
+// 处理拖拽悬停
+function handleDragOver(event: DragEvent) {
+  event.preventDefault()
+  event.stopPropagation()
+  isDragging.value = true
+}
+
+// 处理拖拽离开
+function handleDragLeave(event: DragEvent) {
+  event.preventDefault()
+  event.stopPropagation()
+  // 检查是否真的离开了输入区域
+  const relatedTarget = event.relatedTarget as Node
+  const currentTarget = event.currentTarget as Node
+  if (relatedTarget && currentTarget.contains(relatedTarget)) {
+    return
+  }
+  isDragging.value = false
+}
+
+// 处理文件放下
+function handleDrop(event: DragEvent) {
+  event.preventDefault()
+  event.stopPropagation()
+  isDragging.value = false
+
+  const files = event.dataTransfer?.files
+  if (!files || files.length === 0) return
+
+  for (const file of Array.from(files)) {
+    if (file.type.startsWith('image/')) {
+      // 处理图片
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const result = e.target?.result as string
+        if (result && !attachedImages.value.includes(result)) {
+          attachedImages.value.push(result)
+        }
+      }
+      reader.readAsDataURL(file)
+    } else if (isTextFile(file)) {
+      // 处理文本文件
+      processTextFile(file)
+    }
+  }
+}
+
+// 处理文本文件
+function processTextFile(file: File) {
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    const content = e.target?.result as string
+    if (content) {
+      // 检查是否已存在同名文件
+      if (!attachedFiles.value.some(f => f.name === file.name)) {
+        attachedFiles.value.push({
+          name: file.name,
+          content: content,
+          type: file.type || 'text/plain',
+          size: file.size
+        })
+      }
+    }
+  }
+  reader.onerror = () => {
+    console.error(`Failed to read file: ${file.name}`)
+  }
+  reader.readAsText(file)
 }
 
 // 移除图片
@@ -376,9 +493,26 @@ function removeImage(index: number) {
   attachedImages.value.splice(index, 1)
 }
 
+// 移除文本文件
+function removeFile(index: number) {
+  attachedFiles.value.splice(index, 1)
+}
+
 // 清空所有图片
 function clearImages() {
   attachedImages.value = []
+}
+
+// 清空所有文本文件
+function clearFiles() {
+  attachedFiles.value = []
+}
+
+// 格式化文件大小
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
 // 图片预览对话框
@@ -755,6 +889,7 @@ function handleSend(e: Event) {
   }
 
   const images = [...attachedImages.value]
+  const files = [...attachedFiles.value]
 
   // If skill is selected, emit with skill prefix
   const skill = selectedSkill.value
@@ -763,9 +898,10 @@ function handleSend(e: Event) {
     emit('update:input', `使用 ${skill} 技能：${message}`)
   }
 
-  emit('send', images)
-  // 发送后清空图片和选中的技能
+  emit('send', images, files)
+  // 发送后清空图片、文件和选中的技能
   clearImages()
+  clearFiles()
   selectedSkill.value = null
 }
 
@@ -1315,7 +1451,14 @@ function scrollToBottom() {
         </div>
       </div>
 
-      <div class="composer">
+      <div
+        class="composer"
+        :class="{ 'drag-over': isDragging }"
+        @dragenter="handleDragEnter"
+        @dragover="handleDragOver"
+        @dragleave="handleDragLeave"
+        @drop="handleDrop"
+      >
         <!-- Selected skill indicator -->
         <div v-if="selectedSkill" class="selected-skill-indicator">
           <span>使用 {{ selectedSkill }} 技能</span>
@@ -1335,13 +1478,24 @@ function scrollToBottom() {
         <textarea
           :value="input"
           class="textarea"
-          placeholder="输入消息（@ 技能 / 命令），回车发送，Shift+Enter 换行（支持粘贴图片）"
+          :placeholder="'输入消息（@ 技能 / 命令），回车发送，Shift+Enter 换行（支持粘贴/拖入图片和文本文件）'"
           @keydown.enter.exact.prevent="handleSend"
           @keydown="handleKeydown"
           @input="handleUpdateInput"
           @paste="handlePaste"
           ref="textareaRef"
         />
+        <!-- 拖拽提示遮罩 -->
+        <div v-if="isDragging" class="drag-overlay">
+          <div class="drag-hint">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            <span>拖放图片或文本文件到此处</span>
+          </div>
+        </div>
         <!-- Skill Selector Popup -->
         <Transition name="skill-selector">
           <div v-if="showSkillSelector" class="skill-selector-popup">
@@ -1420,6 +1574,29 @@ function scrollToBottom() {
           <div v-for="(img, index) in attachedImages" :key="index" class="image-preview-item">
             <img :src="img" class="image-preview-thumb" />
             <button type="button" class="image-remove-btn" @click="removeImage(index)" title="移除图片">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <!-- 文本文件预览区域 -->
+        <div v-if="attachedFiles.length > 0" class="file-preview-container">
+          <div v-for="(file, index) in attachedFiles" :key="index" class="file-preview-item">
+            <div class="file-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+              </svg>
+            </div>
+            <div class="file-info">
+              <span class="file-name" :title="file.name">{{ file.name }}</span>
+              <span class="file-size">{{ formatFileSize(file.size) }}</span>
+            </div>
+            <button type="button" class="file-remove-btn" @click="removeFile(index)" title="移除文件">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
                 <line x1="18" y1="6" x2="6" y2="18"></line>
                 <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -2967,6 +3144,113 @@ function scrollToBottom() {
 
 .image-remove-btn:hover {
   background: rgba(239, 68, 68, 0.9);
+}
+
+/* 文本文件预览容器 */
+.file-preview-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.file-preview-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--color-bg-tertiary, #f5f5f7);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  max-width: 250px;
+}
+
+.file-icon {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+.file-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.file-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-size {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.file-remove-btn {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.file-remove-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+/* 拖拽状态样式 */
+.composer.drag-over {
+  position: relative;
+}
+
+.composer.drag-over .textarea {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.drag-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 122, 255, 0.08);
+  border: 2px dashed var(--color-primary);
+  border-radius: 12px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.drag-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--color-primary);
+}
+
+.drag-hint svg {
+  opacity: 0.8;
+}
+
+.drag-hint span {
+  font-size: 14px;
+  font-weight: 500;
 }
 
 /* 消息中的图片 */

@@ -630,9 +630,17 @@ async function loadAssistants() {
 }
 
 
-async function send(images: string[] = []) {
+// 文本文件类型定义
+interface AttachedFile {
+  name: string
+  content: string
+  type: string
+  size: number
+}
+
+async function send(images: string[] = [], files: AttachedFile[] = []) {
   const text = input.value.trim()
-  if ((!text && images.length === 0) || (currentChat.value?.sending)) return
+  if ((!text && images.length === 0 && files.length === 0) || (currentChat.value?.sending)) return
 
   // 处理 /loop 指令
   const loopResult = await handleLoopCommand(text)
@@ -655,7 +663,7 @@ async function send(images: string[] = []) {
   scrollToBottom()
 
   // 普通对话流程（默认）
-  await executeNormalChat(text, images)
+  await executeNormalChat(text, images, files)
 }
 
 /**
@@ -771,15 +779,24 @@ function cancel() {
 }
 
 // 执行普通对话
-async function executeNormalChat(text: string, images: string[] = []) {
+async function executeNormalChat(text: string, images: string[] = [], files: AttachedFile[] = []) {
+  // 格式化文本文件内容
+  let formattedText = text
+  if (files.length > 0) {
+    const fileContents = files.map(file => {
+      return `\n\n---\n**文件: ${file.name}**\n\`\`\`\n${file.content}\n\`\`\``
+    }).join('')
+    formattedText = text + fileContents
+  }
+
   if (currentChat.value) {
     if (currentChat.value.messages.length === 0) {
-      updateChatTitle(currentChat.value.id, text, images.length > 0)
+      updateChatTitle(currentChat.value.id, text, images.length > 0 || files.length > 0)
     }
     // 构建用户消息，如果有图片则使用数组格式
     const userMessage: any = {
       role: 'user',
-      content: text,
+      content: formattedText,
       reasoning: '',
       images: images.length > 0 ? images : undefined
     }
@@ -2128,7 +2145,7 @@ function handleFolderChanged(path: string) {
           :config-list="configList"
           :usage="currentChat?.usage"
           :enable-thinking="activeConfig?.enable_thinking ?? false"
-          @send="(images) => send(images)"
+          @send="(images, files) => send(images, files)"
           @cancel="cancel"
           @update:input="input = $event"
           @toggle-reasoning="toggleReasoning"
