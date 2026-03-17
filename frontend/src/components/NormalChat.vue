@@ -82,6 +82,7 @@ interface Props {
   configList: any
   usage?: TokenUsage  // 添加 token 使用统计
   enableThinking?: boolean  // 启用思考模式
+  workspaceFolder?: string  // 工作空间目录路径
 }
 
 const props = defineProps<Props>()
@@ -153,6 +154,21 @@ const selectedCommandIndex = ref(0)
 const slashCommandFilterInputRef = ref<HTMLInputElement | null>(null)
 const slashCommandTriggered = ref(false) // 记录是否已触发过斜杠命令选择器
 
+// 文件引用选择器状态（# 触发）
+interface FileItem {
+  name: string
+  type: 'file' | 'directory'
+  path: string
+}
+const showFileSelector = ref(false)
+const fileSelectorQuery = ref('')
+const fileSelectorPopupQuery = ref('')
+const selectedFileIndex = ref(0)
+const fileSelectorFilterInputRef = ref<HTMLInputElement | null>(null)
+const fileSelectorTriggered = ref(false)
+const workspaceFiles = ref<FileItem[]>([])
+const isLoadingFiles = ref(false)
+
 // Filtered slash commands based on query
 const filteredSlashCommands = computed(() => {
   const query = (slashCommandPopupQuery.value || slashCommandQuery.value).toLowerCase()
@@ -181,6 +197,73 @@ const filteredSkills = computed(() => {
     .slice(0, 8)
 })
 
+// Filtered files based on query
+const filteredFiles = computed(() => {
+  const query = (fileSelectorPopupQuery.value || fileSelectorQuery.value).toLowerCase()
+  let files = workspaceFiles.value
+
+  // 只显示文件，不显示目录
+  files = files.filter(f => f.type === 'file')
+
+  if (!query) {
+    return files.slice(0, 20)  // Show top 20 files when no query
+  }
+  return files
+    .filter(file => file.name.toLowerCase().includes(query))
+    .slice(0, 20)
+})
+
+// 加载工作空间目录文件
+async function loadWorkspaceFiles(dirPath: string) {
+  if (!dirPath || !window.electronAPI?.readDirectory) {
+    workspaceFiles.value = []
+    return
+  }
+
+  isLoadingFiles.value = true
+  try {
+    const result = await window.electronAPI.readDirectory(dirPath)
+    if (result.success && result.items) {
+      // 递归加载子目录的文件
+      const allFiles: FileItem[] = []
+
+      async function scanDirectory(path: string, depth: number = 0) {
+        if (depth > 3) return // 限制递归深度
+
+        const dirResult = await window.electronAPI!.readDirectory(path)
+        if (dirResult.success && dirResult.items) {
+          for (const item of dirResult.items) {
+            const itemPath = `${path}/${item.name}`
+            // 忽略隐藏文件和目录
+            if (item.name.startsWith('.')) continue
+            // 忽略 node_modules
+            if (item.name === 'node_modules') continue
+
+            allFiles.push({
+              name: item.name,
+              type: item.type,
+              path: itemPath
+            })
+
+            // 如果是目录，递归扫描
+            if (item.type === 'directory' && depth < 3) {
+              await scanDirectory(itemPath, depth + 1)
+            }
+          }
+        }
+      }
+
+      await scanDirectory(dirPath)
+      workspaceFiles.value = allFiles
+    }
+  } catch (e) {
+    console.error('Failed to load workspace files:', e)
+    workspaceFiles.value = []
+  } finally {
+    isLoadingFiles.value = false
+  }
+}
+
 // Handle keyboard events in the filter input
 function handleFilterKeydown(e: KeyboardEvent) {
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === 'Escape' || e.key === 'Tab') {
@@ -193,6 +276,7 @@ watch(() => props.input, (newValue) => {
   // Reset slash command trigger when input is cleared
   if (!newValue) {
     slashCommandTriggered.value = false
+    fileSelectorTriggered.value = false
   }
 
   if (selectedSkill.value) {
@@ -207,8 +291,9 @@ watch(() => props.input, (newValue) => {
     selectedCommandIndex.value = 0
     slashCommandTriggered.value = true
     showSlashCommandSelector.value = true
-    // Close skill selector if open
+    // Close other selectors
     showSkillSelector.value = false
+    showFileSelector.value = false
     nextTick(() => {
       slashCommandFilterInputRef.value?.focus()
     })
@@ -216,6 +301,34 @@ watch(() => props.input, (newValue) => {
   }
   showSlashCommandSelector.value = false
   slashCommandPopupQuery.value = ''
+
+  // Check for # file selector trigger
+  const hashIndex = newValue.lastIndexOf('#')
+  if (hashIndex !== -1 && props.workspaceFolder) {
+    const charBefore = hashIndex > 0 ? newValue[hashIndex - 1] : ' '
+    if (charBefore === ' ' || charBefore === '\n' || hashIndex === 0) {
+      const textAfterHash = newValue.slice(hashIndex + 1)
+      if (!textAfterHash.includes(' ') && !textAfterHash.includes('\n')) {
+        fileSelectorQuery.value = textAfterHash
+        fileSelectorPopupQuery.value = ''
+        selectedFileIndex.value = 0
+        showFileSelector.value = true
+        // Close other selectors
+        showSkillSelector.value = false
+        showSlashCommandSelector.value = false
+        // Load files if not loaded yet
+        if (workspaceFiles.value.length === 0) {
+          loadWorkspaceFiles(props.workspaceFolder)
+        }
+        nextTick(() => {
+          fileSelectorFilterInputRef.value?.focus()
+        })
+        return
+      }
+    }
+  }
+  showFileSelector.value = false
+  fileSelectorPopupQuery.value = ''
 
   // Find @ symbol position
   const atIndex = newValue.lastIndexOf('@')
@@ -231,6 +344,9 @@ watch(() => props.input, (newValue) => {
         skillSelectorPopupQuery.value = ''  // Reset popup query
         selectedSkillIndex.value = 0
         showSkillSelector.value = true
+        // Close other selectors
+        showFileSelector.value = false
+        showSlashCommandSelector.value = false
         // Focus the filter input after popup opens
         nextTick(() => {
           skillFilterInputRef.value?.focus()
@@ -551,7 +667,7 @@ function isFileExpanded(messageIndex: number, fileIndex: number): boolean {
 }
 
 // 获取显示用的消息文本（如果有文件，只显示原始用户输入部分）
-function getDisplayContent(message: Message, messageIndex: number): string {
+function getDisplayContent(message: Message, _messageIndex: number): string {
   if (message.files && message.files.length > 0) {
     // 如果有文件，需要从 content 中提取原始文本部分
     // content 的格式是: 原始文本 + "\n\n---\n**文件: xxx**\n```..."
@@ -987,6 +1103,42 @@ function handleKeydown(e: KeyboardEvent) {
     return
   }
 
+  // Handle file selector
+  if (showFileSelector.value) {
+    const files = filteredFiles.value
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      selectedFileIndex.value = Math.min(selectedFileIndex.value + 1, files.length - 1)
+      scrollFileIntoView()
+      return
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      selectedFileIndex.value = Math.max(selectedFileIndex.value - 1, 0)
+      scrollFileIntoView()
+      return
+    } else if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      const file = files[selectedFileIndex.value]
+      if (file) {
+        selectFile(file)
+      }
+      return
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      showFileSelector.value = false
+      return
+    } else if (e.key === 'Tab') {
+      e.preventDefault()
+      const file = files[selectedFileIndex.value]
+      if (file) {
+        selectFile(file)
+      }
+      return
+    }
+    return
+  }
+
   // Handle skill selector
   if (!showSkillSelector.value) {
     return
@@ -1040,6 +1192,16 @@ function scrollCommandIntoView() {
   })
 }
 
+// Scroll selected file item into view
+function scrollFileIntoView() {
+  nextTick(() => {
+    const selectedEl = document.querySelector('.file-item.selected')
+    if (selectedEl) {
+      selectedEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }
+  })
+}
+
 // Select a skill and update input
 function selectSkill(skill: { name: string; description?: string }) {
   const currentValue = props.input
@@ -1069,6 +1231,37 @@ function selectSlashCommand(cmd: SlashCommand) {
   nextTick(() => {
     textareaRef.value?.focus()
   })
+}
+
+// Select a file and insert reference
+async function selectFile(file: FileItem) {
+  const currentValue = props.input
+  const hashIndex = currentValue.lastIndexOf('#')
+  if (hashIndex !== -1) {
+    // Remove the #query part and add file reference
+    const beforeHash = currentValue.slice(0, hashIndex)
+    // 获取相对于工作空间的相对路径
+    const relativePath = getRelativePath(file.path)
+
+    // 在新行添加文件引用
+    const newInput = beforeHash.trim() + `\n\n文件: ${relativePath}\n`
+    emit('update:input', newInput)
+    showFileSelector.value = false
+
+    // Focus back to textarea
+    nextTick(() => {
+      textareaRef.value?.focus()
+    })
+  }
+}
+
+// Get relative path from workspace folder
+function getRelativePath(fullPath: string): string {
+  const workspacePath = props.workspaceFolder || ''
+  if (workspacePath && fullPath.startsWith(workspacePath)) {
+    return fullPath.slice(workspacePath.length + 1)  // +1 to remove leading slash
+  }
+  return fullPath
 }
 
 function openParamsDialog() {
@@ -1140,6 +1333,10 @@ function handleClickOutside(e: MouseEvent) {
   // 关闭斜杠命令选择器（点击斜杠命令选择器外部时）
   if (!target.closest('.slash-command-selector-popup') && !target.closest('.textarea')) {
     showSlashCommandSelector.value = false
+  }
+  // 关闭文件选择器（点击文件选择器外部时）
+  if (!target.closest('.file-selector-popup') && !target.closest('.textarea')) {
+    showFileSelector.value = false
   }
 }
 
@@ -1558,7 +1755,7 @@ function scrollToBottom() {
         <textarea
           :value="input"
           class="textarea"
-          :placeholder="'输入消息（@ 技能 / 命令），回车发送，Shift+Enter 换行（支持粘贴/拖入图片和文本文件）'"
+          :placeholder="'输入消息（@ 技能 / 命令 # 文件引用），回车发送，Shift+Enter 换行（支持粘贴/拖入图片和文本文件）'"
           @keydown.enter.exact.prevent="handleSend"
           @keydown="handleKeydown"
           @input="handleUpdateInput"
@@ -1646,6 +1843,49 @@ function scrollToBottom() {
             </div>
             <div v-else class="slash-command-selector-empty">
               <span>没有找到匹配的命令</span>
+            </div>
+          </div>
+        </Transition>
+        <!-- File Selector Popup (# trigger) -->
+        <Transition name="skill-selector">
+          <div v-if="showFileSelector" class="file-selector-popup">
+            <div class="file-selector-header">
+              <span class="file-selector-title">选择文件引用</span>
+              <span class="file-selector-hint">↑↓ 选择 · Enter 确认 · Esc 关闭</span>
+            </div>
+            <div class="file-selector-filter">
+              <input
+                type="text"
+                v-model="fileSelectorPopupQuery"
+                class="file-filter-input"
+                placeholder="搜索文件..."
+                ref="fileSelectorFilterInputRef"
+                @keydown="handleFilterKeydown"
+              />
+            </div>
+            <div class="file-selector-list" v-if="filteredFiles.length > 0">
+              <button
+                v-for="(file, index) in filteredFiles"
+                :key="file.path"
+                type="button"
+                class="file-item"
+                :class="{ selected: index === selectedFileIndex }"
+                @click="selectFile(file)"
+                @mouseenter="selectedFileIndex = index"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" class="file-item-icon">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+                <span class="file-item-name">{{ file.name }}</span>
+                <span class="file-item-path">{{ getRelativePath(file.path) }}</span>
+              </button>
+            </div>
+            <div v-else-if="isLoadingFiles" class="file-selector-loading">
+              <span>加载中...</span>
+            </div>
+            <div v-else class="file-selector-empty">
+              <span>{{ workspaceFolder ? '没有找到匹配的文件' : '请先设置工作空间目录' }}</span>
             </div>
           </div>
         </Transition>
@@ -3772,6 +4012,128 @@ function scrollToBottom() {
   font-size: 11px;
   color: var(--color-text-tertiary);
   font-family: 'SF Mono', Monaco, 'Andale Mono', monospace;
+}
+
+/* File Selector Popup (# trigger) */
+.file-selector-popup {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  z-index: 100;
+  overflow: hidden;
+  max-height: 320px;
+}
+
+.file-selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.file-selector-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.file-selector-hint {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.file-selector-filter {
+  padding: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.file-filter-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.file-filter-input:focus {
+  border-color: var(--color-primary);
+}
+
+.file-filter-input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.file-selector-list {
+  max-height: 248px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px;
+}
+
+.file-selector-empty,
+.file-selector-loading {
+  padding: 20px;
+  text-align: center;
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+  overflow: hidden;
+}
+
+.file-item:hover,
+.file-item.selected {
+  background: var(--color-bg-hover);
+}
+
+.file-item.selected {
+  background: var(--color-bg-active, rgba(16, 163, 127, 0.1));
+}
+
+.file-item-icon {
+  flex-shrink: 0;
+  color: var(--color-text-tertiary);
+}
+
+.file-item-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-item-path {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
 }
 
 /* 引用工具栏样式 */

@@ -2147,6 +2147,7 @@ function handleFolderChanged(path: string) {
           :config-list="configList"
           :usage="currentChat?.usage"
           :enable-thinking="activeConfig?.enable_thinking ?? false"
+          :workspace-folder="currentFolder"
           @send="(images, files) => send(images, files)"
           @cancel="cancel"
           @update:input="input = $event"

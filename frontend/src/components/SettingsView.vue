@@ -37,7 +37,7 @@ type SettingsTab = 'llm' | 'ui-theme' | 'theme' | 'assistants' | 'mcp' | 'skills
 // 从更新日志中解析最新版本号
 function parseLatestVersion(md: string): string {
   const match = md.match(/## v(\d+\.\d+\.\d+)/)
-  return match ? match[1] : '0.0.0'
+  return match ? match[1]! : '0.0.0'
 }
 
 const appVersion = parseLatestVersion(changelogMd)
