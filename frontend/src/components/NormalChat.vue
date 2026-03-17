@@ -365,7 +365,7 @@ let resizeObserver: ResizeObserver | null = null
 const reasoningExpanded = ref<Record<number, boolean>>({})
 const reasoningStartTime = ref<Record<number, number>>({})
 const toolResultExpanded = ref<Record<number, boolean>>({})
-const copyStatus = ref<Record<number, { text?: boolean; md?: boolean }>>({})
+const copyStatus = ref<Record<number, { text?: boolean; md?: boolean; html?: boolean }>>({})
 
 // 获取工具名称（优先使用 toolName 字段，否则从 tool_calls 中查找）
 function getToolName(message: Message, messages: Message[]): string {
@@ -561,6 +561,43 @@ function handleCopyMarkdown(m: any, i: number) {
       }, 2000)
     }
   })
+}
+
+function handleExportHtml(m: any, i: number) {
+  const content = getContentAsString(m.content)
+  const htmlContent = render(content)
+  const fullHtml = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exported Message</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; line-height: 1.6; }
+    pre { background: #f5f5f5; padding: 12px; border-radius: 6px; overflow-x: auto; }
+    code { font-family: 'SF Mono', Monaco, 'Andale Mono', monospace; font-size: 14px; }
+    blockquote { border-left: 4px solid #007aff; margin: 0; padding-left: 16px; color: #666; }
+  </style>
+</head>
+<body>
+${htmlContent}
+</body>
+</html>`
+
+  const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `message-${Date.now()}.html`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+
+  copyStatus.value[i] = { ...copyStatus.value[i], html: true }
+  setTimeout(() => {
+    copyStatus.value[i] = { ...copyStatus.value[i], html: false }
+  }, 2000)
 }
 
 function toggleReasoning(index: number) {
@@ -1151,6 +1188,10 @@ function scrollToBottom() {
                 <!-- 重试按钮：仅在错误消息时显示 -->
                 <button v-if="isErrorMessage(m) && m.role === 'assistant'" class="retry-btn" @click="emit('retry-message', i)" title="重试">
                   重试
+                </button>
+                <button class="copy-btn" :class="{ 'copy-success': copyStatus[i]?.html }" @click="handleExportHtml(m, i)" title="导出 HTML">
+                  <span v-if="copyStatus[i]?.html" class="success-icon">✓</span>
+                  <span v-else>Export HTML</span>
                 </button>
                 <button class="copy-btn" :class="{ 'copy-success': copyStatus[i]?.text }" @click="handleCopyText(m, i)" title="复制文本">
                   <span v-if="copyStatus[i]?.text" class="success-icon">✓</span>
