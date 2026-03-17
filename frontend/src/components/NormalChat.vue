@@ -108,6 +108,11 @@ function handleThinkingToggle() {
   emit('update:enable-thinking', !enableThinking.value)
 }
 
+// 打开生图模式窗口
+function openImageGenerator() {
+  window.electronAPI?.openImageGeneratorWindow()
+}
+
 // HTML预览对话框状态
 const showHtmlPreview = ref(false)
 const htmlPreviewContent = ref('')
@@ -1329,6 +1334,17 @@ function scrollToBottom() {
             <h3>记性好</h3>
             <p>记住你的偏好，越用越懂你</p>
           </div>
+          <div class="feature-card" @click="openImageGenerator" style="cursor: pointer;">
+            <div class="feature-icon image-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+              </svg>
+            </div>
+            <h3>创意画笔</h3>
+            <p>AI 帮你生成精美图片</p>
+          </div>
         </div>
 
         <div class="welcome-prompts">
@@ -1923,7 +1939,7 @@ function scrollToBottom() {
 /* Feature Cards */
 .welcome-features {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 16px;
   width: 100%;
   max-width: 680px;
@@ -1960,17 +1976,22 @@ function scrollToBottom() {
 }
 
 .task-icon {
-  background: linear-gradient(135deg, #555 0%, #333 100%);
+  background: #555;
   color: white;
 }
 
 .tool-icon {
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  background: #6366f1;
   color: white;
 }
 
 .memory-icon {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  background: #f59e0b;
+  color: white;
+}
+
+.image-icon {
+  background: #10b981;
   color: white;
 }
 

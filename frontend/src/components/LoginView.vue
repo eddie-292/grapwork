@@ -20,7 +20,7 @@ async function handleLogin() {
 
   // 模拟登录验证（实际项目中应该调用后端 API）
   setTimeout(async () => {
-    if (username.value === 'admin' && password.value === 'admin') {
+    if (username.value === 'GrapWork' && password.value === 'GrapWork') {
       // 登录成功，保存登录状态到持久层
       await storage.setIsLoggedIn(true)
       await storage.setUsername(username.value)
@@ -76,7 +76,7 @@ async function handleLogin() {
         </button>
 
         <div class="demo-hint">
-          <p>账号：admin / admin</p>
+          <p>GrapWork / GrapWork</p>
         </div>
       </form>
     </div>
