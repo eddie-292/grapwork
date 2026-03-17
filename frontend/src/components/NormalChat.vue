@@ -1128,7 +1128,7 @@ function scrollToBottom() {
       <div v-if="messages.length === 0" class="welcome">
         <div class="welcome-hero">
           <h2 class="welcome-title">GrapWork</h2>
-          <p class="welcome-subtitle">跨平台桌面 AI Agent 助手</p>
+          <p class="welcome-subtitle">你好，有什么可以帮你的？</p>
         </div>
 
         <div class="welcome-features">
@@ -1140,8 +1140,8 @@ function scrollToBottom() {
                 <path d="M9 12l2 2 4-4"/>
               </svg>
             </div>
-            <h3>任务分解</h3>
-            <p>复杂任务自动拆解为可执行步骤</p>
+            <h3>智能助手</h3>
+            <p>帮你处理工作、学习中的各种问题</p>
           </div>
           <div class="feature-card">
             <div class="feature-icon tool-icon">
@@ -1149,8 +1149,8 @@ function scrollToBottom() {
                 <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>
               </svg>
             </div>
-            <h3>工具调用</h3>
-            <p>MCP 协议支持丰富的工具扩展</p>
+            <h3>实用工具</h3>
+            <p>查邮件、写文档、整理文件都能搞定</p>
           </div>
           <div class="feature-card">
             <div class="feature-icon memory-icon">
@@ -1160,40 +1160,41 @@ function scrollToBottom() {
                 <circle cx="12" cy="12" r="6"/>
               </svg>
             </div>
-            <h3>持久记忆</h3>
-            <p>全局记忆存储用户偏好与知识</p>
+            <h3>记性好</h3>
+            <p>记住你的偏好，越用越懂你</p>
           </div>
         </div>
 
         <div class="welcome-prompts">
-          <p class="prompts-label">试试这些</p>
+          <p class="prompts-label">你可以这样问我</p>
           <div class="prompts-grid">
-            <button class="prompt-card" @click="emit('update:input', '帮我分析这个项目的代码结构')">
+            <button class="prompt-card" @click="emit('update:input', '帮我写一封请假邮件')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
               </svg>
-              <span class="prompt-text">分析项目代码结构</span>
+              <span class="prompt-text">帮我写一封请假邮件</span>
             </button>
-            <button class="prompt-card" @click="emit('update:input', '帮我写一个 Python 脚本来处理 Excel 文件')">
+            <button class="prompt-card" @click="emit('update:input', '帮我总结这篇文章的要点')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
               </svg>
-              <span class="prompt-text">编写数据处理脚本</span>
+              <span class="prompt-text">帮我总结这篇文章的要点</span>
             </button>
-            <button class="prompt-card" @click="emit('update:input', '帮我优化这个函数的性能')">
+            <button class="prompt-card" @click="emit('update:input', '帮我翻译这段英文')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
               </svg>
-              <span class="prompt-text">优化代码性能</span>
+              <span class="prompt-text">帮我翻译这段英文</span>
             </button>
             <button class="prompt-card" @click="emit('update:input', '查看我的未读邮件')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
                 <polyline points="22,6 12,13 2,6"/>
               </svg>
-              <span class="prompt-text">查看未读邮件</span>
+              <span class="prompt-text">查看我的未读邮件</span>
             </button>
-            <button class="prompt-card" @click="emit('update:input', '发送明日会议邀请邮件')">
+            <button class="prompt-card" @click="emit('update:input', '帮我做一个周计划表')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
                 <line x1="16" y1="2" x2="16" y2="6"/>
@@ -1202,15 +1203,13 @@ function scrollToBottom() {
                 <line x1="12" y1="14" x2="16" y2="14"/>
                 <line x1="12" y1="18" x2="16" y2="18"/>
               </svg>
-              <span class="prompt-text">发送会议邀请</span>
+              <span class="prompt-text">帮我做一个周计划表</span>
             </button>
-            <button class="prompt-card" @click="emit('update:input', '帮我整理当前目录下的文件')">
+            <button class="prompt-card" @click="emit('update:input', '给我推荐几道家常菜')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-                <line x1="12" y1="11" x2="12" y2="17"/>
-                <line x1="9" y1="14" x2="15" y2="14"/>
+                <path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/>
               </svg>
-              <span class="prompt-text">整理目录文件</span>
+              <span class="prompt-text">给我推荐几道家常菜</span>
             </button>
           </div>
         </div>
