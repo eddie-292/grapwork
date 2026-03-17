@@ -1452,7 +1452,7 @@ function scrollToBottom() {
               @click="handleCancel"
               title="取消"
             >
-              <XIcon :size="16" />
+              X
             </button>
 
             <!-- 发送按钮 -->

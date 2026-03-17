@@ -33,6 +33,7 @@
 - **Multi-Tab Chat** - Manage multiple conversations with tabbed interface and search functionality
 - **Streaming Response** - Real-time streaming output with support for multiple reasoning formats
 - **Markdown Rendering** - Full markdown support with syntax highlighting and Mermaid diagrams
+- **Copy Options** - Copy AI responses as plain text or formatted Markdown with one click
 
 #### Advanced Features
 
@@ -234,6 +235,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **多标签对话** - 标签式会话管理，支持搜索功能
 - **流式响应** - 实时流式输出，支持多种推理格式（DeepSeek、Qwen）
 - **Markdown 渲染** - 完整 Markdown 支持，代码高亮，Mermaid 图表
+- **复制选项** - 一键复制 AI 回复内容，支持纯文本或 Markdown 格式
 
 #### 高级功能
 
