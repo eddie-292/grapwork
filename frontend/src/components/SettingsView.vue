@@ -24,11 +24,23 @@ import CloudIcon from './icons/CloudIcon.vue'
 import ClockIcon from './icons/ClockIcon.vue'
 import LoopView from './LoopView.vue'
 import PaintbrushIcon from './icons/PaintbrushIcon.vue'
+import InfoIcon from './icons/InfoIcon.vue'
+import GitHubIcon from './icons/GitHubIcon.vue'
+import LogoutIcon from './icons/LogoutIcon.vue'
+import changelogMd from '../upload_log/更新日志.md?raw'
 
 const router = useRouter()
 const route = useRoute()
 
-type SettingsTab = 'llm' | 'ui-theme' | 'theme' | 'assistants' | 'mcp' | 'skills' | 'teams' | 'environment' | 'changelog' | 'sync' | 'loop'
+type SettingsTab = 'llm' | 'ui-theme' | 'theme' | 'assistants' | 'mcp' | 'skills' | 'teams' | 'environment' | 'changelog' | 'sync' | 'loop' | 'about'
+
+// 从更新日志中解析最新版本号
+function parseLatestVersion(md: string): string {
+  const match = md.match(/## v(\d+\.\d+\.\d+)/)
+  return match ? match[1] : '0.0.0'
+}
+
+const appVersion = parseLatestVersion(changelogMd)
 
 // 从 query 参数获取当前标签，默认为 llm
 const activeTab = ref<SettingsTab>((route.query.tab as SettingsTab) || 'llm')
@@ -52,6 +64,7 @@ const navItems = computed(() => [
   { id: 'environment' as SettingsTab, label: '环境检测', icon: 'search' },
   { id: 'changelog' as SettingsTab, label: '更新日志', icon: 'scroll' },
   { id: 'sync' as SettingsTab, label: '云同步', icon: 'cloud' },
+  { id: 'about' as SettingsTab, label: '关于', icon: 'info' },
 ])
 
 function switchTab(tab: SettingsTab) {
@@ -69,6 +82,17 @@ async function clearChatHistory() {
     await storage.delete('chat-history')
     alert('对话历史已清空')
   }
+}
+
+async function logout() {
+  if (confirm('确定要退出登录吗？')) {
+    await storage.clearLoginInfo()
+    router.push('/login')
+  }
+}
+
+function openGitHub() {
+  window.electronAPI?.openExternal?.('https://github.com/eddie-292/grapwork')
 }
 </script>
 
@@ -104,6 +128,7 @@ async function clearChatHistory() {
               <ScrollIcon v-else-if="item.icon === 'scroll'" :size="18" />
               <CloudIcon v-else-if="item.icon === 'cloud'" :size="18" />
               <ClockIcon v-else-if="item.icon === 'clock'" :size="18" />
+              <InfoIcon v-else-if="item.icon === 'info'" :size="18" />
             </span>
             <span class="nav-label">{{ item.label }}</span>
           </button>
@@ -116,6 +141,14 @@ async function clearChatHistory() {
           >
             <span class="nav-icon"><TrashIcon :size="18" /></span>
             <span class="nav-label">清空对话</span>
+          </button>
+
+          <button
+            class="nav-item danger"
+            @click="logout"
+          >
+            <span class="nav-icon"><LogoutIcon :size="18" /></span>
+            <span class="nav-label">退出登录</span>
           </button>
         </nav>
       </aside>
@@ -163,6 +196,47 @@ async function clearChatHistory() {
 
             <!-- 云同步 -->
             <CloudSyncPanel v-else-if="activeTab === 'sync'" />
+
+            <!-- 关于 -->
+            <div v-else-if="activeTab === 'about'" class="about-panel">
+              <div class="about-header">
+                <div class="about-logo">
+                  <svg width="64" height="64" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="50" cy="50" r="45" fill="var(--color-primary)" />
+                    <text x="50" y="62" text-anchor="middle" fill="white" font-size="36" font-weight="bold">G</text>
+                  </svg>
+                </div>
+                <h2>GrapWork</h2>
+                <p class="version">v{{ appVersion }}</p>
+              </div>
+
+              <div class="about-content">
+                <div class="about-item">
+                  <div class="about-item-label">项目地址</div>
+                  <div class="about-item-value">
+                    <a href="#" @click.prevent="openGitHub" class="github-link">
+                      <GitHubIcon :size="16" />
+                      <span>github.com/eddie-292/grapwork</span>
+                    </a>
+                  </div>
+                </div>
+
+                <div class="about-item">
+                  <div class="about-item-label">开源协议</div>
+                  <div class="about-item-value">MIT License</div>
+                </div>
+
+                <div class="about-item">
+                  <div class="about-item-label">当前版本</div>
+                  <div class="about-item-value">{{ appVersion }}</div>
+                </div>
+              </div>
+
+              <div class="about-footer">
+                <p>跨平台桌面 AI Agent 助手</p>
+                <p class="copyright">2026 GrapWork</p>
+              </div>
+            </div>
           </div>
         </Transition>
       </main>
@@ -327,5 +401,91 @@ async function clearChatHistory() {
   margin: 0;
   font-size: 14px;
   color: var(--color-text-secondary);
+}
+
+/* 关于面板样式 */
+.about-panel {
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.about-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.about-logo {
+  margin-bottom: 16px;
+}
+
+.about-header h2 {
+  margin: 0 0 8px 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.about-header .version {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.about-content {
+  background: var(--color-bg-secondary);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 40px;
+}
+
+.about-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.about-item:last-child {
+  border-bottom: none;
+}
+
+.about-item-label {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.about-item-value {
+  font-size: 14px;
+  color: var(--color-text-primary);
+}
+
+.github-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.github-link:hover {
+  opacity: 0.8;
+}
+
+.about-footer {
+  text-align: center;
+}
+
+.about-footer p {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.about-footer .copyright {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
 }
 </style>

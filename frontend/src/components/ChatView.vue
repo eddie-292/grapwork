@@ -19,7 +19,6 @@ import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
 import MermaidDialog from './MermaidDialog.vue'
 import { storage } from '../services/StorageService'
 import SettingsIcon from './icons/SettingsIcon.vue'
-import LogoutIcon from './icons/LogoutIcon.vue'
 import XIcon from './icons/XIcon.vue'
 
 const router = useRouter()
@@ -41,9 +40,6 @@ const htmlPreviewContent = ref('')
 // Mermaid预览对话框状态
 const showMermaidPreview = ref(false)
 const mermaidPreviewContent = ref('')
-
-// 退出登录确认对话框状态
-const showLogoutConfirmDialog = ref(false)
 
 // 命令确认对话框状态
 const showCommandConfirmDialog = ref(false)
@@ -1804,25 +1800,11 @@ async function loadChatHistory() {
   }
 }
 
-function logout() {
-  showLogoutConfirmDialog.value = true
-}
-
 // 双击拖动区域切换窗口最大化
 async function handleDragAreaDoubleClick() {
   if (window.electronAPI?.windowMaximize) {
     await window.electronAPI.windowMaximize()
   }
-}
-
-async function confirmLogout() {
-  await storage.clearLoginInfo()
-  router.push('/login')
-  showLogoutConfirmDialog.value = false
-}
-
-function cancelLogout() {
-  showLogoutConfirmDialog.value = false
 }
 
 // ==================== 工作空间管理 ====================
@@ -2119,9 +2101,6 @@ function handleFolderChanged(path: string) {
             <button class="footer-btn" @click="router.push('/settings')" title="设置">
               <SettingsIcon :size="18" />
             </button>
-            <button class="footer-btn" @click="logout" title="退出登录">
-              <LogoutIcon :size="18" />
-            </button>
           </div>
         </div>
       </aside>
@@ -2319,18 +2298,6 @@ function handleFolderChanged(path: string) {
         :show="showMermaidPreview"
         :mermaid-content="mermaidPreviewContent"
         @close="showMermaidPreview = false"
-      />
-
-      <!-- 退出登录确认对话框 -->
-      <ConfirmDialog
-        :show="showLogoutConfirmDialog"
-        title="退出登录"
-        message="确定要退出登录吗？"
-        confirm-text="确认退出"
-        cancel-text="取消"
-        type="warning"
-        @confirm="confirmLogout"
-        @cancel="cancelLogout"
       />
 
       <!-- 命令执行确认对话框 -->
