@@ -240,6 +240,83 @@ watch(() => props.input, (newValue) => {
 const attachedImages = ref<string[]>([])
 const fileInputRef = ref<HTMLInputElement | null>(null)
 
+// 划词引用相关
+const quoteToolbarVisible = ref(false)
+const quoteToolbarPosition = ref({ x: 0, y: 0 })
+const selectedQuoteText = ref('')
+const quoteToolbarRef = ref<HTMLDivElement | null>(null)
+
+// 处理文本选择
+function handleTextSelection(event: MouseEvent, messageIndex: number, role: 'user' | 'assistant') {
+  const selection = window.getSelection()
+  if (!selection || selection.isCollapsed) {
+    quoteToolbarVisible.value = false
+    return
+  }
+
+  const selectedText = selection.toString().trim()
+  if (!selectedText) {
+    quoteToolbarVisible.value = false
+    return
+  }
+
+  // 获取选区的位置
+  const range = selection.getRangeAt(0)
+  const rect = range.getBoundingClientRect()
+
+  // 计算工具栏位置（选区上方居中）
+  const toolbarWidth = 80 // 工具栏大致宽度
+  const x = rect.left + rect.width / 2 - toolbarWidth / 2
+  const y = rect.top - 8 // 选区上方8px
+
+  selectedQuoteText.value = selectedText
+  quoteToolbarPosition.value = { x, y }
+  quoteToolbarVisible.value = true
+}
+
+// 插入引用到输入框
+function insertQuote() {
+  if (!selectedQuoteText.value) return
+
+  const quoteText = `> ${selectedQuoteText.value}\n\n`
+
+  // 在当前输入框内容后添加引用
+  const currentInput = props.input
+  const newInput = currentInput ? `${currentInput}\n${quoteText}` : quoteText
+
+  emit('update:input', newInput)
+
+  // 隐藏工具栏
+  quoteToolbarVisible.value = false
+
+  // 清除选择
+  window.getSelection()?.removeAllRanges()
+
+  // 聚焦到输入框
+  nextTick(() => {
+    textareaRef.value?.focus()
+  })
+}
+
+// 点击其他地方隐藏引用工具栏
+function handleDocumentClick(event: MouseEvent) {
+  if (!quoteToolbarVisible.value) return
+
+  const target = event.target as Node
+
+  // 如果点击在工具栏内，不隐藏
+  if (quoteToolbarRef.value && quoteToolbarRef.value.contains(target)) {
+    return
+  }
+
+  // 如果点击在消息气泡内，不隐藏（用户可能正在选择文本）
+  if (target instanceof Element && target.closest('.msg-bubble')) {
+    return
+  }
+
+  quoteToolbarVisible.value = false
+}
+
 // 选择图片
 function handleSelectImages() {
   if (fileInputRef.value) {
@@ -909,6 +986,8 @@ onMounted(async () => {
   await skillsManager.loadRegistry()
   // 添加点击外部关闭弹出框的事件监听
   document.addEventListener('click', handleClickOutside)
+  // 添加点击隐藏引用工具栏的事件监听
+  document.addEventListener('click', handleDocumentClick)
 
   // 初始化高度计算
   updateMessagesHeight()
@@ -931,6 +1010,7 @@ onUnmounted(() => {
   delete (window as any).previewMermaid
   // 移除事件监听
   document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('click', handleDocumentClick)
   window.removeEventListener('resize', updateMessagesHeight)
 
   // 清理 ResizeObserver
@@ -1025,6 +1105,25 @@ function scrollToBottom() {
         </svg>
       </button>
     </Transition>
+    <!-- 引用工具栏 -->
+    <Teleport to="body">
+      <Transition name="quote-toolbar">
+        <div
+          v-if="quoteToolbarVisible"
+          ref="quoteToolbarRef"
+          class="quote-toolbar"
+          :style="{ left: quoteToolbarPosition.x + 'px', top: quoteToolbarPosition.y + 'px' }"
+        >
+          <button class="quote-btn" @click="insertQuote" title="引用选中的文本">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+              <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V21c0 1 0 1 1 1z"/>
+              <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/>
+            </svg>
+            <span>引用</span>
+          </button>
+        </div>
+      </Transition>
+    </Teleport>
     <div id="messages_dev" class="messages" ref="messagesRef" @scroll="handleMessagesScroll" @click="handleLinkClick">
       <div v-if="messages.length === 0" class="welcome">
         <div class="welcome-hero">
@@ -1183,7 +1282,7 @@ function scrollToBottom() {
                 <img v-for="(img, imgIndex) in m.images" :key="imgIndex" :src="img" class="message-image clickable" @click="openImagePreview(img)" />
               </div>
               <!-- 渲染输出内容 -->
-              <div class="msg-bubble" v-html="render(getContentAsString(m.content))" />
+              <div class="msg-bubble" v-html="render(getContentAsString(m.content))" @mouseup="(e) => handleTextSelection(e, i, m.role as 'user' | 'assistant')" />
               <div class="msg-actions" v-if="m.copyable !== false">
                 <!-- 重试按钮：仅在错误消息时显示 -->
                 <button v-if="isErrorMessage(m) && m.role === 'assistant'" class="retry-btn" @click="emit('retry-message', i)" title="重试">
@@ -3203,5 +3302,51 @@ function scrollToBottom() {
   font-size: 11px;
   color: var(--color-text-tertiary);
   font-family: 'SF Mono', Monaco, 'Andale Mono', monospace;
+}
+
+/* 引用工具栏样式 */
+.quote-toolbar {
+  position: fixed;
+  z-index: 10000;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 4px;
+  transform: translateY(-100%);
+}
+
+.quote-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--color-text-primary);
+  transition: background 0.15s;
+}
+
+.quote-btn:hover {
+  background: var(--color-bg-hover);
+}
+
+.quote-btn svg {
+  color: var(--color-primary);
+}
+
+/* 引用工具栏动画 */
+.quote-toolbar-enter-active,
+.quote-toolbar-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.quote-toolbar-enter-from,
+.quote-toolbar-leave-to {
+  opacity: 0;
+  transform: translateY(-100%) scale(0.95);
 }
 </style>
