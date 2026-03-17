@@ -247,7 +247,7 @@ const selectedQuoteText = ref('')
 const quoteToolbarRef = ref<HTMLDivElement | null>(null)
 
 // 处理文本选择
-function handleTextSelection(event: MouseEvent, messageIndex: number, role: 'user' | 'assistant') {
+function handleTextSelection(_event: MouseEvent, _messageIndex: number, _role: 'user' | 'assistant') {
   const selection = window.getSelection()
   if (!selection || selection.isCollapsed) {
     quoteToolbarVisible.value = false
@@ -1336,7 +1336,7 @@ function scrollToBottom() {
         <textarea
           :value="input"
           class="textarea"
-          placeholder="输入消息，回车发送，Shift+Enter 换行（支持粘贴图片）"
+          placeholder="输入消息（@ 技能 / 命令），回车发送，Shift+Enter 换行（支持粘贴图片）"
           @keydown.enter.exact.prevent="handleSend"
           @keydown="handleKeydown"
           @input="handleUpdateInput"

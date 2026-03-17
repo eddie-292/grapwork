@@ -16,6 +16,7 @@ export interface ChatMessage {
   visible?: boolean;
   copyable?: boolean;
   archived?: boolean;
+  isError?: boolean; // 标记错误消息
   // 图片附件（用于UI显示和API请求）
   images?: string[]; // base64 data URL 数组
 }

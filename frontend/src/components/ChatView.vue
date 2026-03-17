@@ -123,6 +123,7 @@ type Message = {
   visible?: boolean
   copyable?: boolean
   archived?: boolean
+  isError?: boolean
   // MCP Function Calling 相关
   tool_calls?: any[]
   tool_call_id?: string
