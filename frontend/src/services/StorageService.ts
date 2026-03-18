@@ -22,6 +22,7 @@ import type { MCPServerList } from '@/types/mcp';
 import type { SkillRegistry } from '@/types/skill';
 import type { ImageGeneratorConfigList, ImageGeneratorHistory } from '@/types/imageGenerator';
 import type { WorkspaceList, Workspace } from '@/types/workspace';
+import type { ConnectionRegistry } from '@/types/connection';
 
 /**
  * 默认内置助理的System Prompt
@@ -629,6 +630,29 @@ export class StorageService {
     }
     await this.deleteWorkspaceChatHistory(workspaceId)
     return this.saveWorkspaceList(list)
+  }
+
+  // ==================== 连接器系统 ====================
+
+  /**
+   * 获取连接器注册表
+   */
+  async getConnectionRegistry(): Promise<ConnectionRegistry> {
+    const result = await this.get<ConnectionRegistry>(StorageKey.CONNECTION_REGISTRY)
+    return result.data ?? {
+      connections: [],
+      activeConnectionIds: [],
+      version: 1,
+      lastUpdated: Date.now()
+    }
+  }
+
+  /**
+   * 保存连接器注册表
+   */
+  async saveConnectionRegistry(registry: ConnectionRegistry): Promise<boolean> {
+    const result = await this.set(StorageKey.CONNECTION_REGISTRY, registry)
+    return result.success
   }
 }
 

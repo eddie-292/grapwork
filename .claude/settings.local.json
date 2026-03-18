@@ -33,7 +33,9 @@
       "Bash(where:*)",
       "Bash(if:*)",
       "Bash(npx run:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "mcp__web-reader__webReader",
+      "mcp__web-search-prime__web_search_prime"
     ]
   }
 }

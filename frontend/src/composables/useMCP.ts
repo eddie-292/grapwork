@@ -859,7 +859,165 @@ export function useMCP() {
       //     }
       //   }
       // }
-    ]
+
+    // ==================== 语雀工具 ====================
+    // 检查是否有已连接的语雀账号
+    const yuqueConnected = hasActiveYuqueConnection()
+
+    if (yuqueConnected) {
+      // 列出知识库
+      tools.push({
+        type: 'function',
+        function: {
+          name: 'yuque_list_repos',
+          description: '获取语雀知识库列表。返回用户有权访问的所有知识库信息，包括知识库ID、名称、命名空间(namespace)、描述等。',
+          parameters: {
+            type: 'object',
+            properties: {},
+            required: []
+          }
+        }
+      })
+
+      // 列出文档
+      tools.push({
+        type: 'function',
+        function: {
+          name: 'yuque_list_docs',
+          description: '获取指定语雀知识库中的文档列表。需要提供知识库的namespace（格式：用户名/知识库名 或 团队名/知识库名）。',
+          parameters: {
+            type: 'object',
+            properties: {
+              repo_namespace: {
+                type: 'string',
+                description: '知识库的命名空间，格式为 "用户名/知识库名" 或 "团队名/知识库名"。例如："myuser/docs" 或 "myteam/wiki"'
+              }
+            },
+            required: ['repo_namespace']
+          }
+        }
+      })
+
+      // 获取文档详情
+      tools.push({
+        type: 'function',
+        function: {
+          name: 'yuque_get_doc',
+          description: '获取语雀文档的详细内容。返回文档标题、正文内容(body)、格式(format)等信息。',
+          parameters: {
+            type: 'object',
+            properties: {
+              repo_namespace: {
+                type: 'string',
+                description: '知识库的命名空间，格式为 "用户名/知识库名"'
+              },
+              doc_slug: {
+                type: 'string',
+                description: '文档的slug标识，可从文档列表中获取'
+              }
+            },
+            required: ['repo_namespace', 'doc_slug']
+          }
+        }
+      })
+
+      // 创建文档
+      tools.push({
+        type: 'function',
+        function: {
+          name: 'yuque_create_doc',
+          description: '在语雀知识库中创建新文档。支持 Markdown 和 Lake（语雀自有格式）两种格式。',
+          parameters: {
+            type: 'object',
+            properties: {
+              repo_namespace: {
+                type: 'string',
+                description: '知识库的命名空间'
+              },
+              title: {
+                type: 'string',
+                description: '文档标题'
+              },
+              body: {
+                type: 'string',
+                description: '文档正文内容'
+              },
+              format: {
+                type: 'string',
+                enum: ['markdown', 'lake'],
+                description: '文档格式，默认为 markdown'
+              },
+              slug: {
+                type: 'string',
+                description: '文档的自定义slug（可选），不填则自动生成'
+              }
+            },
+            required: ['repo_namespace', 'title', 'body']
+          }
+        }
+      })
+
+      // 更新文档
+      tools.push({
+        type: 'function',
+        function: {
+          name: 'yuque_update_doc',
+          description: '更新语雀知识库中的已有文档。可以修改标题、正文内容等。',
+          parameters: {
+            type: 'object',
+            properties: {
+              repo_namespace: {
+                type: 'string',
+                description: '知识库的命名空间'
+              },
+              doc_slug: {
+                type: 'string',
+                description: '要更新的文档slug'
+              },
+              title: {
+                type: 'string',
+                description: '新的文档标题（可选）'
+              },
+              body: {
+                type: 'string',
+                description: '新的文档正文内容（可选）'
+              },
+              format: {
+                type: 'string',
+                enum: ['markdown', 'lake'],
+                description: '文档格式'
+              }
+            },
+            required: ['repo_namespace', 'doc_slug']
+          }
+        }
+      })
+
+      // 删除文档
+      tools.push({
+        type: 'function',
+        function: {
+          name: 'yuque_delete_doc',
+          description: '删除语雀知识库中的文档。此操作不可撤销，请谨慎使用。',
+          parameters: {
+            type: 'object',
+            properties: {
+              repo_namespace: {
+                type: 'string',
+                description: '知识库的命名空间'
+              },
+              doc_slug: {
+                type: 'string',
+                description: '要删除的文档slug'
+              }
+            },
+            required: ['repo_namespace', 'doc_slug']
+          }
+        }
+      })
+    }
+
+    return tools
   }
 
   /**
@@ -881,6 +1039,176 @@ export function useMCP() {
       'execute_command'
     ]
     return builtinTools.includes(toolName)
+  }
+
+  /**
+   * 检查工具是否为语雀工具
+   */
+  function isBuiltinYuqueTool(toolName: string): boolean {
+    const yuqueTools = [
+      'yuque_list_repos',
+      'yuque_list_docs',
+      'yuque_get_doc',
+      'yuque_create_doc',
+      'yuque_update_doc',
+      'yuque_delete_doc'
+    ]
+    return yuqueTools.includes(toolName)
+  }
+
+  /**
+   * 检查是否有已连接的语雀账号
+   */
+  function hasActiveYuqueConnection(): boolean {
+    // 这个函数会在 generateOpenAITools 中被调用
+    // 检查 window.__YUQUE_CONNECTED__ 标志（由 ConnectionsPanel 设置）
+    return !!(window as any).__YUQUE_CONNECTED__
+  }
+
+  /**
+   * 执行语雀工具调用
+   */
+  async function executeYuqueTool(toolName: string, args: Record<string, any>): Promise<{ content?: string; error?: string }> {
+    // 获取语雀连接实例
+    const yuqueInstance = getYuqueConnectionInstance()
+    if (!yuqueInstance) {
+      return { error: '没有可用的语雀连接，请先在设置中配置语雀连接' }
+    }
+
+    try {
+      let result: { success: boolean; data?: any; error?: string }
+
+      switch (toolName) {
+        case 'yuque_list_repos': {
+          result = await yuqueInstance.listRepos()
+          if (result.success && result.data) {
+            const repos = result.data.map((repo: any) => ({
+              id: repo.id,
+              name: repo.name,
+              namespace: repo.namespace,
+              description: repo.description || '',
+              public: repo.public === 1 ? '公开' : '私有',
+              updated_at: repo.updated_at
+            }))
+            return { content: JSON.stringify(repos, null, 2) }
+          }
+          break
+        }
+
+        case 'yuque_list_docs': {
+          if (!args.repo_namespace) {
+            return { error: '缺少参数: repo_namespace' }
+          }
+          result = await yuqueInstance.listDocs(args.repo_namespace)
+          if (result.success && result.data) {
+            const docs = result.data.map((doc: any) => ({
+              id: doc.id,
+              slug: doc.slug,
+              title: doc.title,
+              format: doc.format,
+              public: doc.public === 1 ? '公开' : '私有',
+              word_count: doc.word_count,
+              updated_at: doc.updated_at
+            }))
+            return { content: JSON.stringify(docs, null, 2) }
+          }
+          break
+        }
+
+        case 'yuque_get_doc': {
+          if (!args.repo_namespace || !args.doc_slug) {
+            return { error: '缺少参数: repo_namespace 或 doc_slug' }
+          }
+          result = await yuqueInstance.getDoc(args.repo_namespace, args.doc_slug)
+          if (result.success && result.data) {
+            const doc = {
+              id: result.data.id,
+              slug: result.data.slug,
+              title: result.data.title,
+              format: result.data.format,
+              body: result.data.body,
+              word_count: result.data.word_count,
+              created_at: result.data.created_at,
+              updated_at: result.data.updated_at
+            }
+            return { content: JSON.stringify(doc, null, 2) }
+          }
+          break
+        }
+
+        case 'yuque_create_doc': {
+          if (!args.repo_namespace || !args.title || !args.body) {
+            return { error: '缺少参数: repo_namespace, title 或 body' }
+          }
+          result = await yuqueInstance.createDoc(args.repo_namespace, {
+            title: args.title,
+            body: args.body,
+            format: args.format || 'markdown',
+            slug: args.slug
+          })
+          if (result.success && result.data) {
+            return { content: JSON.stringify({
+              message: '文档创建成功',
+              id: result.data.id,
+              slug: result.data.slug,
+              title: result.data.title
+            }, null, 2) }
+          }
+          break
+        }
+
+        case 'yuque_update_doc': {
+          if (!args.repo_namespace || !args.doc_slug) {
+            return { error: '缺少参数: repo_namespace 或 doc_slug' }
+          }
+          const updateData: any = {}
+          if (args.title) updateData.title = args.title
+          if (args.body) updateData.body = args.body
+          if (args.format) updateData.format = args.format
+
+          result = await yuqueInstance.updateDoc(args.repo_namespace, args.doc_slug, updateData)
+          if (result.success && result.data) {
+            return { content: JSON.stringify({
+              message: '文档更新成功',
+              id: result.data.id,
+              slug: result.data.slug,
+              title: result.data.title
+            }, null, 2) }
+          }
+          break
+        }
+
+        case 'yuque_delete_doc': {
+          if (!args.repo_namespace || !args.doc_slug) {
+            return { error: '缺少参数: repo_namespace 或 doc_slug' }
+          }
+          result = await yuqueInstance.deleteDoc(args.repo_namespace, args.doc_slug)
+          if (result.success) {
+            return { content: JSON.stringify({
+              message: '文档删除成功',
+              repo_namespace: args.repo_namespace,
+              doc_slug: args.doc_slug
+            }, null, 2) }
+          }
+          break
+        }
+
+        default:
+          return { error: `未知的语雀工具: ${toolName}` }
+      }
+
+      // 处理错误情况
+      return { error: result?.error || '操作失败' }
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : '执行语雀工具时发生错误' }
+    }
+  }
+
+  /**
+   * 获取语雀连接实例（从 window 对象获取）
+   */
+  function getYuqueConnectionInstance(): any {
+    return (window as any).__YUQUE_CONNECTION_INSTANCE__
   }
 
   /**
@@ -979,6 +1307,34 @@ export function useMCP() {
           args
         )
 
+        if (result.error) {
+          return {
+            toolCallId: toolCall.id,
+            content: '',
+            error: result.error
+          }
+        }
+
+        return {
+          toolCallId: toolCall.id,
+          content: result.content || ''
+        }
+      }
+
+      // 检查是否是语雀工具
+      if (isBuiltinYuqueTool(toolCall.function.name)) {
+        const parseResult = safeParseToolArguments(toolCall.function.arguments)
+        if (!parseResult.success) {
+          return {
+            toolCallId: toolCall.id,
+            content: '',
+            error: parseResult.error || '工具参数解析失败'
+          }
+        }
+        const args = parseResult.args
+
+        // 执行语雀工具调用
+        const result = await executeYuqueTool(toolCall.function.name, args)
         if (result.error) {
           return {
             toolCallId: toolCall.id,
