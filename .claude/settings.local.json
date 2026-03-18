@@ -32,7 +32,8 @@
       "Bash(powershell -Command:*)",
       "Bash(where:*)",
       "Bash(if:*)",
-      "Bash(npx run:*)"
+      "Bash(npx run:*)",
+      "Bash(chmod:*)"
     ]
   }
 }
