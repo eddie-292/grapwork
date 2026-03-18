@@ -28,11 +28,11 @@
   },
   "win": {
     "target": ["nsis", "zip"],
-    "sign": null,
+    "sign": "./scripts/sign.js",
     "signingHashAlgorithms": ["sha256"],
-    "rfc3161TimeStampServer": null,
-    "certificateFile": null,
-    "certificateSha1": null
+    "rfc3161TimeStampServer": "http://timestamp.digicert.com",
+    "certificateFile": "build/certificates/grapework.pfx",
+    "certificatePassword": "grapeWork2026"
   },
   "linux": {
     "target": ["AppImage", "deb"]

@@ -11,6 +11,7 @@
 - [生产构建](#生产构建)
 - [打包配置](#打包配置)
 - [平台特定说明](#平台特定说明)
+- [Windows 代码签名](#windows-代码签名)
 - [常见问题](#常见问题)
 
 ---
@@ -326,6 +327,73 @@ npm run electron:build:win
 
 **注意**: 在 macOS 上打包 Windows 版本需要安装 Wine。
 
+### Windows 代码签名
+
+#### 生成自签名证书
+
+以**管理员身份**运行 PowerShell：
+
+```powershell
+cd frontend
+.\scripts\generate-certificate.ps1
+```
+
+证书信息：
+- **证书名称**: GrapWork
+- **密码**: `grapeWork2026`
+- **算法**: RSA 2048 位 + SHA256
+- **有效期**: 1 年
+
+证书会自动安装到系统证书存储区并添加到受信任的根证书颁发机构。
+
+#### 使用证书构建
+
+生成证书后，直接运行：
+
+```bash
+npm run electron:build:win
+```
+
+构建过程会自动使用证书对应用进行签名。
+
+#### 关于签名提示
+
+构建时可能会出现以下提示（这是正常的）：
+
+```
+[签名] signtool 未安装，使用 electron-builder 内置签名
+```
+
+这**不是错误**，表示系统没有安装 Windows SDK 的 `signtool` 工具。构建会正常完成，electron-builder 会使用证书文件直接对可执行文件进行签名。
+
+如果需要更专业的签名服务（带时间戳），可以安装 [Windows SDK](https://developer.microsoft.com/windows/downloads/windows-10-sdk/)。
+
+#### 相关配置
+
+`electron-builder.json` 中的签名配置：
+
+```json
+{
+  "win": {
+    "sign": "./scripts/sign.js",
+    "signingHashAlgorithms": ["sha256"],
+    "rfc3161TimeStampServer": "http://timestamp.digicert.com",
+    "certificateFile": "build/certificates/grapework.pfx",
+    "certificatePassword": "grapeWork2026"
+  }
+}
+```
+
+#### 证书管理
+
+| 操作 | 命令 |
+|------|------|
+| 查看证书 | `Get-ChildItem -Path Cert:\CurrentUser\My -CodeSigningCert` |
+| 重新生成证书 | 再次运行 `generate-certificate.ps1` |
+| 导出证书 | 证书已自动导出到 `build/certificates/` |
+
+> **注意**: 自签名证书仅适用于开发和测试。发布给用户时，建议购买受信任的代码签名证书。
+
 ### Linux
 
 **输出格式**: AppImage, DEB
@@ -422,12 +490,14 @@ npm run electron:build:win
 | `npm run build:electron` | 仅构建 Electron 进程 |
 | `npm run build:electron:watch` | 监听 Electron 进程变更 |
 | `npm run generate-icons` | 生成应用图标 |
+| `.\scripts\generate-certificate.ps1` | 生成 Windows 自签名证书（管理员 PowerShell） |
 
 ---
 
 ## 相关文档
 
 - [CLAUDE.md](./CLAUDE.md) - 项目开发指南
+- [自签名证书指南](./frontend/docs/自签名证书指南.md) - Windows 代码签名详细指南
 - [Vite 配置文档](https://vitejs.dev/config/)
 - [electron-builder 文档](https://www.electron.build/)
 - [Electron 文档](https://www.electronjs.org/docs)
