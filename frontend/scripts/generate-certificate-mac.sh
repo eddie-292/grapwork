@@ -64,11 +64,20 @@ openssl req -x509 \
 echo -e "${GREEN}证书和私钥已生成${NC}"
 
 # 转换为 P12 格式
-openssl pkcs12 -export \
-    -out "$P12_FILE" \
-    -inkey "$KEY_FILE" \
-    -in "$PEM_FILE" \
-    -password pass:"$PASSWORD"
+# 注意：macOS Monterey+ 需要 -legacy 选项
+if [[ $(sw_vers -productVersion | cut -d. -f1) -ge 12 ]]; then
+    openssl pkcs12 -export -legacy \
+        -out "$P12_FILE" \
+        -inkey "$KEY_FILE" \
+        -in "$PEM_FILE" \
+        -password pass:"$PASSWORD"
+else
+    openssl pkcs12 -export \
+        -out "$P12_FILE" \
+        -inkey "$KEY_FILE" \
+        -in "$PEM_FILE" \
+        -password pass:"$PASSWORD"
+fi
 
 echo -e "${GREEN}已导出 P12 文件：$P12_FILE${NC}"
 
@@ -77,8 +86,11 @@ echo -e "${CYAN}是否将证书导入到登录钥匙串？(y/N):${NC}"
 read -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    # 创建临时 PEM 文件用于导入
-    security import "$P12_FILE" -k ~/Library/Keychains/login.keychain-db -P "$PASSWORD" -T /usr/bin/codesign
+    # 使用 PEM 文件导入证书和私钥（更可靠）
+    # 先导入私钥
+    security import "$KEY_FILE" -k ~/Library/Keychains/login.keychain-db -T /usr/bin/codesign 2>/dev/null || true
+    # 再导入证书
+    security import "$PEM_FILE" -k ~/Library/Keychains/login.keychain-db -T /usr/bin/codesign
     echo -e "${GREEN}证书已导入到登录钥匙串${NC}"
 
     # 设置信任设置（避免签名警告）

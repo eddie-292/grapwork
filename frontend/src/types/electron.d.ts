@@ -289,6 +289,10 @@ interface ElectronAPI {
   // Loop 任务执行完成事件
   onLoopTaskExecuted: (callback: (data: { taskId: string; execution: any }) => void) => void
   removeLoopTaskExecutedListener: () => void
+
+  // macOS 隔离检测与修复
+  checkMacOSQuarantine: () => Promise<{ isQuarantined: boolean; appPath: string }>
+  fixMacOSQuarantine: (appPath: string) => Promise<{ success: boolean; error?: string }>
 }
 
 declare global {
