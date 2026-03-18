@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { storage } from './services/StorageService'
+import MacOsQuarantineDialog from './components/MacOsQuarantineDialog.vue'
 
 // 在应用启动时加载保存的 UI 主题
 onMounted(async () => {
@@ -12,6 +13,9 @@ onMounted(async () => {
 </script>
 
 <template>
+  <!-- macOS 隔离检测对话框 -->
+  <MacOsQuarantineDialog />
+
   <router-view v-slot="{ Component }">
     <Transition name="page" mode="out-in">
       <component :is="Component" />

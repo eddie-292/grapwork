@@ -24,15 +24,44 @@
   ],
   "mac": {
     "target": ["dmg", "zip"],
-    "category": "public.app-category.productivity"
+    "category": "public.app-category.productivity",
+    "hardenedRuntime": true,
+    "gatekeeperAssess": false,
+    "identity": null
+  },
+  "dmg": {
+    "contents": [
+      {
+        "x": 130,
+        "y": 220
+      },
+      {
+        "x": 410,
+        "y": 220,
+        "type": "link",
+        "path": "/Applications"
+      },
+      {
+        "x": 270,
+        "y": 300,
+        "type": "file",
+        "path": "build/安装说明.txt",
+        "name": "安装说明.txt"
+      }
+    ],
+    "title": "GrapWork ${version}",
+    "window": {
+      "width": 540,
+      "height": 520
+    }
   },
   "win": {
     "target": ["nsis", "zip"],
-    "sign": null,
+    "sign": "./scripts/sign.js",
     "signingHashAlgorithms": ["sha256"],
-    "rfc3161TimeStampServer": null,
-    "certificateFile": null,
-    "certificateSha1": null
+    "rfc3161TimeStampServer": "http://timestamp.digicert.com",
+    "certificateFile": "build/certificates/grapework.pfx",
+    "certificatePassword": "grapeWork2026"
   },
   "linux": {
     "target": ["AppImage", "deb"]

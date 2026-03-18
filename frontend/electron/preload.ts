@@ -211,4 +211,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   removeLoopTaskExecutedListener: () => {
     ipcRenderer.removeAllListeners('loop-task-executed')
   },
+  // macOS 隔离检测与修复
+  checkMacOSQuarantine: () =>
+    ipcRenderer.invoke('check-macos-quarantine'),
+  fixMacOSQuarantine: (appPath: string) =>
+    ipcRenderer.invoke('fix-macos-quarantine', appPath),
 })

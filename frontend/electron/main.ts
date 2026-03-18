@@ -3714,6 +3714,70 @@ app.on('activate', () => {
 })
 
 // ============================================================================
+// macOS Quarantine Detection & Fix
+// ============================================================================
+
+/**
+ * 检测应用是否被 macOS 隔离（导致"已损坏"提示）
+ */
+async function checkMacOSQuarantine(): Promise<{ isQuarantined: boolean; appPath: string }> {
+  if (process.platform !== 'darwin') {
+    return { isQuarantined: false, appPath: '' }
+  }
+
+  // 获取应用路径（去除 .app 后缀内的路径）
+  let appPath = app.getPath('exe')
+  // 从 /Applications/GrapWork.app/Contents/MacOS/GrapWork 提取 /Applications/GrapWork.app
+  const appIndex = appPath.indexOf('.app')
+  if (appIndex !== -1) {
+    appPath = appPath.substring(0, appIndex + 4)
+  }
+
+  try {
+    // 检查是否有隔离属性
+    const result = await execAsync(`xattr -p com.apple.quarantine "${appPath}" 2>/dev/null`)
+    const isQuarantined = result.exitCode === 0 && result.stdout.trim().length > 0
+    return { isQuarantined, appPath }
+  } catch {
+    return { isQuarantined: false, appPath }
+  }
+}
+
+/**
+ * 修复 macOS 隔离问题（移除隔离属性）
+ * 使用 AppleScript 获取管理员权限
+ */
+async function fixMacOSQuarantine(appPath: string): Promise<{ success: boolean; error?: string }> {
+  if (process.platform !== 'darwin') {
+    return { success: false, error: '仅支持 macOS' }
+  }
+
+  try {
+    // 使用 AppleScript 执行带管理员权限的命令
+    const script = `do shell script "xattr -cr '${appPath}'" with administrator privileges`
+    const result = await execAsync(`osascript -e '${script}'`)
+
+    if (result.exitCode === 0) {
+      return { success: true }
+    } else {
+      return { success: false, error: result.stderr || '执行失败' }
+    }
+  } catch (error: any) {
+    return { success: false, error: error.message || '未知错误' }
+  }
+}
+
+// IPC: 检测 macOS 隔离
+ipcMain.handle('check-macos-quarantine', async () => {
+  return await checkMacOSQuarantine()
+})
+
+// IPC: 修复 macOS 隔离
+ipcMain.handle('fix-macos-quarantine', async (_event, appPath: string) => {
+  return await fixMacOSQuarantine(appPath)
+})
+
+// ============================================================================
 // Environment Check
 // ============================================================================
 
