@@ -130,3 +130,49 @@ Key points:
 | `BUILD.md` | Detailed build guide |
 | `UI标准.md` | Complete UI design standards |
 | `frontend/docs/SYNC_API_SPEC.md` | Cloud sync API specification |
+| `frontend/docs/CONNECTION_MODULE.md` | Connection module development guide (Yuque, Feishu, etc.) |
+
+## Connection Module (Third-party Integrations)
+
+The project includes a pluggable connection system for integrating third-party services:
+
+### Supported Connections
+
+- **语雀 (Yuque)**: Knowledge base platform - read/write/update/delete documents
+- **Feishu** (planned): Enterprise collaboration platform
+- **Notion** (planned): Note-taking and collaboration tool
+
+### Architecture
+
+```
+src/
+├── types/connection.ts       # Type definitions
+├── connections/               # Connection implementations
+│   ├── BaseConnection.ts     # Abstract base class
+│   └── YuqueConnection.ts   # Yuque connector
+├── composables/
+│   └── useConnections.ts     # Connection manager composable
+└── components/settings/
+    └── ConnectionsPanel.vue  # Settings UI
+```
+
+### Adding a New Connector
+
+1. Add type definitions in `types/connection.ts`
+2. Create connector class extending `BaseConnection` in `connections/`
+3. Register in `useConnections.ts` `createInstance()` function
+4. Add UI option in `ConnectionsPanel.vue`
+
+### MCP Tool Integration
+
+When a connection is established, relevant MCP tools are automatically available to AI:
+
+Example for Yuque:
+- `yuque_list_repos` - List knowledge bases
+- `yuque_list_docs` - List documents in a repo
+- `yuque_get_doc` - Get document content
+- `yuque_create_doc` - Create new document
+- `yuque_update_doc` - Update existing document
+- `yuque_delete_doc` - Delete document
+
+See `frontend/docs/CONNECTION_MODULE.md` for detailed documentation.
