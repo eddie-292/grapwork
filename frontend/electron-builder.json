@@ -29,6 +29,32 @@
     "gatekeeperAssess": false,
     "identity": null
   },
+  "dmg": {
+    "contents": [
+      {
+        "x": 130,
+        "y": 220
+      },
+      {
+        "x": 410,
+        "y": 220,
+        "type": "link",
+        "path": "/Applications"
+      },
+      {
+        "x": 270,
+        "y": 300,
+        "type": "file",
+        "path": "build/安装说明.txt",
+        "name": "安装说明.txt"
+      }
+    ],
+    "title": "GrapWork ${version}",
+    "window": {
+      "width": 540,
+      "height": 520
+    }
+  },
   "win": {
     "target": ["nsis", "zip"],
     "sign": "./scripts/sign.js",
