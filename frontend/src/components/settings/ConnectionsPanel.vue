@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useConnections } from '@/composables/useConnections'
-import type { ConnectionConfig, ConnectionType, YuqueConfig } from '@/types/connection'
+import type { ConnectionConfig, ConnectionType, YuqueConfig, FeishuConfig, GitHubConfig } from '@/types/connection'
+import { FeishuConnection } from '@/connections/FeishuConnection'
 import PlusIcon from '@/components/icons/PlusIcon.vue'
 import RefreshIcon from '@/components/icons/RefreshIcon.vue'
 import EditIcon from '@/components/icons/EditIcon.vue'
@@ -18,36 +19,83 @@ const editingConnection = ref<ConnectionConfig | null>(null)
 const testing = ref(false)
 const testResult = ref<{ success: boolean; error?: string } | null>(null)
 
+// OAuth 相关状态
+const oauthPending = ref(false)
+const oauthConnectionId = ref<string | null>(null)
+
 // 新连接表单
 const newConnection = ref<{
   type: ConnectionType
   name: string
+  // 语雀配置
   authToken: string
+  // 飞书配置
+  appId: string
+  appSecret: string
+  authMode: 'tenant' | 'user'
+  // GitHub 配置
+  githubToken: string
+  githubBaseUrl: string
 }>({
   type: 'yuque',
   name: '',
   authToken: '',
+  appId: '',
+  appSecret: '',
+  authMode: 'tenant',
+  githubToken: '',
+  githubBaseUrl: '',
 })
 
 // 编辑表单
 const editForm = ref<{
   name: string
+  // 语雀配置
   authToken: string
+  // 飞书配置
+  appId: string
+  appSecret: string
+  authMode: 'tenant' | 'user'
+  // GitHub 配置
+  githubToken: string
+  githubBaseUrl: string
 }>({
   name: '',
   authToken: '',
+  appId: '',
+  appSecret: '',
+  authMode: 'tenant',
+  githubToken: '',
+  githubBaseUrl: '',
 })
 
 // 可用的连接类型
-const connectionTypes: { value: ConnectionType; label: string; description: string }[] = [
+const connectionTypes: { value: ConnectionType; label: string; description: string; features: string[] }[] = [
   {
     value: 'yuque',
     label: '语雀',
     description: '专业的云端知识库，支持文档读写',
+    features: ['知识库列表', '文档列表', '读取文档', '创建文档', '更新文档', '删除文档'],
   },
-  // 后续添加更多连接类型
-  // { value: 'feishu', label: '飞书', description: '企业协作平台' },
+  {
+    value: 'feishu',
+    label: '飞书',
+    description: '企业协作平台，支持知识库文档操作',
+    features: ['知识空间列表', '文档节点列表', '读取文档', '创建文档', '更新文档', '删除文档'],
+  },
+  {
+    value: 'github',
+    label: 'GitHub',
+    description: '代码托管平台，支持仓库、Issue、PR 操作',
+    features: ['仓库列表', 'Issue 管理', 'Pull Request', '文件读写', '分支管理', '搜索功能'],
+  },
 ]
+
+// 获取连接类型的功能列表
+function getTypeFeatures(type: ConnectionType): string[] {
+  const found = connectionTypes.find((t) => t.value === type)
+  return found?.features || []
+}
 
 // 获取连接类型标签
 function getTypeLabel(type: ConnectionType): string {
@@ -58,13 +106,47 @@ function getTypeLabel(type: ConnectionType): string {
 // 计算属性
 const connections = computed(() => connectionsManager.connections.value)
 
+// OAuth 回调处理
+async function handleOAuthCallback(data: { code: string; state: string; connectionId: string }) {
+  if (oauthPending.value && data.connectionId === oauthConnectionId.value) {
+    // 清除超时定时器
+    if (oauthTimeoutId) {
+      clearTimeout(oauthTimeoutId)
+      oauthTimeoutId = null
+    }
+    oauthPending.value = false
+    const instance = connectionsManager.getInstance(data.connectionId) as FeishuConnection
+    if (instance && instance.exchangeOAuthCode) {
+      const result = await instance.exchangeOAuthCode(data.code)
+      if (result.success) {
+        message.value = '授权成功'
+        // 更新连接配置以保存 token
+        const config = instance.getConfig()
+        await connectionsManager.updateConnection(data.connectionId, { config })
+        await connectionsManager.refreshStatus(data.connectionId)
+      } else {
+        message.value = result.error || '授权失败'
+      }
+    }
+    setTimeout(() => {
+      message.value = ''
+    }, 3000)
+  }
+}
+
 onMounted(async () => {
   loading.value = true
   try {
     await connectionsManager.initialize()
+    // 监听 OAuth 回调
+    window.electronAPI?.onFeishuOAuthCallback?.(handleOAuthCallback)
   } finally {
     loading.value = false
   }
+})
+
+onUnmounted(() => {
+  window.electronAPI?.removeFeishuOAuthCallbackListener?.()
 })
 
 // 打开添加对话框
@@ -73,6 +155,11 @@ function openAddDialog() {
     type: 'yuque',
     name: '',
     authToken: '',
+    appId: '',
+    appSecret: '',
+    authMode: 'tenant',
+    githubToken: '',
+    githubBaseUrl: '',
   }
   testResult.value = null
   showAddDialog.value = true
@@ -81,11 +168,52 @@ function openAddDialog() {
 // 打开编辑对话框
 function openEditDialog(connection: ConnectionConfig) {
   editingConnection.value = connection
-  const config = connection.config as YuqueConfig
-  editForm.value = {
-    name: connection.name,
-    authToken: config.authToken || '',
+
+  if (connection.type === 'yuque') {
+    const config = connection.config as YuqueConfig
+    editForm.value = {
+      name: connection.name,
+      authToken: config.authToken || '',
+      appId: '',
+      appSecret: '',
+      authMode: 'tenant',
+      githubToken: '',
+      githubBaseUrl: '',
+    }
+  } else if (connection.type === 'feishu') {
+    const config = connection.config as FeishuConfig
+    editForm.value = {
+      name: connection.name,
+      authToken: '',
+      appId: config.appId || '',
+      appSecret: config.appSecret || '',
+      authMode: config.authMode || 'tenant',
+      githubToken: '',
+      githubBaseUrl: '',
+    }
+  } else if (connection.type === 'github') {
+    const config = connection.config as GitHubConfig
+    editForm.value = {
+      name: connection.name,
+      authToken: '',
+      appId: '',
+      appSecret: '',
+      authMode: 'tenant',
+      githubToken: config.authToken || '',
+      githubBaseUrl: config.baseUrl || '',
+    }
+  } else {
+    editForm.value = {
+      name: connection.name,
+      authToken: '',
+      appId: '',
+      appSecret: '',
+      authMode: 'tenant',
+      githubToken: '',
+      githubBaseUrl: '',
+    }
   }
+
   testResult.value = null
   showEditDialog.value = true
 }
@@ -104,17 +232,48 @@ async function addConnection() {
     message.value = '请输入连接名称'
     return
   }
-  if (!newConnection.value.authToken.trim()) {
-    message.value = '请输入认证令牌'
-    return
+
+  // 根据类型验证不同的字段
+  if (newConnection.value.type === 'yuque') {
+    if (!newConnection.value.authToken.trim()) {
+      message.value = '请输入认证令牌'
+      return
+    }
+  } else if (newConnection.value.type === 'feishu') {
+    if (!newConnection.value.appId.trim() || !newConnection.value.appSecret.trim()) {
+      message.value = '请输入 App ID 和 App Secret'
+      return
+    }
+  } else if (newConnection.value.type === 'github') {
+    if (!newConnection.value.githubToken.trim()) {
+      message.value = '请输入 GitHub Personal Access Token'
+      return
+    }
   }
 
   loading.value = true
   message.value = ''
 
   try {
-    const config: YuqueConfig = {
-      authToken: newConnection.value.authToken.trim(),
+    let config: Record<string, unknown>
+
+    if (newConnection.value.type === 'yuque') {
+      config = {
+        authToken: newConnection.value.authToken.trim(),
+      }
+    } else if (newConnection.value.type === 'feishu') {
+      config = {
+        appId: newConnection.value.appId.trim(),
+        appSecret: newConnection.value.appSecret.trim(),
+        authMode: newConnection.value.authMode,
+      }
+    } else if (newConnection.value.type === 'github') {
+      config = {
+        authToken: newConnection.value.githubToken.trim(),
+        baseUrl: newConnection.value.githubBaseUrl.trim() || undefined,
+      }
+    } else {
+      config = {}
     }
 
     const result = await connectionsManager.addConnection(
@@ -126,6 +285,12 @@ async function addConnection() {
     if (result.success) {
       message.value = '连接添加成功'
       closeDialog()
+
+      // 如果是飞书用户授权模式，自动触发授权流程
+      if (newConnection.value.type === 'feishu' && newConnection.value.authMode === 'user' && result.id) {
+        startFeishuOAuth(result.id)
+      }
+
       setTimeout(() => {
         message.value = ''
       }, 2000)
@@ -151,8 +316,34 @@ async function updateConnection() {
   message.value = ''
 
   try {
-    const config: YuqueConfig = {
-      authToken: editForm.value.authToken.trim(),
+    let config: Record<string, unknown>
+
+    if (editingConnection.value.type === 'yuque') {
+      // 如果 Token 为空，保持原有配置
+      const existingConfig = editingConnection.value.config as YuqueConfig
+      config = {
+        authToken: editForm.value.authToken.trim() || existingConfig.authToken,
+      }
+    } else if (editingConnection.value.type === 'feishu') {
+      const existingConfig = editingConnection.value.config as FeishuConfig
+      config = {
+        appId: editForm.value.appId.trim() || existingConfig.appId,
+        appSecret: editForm.value.appSecret.trim() || existingConfig.appSecret,
+        authMode: editForm.value.authMode,
+        // 保留现有的 OAuth token
+        userAccessToken: existingConfig.userAccessToken,
+        userRefreshToken: existingConfig.userRefreshToken,
+        tokenExpiresAt: existingConfig.tokenExpiresAt,
+        userInfo: existingConfig.userInfo,
+      }
+    } else if (editingConnection.value.type === 'github') {
+      const existingConfig = editingConnection.value.config as GitHubConfig
+      config = {
+        authToken: editForm.value.githubToken.trim() || existingConfig.authToken,
+        baseUrl: editForm.value.githubBaseUrl.trim() || existingConfig.baseUrl,
+      }
+    } else {
+      config = editingConnection.value.config
     }
 
     const result = await connectionsManager.updateConnection(editingConnection.value.id, {
@@ -228,6 +419,77 @@ function getConnectionStatus(connectionId: string) {
   return connectionsManager.getStatus(connectionId)
 }
 
+// 获取飞书授权状态
+function getFeishuAuthStatus(connectionId: string) {
+  const instance = connectionsManager.getInstance(connectionId) as FeishuConnection
+  return instance?.getAuthorizationStatus?.() || { mode: 'tenant', hasUserToken: false, tokenExpired: true }
+}
+
+// OAuth 超时定时器
+let oauthTimeoutId: ReturnType<typeof setTimeout> | null = null
+
+// 启动飞书 OAuth 授权
+async function startFeishuOAuth(connectionId: string) {
+  oauthPending.value = true
+  oauthConnectionId.value = connectionId
+
+  // 设置 5 分钟超时
+  if (oauthTimeoutId) {
+    clearTimeout(oauthTimeoutId)
+  }
+  oauthTimeoutId = setTimeout(() => {
+    if (oauthPending.value && oauthConnectionId.value === connectionId) {
+      oauthPending.value = false
+      oauthConnectionId.value = null
+      message.value = '授权超时，请重试'
+      setTimeout(() => {
+        message.value = ''
+      }, 3000)
+    }
+  }, 5 * 60 * 1000)
+
+  try {
+    const instance = connectionsManager.getInstance(connectionId) as FeishuConnection
+    if (instance && instance.startOAuthFlow) {
+      const result = await instance.startOAuthFlow(connectionId)
+      if (!result.success) {
+        // 启动失败，清除超时
+        if (oauthTimeoutId) {
+          clearTimeout(oauthTimeoutId)
+          oauthTimeoutId = null
+        }
+        oauthPending.value = false
+        message.value = result.error || '启动授权失败'
+        setTimeout(() => {
+          message.value = ''
+        }, 3000)
+      }
+    } else {
+      // 没有实例，清除超时
+      if (oauthTimeoutId) {
+        clearTimeout(oauthTimeoutId)
+        oauthTimeoutId = null
+      }
+      oauthPending.value = false
+      message.value = '连接实例不存在'
+      setTimeout(() => {
+        message.value = ''
+      }, 3000)
+    }
+  } catch (error) {
+    // 异常处理
+    if (oauthTimeoutId) {
+      clearTimeout(oauthTimeoutId)
+      oauthTimeoutId = null
+    }
+    oauthPending.value = false
+    message.value = error instanceof Error ? error.message : '授权失败'
+    setTimeout(() => {
+      message.value = ''
+    }, 3000)
+  }
+}
+
 // 格式化时间
 function formatTime(timestamp: number): string {
   return new Date(timestamp).toLocaleString('zh-CN')
@@ -236,6 +498,16 @@ function formatTime(timestamp: number): string {
 // 打开语雀 Token 设置页面
 function openYuqueTokenPage() {
   window.electronAPI?.openExternal?.('https://www.yuque.com/settings/tokens')
+}
+
+// 打开飞书开放平台页面
+function openFeishuDevPage() {
+  window.electronAPI?.openExternal?.('https://open.feishu.cn/app')
+}
+
+// 打开 GitHub Token 设置页面
+function openGitHubTokenPage() {
+  window.electronAPI?.openExternal?.('https://github.com/settings/tokens')
 }
 </script>
 
@@ -278,6 +550,24 @@ function openYuqueTokenPage() {
           </div>
         </div>
 
+        <!-- 飞书授权状态 -->
+        <div v-if="connection.type === 'feishu'" class="auth-status">
+          <span class="auth-label">授权模式:</span>
+          <span class="auth-value" :class="getFeishuAuthStatus(connection.id).mode">
+            {{ getFeishuAuthStatus(connection.id).mode === 'user' ? '用户授权' : '应用授权' }}
+          </span>
+          <button
+            v-if="getFeishuAuthStatus(connection.id).mode === 'user'"
+            class="btn small"
+            :class="getFeishuAuthStatus(connection.id).tokenExpired ? 'warning' : 'success'"
+            @click="startFeishuOAuth(connection.id)"
+            :disabled="oauthPending && oauthConnectionId === connection.id"
+          >
+            {{ oauthPending && oauthConnectionId === connection.id ? '授权中...' :
+               getFeishuAuthStatus(connection.id).tokenExpired ? '重新授权' : '已授权' }}
+          </button>
+        </div>
+
         <div class="connection-user" v-if="getConnectionStatus(connection.id).user">
           <img
             v-if="getConnectionStatus(connection.id).user?.avatar"
@@ -290,6 +580,20 @@ function openYuqueTokenPage() {
 
         <div class="connection-meta">
           <span>创建于 {{ formatTime(connection.createdAt) }}</span>
+        </div>
+
+        <!-- 支持的功能 -->
+        <div class="connection-features">
+          <span class="features-label">支持操作:</span>
+          <div class="features-tags">
+            <span
+              v-for="feature in getTypeFeatures(connection.type)"
+              :key="feature"
+              class="feature-tag"
+            >
+              {{ feature }}
+            </span>
+          </div>
         </div>
 
         <div class="connection-actions">
@@ -371,6 +675,11 @@ function openYuqueTokenPage() {
                 <div class="type-info">
                   <span class="type-label">{{ type.label }}</span>
                   <span class="type-desc">{{ type.description }}</span>
+                  <div class="type-features">
+                    <span v-for="feature in type.features" :key="feature" class="type-feature-tag">
+                      {{ feature }}
+                    </span>
+                  </div>
                 </div>
               </label>
             </div>
@@ -400,6 +709,98 @@ function openYuqueTokenPage() {
               中创建
             </small>
           </div>
+
+          <template v-if="newConnection.type === 'feishu'">
+            <div class="form-group">
+              <label>App ID</label>
+              <input
+                v-model="newConnection.appId"
+                type="text"
+                class="input"
+                placeholder="输入飞书应用 App ID"
+              />
+            </div>
+            <div class="form-group">
+              <label>App Secret</label>
+              <input
+                v-model="newConnection.appSecret"
+                type="password"
+                class="input"
+                placeholder="输入飞书应用 App Secret"
+              />
+              <small>
+                在
+                <a href="#" @click.prevent="openFeishuDevPage">飞书开放平台</a>
+                创建企业自建应用获取
+              </small>
+            </div>
+            <div class="form-group">
+              <label>授权模式</label>
+              <div class="auth-mode-list">
+                <label
+                  class="auth-mode-option"
+                  :class="{ active: newConnection.authMode === 'tenant' }"
+                >
+                  <input type="radio" value="tenant" v-model="newConnection.authMode" />
+                  <div class="mode-info">
+                    <span class="mode-label">应用授权</span>
+                    <span class="mode-desc">使用应用凭证访问，适合企业内部应用</span>
+                  </div>
+                </label>
+                <label
+                  class="auth-mode-option"
+                  :class="{ active: newConnection.authMode === 'user' }"
+                >
+                  <input type="radio" value="user" v-model="newConnection.authMode" />
+                  <div class="mode-info">
+                    <span class="mode-label">用户授权</span>
+                    <span class="mode-desc">OAuth 授权访问用户数据，适合需要用户身份的场景</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+            <!-- 用户授权提示 -->
+            <div class="form-group" v-if="newConnection.authMode === 'user'">
+              <label>用户授权</label>
+              <div class="oauth-hint">
+                <span class="oauth-icon info">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                  </svg>
+                </span>
+                <span class="oauth-text">添加连接后将自动打开授权页面</span>
+              </div>
+            </div>
+          </template>
+
+          <template v-if="newConnection.type === 'github'">
+            <div class="form-group">
+              <label>Personal Access Token</label>
+              <input
+                v-model="newConnection.githubToken"
+                type="password"
+                class="input"
+                placeholder="输入 GitHub Personal Access Token"
+              />
+              <small>
+                在 GitHub
+                <a href="#" @click.prevent="openGitHubTokenPage">Settings -> Developer settings -> Personal access tokens</a>
+                中创建
+              </small>
+            </div>
+            <div class="form-group">
+              <label>API Base URL (可选)</label>
+              <input
+                v-model="newConnection.githubBaseUrl"
+                type="text"
+                class="input"
+                placeholder="https://api.github.com (默认)"
+              />
+              <small>企业版 GitHub 可自定义 API 地址</small>
+            </div>
+          </template>
 
           <div v-if="testResult" class="test-result" :class="{ success: testResult.success }">
             {{ testResult.success ? '连接测试成功' : testResult.error }}
@@ -445,6 +846,138 @@ function openYuqueTokenPage() {
             />
             <small>留空则保持原有 Token 不变</small>
           </div>
+
+          <template v-if="editingConnection?.type === 'feishu'">
+            <div class="form-group">
+              <label>App ID</label>
+              <input
+                v-model="editForm.appId"
+                type="text"
+                class="input"
+                placeholder="输入飞书应用 App ID"
+              />
+              <small>留空则保持原有 App ID 不变</small>
+            </div>
+            <div class="form-group">
+              <label>App Secret</label>
+              <input
+                v-model="editForm.appSecret"
+                type="password"
+                class="input"
+                placeholder="输入飞书应用 App Secret"
+              />
+              <small>留空则保持原有 App Secret 不变</small>
+            </div>
+            <div class="form-group">
+              <label>授权模式</label>
+              <div class="auth-mode-list">
+                <label
+                  class="auth-mode-option"
+                  :class="{ active: editForm.authMode === 'tenant' }"
+                >
+                  <input type="radio" value="tenant" v-model="editForm.authMode" />
+                  <div class="mode-info">
+                    <span class="mode-label">应用授权</span>
+                    <span class="mode-desc">使用应用凭证访问，适合企业内部应用</span>
+                  </div>
+                </label>
+                <label
+                  class="auth-mode-option"
+                  :class="{ active: editForm.authMode === 'user' }"
+                >
+                  <input type="radio" value="user" v-model="editForm.authMode" />
+                  <div class="mode-info">
+                    <span class="mode-label">用户授权</span>
+                    <span class="mode-desc">OAuth 授权访问用户数据，需要点击授权按钮完成授权</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <!-- 用户授权按钮 -->
+            <div class="form-group" v-if="editForm.authMode === 'user'">
+              <label>用户授权</label>
+              <div class="oauth-section">
+                <template v-if="editingConnection">
+                  <div class="oauth-status" v-if="getFeishuAuthStatus(editingConnection.id).hasUserToken && !getFeishuAuthStatus(editingConnection.id).tokenExpired">
+                    <span class="oauth-icon success">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                      </svg>
+                    </span>
+                    <span class="oauth-text">
+                      已授权
+                      <span v-if="getFeishuAuthStatus(editingConnection.id).userName">
+                        ({{ getFeishuAuthStatus(editingConnection.id).userName }})
+                      </span>
+                    </span>
+                    <button
+                      class="btn small secondary"
+                      @click="startFeishuOAuth(editingConnection.id)"
+                      :disabled="oauthPending && oauthConnectionId === editingConnection.id"
+                    >
+                      {{ oauthPending && oauthConnectionId === editingConnection.id ? '授权中...' : '重新授权' }}
+                    </button>
+                  </div>
+                  <div class="oauth-status" v-else>
+                    <span class="oauth-icon warning">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                    </span>
+                    <span class="oauth-text">
+                      {{ getFeishuAuthStatus(editingConnection.id).tokenExpired ? '授权已过期' : '未授权' }}
+                    </span>
+                    <button
+                      class="btn small primary"
+                      @click="startFeishuOAuth(editingConnection.id)"
+                      :disabled="oauthPending && oauthConnectionId === editingConnection.id"
+                    >
+                      {{ oauthPending && oauthConnectionId === editingConnection.id ? '授权中...' : '去授权' }}
+                    </button>
+                  </div>
+                </template>
+                <template v-else>
+                  <div class="oauth-hint">
+                    <span class="oauth-icon info">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                      </svg>
+                    </span>
+                    <span class="oauth-text">保存连接后可进行用户授权</span>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+
+          <template v-if="editingConnection?.type === 'github'">
+            <div class="form-group">
+              <label>Personal Access Token</label>
+              <input
+                v-model="editForm.githubToken"
+                type="password"
+                class="input"
+                placeholder="输入 GitHub Personal Access Token"
+              />
+              <small>留空则保持原有 Token 不变</small>
+            </div>
+            <div class="form-group">
+              <label>API Base URL (可选)</label>
+              <input
+                v-model="editForm.githubBaseUrl"
+                type="text"
+                class="input"
+                placeholder="https://api.github.com (默认)"
+              />
+              <small>企业版 GitHub 可自定义 API 地址</small>
+            </div>
+          </template>
 
           <div v-if="testResult" class="test-result" :class="{ success: testResult.success }">
             {{ testResult.success ? '连接测试成功' : testResult.error }}
@@ -559,6 +1092,55 @@ function openYuqueTokenPage() {
   color: var(--color-text-secondary);
 }
 
+/* 授权状态 */
+.auth-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: var(--color-bg-tertiary);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.auth-label {
+  color: var(--color-text-secondary);
+}
+
+.auth-value {
+  font-weight: 500;
+}
+
+.auth-value.user {
+  color: var(--color-primary);
+}
+
+.auth-value.tenant {
+  color: var(--color-text-primary);
+}
+
+.btn.small {
+  padding: 4px 10px;
+  font-size: 12px;
+  margin-left: auto;
+}
+
+.btn.warning {
+  background: #f59e0b;
+  color: white;
+}
+
+.btn.success {
+  background: #22c55e;
+  color: white;
+}
+
+.btn.warning:hover:not(:disabled),
+.btn.success:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
 .connection-user {
   display: flex;
   align-items: center;
@@ -583,7 +1165,35 @@ function openYuqueTokenPage() {
 .connection-meta {
   font-size: 12px;
   color: var(--color-text-tertiary);
+  margin-bottom: 12px;
+}
+
+/* 支持的功能标签 */
+.connection-features {
   margin-bottom: 16px;
+}
+
+.features-label {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-right: 8px;
+}
+
+.features-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  vertical-align: middle;
+}
+
+.feature-tag {
+  display: inline-block;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: var(--color-primary);
+  background: rgba(0, 122, 255, 0.08);
+  border-radius: 4px;
+  white-space: nowrap;
 }
 
 .connection-actions {
@@ -847,6 +1457,142 @@ function openYuqueTokenPage() {
 .type-desc {
   font-size: 12px;
   color: var(--color-text-secondary);
+}
+
+.type-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.type-feature-tag {
+  padding: 2px 6px;
+  font-size: 10px;
+  color: var(--color-primary);
+  background: rgba(0, 122, 255, 0.08);
+  border-radius: 3px;
+}
+
+/* 授权模式选择 */
+.auth-mode-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auth-mode-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--color-bg-secondary);
+  border: 2px solid var(--color-border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.auth-mode-option:hover {
+  border-color: var(--color-primary);
+}
+
+.auth-mode-option.active {
+  border-color: var(--color-primary);
+  background: rgba(0, 122, 255, 0.05);
+}
+
+.auth-mode-option input {
+  margin-top: 3px;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.mode-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mode-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.mode-desc {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+/* OAuth 授权区域 */
+.oauth-section {
+  padding: 12px;
+  background: var(--color-bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+}
+
+.oauth-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.oauth-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.oauth-icon.success {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.oauth-icon.warning {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.oauth-icon.info {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.oauth-text {
+  flex: 1;
+  font-size: 14px;
+  color: var(--color-text-primary);
+}
+
+.oauth-hint {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn.small.primary {
+  padding: 6px 12px;
+  font-size: 13px;
+  background: var(--color-primary);
+  color: white;
+}
+
+.btn.small.secondary {
+  padding: 6px 12px;
+  font-size: 13px;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+}
+
+.btn.small.secondary:hover:not(:disabled) {
+  border-color: var(--color-primary);
 }
 
 /* 测试结果 */

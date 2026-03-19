@@ -35,7 +35,8 @@
       "Bash(npx run:*)",
       "Bash(chmod:*)",
       "mcp__web-reader__webReader",
-      "mcp__web-search-prime__web_search_prime"
+      "mcp__web-search-prime__web_search_prime",
+      "Bash(./frontend/src/components/settings/ConnectionsPanel.vue)"
     ]
   }
 }

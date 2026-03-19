@@ -9,6 +9,7 @@ import type { Workspace } from '../types/workspace'
 import { useMCP } from '../composables/useMCP'
 import { useSkills } from '../composables/useSkills'
 import { useLoop } from '../composables/useLoop'
+import { useConnections } from '../composables/useConnections'
 import type { LoopTask } from '../types/loop'
 import NormalChat from './NormalChat.vue'
 import WorkspaceView from './WorkspaceView.vue'
@@ -26,6 +27,9 @@ const router = useRouter()
 
 // MCP 管理器
 const mcpManager = useMCP()
+
+// 连接管理器（用于语雀、飞书等第三方服务连接）
+const connectionsManager = useConnections()
 
 // Skills 管理器
 const skillsManager = useSkills()
@@ -850,6 +854,8 @@ async function executeNormalChat(text: string, images: string[] = [], files: Att
 
     // 生成 MCP tools 数组（如果有激活的工具）
     await mcpManager.loadServers()
+    // 初始化连接管理器，确保语雀、飞书等连接状态可用
+    await connectionsManager.initialize()
     const mcpTools = mcpManager.generateOpenAITools()
     //console.log('[MCP] Active tools:', mcpTools.length)
 

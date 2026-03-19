@@ -216,4 +216,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('check-macos-quarantine'),
   fixMacOSQuarantine: (appPath: string) =>
     ipcRenderer.invoke('fix-macos-quarantine', appPath),
+  // 通用连接 API 请求（用于第三方服务集成，绕过 CORS）
+  connectionRequest: (params: { url: string; method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; headers?: Record<string, string>; body?: string }) =>
+    ipcRenderer.invoke('connection-request', params),
+
+  // 飞书 OAuth 相关
+  feishuStartOAuth: (params: { appId: string; connectionId: string }) =>
+    ipcRenderer.invoke('feishu-start-oauth', params) as Promise<{ success: boolean; error?: string; redirectUri?: string }>,
+  onFeishuOAuthCallback: (callback: (data: { code: string; state: string; connectionId: string }) => void) => {
+    ipcRenderer.on('feishu-oauth-callback', (_event, data) => callback(data))
+  },
+  removeFeishuOAuthCallbackListener: () => {
+    ipcRenderer.removeAllListeners('feishu-oauth-callback')
+  },
 })

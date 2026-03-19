@@ -8,6 +8,7 @@ export const ConnectionType = {
   YUQUE: 'yuque',
   FEISHU: 'feishu',
   NOTION: 'notion',
+  GITHUB: 'github',
 } as const
 
 export type ConnectionType = typeof ConnectionType[keyof typeof ConnectionType]
@@ -29,10 +30,295 @@ export interface YuqueConfig {
   userAgent?: string
 }
 
-// 飞书配置（预留）
+// 飞书配置
 export interface FeishuConfig {
   appId: string
   appSecret: string
+  // OAuth 相关字段
+  authMode?: 'tenant' | 'user' // 授权模式：tenant=应用授权, user=用户授权
+  userAccessToken?: string // 用户访问令牌
+  userRefreshToken?: string // 刷新令牌
+  tokenExpiresAt?: number // token 过期时间戳
+  userAuthorizedAt?: number // 用户授权时间戳
+  userInfo?: {
+    // 用户信息
+    openId: string
+    name: string
+    avatarUrl?: string
+  }
+}
+
+// 飞书 OAuth 回调数据
+export interface FeishuOAuthCallback {
+  code: string
+  state: string
+  connectionId: string
+}
+
+// 飞书 OAuth Token 响应
+export interface FeishuOAuthToken {
+  accessToken: string
+  refreshToken: string
+  expiresIn: number
+  tokenType: string
+  openId?: string
+}
+
+// 飞书 API 响应类型
+
+// 飞书用户信息
+export interface FeishuUser {
+  union_id: string
+  user_id: string
+  open_id: string
+  name: string
+  en_name: string
+  nickname: string
+  avatar_url: string
+  email: string
+  mobile: string
+  department_ids: string[]
+  leader_user_id: string
+  city: string
+  country: string
+  work_station: string
+  join_time: number
+  employee_no: string
+  employee_type: number
+  positions: string[]
+  orders: number[]
+  custom_attrs: Record<string, unknown>
+  status: {
+    is_frozen: boolean
+    is_resigned: boolean
+    is_unjoin: boolean
+    is_activated: boolean
+  }
+}
+
+// 飞书知识空间（语雀对应知识库）
+// API 文档: https://open.feishu.cn/document/server-docs/docs/wiki-v2/space/list
+export interface FeishuWikiSpace {
+  space_id: string  // 知识空间ID（数字字符串格式，如 "7618495522755709881"）
+  name: string
+  description: string
+  space_type: 'team' | 'personal'  // 团队空间或个人空间
+  visibility: 'private' | 'public'  // 可见性
+  open_sharing?: 'open' | 'closed'  // 是否开启公开分享
+}
+
+// 飞书文档节点
+export interface FeishuWikiNode {
+  node_id: string
+  obj_type: 'doc' | 'docx' | 'wiki' | 'sheet' | 'bitable' | 'mindnote' | 'file' | 'slides'
+  obj_token: string
+  parent_id: string
+  space_id: string
+  title: string
+  has_child: boolean
+  create_time: number
+  update_time: number
+  create_user: FeishuUser
+  update_user: FeishuUser
+  node_create_time: number
+}
+
+// 飞书文档内容
+export interface FeishuDocContent {
+  content: string
+  revision_id: number
+  title: string
+  create_time: number
+  update_time: number
+}
+
+// 飞书文档创建请求
+export interface FeishuDocCreateRequest {
+  title: string
+  content?: string
+  folder_token?: string
+  parent_node_token?: string
+}
+
+// 飞书文档更新请求
+export interface FeishuDocUpdateRequest {
+  title?: string
+  content?: string
+}
+
+// ==================== GitHub 类型定义 ====================
+
+// GitHub 配置
+export interface GitHubConfig {
+  authToken: string // Personal Access Token
+  baseUrl?: string // API 基础 URL (默认 https://api.github.com，企业版可自定义)
+}
+
+// GitHub 用户信息
+export interface GitHubUser {
+  id: number
+  login: string
+  name: string | null
+  email: string | null
+  avatar_url: string
+  html_url: string
+  bio: string | null
+  company: string | null
+  location: string | null
+  blog: string | null
+  public_repos: number
+  public_gists: number
+  followers: number
+  following: number
+  created_at: string
+  updated_at: string
+}
+
+// GitHub 仓库
+export interface GitHubRepo {
+  id: number
+  name: string
+  full_name: string
+  description: string | null
+  html_url: string
+  clone_url: string
+  ssh_url: string
+  private: boolean
+  fork: boolean
+  owner: {
+    id: number
+    login: string
+    avatar_url: string
+  }
+  default_branch: string
+  language: string | null
+  stargazers_count: number
+  watchers_count: number
+  forks_count: number
+  open_issues_count: number
+  created_at: string
+  updated_at: string
+  pushed_at: string
+}
+
+// GitHub Issue
+export interface GitHubIssue {
+  id: number
+  number: number
+  title: string
+  body: string | null
+  state: 'open' | 'closed'
+  html_url: string
+  user: {
+    id: number
+    login: string
+    avatar_url: string
+  }
+  labels: Array<{
+    id: number
+    name: string
+    color: string
+  }>
+  assignees: Array<{
+    id: number
+    login: string
+    avatar_url: string
+  }>
+  milestone: {
+    id: number
+    title: string
+    number: number
+  } | null
+  comments: number
+  created_at: string
+  updated_at: string
+  closed_at: string | null
+}
+
+// GitHub Pull Request
+export interface GitHubPullRequest {
+  id: number
+  number: number
+  title: string
+  body: string | null
+  state: 'open' | 'closed'
+  html_url: string
+  draft: boolean
+  merged: boolean
+  user: {
+    id: number
+    login: string
+    avatar_url: string
+  }
+  head: {
+    ref: string
+    sha: string
+    repo: {
+      name: string
+      full_name: string
+    }
+  }
+  base: {
+    ref: string
+    sha: string
+    repo: {
+      name: string
+      full_name: string
+    }
+  }
+  created_at: string
+  updated_at: string
+  merged_at: string | null
+  closed_at: string | null
+}
+
+// GitHub 文件内容
+export interface GitHubFileContent {
+  name: string
+  path: string
+  sha: string
+  size: number
+  type: 'file' | 'dir' | 'symlink'
+  content?: string // Base64 编码的内容
+  encoding?: string
+  download_url: string | null
+  html_url: string
+}
+
+// GitHub Issue 创建请求
+export interface GitHubIssueCreateRequest {
+  title: string
+  body?: string
+  labels?: string[]
+  assignees?: string[]
+  milestone?: number
+}
+
+// GitHub Issue 更新请求
+export interface GitHubIssueUpdateRequest {
+  title?: string
+  body?: string
+  state?: 'open' | 'closed'
+  labels?: string[]
+  assignees?: string[]
+  milestone?: number | null
+}
+
+// GitHub PR 创建请求
+export interface GitHubPRCreateRequest {
+  title: string
+  head: string // 分支名
+  base: string // 目标分支
+  body?: string
+  draft?: boolean
+}
+
+// GitHub 文件创建/更新请求
+export interface GitHubFileCommitRequest {
+  message: string
+  content: string // 文件内容（非 Base64）
+  branch?: string
+  sha?: string // 更新文件时需要提供原文件的 sha
 }
 
 // 连接器注册表

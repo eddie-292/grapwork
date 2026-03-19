@@ -5,6 +5,8 @@
 import { ref, computed } from 'vue'
 import { storage } from '@/services/StorageService'
 import { YuqueConnection } from '@/connections/YuqueConnection'
+import { FeishuConnection } from '@/connections/FeishuConnection'
+import { GitHubConnection } from '@/connections/GitHubConnection'
 import type {
   ConnectionConfig,
   ConnectionRegistry,
@@ -16,13 +18,26 @@ import type {
   YuqueDocDetail,
   YuqueDocCreateRequest,
   YuqueDocUpdateRequest,
+  FeishuWikiSpace,
+  FeishuWikiNode,
+  FeishuDocContent,
+  FeishuDocCreateRequest,
+  FeishuDocUpdateRequest,
+  GitHubUser,
+  GitHubRepo,
+  GitHubIssue,
+  GitHubPullRequest,
+  GitHubIssueCreateRequest,
+  GitHubIssueUpdateRequest,
+  GitHubPRCreateRequest,
+  GitHubFileCommitRequest,
 } from '@/types/connection'
 
 // 存储键
 const STORAGE_KEY = 'connection-registry'
 
 // 连接器实例映射
-type ConnectionInstance = YuqueConnection // 后续可扩展为联合类型
+type ConnectionInstance = YuqueConnection | FeishuConnection | GitHubConnection
 
 function createConnectionsManager() {
   // 状态
@@ -45,9 +60,10 @@ function createConnectionsManager() {
     switch (type) {
       case 'yuque':
         return new YuqueConnection()
-      // 后续添加其他连接器
-      // case 'feishu':
-      //   return new FeishuConnection()
+      case 'feishu':
+        return new FeishuConnection()
+      case 'github':
+        return new GitHubConnection()
       default:
         throw new Error(`Unknown connection type: ${type}`)
     }
@@ -114,12 +130,20 @@ function createConnectionsManager() {
 
   /**
    * 更新 window 对象中的连接状态
-   * 供 useMCP.ts 中的 hasActiveYuqueConnection 函数使用
+   * 供 useMCP.ts 中的 hasActiveYuqueConnection 和 hasActiveFeishuConnection 函数使用
    */
   function updateWindowStatus() {
     // 检查是否有已连接的语雀实例
     let hasConnectedYuque = false
     let yuqueInstance: YuqueConnection | undefined
+
+    // 检查是否有已连接的飞书实例
+    let hasConnectedFeishu = false
+    let feishuInstance: FeishuConnection | undefined
+
+    // 检查是否有已连接的 GitHub 实例
+    let hasConnectedGitHub = false
+    let githubInstance: GitHubConnection | undefined
 
     for (const config of registry.value.connections) {
       if (config.type === 'yuque' && config.enabled) {
@@ -127,14 +151,37 @@ function createConnectionsManager() {
         if (status?.connected) {
           hasConnectedYuque = true
           yuqueInstance = instances.get(config.id) as YuqueConnection | undefined
-          break
+        }
+      }
+
+      if (config.type === 'feishu' && config.enabled) {
+        const status = statuses.get(config.id)
+        if (status?.connected) {
+          hasConnectedFeishu = true
+          feishuInstance = instances.get(config.id) as FeishuConnection | undefined
+        }
+      }
+
+      if (config.type === 'github' && config.enabled) {
+        const status = statuses.get(config.id)
+        if (status?.connected) {
+          hasConnectedGitHub = true
+          githubInstance = instances.get(config.id) as GitHubConnection | undefined
         }
       }
     }
 
-    // 更新 window 对象
+    // 更新 window 对象 - 语雀
     ;(window as any).__YUQUE_CONNECTED__ = hasConnectedYuque
     ;(window as any).__YUQUE_CONNECTION_INSTANCE__ = yuqueInstance
+
+    // 更新 window 对象 - 飞书
+    ;(window as any).__FEISHU_CONNECTED__ = hasConnectedFeishu
+    ;(window as any).__FEISHU_CONNECTION_INSTANCE__ = feishuInstance
+
+    // 更新 window 对象 - GitHub
+    ;(window as any).__GITHUB_CONNECTED__ = hasConnectedGitHub
+    ;(window as any).__GITHUB_CONNECTION_INSTANCE__ = githubInstance
   }
 
   /**
@@ -453,6 +500,465 @@ function createConnectionsManager() {
     }
   }
 
+  /**
+   * 获取已连接的飞书实例
+   */
+  function getFeishuInstance(connectionId?: string): FeishuConnection | undefined {
+    if (connectionId) {
+      return instances.get(connectionId) as FeishuConnection | undefined
+    }
+
+    // 如果没有指定 ID，返回第一个已连接的飞书实例
+    for (const config of registry.value.connections) {
+      if (config.type === 'feishu' && config.enabled) {
+        const status = statuses.get(config.id)
+        if (status?.connected) {
+          return instances.get(config.id) as FeishuConnection
+        }
+      }
+    }
+
+    return undefined
+  }
+
+  /**
+   * 获取飞书知识空间列表
+   */
+  async function listFeishuSpaces(connectionId?: string): Promise<{ success: boolean; data?: FeishuWikiSpace[]; error?: string }> {
+    const instance = getFeishuInstance(connectionId)
+    if (!instance) {
+      return { success: false, error: '没有可用的飞书连接' }
+    }
+
+    const result = await instance.listSpaces()
+    return {
+      success: result.success,
+      data: result.data,
+      error: result.error,
+    }
+  }
+
+  /**
+   * 获取飞书知识空间节点列表
+   */
+  async function listFeishuNodes(
+    spaceId: string,
+    parentNodeToken?: string,
+    connectionId?: string
+  ): Promise<{ success: boolean; data?: FeishuWikiNode[]; error?: string }> {
+    const instance = getFeishuInstance(connectionId)
+    if (!instance) {
+      return { success: false, error: '没有可用的飞书连接' }
+    }
+
+    const result = await instance.listNodes(spaceId, parentNodeToken)
+    return {
+      success: result.success,
+      data: result.data,
+      error: result.error,
+    }
+  }
+
+  /**
+   * 获取飞书文档内容
+   */
+  async function getFeishuDoc(
+    docToken: string,
+    connectionId?: string
+  ): Promise<{ success: boolean; data?: FeishuDocContent; error?: string }> {
+    const instance = getFeishuInstance(connectionId)
+    if (!instance) {
+      return { success: false, error: '没有可用的飞书连接' }
+    }
+
+    const result = await instance.getDoc(docToken)
+    return {
+      success: result.success,
+      data: result.data,
+      error: result.error,
+    }
+  }
+
+  /**
+   * 创建飞书文档
+   */
+  async function createFeishuDoc(
+    data: FeishuDocCreateRequest,
+    connectionId?: string
+  ): Promise<{ success: boolean; data?: { document_id: string; title: string }; error?: string }> {
+    const instance = getFeishuInstance(connectionId)
+    if (!instance) {
+      return { success: false, error: '没有可用的飞书连接' }
+    }
+
+    const result = await instance.createDoc(data)
+    return {
+      success: result.success,
+      data: result.data,
+      error: result.error,
+    }
+  }
+
+  /**
+   * 更新飞书文档
+   */
+  async function updateFeishuDoc(
+    docToken: string,
+    data: FeishuDocUpdateRequest,
+    connectionId?: string
+  ): Promise<{ success: boolean; error?: string }> {
+    const instance = getFeishuInstance(connectionId)
+    if (!instance) {
+      return { success: false, error: '没有可用的飞书连接' }
+    }
+
+    const result = await instance.updateDoc(docToken, data)
+    return {
+      success: result.success,
+      error: result.error,
+    }
+  }
+
+  /**
+   * 删除飞书文档
+   */
+  async function deleteFeishuDoc(
+    docToken: string,
+    connectionId?: string
+  ): Promise<{ success: boolean; error?: string }> {
+    const instance = getFeishuInstance(connectionId)
+    if (!instance) {
+      return { success: false, error: '没有可用的飞书连接' }
+    }
+
+    const result = await instance.deleteDoc(docToken)
+    return {
+      success: result.success,
+      error: result.error,
+    }
+  }
+
+  /**
+   * 在飞书知识空间中创建文档节点
+   */
+  async function createFeishuWikiNode(
+    spaceId: string,
+    parentToken: string,
+    title: string,
+    objType: 'doc' | 'docx' = 'docx',
+    connectionId?: string
+  ): Promise<{ success: boolean; data?: { node_token: string; obj_token: string }; error?: string }> {
+    const instance = getFeishuInstance(connectionId)
+    if (!instance) {
+      return { success: false, error: '没有可用的飞书连接' }
+    }
+
+    const result = await instance.createWikiNode(spaceId, parentToken, objType, title)
+    return {
+      success: result.success,
+      data: result.data,
+      error: result.error,
+    }
+  }
+
+  // ==================== GitHub 操作方法 ====================
+
+  /**
+   * 获取已连接的 GitHub 实例
+   */
+  function getGitHubInstance(connectionId?: string): GitHubConnection | undefined {
+    if (connectionId) {
+      return instances.get(connectionId) as GitHubConnection | undefined
+    }
+
+    // 如果没有指定 ID，返回第一个已连接的 GitHub 实例
+    for (const config of registry.value.connections) {
+      if (config.type === 'github' && config.enabled) {
+        const status = statuses.get(config.id)
+        if (status?.connected) {
+          return instances.get(config.id) as GitHubConnection
+        }
+      }
+    }
+
+    return undefined
+  }
+
+  /**
+   * 获取 GitHub 用户信息
+   */
+  async function getGitHubUser(connectionId?: string): Promise<{ success: boolean; data?: GitHubUser; error?: string }> {
+    const instance = getGitHubInstance(connectionId)
+    if (!instance) {
+      return { success: false, error: '没有可用的 GitHub 连接' }
+    }
+
+    const result = await instance.getUser()
+    return {
+      success: result.success,
+      data: result.data,
+      error: result.error,
+    }
+  }
+
+  /**
+   * 获取 GitHub 仓库列表
+   */
+  async function listGitHubRepos(
+    options?: {
+      visibility?: 'all' | 'public' | 'private'
+      sort?: 'created' | 'updated' | 'pushed' | 'full_name'
+      per_page?: number
+      page?: number
+    },
+    connectionId?: string
+  ): Promise<{ success: boolean; data?: GitHubRepo[]; error?: string }> {
+    const instance = getGitHubInstance(connectionId)
+    if (!instance) {
+      return { success: false, error: '没有可用的 GitHub 连接' }
+    }
+
+    const result = await instance.listRepos(options)
+    return {
+      success: result.success,
+      data: result.data,
+      error: result.error,
+    }
+  }
+
+  /**
+   * 获取 GitHub 仓库信息
+   */
+  async function getGitHubRepo(
+    owner: string,
+    repo: string,
+    connectionId?: string
+  ): Promise<{ success: boolean; data?: GitHubRepo; error?: string }> {
+    const instance = getGitHubInstance(connectionId)
+    if (!instance) {
+      return { success: false, error: '没有可用的 GitHub 连接' }
+    }
+
+    const result = await instance.getRepo(owner, repo)
+    return {
+      success: result.success,
+      data: result.data,
+      error: result.error,
+    }
+  }
+
+  /**
+   * 获取 GitHub Issue 列表
+   */
+  async function listGitHubIssues(
+    owner: string,
+    repo: string,
+    options?: {
+      state?: 'open' | 'closed' | 'all'
+      labels?: string
+      sort?: 'created' | 'updated' | 'comments'
+      per_page?: number
+      page?: number
+    },
+    connectionId?: string
+  ): Promise<{ success: boolean; data?: GitHubIssue[]; error?: string }> {
+    const instance = getGitHubInstance(connectionId)
+    if (!instance) {
+      return { success: false, error: '没有可用的 GitHub 连接' }
+    }
+
+    const result = await instance.listIssues(owner, repo, options)
+    return {
+      success: result.success,
+      data: result.data,
+      error: result.error,
+    }
+  }
+
+  /**
+   * 获取 GitHub Issue 详情
+   */
+  async function getGitHubIssue(
+    owner: string,
+    repo: string,
+    issueNumber: number,
+    connectionId?: string
+  ): Promise<{ success: boolean; data?: GitHubIssue; error?: string }> {
+    const instance = getGitHubInstance(connectionId)
+    if (!instance) {
+      return { success: false, error: '没有可用的 GitHub 连接' }
+    }
+
+    const result = await instance.getIssue(owner, repo, issueNumber)
+    return {
+      success: result.success,
+      data: result.data,
+      error: result.error,
+    }
+  }
+
+  /**
+   * 创建 GitHub Issue
+   */
+  async function createGitHubIssue(
+    owner: string,
+    repo: string,
+    data: GitHubIssueCreateRequest,
+    connectionId?: string
+  ): Promise<{ success: boolean; data?: GitHubIssue; error?: string }> {
+    const instance = getGitHubInstance(connectionId)
+    if (!instance) {
+      return { success: false, error: '没有可用的 GitHub 连接' }
+    }
+
+    const result = await instance.createIssue(owner, repo, data)
+    return {
+      success: result.success,
+      data: result.data,
+      error: result.error,
+    }
+  }
+
+  /**
+   * 更新 GitHub Issue
+   */
+  async function updateGitHubIssue(
+    owner: string,
+    repo: string,
+    issueNumber: number,
+    data: GitHubIssueUpdateRequest,
+    connectionId?: string
+  ): Promise<{ success: boolean; data?: GitHubIssue; error?: string }> {
+    const instance = getGitHubInstance(connectionId)
+    if (!instance) {
+      return { success: false, error: '没有可用的 GitHub 连接' }
+    }
+
+    const result = await instance.updateIssue(owner, repo, issueNumber, data)
+    return {
+      success: result.success,
+      data: result.data,
+      error: result.error,
+    }
+  }
+
+  /**
+   * 获取 GitHub Pull Request 列表
+   */
+  async function listGitHubPullRequests(
+    owner: string,
+    repo: string,
+    options?: {
+      state?: 'open' | 'closed' | 'all'
+      sort?: 'created' | 'updated' | 'popularity' | 'long-running'
+      per_page?: number
+      page?: number
+    },
+    connectionId?: string
+  ): Promise<{ success: boolean; data?: GitHubPullRequest[]; error?: string }> {
+    const instance = getGitHubInstance(connectionId)
+    if (!instance) {
+      return { success: false, error: '没有可用的 GitHub 连接' }
+    }
+
+    const result = await instance.listPullRequests(owner, repo, options)
+    return {
+      success: result.success,
+      data: result.data,
+      error: result.error,
+    }
+  }
+
+  /**
+   * 获取 GitHub Pull Request 详情
+   */
+  async function getGitHubPullRequest(
+    owner: string,
+    repo: string,
+    prNumber: number,
+    connectionId?: string
+  ): Promise<{ success: boolean; data?: GitHubPullRequest; error?: string }> {
+    const instance = getGitHubInstance(connectionId)
+    if (!instance) {
+      return { success: false, error: '没有可用的 GitHub 连接' }
+    }
+
+    const result = await instance.getPullRequest(owner, repo, prNumber)
+    return {
+      success: result.success,
+      data: result.data,
+      error: result.error,
+    }
+  }
+
+  /**
+   * 创建 GitHub Pull Request
+   */
+  async function createGitHubPullRequest(
+    owner: string,
+    repo: string,
+    data: GitHubPRCreateRequest,
+    connectionId?: string
+  ): Promise<{ success: boolean; data?: GitHubPullRequest; error?: string }> {
+    const instance = getGitHubInstance(connectionId)
+    if (!instance) {
+      return { success: false, error: '没有可用的 GitHub 连接' }
+    }
+
+    const result = await instance.createPullRequest(owner, repo, data)
+    return {
+      success: result.success,
+      data: result.data,
+      error: result.error,
+    }
+  }
+
+  /**
+   * 获取 GitHub 文件内容
+   */
+  async function getGitHubFileContent(
+    owner: string,
+    repo: string,
+    path: string,
+    ref?: string,
+    connectionId?: string
+  ): Promise<{ success: boolean; data?: { content: string; sha: string; path: string }; error?: string }> {
+    const instance = getGitHubInstance(connectionId)
+    if (!instance) {
+      return { success: false, error: '没有可用的 GitHub 连接' }
+    }
+
+    const result = await instance.getFileContent(owner, repo, path, ref)
+    return {
+      success: result.success,
+      data: result.data,
+      error: result.error,
+    }
+  }
+
+  /**
+   * 创建或更新 GitHub 文件
+   */
+  async function createOrUpdateGitHubFile(
+    owner: string,
+    repo: string,
+    path: string,
+    data: GitHubFileCommitRequest,
+    connectionId?: string
+  ): Promise<{ success: boolean; data?: { content: unknown; commit: { sha: string } }; error?: string }> {
+    const instance = getGitHubInstance(connectionId)
+    if (!instance) {
+      return { success: false, error: '没有可用的 GitHub 连接' }
+    }
+
+    const result = await instance.createOrUpdateFile(owner, repo, path, data)
+    return {
+      success: result.success,
+      data: result.data,
+      error: result.error,
+    }
+  }
+
   // 计算属性
   const connections = computed(() => registry.value.connections)
   const activeConnections = computed(() =>
@@ -486,6 +992,31 @@ function createConnectionsManager() {
     createYuqueDoc,
     updateYuqueDoc,
     deleteYuqueDoc,
+
+    // 飞书操作
+    getFeishuInstance,
+    listFeishuSpaces,
+    listFeishuNodes,
+    getFeishuDoc,
+    createFeishuDoc,
+    updateFeishuDoc,
+    deleteFeishuDoc,
+    createFeishuWikiNode,
+
+    // GitHub 操作
+    getGitHubInstance,
+    getGitHubUser,
+    listGitHubRepos,
+    getGitHubRepo,
+    listGitHubIssues,
+    getGitHubIssue,
+    createGitHubIssue,
+    updateGitHubIssue,
+    listGitHubPullRequests,
+    getGitHubPullRequest,
+    createGitHubPullRequest,
+    getGitHubFileContent,
+    createOrUpdateGitHubFile,
   }
 }
 

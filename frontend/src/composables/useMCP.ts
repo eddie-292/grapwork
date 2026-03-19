@@ -587,7 +587,7 @@ export function useMCP() {
   function getBuiltinFileTools(workDir: string): MCPToolDefinition[] {
     // 工作目录说明，添加到每个工具描述中
     const workDirContext = `当前工作目录: ${workDir}。所有文件操作都在此目录范围内进行。`
-    return [
+    const tools: MCPToolDefinition[] = [
       {
         type: 'function',
         function: {
@@ -841,7 +841,8 @@ export function useMCP() {
           }
         }
       }
-      // 为了安全，删除展示不启用
+    ]
+    // 为了安全，删除展示不启用
       // {
       //   type: 'function',
       //   function: {
@@ -1017,6 +1018,472 @@ export function useMCP() {
       })
     }
 
+    // ==================== GitHub 工具 ====================
+    // 检查是否有已连接的 GitHub 账号
+    const githubConnected = hasActiveGitHubConnection()
+
+    if (githubConnected) {
+      // 列出仓库
+      tools.push({
+        type: 'function',
+        function: {
+          name: 'github_list_repos',
+          description: '获取当前认证用户的 GitHub 仓库列表。返回用户拥有的和协作的仓库信息，包括仓库名称、描述、是否私有、默认分支等。',
+          parameters: {
+            type: 'object',
+            properties: {
+              visibility: {
+                type: 'string',
+                enum: ['all', 'public', 'private'],
+                description: '仓库可见性筛选：all=所有, public=公开, private=私有'
+              },
+              sort: {
+                type: 'string',
+                enum: ['created', 'updated', 'pushed', 'full_name'],
+                description: '排序方式：created=创建时间, updated=更新时间, pushed=推送时间, full_name=名称'
+              },
+              per_page: {
+                type: 'number',
+                description: '每页返回数量（默认30，最大100）'
+              }
+            },
+            required: []
+          }
+        }
+      })
+
+      // 获取仓库信息
+      tools.push({
+        type: 'function',
+        function: {
+          name: 'github_get_repo',
+          description: '获取指定 GitHub 仓库的详细信息。需要提供仓库所有者(owner)和仓库名(repo)。',
+          parameters: {
+            type: 'object',
+            properties: {
+              owner: {
+                type: 'string',
+                description: '仓库所有者（用户名或组织名）'
+              },
+              repo: {
+                type: 'string',
+                description: '仓库名称'
+              }
+            },
+            required: ['owner', 'repo']
+          }
+        }
+      })
+
+      // 列出 Issues
+      tools.push({
+        type: 'function',
+        function: {
+          name: 'github_list_issues',
+          description: '获取指定 GitHub 仓库的 Issue 列表。支持按状态、标签等筛选。',
+          parameters: {
+            type: 'object',
+            properties: {
+              owner: {
+                type: 'string',
+                description: '仓库所有者'
+              },
+              repo: {
+                type: 'string',
+                description: '仓库名称'
+              },
+              state: {
+                type: 'string',
+                enum: ['open', 'closed', 'all'],
+                description: 'Issue 状态筛选'
+              },
+              labels: {
+                type: 'string',
+                description: '按标签筛选，多个标签用逗号分隔'
+              },
+              per_page: {
+                type: 'number',
+                description: '每页返回数量（默认30，最大100）'
+              }
+            },
+            required: ['owner', 'repo']
+          }
+        }
+      })
+
+      // 获取 Issue 详情
+      tools.push({
+        type: 'function',
+        function: {
+          name: 'github_get_issue',
+          description: '获取指定 GitHub Issue 的详细信息，包括标题、内容、状态、标签等。',
+          parameters: {
+            type: 'object',
+            properties: {
+              owner: {
+                type: 'string',
+                description: '仓库所有者'
+              },
+              repo: {
+                type: 'string',
+                description: '仓库名称'
+              },
+              issue_number: {
+                type: 'number',
+                description: 'Issue 编号'
+              }
+            },
+            required: ['owner', 'repo', 'issue_number']
+          }
+        }
+      })
+
+      // 创建 Issue
+      tools.push({
+        type: 'function',
+        function: {
+          name: 'github_create_issue',
+          description: '在指定 GitHub 仓库中创建新的 Issue。',
+          parameters: {
+            type: 'object',
+            properties: {
+              owner: {
+                type: 'string',
+                description: '仓库所有者'
+              },
+              repo: {
+                type: 'string',
+                description: '仓库名称'
+              },
+              title: {
+                type: 'string',
+                description: 'Issue 标题'
+              },
+              body: {
+                type: 'string',
+                description: 'Issue 内容（支持 Markdown）'
+              },
+              labels: {
+                type: 'array',
+                items: { type: 'string' },
+                description: '标签列表'
+              },
+              assignees: {
+                type: 'array',
+                items: { type: 'string' },
+                description: '指派人员列表（用户名）'
+              }
+            },
+            required: ['owner', 'repo', 'title']
+          }
+        }
+      })
+
+      // 更新 Issue
+      tools.push({
+        type: 'function',
+        function: {
+          name: 'github_update_issue',
+          description: '更新 GitHub 仓库中已有的 Issue。可以修改标题、内容、状态等。',
+          parameters: {
+            type: 'object',
+            properties: {
+              owner: {
+                type: 'string',
+                description: '仓库所有者'
+              },
+              repo: {
+                type: 'string',
+                description: '仓库名称'
+              },
+              issue_number: {
+                type: 'number',
+                description: 'Issue 编号'
+              },
+              title: {
+                type: 'string',
+                description: '新的 Issue 标题'
+              },
+              body: {
+                type: 'string',
+                description: '新的 Issue 内容'
+              },
+              state: {
+                type: 'string',
+                enum: ['open', 'closed'],
+                description: 'Issue 状态'
+              },
+              labels: {
+                type: 'array',
+                items: { type: 'string' },
+                description: '新的标签列表'
+              }
+            },
+            required: ['owner', 'repo', 'issue_number']
+          }
+        }
+      })
+
+      // 列出 Pull Requests
+      tools.push({
+        type: 'function',
+        function: {
+          name: 'github_list_prs',
+          description: '获取指定 GitHub 仓库的 Pull Request 列表。',
+          parameters: {
+            type: 'object',
+            properties: {
+              owner: {
+                type: 'string',
+                description: '仓库所有者'
+              },
+              repo: {
+                type: 'string',
+                description: '仓库名称'
+              },
+              state: {
+                type: 'string',
+                enum: ['open', 'closed', 'all'],
+                description: 'PR 状态筛选'
+              },
+              per_page: {
+                type: 'number',
+                description: '每页返回数量（默认30，最大100）'
+              }
+            },
+            required: ['owner', 'repo']
+          }
+        }
+      })
+
+      // 获取 Pull Request 详情
+      tools.push({
+        type: 'function',
+        function: {
+          name: 'github_get_pr',
+          description: '获取指定 GitHub Pull Request 的详细信息。',
+          parameters: {
+            type: 'object',
+            properties: {
+              owner: {
+                type: 'string',
+                description: '仓库所有者'
+              },
+              repo: {
+                type: 'string',
+                description: '仓库名称'
+              },
+              pr_number: {
+                type: 'number',
+                description: 'PR 编号'
+              }
+            },
+            required: ['owner', 'repo', 'pr_number']
+          }
+        }
+      })
+
+      // 创建 Pull Request
+      tools.push({
+        type: 'function',
+        function: {
+          name: 'github_create_pr',
+          description: '在指定 GitHub 仓库中创建新的 Pull Request。',
+          parameters: {
+            type: 'object',
+            properties: {
+              owner: {
+                type: 'string',
+                description: '仓库所有者'
+              },
+              repo: {
+                type: 'string',
+                description: '仓库名称'
+              },
+              title: {
+                type: 'string',
+                description: 'PR 标题'
+              },
+              head: {
+                type: 'string',
+                description: '源分支名（要合并的分支）'
+              },
+              base: {
+                type: 'string',
+                description: '目标分支名（合并到的分支，通常是 main 或 master）'
+              },
+              body: {
+                type: 'string',
+                description: 'PR 描述内容（支持 Markdown）'
+              },
+              draft: {
+                type: 'boolean',
+                description: '是否为草稿 PR'
+              }
+            },
+            required: ['owner', 'repo', 'title', 'head', 'base']
+          }
+        }
+      })
+
+      // 获取文件内容
+      tools.push({
+        type: 'function',
+        function: {
+          name: 'github_get_file',
+          description: '获取 GitHub 仓库中文件的内容。返回文件内容和 SHA 值。',
+          parameters: {
+            type: 'object',
+            properties: {
+              owner: {
+                type: 'string',
+                description: '仓库所有者'
+              },
+              repo: {
+                type: 'string',
+                description: '仓库名称'
+              },
+              path: {
+                type: 'string',
+                description: '文件路径（如 README.md, src/index.ts）'
+              },
+              ref: {
+                type: 'string',
+                description: '分支名或 commit SHA（可选，默认为默认分支）'
+              }
+            },
+            required: ['owner', 'repo', 'path']
+          }
+        }
+      })
+
+      // 创建或更新文件
+      tools.push({
+        type: 'function',
+        function: {
+          name: 'github_create_or_update_file',
+          description: '在 GitHub 仓库中创建或更新文件。更新现有文件时需要提供该文件的 SHA 值（可通过 github_get_file 获取）。',
+          parameters: {
+            type: 'object',
+            properties: {
+              owner: {
+                type: 'string',
+                description: '仓库所有者'
+              },
+              repo: {
+                type: 'string',
+                description: '仓库名称'
+              },
+              path: {
+                type: 'string',
+                description: '文件路径'
+              },
+              message: {
+                type: 'string',
+                description: '提交信息'
+              },
+              content: {
+                type: 'string',
+                description: '文件内容'
+              },
+              branch: {
+                type: 'string',
+                description: '目标分支（可选，默认为默认分支）'
+              },
+              sha: {
+                type: 'string',
+                description: '现有文件的 SHA 值（更新文件时必需）'
+              }
+            },
+            required: ['owner', 'repo', 'path', 'message', 'content']
+          }
+        }
+      })
+
+      // 搜索仓库
+      tools.push({
+        type: 'function',
+        function: {
+          name: 'github_search_repos',
+          description: '在 GitHub 上搜索仓库。支持各种搜索语法。',
+          parameters: {
+            type: 'object',
+            properties: {
+              query: {
+                type: 'string',
+                description: '搜索关键词，支持 GitHub 搜索语法（如 "language:python stars:>100"）'
+              },
+              sort: {
+                type: 'string',
+                enum: ['stars', 'forks', 'updated'],
+                description: '排序方式：stars=按星数, forks=按fork数, updated=按更新时间'
+              },
+              per_page: {
+                type: 'number',
+                description: '每页返回数量（默认30，最大100）'
+              }
+            },
+            required: ['query']
+          }
+        }
+      })
+
+      // 搜索 Issues
+      tools.push({
+        type: 'function',
+        function: {
+          name: 'github_search_issues',
+          description: '在 GitHub 上搜索 Issues 和 Pull Requests。',
+          parameters: {
+            type: 'object',
+            properties: {
+              query: {
+                type: 'string',
+                description: '搜索关键词，支持 GitHub 搜索语法（如 "repo:owner/repo is:issue is:open"）'
+              },
+              sort: {
+                type: 'string',
+                enum: ['comments', 'created', 'updated'],
+                description: '排序方式'
+              },
+              per_page: {
+                type: 'number',
+                description: '每页返回数量（默认30，最大100）'
+              }
+            },
+            required: ['query']
+          }
+        }
+      })
+
+      // 列出分支
+      tools.push({
+        type: 'function',
+        function: {
+          name: 'github_list_branches',
+          description: '获取指定 GitHub 仓库的分支列表。',
+          parameters: {
+            type: 'object',
+            properties: {
+              owner: {
+                type: 'string',
+                description: '仓库所有者'
+              },
+              repo: {
+                type: 'string',
+                description: '仓库名称'
+              },
+              per_page: {
+                type: 'number',
+                description: '每页返回数量'
+              }
+            },
+            required: ['owner', 'repo']
+          }
+        }
+      })
+    }
+
     return tools
   }
 
@@ -1057,12 +1524,43 @@ export function useMCP() {
   }
 
   /**
+   * 检查工具是否为 GitHub 工具
+   */
+  function isBuiltinGitHubTool(toolName: string): boolean {
+    const githubTools = [
+      'github_list_repos',
+      'github_get_repo',
+      'github_list_issues',
+      'github_get_issue',
+      'github_create_issue',
+      'github_update_issue',
+      'github_list_prs',
+      'github_get_pr',
+      'github_create_pr',
+      'github_get_file',
+      'github_create_or_update_file',
+      'github_search_repos',
+      'github_search_issues',
+      'github_list_branches'
+    ]
+    return githubTools.includes(toolName)
+  }
+
+  /**
    * 检查是否有已连接的语雀账号
    */
   function hasActiveYuqueConnection(): boolean {
     // 这个函数会在 generateOpenAITools 中被调用
     // 检查 window.__YUQUE_CONNECTED__ 标志（由 ConnectionsPanel 设置）
     return !!(window as any).__YUQUE_CONNECTED__
+  }
+
+  /**
+   * 检查是否有已连接的 GitHub 账号
+   */
+  function hasActiveGitHubConnection(): boolean {
+    // 检查 window.__GITHUB_CONNECTED__ 标志（由 useConnections 设置）
+    return !!(window as any).__GITHUB_CONNECTED__
   }
 
   /**
@@ -1212,6 +1710,377 @@ export function useMCP() {
   }
 
   /**
+   * 获取 GitHub 连接实例（从 window 对象获取）
+   */
+  function getGitHubConnectionInstance(): any {
+    return (window as any).__GITHUB_CONNECTION_INSTANCE__
+  }
+
+  /**
+   * 执行 GitHub 工具调用
+   */
+  async function executeGitHubTool(toolName: string, args: Record<string, any>): Promise<{ content?: string; error?: string }> {
+    // 获取 GitHub 连接实例
+    const githubInstance = getGitHubConnectionInstance()
+    if (!githubInstance) {
+      return { error: '没有可用的 GitHub 连接，请先在设置中配置 GitHub 连接' }
+    }
+
+    try {
+      let result: { success: boolean; data?: any; error?: string }
+
+      switch (toolName) {
+        case 'github_list_repos': {
+          result = await githubInstance.listRepos({
+            visibility: args.visibility,
+            sort: args.sort,
+            per_page: args.per_page
+          })
+          if (result.success && result.data) {
+            const repos = result.data.map((repo: any) => ({
+              id: repo.id,
+              name: repo.name,
+              full_name: repo.full_name,
+              description: repo.description || '',
+              private: repo.private,
+              language: repo.language,
+              stargazers_count: repo.stargazers_count,
+              forks_count: repo.forks_count,
+              open_issues_count: repo.open_issues_count,
+              html_url: repo.html_url,
+              default_branch: repo.default_branch,
+              updated_at: repo.updated_at
+            }))
+            return { content: JSON.stringify(repos, null, 2) }
+          }
+          break
+        }
+
+        case 'github_get_repo': {
+          if (!args.owner || !args.repo) {
+            return { error: '缺少参数: owner 或 repo' }
+          }
+          result = await githubInstance.getRepo(args.owner, args.repo)
+          if (result.success && result.data) {
+            const repo = {
+              id: result.data.id,
+              name: result.data.name,
+              full_name: result.data.full_name,
+              description: result.data.description,
+              private: result.data.private,
+              language: result.data.language,
+              stargazers_count: result.data.stargazers_count,
+              forks_count: result.data.forks_count,
+              open_issues_count: result.data.open_issues_count,
+              html_url: result.data.html_url,
+              default_branch: result.data.default_branch,
+              created_at: result.data.created_at,
+              updated_at: result.data.updated_at
+            }
+            return { content: JSON.stringify(repo, null, 2) }
+          }
+          break
+        }
+
+        case 'github_list_issues': {
+          if (!args.owner || !args.repo) {
+            return { error: '缺少参数: owner 或 repo' }
+          }
+          result = await githubInstance.listIssues(args.owner, args.repo, {
+            state: args.state,
+            labels: args.labels,
+            per_page: args.per_page
+          })
+          if (result.success && result.data) {
+            const issues = result.data.map((issue: any) => ({
+              id: issue.id,
+              number: issue.number,
+              title: issue.title,
+              state: issue.state,
+              user: issue.user?.login,
+              labels: issue.labels?.map((l: any) => l.name),
+              comments: issue.comments,
+              created_at: issue.created_at,
+              updated_at: issue.updated_at,
+              html_url: issue.html_url
+            }))
+            return { content: JSON.stringify(issues, null, 2) }
+          }
+          break
+        }
+
+        case 'github_get_issue': {
+          if (!args.owner || !args.repo || !args.issue_number) {
+            return { error: '缺少参数: owner, repo 或 issue_number' }
+          }
+          result = await githubInstance.getIssue(args.owner, args.repo, args.issue_number)
+          if (result.success && result.data) {
+            const issue = {
+              id: result.data.id,
+              number: result.data.number,
+              title: result.data.title,
+              body: result.data.body,
+              state: result.data.state,
+              user: result.data.user?.login,
+              labels: result.data.labels?.map((l: any) => l.name),
+              assignees: result.data.assignees?.map((a: any) => a.login),
+              comments: result.data.comments,
+              created_at: result.data.created_at,
+              updated_at: result.data.updated_at,
+              html_url: result.data.html_url
+            }
+            return { content: JSON.stringify(issue, null, 2) }
+          }
+          break
+        }
+
+        case 'github_create_issue': {
+          if (!args.owner || !args.repo || !args.title) {
+            return { error: '缺少参数: owner, repo 或 title' }
+          }
+          result = await githubInstance.createIssue(args.owner, args.repo, {
+            title: args.title,
+            body: args.body,
+            labels: args.labels,
+            assignees: args.assignees
+          })
+          if (result.success && result.data) {
+            return { content: JSON.stringify({
+              message: 'Issue 创建成功',
+              id: result.data.id,
+              number: result.data.number,
+              title: result.data.title,
+              html_url: result.data.html_url
+            }, null, 2) }
+          }
+          break
+        }
+
+        case 'github_update_issue': {
+          if (!args.owner || !args.repo || !args.issue_number) {
+            return { error: '缺少参数: owner, repo 或 issue_number' }
+          }
+          const updateData: any = {}
+          if (args.title) updateData.title = args.title
+          if (args.body) updateData.body = args.body
+          if (args.state) updateData.state = args.state
+          if (args.labels) updateData.labels = args.labels
+
+          result = await githubInstance.updateIssue(args.owner, args.repo, args.issue_number, updateData)
+          if (result.success && result.data) {
+            return { content: JSON.stringify({
+              message: 'Issue 更新成功',
+              id: result.data.id,
+              number: result.data.number,
+              title: result.data.title,
+              state: result.data.state,
+              html_url: result.data.html_url
+            }, null, 2) }
+          }
+          break
+        }
+
+        case 'github_list_prs': {
+          if (!args.owner || !args.repo) {
+            return { error: '缺少参数: owner 或 repo' }
+          }
+          result = await githubInstance.listPullRequests(args.owner, args.repo, {
+            state: args.state,
+            per_page: args.per_page
+          })
+          if (result.success && result.data) {
+            const prs = result.data.map((pr: any) => ({
+              id: pr.id,
+              number: pr.number,
+              title: pr.title,
+              state: pr.state,
+              draft: pr.draft,
+              merged: pr.merged,
+              user: pr.user?.login,
+              head: pr.head?.ref,
+              base: pr.base?.ref,
+              created_at: pr.created_at,
+              updated_at: pr.updated_at,
+              html_url: pr.html_url
+            }))
+            return { content: JSON.stringify(prs, null, 2) }
+          }
+          break
+        }
+
+        case 'github_get_pr': {
+          if (!args.owner || !args.repo || !args.pr_number) {
+            return { error: '缺少参数: owner, repo 或 pr_number' }
+          }
+          result = await githubInstance.getPullRequest(args.owner, args.repo, args.pr_number)
+          if (result.success && result.data) {
+            const pr = {
+              id: result.data.id,
+              number: result.data.number,
+              title: result.data.title,
+              body: result.data.body,
+              state: result.data.state,
+              draft: result.data.draft,
+              merged: result.data.merged,
+              user: result.data.user?.login,
+              head: {
+                ref: result.data.head?.ref,
+                sha: result.data.head?.sha
+              },
+              base: {
+                ref: result.data.base?.ref,
+                sha: result.data.base?.sha
+              },
+              created_at: result.data.created_at,
+              updated_at: result.data.updated_at,
+              merged_at: result.data.merged_at,
+              html_url: result.data.html_url
+            }
+            return { content: JSON.stringify(pr, null, 2) }
+          }
+          break
+        }
+
+        case 'github_create_pr': {
+          if (!args.owner || !args.repo || !args.title || !args.head || !args.base) {
+            return { error: '缺少参数: owner, repo, title, head 或 base' }
+          }
+          result = await githubInstance.createPullRequest(args.owner, args.repo, {
+            title: args.title,
+            head: args.head,
+            base: args.base,
+            body: args.body,
+            draft: args.draft
+          })
+          if (result.success && result.data) {
+            return { content: JSON.stringify({
+              message: 'Pull Request 创建成功',
+              id: result.data.id,
+              number: result.data.number,
+              title: result.data.title,
+              html_url: result.data.html_url
+            }, null, 2) }
+          }
+          break
+        }
+
+        case 'github_get_file': {
+          if (!args.owner || !args.repo || !args.path) {
+            return { error: '缺少参数: owner, repo 或 path' }
+          }
+          result = await githubInstance.getFileContent(args.owner, args.repo, args.path, args.ref)
+          if (result.success && result.data) {
+            return { content: JSON.stringify({
+              path: result.data.path,
+              content: result.data.content,
+              sha: result.data.sha
+            }, null, 2) }
+          }
+          break
+        }
+
+        case 'github_create_or_update_file': {
+          if (!args.owner || !args.repo || !args.path || !args.message || !args.content) {
+            return { error: '缺少参数: owner, repo, path, message 或 content' }
+          }
+          result = await githubInstance.createOrUpdateFile(args.owner, args.repo, args.path, {
+            message: args.message,
+            content: args.content,
+            branch: args.branch,
+            sha: args.sha
+          })
+          if (result.success && result.data) {
+            return { content: JSON.stringify({
+              message: '文件提交成功',
+              path: args.path,
+              commit_sha: result.data.commit?.sha
+            }, null, 2) }
+          }
+          break
+        }
+
+        case 'github_search_repos': {
+          if (!args.query) {
+            return { error: '缺少参数: query' }
+          }
+          result = await githubInstance.searchRepos(args.query, {
+            sort: args.sort,
+            per_page: args.per_page
+          })
+          if (result.success && result.data) {
+            const repos = result.data.items.map((repo: any) => ({
+              id: repo.id,
+              name: repo.name,
+              full_name: repo.full_name,
+              description: repo.description,
+              stargazers_count: repo.stargazers_count,
+              forks_count: repo.forks_count,
+              language: repo.language,
+              html_url: repo.html_url
+            }))
+            return { content: JSON.stringify({
+              total_count: result.data.total_count,
+              items: repos
+            }, null, 2) }
+          }
+          break
+        }
+
+        case 'github_search_issues': {
+          if (!args.query) {
+            return { error: '缺少参数: query' }
+          }
+          result = await githubInstance.searchIssues(args.query, {
+            sort: args.sort,
+            per_page: args.per_page
+          })
+          if (result.success && result.data) {
+            const issues = result.data.items.map((issue: any) => ({
+              id: issue.id,
+              number: issue.number,
+              title: issue.title,
+              state: issue.state,
+              html_url: issue.html_url,
+              repository_url: issue.repository_url
+            }))
+            return { content: JSON.stringify({
+              total_count: result.data.total_count,
+              items: issues
+            }, null, 2) }
+          }
+          break
+        }
+
+        case 'github_list_branches': {
+          if (!args.owner || !args.repo) {
+            return { error: '缺少参数: owner 或 repo' }
+          }
+          result = await githubInstance.listBranches(args.owner, args.repo, {
+            per_page: args.per_page
+          })
+          if (result.success && result.data) {
+            const branches = result.data.map((branch: any) => ({
+              name: branch.name,
+              protected: branch.protected,
+              sha: branch.commit?.sha
+            }))
+            return { content: JSON.stringify(branches, null, 2) }
+          }
+          break
+        }
+
+        default:
+          return { error: `未知的 GitHub 工具: ${toolName}` }
+      }
+
+      // 处理错误情况
+      return { error: result?.error || '操作失败' }
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : '执行 GitHub 工具时发生错误' }
+    }
+  }
+
+  /**
    * 解析 LLM 响应中的 tool_calls
    */
   function parseToolCalls(assistantMessage: any): OpenAIToolCall[] {
@@ -1335,6 +2204,34 @@ export function useMCP() {
 
         // 执行语雀工具调用
         const result = await executeYuqueTool(toolCall.function.name, args)
+        if (result.error) {
+          return {
+            toolCallId: toolCall.id,
+            content: '',
+            error: result.error
+          }
+        }
+
+        return {
+          toolCallId: toolCall.id,
+          content: result.content || ''
+        }
+      }
+
+      // 检查是否是 GitHub 工具
+      if (isBuiltinGitHubTool(toolCall.function.name)) {
+        const parseResult = safeParseToolArguments(toolCall.function.arguments)
+        if (!parseResult.success) {
+          return {
+            toolCallId: toolCall.id,
+            content: '',
+            error: parseResult.error || '工具参数解析失败'
+          }
+        }
+        const args = parseResult.args
+
+        // 执行 GitHub 工具调用
+        const result = await executeGitHubTool(toolCall.function.name, args)
         if (result.error) {
           return {
             toolCallId: toolCall.id,

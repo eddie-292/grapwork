@@ -293,6 +293,29 @@ interface ElectronAPI {
   // macOS 隔离检测与修复
   checkMacOSQuarantine: () => Promise<{ isQuarantined: boolean; appPath: string }>
   fixMacOSQuarantine: (appPath: string) => Promise<{ success: boolean; error?: string }>
+  // 通用连接 API 请求（用于第三方服务集成，绕过 CORS）
+  connectionRequest: (params: {
+    url: string
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+    headers?: Record<string, string>
+    body?: string
+  }) => Promise<{ success: boolean; status: number; data?: string; error?: string }>
+
+  // 飞书 OAuth 相关
+  feishuStartOAuth: (params: {
+    appId: string
+    connectionId: string
+  }) => Promise<{ success: boolean; error?: string }>
+  // 飞书 OAuth 相关
+  feishuStartOAuth: (params: { appId: string; connectionId: string }): Promise<{ success: boolean; error?: string; redirectUri?: string }>
+  onFeishuOAuthCallback: (callback: (data: { code: string; state: string; connectionId: string }) => void {
+    callback(data)
+  },
+  removeFeishuOAuthCallbackListener: () => {
+    ipcRenderer.removeAllListeners('feishu-oauth-callback')
+  },
+} => void
+  removeFeishuOAuthCallbackListener: () => void
 }
 
 declare global {

@@ -3074,6 +3074,57 @@ ipcMain.handle('image-generator-request', async (_event, params: {
   }
 })
 
+// 通用连接 API 请求（用于第三方服务集成，绕过 CORS）
+ipcMain.handle('connection-request', async (_event, params: {
+  url: string
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+  headers?: Record<string, string>
+  body?: string
+}): Promise<{ success: boolean; status: number; data?: string; error?: string }> => {
+  try {
+    const { url, method, headers = {}, body } = params
+
+    const fetchOptions: RequestInit = {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...headers
+      }
+    }
+
+    if (body) {
+      fetchOptions.body = body
+    }
+
+    const response = await fetch(url, fetchOptions)
+    let data = await response.text()
+
+    // 去除可能的 BOM 字符和前后空白
+    if (data.charCodeAt(0) === 0xFEFF) {
+      data = data.slice(1)
+    }
+    data = data.trim()
+
+    // 调试日志
+    console.log(`[connection-request] ${method} ${url}`)
+    console.log(`[connection-request] Status: ${response.status}`)
+    console.log(`[connection-request] Response: ${data.substring(0, 200)}...`)
+
+    return {
+      success: response.ok,
+      status: response.status,
+      data
+    }
+  } catch (error) {
+    console.error('[connection-request] Error:', error)
+    return {
+      success: false,
+      status: 0,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+})
+
 // 通用图片 API 请求（支持任意 HTTP 方法和自定义 headers）
 ipcMain.handle('image-api-request', async (_event, params: {
   url: string
@@ -3660,6 +3711,155 @@ ipcMain.handle('loop-get-default-config', async (): Promise<{ success: boolean; 
     return { success: true, configIndex: registry.defaultConfigIndex }
   } catch (error: any) {
     return { success: false, error: error.message }
+  }
+})
+
+// ============================================================================
+// Feishu OAuth 支持
+// ============================================================================
+
+// OAuth state 存储（内存中，安全考虑）
+const feishuOAuthStates = new Map<string, {
+  connectionId: string
+  timestamp: number
+}>()
+
+// 清理过期的 OAuth state（每 10 分钟）
+setInterval(() => {
+  const now = Date.now()
+  for (const [state, data] of feishuOAuthStates.entries()) {
+    if (now - data.timestamp > 10 * 60 * 1000) { // 10 分钟过期
+      feishuOAuthStates.delete(state)
+    }
+  }
+}, 10 * 60 * 1000)
+
+// 本地 OAuth 服务器（用于接收飞书 OAuth 回调）
+// 使用固定端口 59920，需要在飞书开放平台配置此端口的重定向 URL
+const FEISHU_OAUTH_PORT = 59920
+const FEISHU_OAUTH_REDIRECT_URI = `http://localhost:${FEISHU_OAUTH_PORT}/callback`
+
+let feishuOAuthServer: ReturnType.Server | null = null
+let feishuOAuthTimeoutId: ReturnType.Timeout | null = null
+
+// 启动飞书 OAuth 流程
+ipcMain.handle('feishu-start-oauth', async (_event, params: {
+  appId: string
+  connectionId: string
+}): Promise<{ success: boolean; error?: string; redirectUri?: string }> => {
+  const http = require('http')
+
+  try {
+    const { appId, connectionId } = params
+
+    // 如果已有服务器在运行，先关闭它
+    if (feishuOAuthServer) {
+      feishuOAuthServer.close()
+      feishuOAuthServer = null
+    }
+    if (feishuOAuthTimeoutId) {
+      clearTimeout(feishuOAuthTimeoutId)
+      feishuOAuthTimeoutId = null
+    }
+
+    // 生成 state 参数防止 CSRF
+    const state = `${connectionId}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`
+    feishuOAuthStates.set(state, { connectionId, timestamp: Date.now() })
+
+    // 创建本地 HTTP 服务器接收回调
+    feishuOAuthServer = http.createServer((req, res) => {
+      try {
+        const reqUrl = new URL(req.url || '', `http://localhost:${FEISHU_OAUTH_PORT}`)
+        const code = reqUrl.searchParams.get('code')
+        const receivedState = reqUrl.searchParams.get('state')
+
+        if (code && receivedState) {
+          // 验证 state
+          const stateData = feishuOAuthStates.get(receivedState)
+          if (stateData) {
+            // 发送 IPC 到渲染进程
+            BrowserWindow.getAllWindows().forEach(win => {
+              win.webContents.send('feishu-oauth-callback', {
+                code,
+                state: receivedState,
+                connectionId: stateData.connectionId
+              })
+            })
+            feishuOAuthStates.delete(receivedState)
+
+            // 返回成功页面
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+            res.end(`<!DOCTYPE html>
+<html>
+  <head><meta charset="UTF-8"><title>授权完成</title></head>
+  <body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f5f5f5;margin:0;">
+    <div style="text-align:center;padding:40px;background:white;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.1);">
+      <div style="font-size:48px;margin-bottom:16px;color:#22c55e;">✓</div>
+      <h2 style="margin:0 0 8px;color:#333;">授权成功</h2>
+      <p style="margin:0;color:#666;">您可以关闭此窗口并返回应用</p>
+    </div>
+  </body>
+</html>`)
+            return
+          }
+        }
+
+        // 返回错误页面
+        res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' })
+        res.end(`<!DOCTYPE html>
+<html>
+  <head><meta charset="UTF-8"><title>授权失败</title></head>
+  <body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#fff5f5;margin:0;">
+    <div style="text-align:center;padding:40px;background:white;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.1);">
+      <div style="font-size:48px;margin-bottom:16px;color:#ff3b30;">✗</div>
+      <h2 style="margin:0 0 8px;color:#333;">授权失败</h2>
+      <p style="margin:0;color:#666;">请重试或联系技术支持</p>
+    </div>
+  </body>
+</html>`)
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' })
+        res.end('Server Error')
+      }
+    })
+
+    // 启动服务器
+    await new Promise<void>((resolve, reject) => {
+      feishuOAuthServer!.listen(FEISHU_OAUTH_PORT, () => {
+        console.log(`[Feishu OAuth] Local server listening on port ${FEISHU_OAUTH_PORT}`)
+        resolve()
+      }).on('error', (err: Error) => {
+        reject(err)
+      })
+    })
+
+    // 设置超时关闭（5分钟后自动关闭服务器）
+    feishuOAuthTimeoutId = setTimeout(() => {
+      if (feishuOAuthServer) {
+        feishuOAuthServer.close()
+        feishuOAuthServer = null
+        console.log('[Feishu OAuth] Local server closed due to timeout')
+      }
+    }, 5 * 60 * 1000)
+
+    // 构造 OAuth URL
+    const encodedRedirectUri = encodeURIComponent(FEISHU_OAUTH_REDIRECT_URI)
+    const authUrl = `https://open.feishu.cn/open-apis/authen/v1/authorize?app_id=${appId}&redirect_uri=${encodedRedirectUri}&state=${state}`
+
+    // 在默认浏览器中打开授权页面
+    await shell.openExternal(authUrl)
+
+    return { success: true, redirectUri: FEISHU_OAUTH_REDIRECT_URI }
+  } catch (error) {
+    // 清理资源
+    if (feishuOAuthServer) {
+      feishuOAuthServer.close()
+      feishuOAuthServer = null
+    }
+    if (feishuOAuthTimeoutId) {
+      clearTimeout(feishuOAuthTimeoutId)
+    }
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 })
 
