@@ -22,6 +22,13 @@ const uiThemes: UITheme[] = [
     previewText: '#007aff'
   },
   {
+    value: 'amber',
+    label: '琥珀橙褐',
+    description: 'Claude风格的温暖橙褐色',
+    previewBg: 'linear-gradient(135deg, #faf9f7 0%, #ffffff 100%)',
+    previewText: '#d97706'
+  },
+  {
     value: 'parchment',
     label: '羊皮纸',
     description: '温暖复古的羊皮纸风格',
