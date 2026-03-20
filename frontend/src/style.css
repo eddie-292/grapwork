@@ -61,6 +61,13 @@
   --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.12);
   --shadow-xl: 0 24px 60px rgba(0, 0, 0, 0.16);
 
+  /* Button Shadows - Primary color based */
+  --shadow-btn-sm: 0 2px 8px rgba(0, 122, 255, 0.25);
+  --shadow-btn-md: 0 4px 16px rgba(0, 122, 255, 0.35);
+  --shadow-btn-active: 0 1px 4px rgba(0, 122, 255, 0.2);
+  --shadow-btn-xs: 0 2px 6px rgba(0, 122, 255, 0.2);
+  --shadow-btn-hover: 0 4px 12px rgba(0, 122, 255, 0.3);
+
   /* Border Radius - Apple style */
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -165,6 +172,13 @@
   --shadow-md: 0 4px 12px rgba(139, 90, 43, 0.1);
   --shadow-lg: 0 12px 40px rgba(139, 90, 43, 0.15);
   --shadow-xl: 0 24px 60px rgba(139, 90, 43, 0.2);
+
+  /* 羊皮纸按钮阴影 - 主色调 */
+  --shadow-btn-sm: 0 2px 8px rgba(139, 90, 43, 0.25);
+  --shadow-btn-md: 0 4px 16px rgba(139, 90, 43, 0.35);
+  --shadow-btn-active: 0 1px 4px rgba(139, 90, 43, 0.2);
+  --shadow-btn-xs: 0 2px 6px rgba(139, 90, 43, 0.2);
+  --shadow-btn-hover: 0 4px 12px rgba(139, 90, 43, 0.3);
 }
 
 /* ============================================
@@ -232,6 +246,13 @@
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.1);
   --shadow-xl: 0 24px 60px rgba(0, 0, 0, 0.12);
+
+  /* 琥珀按钮阴影 - 主色调 */
+  --shadow-btn-sm: 0 2px 8px rgba(217, 119, 6, 0.25);
+  --shadow-btn-md: 0 4px 16px rgba(217, 119, 6, 0.35);
+  --shadow-btn-active: 0 1px 4px rgba(217, 119, 6, 0.2);
+  --shadow-btn-xs: 0 2px 6px rgba(217, 119, 6, 0.2);
+  --shadow-btn-hover: 0 4px 12px rgba(217, 119, 6, 0.3);
 }
 
 * {
@@ -318,20 +339,20 @@ button:disabled {
 .login-btn {
   background: var(--color-primary);
   color: var(--color-text-on-primary);
-  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
+  box-shadow: var(--shadow-btn-sm);
 }
 .btn.primary:hover,
 .btn-primary:hover,
 .login-btn:hover {
   background: var(--color-primary-hover);
-  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.35);
+  box-shadow: var(--shadow-btn-md);
   transform: translateY(-1px);
 }
 .btn.primary:active,
 .btn-primary:active,
 .login-btn:active {
   transform: scale(0.98) translateY(0);
-  box-shadow: 0 1px 4px rgba(0, 122, 255, 0.2);
+  box-shadow: var(--shadow-btn-active);
 }
 .btn.primary:disabled,
 .btn-primary:disabled,
@@ -411,11 +432,11 @@ button:disabled {
 .btn.yes {
   background: var(--color-primary);
   color: var(--color-text-on-primary);
-  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
+  box-shadow: var(--shadow-btn-sm);
 }
 .btn.yes:hover {
   background: var(--color-primary-hover);
-  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.35);
+  box-shadow: var(--shadow-btn-md);
   transform: translateY(-1px);
 }
 
@@ -523,11 +544,11 @@ button:disabled {
   transition: all var(--transition-normal);
   font-size: 14px;
   font-weight: 500;
-  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
+  box-shadow: var(--shadow-btn-sm);
 }
 .add-btn:hover {
   background: var(--color-primary-hover);
-  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.35);
+  box-shadow: var(--shadow-btn-md);
   transform: translateY(-1px);
 }
 .add-btn:active {
@@ -597,11 +618,11 @@ button:disabled {
   cursor: pointer;
   transition: all var(--transition-normal);
   font-weight: 500;
-  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
+  box-shadow: var(--shadow-btn-sm);
 }
 .confirm-btn:hover {
   background: var(--color-primary-hover);
-  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.35);
+  box-shadow: var(--shadow-btn-md);
   transform: translateY(-1px);
 }
 .confirm-btn:active {
@@ -677,13 +698,13 @@ button:disabled {
   background: var(--color-primary);
   color: var(--color-text-on-primary);
   border-color: var(--color-primary);
-  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
+  box-shadow: var(--shadow-btn-sm);
 }
 .toggle-btn.active:hover,
 .enable-btn.active:hover,
 .mode-switcher-btn.active:hover {
   background: var(--color-primary-hover);
-  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.35);
+  box-shadow: var(--shadow-btn-md);
 }
 
 /* Copy Button - Apple Style */
@@ -747,7 +768,7 @@ button:disabled {
   background: var(--color-primary);
   color: var(--color-text-on-primary);
   border-color: var(--color-primary);
-  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
+  box-shadow: var(--shadow-btn-sm);
 }
 
 /* Working Memory Action Buttons - Apple Style */
@@ -794,7 +815,7 @@ button:disabled {
   background: var(--color-primary);
   color: var(--color-text-on-primary);
   border-color: var(--color-primary);
-  box-shadow: 0 2px 6px rgba(0, 122, 255, 0.2);
+  box-shadow: var(--shadow-btn-xs);
 }
 .wm-edit-btn.cancel,
 .task-edit-btn.cancel {
@@ -805,7 +826,7 @@ button:disabled {
 .wm-edit-btn.save:hover,
 .task-edit-btn.save:hover {
   background: var(--color-primary-hover);
-  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+  box-shadow: var(--shadow-btn-hover);
   transform: translateY(-1px);
 }
 .wm-edit-btn.cancel:hover,
