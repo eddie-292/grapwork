@@ -15,6 +15,11 @@ import type {
   FeishuConfig,
   FeishuUser,
   FeishuOAuthToken,
+  FeishuWikiSpace,
+  FeishuWikiNode,
+  FeishuDocContent,
+  FeishuDocCreateRequest,
+  FeishuDocUpdateRequest,
 } from '@/types/connection'
 
 // 飞书 API 基础 URL
@@ -252,7 +257,7 @@ export class FeishuConnection extends BaseConnection {
       )
 
       if (!parseResult.success) {
-        return parseResult as ConnectionResult<string>
+        return { success: false, error: parseResult.error }
       }
 
       const data = parseResult.data!
@@ -333,7 +338,7 @@ export class FeishuConnection extends BaseConnection {
       )
 
       if (!parseResult.success) {
-        return parseResult as ConnectionResult<string>
+        return { success: false, error: parseResult.error }
       }
 
       const data = parseResult.data!
@@ -436,7 +441,7 @@ export class FeishuConnection extends BaseConnection {
       )
 
       if (!parseResult.success) {
-        return parseResult as ConnectionResult<string>
+        return { success: false, error: parseResult.error }
       }
 
       const data = parseResult.data!
@@ -502,7 +507,7 @@ export class FeishuConnection extends BaseConnection {
       }>(response.data, 'OAuth Token Exchange')
 
       if (!parseResult.success) {
-        return parseResult as ConnectionResult<FeishuOAuthToken>
+        return { success: false, error: parseResult.error }
       }
 
       const respData = parseResult.data!
@@ -642,7 +647,7 @@ export class FeishuConnection extends BaseConnection {
   needsUserAuthorization(): boolean {
     return (
       this.authMode === 'user' &&
-      (!this.userAccessToken || (this.tokenExpiresAt && this.tokenExpiresAt <= Date.now()))
+      (!this.userAccessToken || (this.tokenExpiresAt !== null && this.tokenExpiresAt <= Date.now()))
     )
   }
 
@@ -768,8 +773,106 @@ export class FeishuConnection extends BaseConnection {
       if (result.success && result.data) {
         return { success: true, data: result.data.user }
       }
-      return result as ConnectionResult<FeishuUser>
+      return { success: false, error: result.error }
     }
+  }
+
+  // ==================== 知识空间与文档操作 ====================
+
+  /**
+   * 获取知识空间列表
+   */
+  async listSpaces(): Promise<ConnectionResult<FeishuWikiSpace[]>> {
+    const result = await this.feishuRequest<{ items: FeishuWikiSpace[] }>(
+      '/wiki/v2/spaces?page_size=50'
+    )
+    if (result.success && result.data) {
+      return { success: true, data: result.data.items || [] }
+    }
+    return { success: false, error: result.error }
+  }
+
+  /**
+   * 获取知识空间节点列表
+   */
+  async listNodes(spaceId: string, parentNodeToken?: string): Promise<ConnectionResult<FeishuWikiNode[]>> {
+    let endpoint = `/wiki/v2/spaces/${spaceId}/nodes?page_size=50`
+    if (parentNodeToken) {
+      endpoint += `&parent_node_token=${parentNodeToken}`
+    }
+    const result = await this.feishuRequest<{ items: FeishuWikiNode[] }>(endpoint)
+    if (result.success && result.data) {
+      return { success: true, data: result.data.items || [] }
+    }
+    return { success: false, error: result.error }
+  }
+
+  /**
+   * 获取文档内容
+   */
+  async getDoc(docToken: string): Promise<ConnectionResult<FeishuDocContent>> {
+    return this.feishuRequest<FeishuDocContent>(`/docx/v1/documents/${docToken}/raw_content`)
+  }
+
+  /**
+   * 创建文档
+   */
+  async createDoc(data: FeishuDocCreateRequest): Promise<ConnectionResult<{ document_id: string; title: string }>> {
+    const result = await this.feishuRequest<{ document: { document_id: string; title: string } }>(
+      '/docx/v1/documents',
+      { method: 'POST', body: { title: data.title, folder_token: data.folder_token } }
+    )
+    if (result.success && result.data) {
+      return { success: true, data: result.data.document }
+    }
+    return { success: false, error: result.error }
+  }
+
+  /**
+   * 更新文档
+   */
+  async updateDoc(docToken: string, data: FeishuDocUpdateRequest): Promise<ConnectionResult<void>> {
+    const result = await this.feishuRequest<void>(
+      `/docx/v1/documents/${docToken}`,
+      { method: 'PATCH', body: data }
+    )
+    return result
+  }
+
+  /**
+   * 删除文档
+   */
+  async deleteDoc(docToken: string): Promise<ConnectionResult<void>> {
+    return this.feishuRequest<void>(
+      `/docx/v1/documents/${docToken}`,
+      { method: 'DELETE' }
+    )
+  }
+
+  /**
+   * 在知识空间中创建文档节点
+   */
+  async createWikiNode(
+    spaceId: string,
+    parentToken: string,
+    objType: 'doc' | 'docx',
+    title: string
+  ): Promise<ConnectionResult<{ node_token: string; obj_token: string }>> {
+    const result = await this.feishuRequest<{ node: { node_token: string; obj_token: string } }>(
+      `/wiki/v2/spaces/${spaceId}/nodes/create`,
+      {
+        method: 'POST',
+        body: {
+          parent_node_token: parentToken,
+          obj_type: objType,
+          title,
+        },
+      }
+    )
+    if (result.success && result.data) {
+      return { success: true, data: result.data.node }
+    }
+    return { success: false, error: result.error }
   }
 
   /**

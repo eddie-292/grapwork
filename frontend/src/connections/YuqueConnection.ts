@@ -122,7 +122,7 @@ export class YuqueConnection
   /**
    * 发送请求
    */
-  private async request<T>(
+  protected async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ConnectionResult<T>> {

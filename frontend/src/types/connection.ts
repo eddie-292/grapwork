@@ -28,6 +28,7 @@ export interface ConnectionConfig {
 export interface YuqueConfig {
   authToken: string
   userAgent?: string
+  [key: string]: unknown
 }
 
 // 飞书配置
@@ -46,6 +47,7 @@ export interface FeishuConfig {
     name: string
     avatarUrl?: string
   }
+  [key: string]: unknown
 }
 
 // 飞书 OAuth 回调数据
@@ -152,6 +154,7 @@ export interface FeishuDocUpdateRequest {
 export interface GitHubConfig {
   authToken: string // Personal Access Token
   baseUrl?: string // API 基础 URL (默认 https://api.github.com，企业版可自定义)
+  [key: string]: unknown
 }
 
 // GitHub 用户信息

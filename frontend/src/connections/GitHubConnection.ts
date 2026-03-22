@@ -122,7 +122,7 @@ export class GitHubConnection extends BaseConnection {
   /**
    * 发送请求
    */
-  private async request<T>(
+  protected async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ConnectionResult<T>> {
@@ -550,21 +550,13 @@ export class GitHubConnection extends BaseConnection {
 
 // Base64 编解码辅助函数
 function encodeBase64(str: string): string {
-  if (typeof window !== 'undefined' && window.btoa) {
-    // 浏览器环境
-    return btoa(unescape(encodeURIComponent(str)))
-  }
-  // Node.js 环境
-  return Buffer.from(str, 'utf-8').toString('base64')
+  // 浏览器/Electron 环境
+  return btoa(unescape(encodeURIComponent(str)))
 }
 
 function decodeBase64(base64: string): string {
   // 移除换行符
   const cleanBase64 = base64.replace(/\n/g, '')
-  if (typeof window !== 'undefined' && window.atob) {
-    // 浏览器环境
-    return decodeURIComponent(escape(atob(cleanBase64)))
-  }
-  // Node.js 环境
-  return Buffer.from(cleanBase64, 'base64').toString('utf-8')
+  // 浏览器/Electron 环境
+  return decodeURIComponent(escape(atob(cleanBase64)))
 }

@@ -43,36 +43,5 @@
     "vite": "^7.2.4",
     "vue-tsc": "^3.1.4",
     "wait-on": "^7.2.0"
-  },
-  "build": {
-    "appId": "com.mirrorgrap.work",
-    "productName": "GrapWork",
-    "icon": "build/icons/icon.png",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "dist/**/*",
-      "dist-electron/**/*"
-    ],
-    "mac": {
-      "target": [
-        "dmg",
-        "zip"
-      ],
-      "category": "public.app-category.productivity"
-    },
-    "win": {
-      "target": [
-        "nsis",
-        "zip"
-      ]
-    },
-    "linux": {
-      "target": [
-        "AppImage",
-        "deb"
-      ]
-    }
   }
 }

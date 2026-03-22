@@ -302,19 +302,8 @@ interface ElectronAPI {
   }) => Promise<{ success: boolean; status: number; data?: string; error?: string }>
 
   // 飞书 OAuth 相关
-  feishuStartOAuth: (params: {
-    appId: string
-    connectionId: string
-  }) => Promise<{ success: boolean; error?: string }>
-  // 飞书 OAuth 相关
-  feishuStartOAuth: (params: { appId: string; connectionId: string }): Promise<{ success: boolean; error?: string; redirectUri?: string }>
-  onFeishuOAuthCallback: (callback: (data: { code: string; state: string; connectionId: string }) => void {
-    callback(data)
-  },
-  removeFeishuOAuthCallbackListener: () => {
-    ipcRenderer.removeAllListeners('feishu-oauth-callback')
-  },
-} => void
+  feishuStartOAuth: (params: { appId: string; connectionId: string }) => Promise<{ success: boolean; error?: string; redirectUri?: string }>
+  onFeishuOAuthCallback: (callback: (data: { code: string; state: string; connectionId: string }) => void) => void
   removeFeishuOAuthCallbackListener: () => void
 }
 

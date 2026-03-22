@@ -1134,10 +1134,21 @@ function createImageGeneratorWindow() {
 }
 
 function createWindow() {
-  // 图标路径：开发模式使用 build/icons，生产模式使用打包后的资源
-  const iconPath = process.env.VITE_DEV_SERVER_URL
-    ? path.join(__dirname, '..', 'build', 'icons', 'icon.png')
-    : path.join(path.dirname(__dirname), 'build', 'icons', 'icon.png')
+  // 图标路径：开发模式使用 build/icons，生产模式使用 extraResources 中的资源
+  let iconPath: string
+  if (process.env.VITE_DEV_SERVER_URL) {
+    iconPath = path.join(__dirname, '..', 'build', 'icons', 'icon.png')
+  } else if (process.platform === 'win32') {
+    // Windows: 使用 ICO 格式（electron-builder 会自动从 PNG 生成）
+    iconPath = path.join(process.resourcesPath, 'build', 'icons', 'icon.ico')
+    // 如果 ICO 不存在，尝试 PNG
+    if (!fs.existsSync(iconPath)) {
+      iconPath = path.join(process.resourcesPath, 'build', 'icons', 'icon.png')
+    }
+  } else {
+    // macOS/Linux: 使用 PNG
+    iconPath = path.join(process.resourcesPath, 'build', 'icons', 'icon.png')
+  }
 
   // 获取主屏幕工作区尺寸，设置窗口为屏幕的 85%
   const primaryDisplay = screen.getPrimaryDisplay()

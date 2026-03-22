@@ -36,7 +36,8 @@
       "Bash(chmod:*)",
       "mcp__web-reader__webReader",
       "mcp__web-search-prime__web_search_prime",
-      "Bash(./frontend/src/components/settings/ConnectionsPanel.vue)"
+      "Bash(./frontend/src/components/settings/ConnectionsPanel.vue)",
+      "Bash(npx asar list:*)"
     ]
   }
 }
