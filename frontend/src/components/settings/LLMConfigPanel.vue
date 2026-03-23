@@ -39,6 +39,12 @@ const availableModels = computed(() => {
   return getProviderModels(selectedProviderId.value)
 })
 
+// 根据 apiUrl 获取提供商 ID
+function getProviderIdByApiUrl(apiUrl: string): string {
+  const provider = LLM_PROVIDERS.find(p => p.apiUrl === apiUrl)
+  return provider?.id || 'custom'
+}
+
 // 标志位，防止双向同步时无限循环
 let isSyncing = false
 
@@ -267,6 +273,9 @@ defineExpose({
         :key="index"
         class="config-item"
       >
+        <div class="config-icon">
+          <LLMProviderIcon :provider="getProviderIdByApiUrl(config.apiUrl)" :size="32" />
+        </div>
         <div class="config-info">
           <div class="config-header">
             <h3>{{ config.name || config.model }}</h3>
@@ -497,6 +506,17 @@ defineExpose({
 
 .config-item:hover {
   border-color: var(--color-primary);
+}
+
+.config-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  background: var(--color-bg-tertiary);
+  border-radius: 10px;
 }
 
 .config-info {

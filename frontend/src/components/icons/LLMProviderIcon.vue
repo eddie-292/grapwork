@@ -41,7 +41,7 @@ const iconMap: Record<string, string> = {
 // 获取图标 URL
 const iconUrl = computed(() => {
   const provider = props.provider.toLowerCase()
-  return iconMap[provider] || null
+  return iconMap[provider] || undefined
 })
 
 // 是否使用默认图标
