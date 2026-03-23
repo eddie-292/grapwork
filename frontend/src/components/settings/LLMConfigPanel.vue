@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import type { AppConfig, ConfigList } from '../../types/electron'
 import type { LLMProvider } from '../../types/llmProvider'
-import { LLM_PROVIDERS, getProviderModels } from '../../types/llmProvider'
+import { LLM_PROVIDERS } from '../../types/llmProvider'
 import ConfirmDialog from '../ConfirmDialog.vue'
 import LLMProviderIcon from '../icons/LLMProviderIcon.vue'
 import { storage } from '../../services/StorageService'
@@ -33,11 +33,6 @@ const showProviderSelector = ref(false)
 const selectedProviderId = ref('custom')
 
 const deleteMessage = ref('')
-
-// 根据选中的提供商获取可用模型列表
-const availableModels = computed(() => {
-  return getProviderModels(selectedProviderId.value)
-})
 
 // 根据 apiUrl 获取提供商 ID
 function getProviderIdByApiUrl(apiUrl: string): string {
@@ -396,24 +391,7 @@ defineExpose({
 
         <div class="form-group">
           <label>模型</label>
-          <div v-if="availableModels.length > 0" class="model-selector">
-            <select v-model="currentConfig.model" class="input select">
-              <option v-for="model in availableModels" :key="model" :value="model">
-                {{ model }}
-              </option>
-              <option value="__custom__">自定义模型...</option>
-            </select>
-            <input
-              v-if="currentConfig.model === '__custom__' || !availableModels.includes(currentConfig.model)"
-              v-model="currentConfig.model"
-              type="text"
-              placeholder="输入模型名称"
-              class="input"
-              style="margin-top: 8px;"
-            />
-          </div>
           <input
-            v-else
             v-model="currentConfig.model"
             type="text"
             placeholder="gpt-4o-mini"
