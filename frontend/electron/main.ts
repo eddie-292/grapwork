@@ -4679,11 +4679,17 @@ async function initMemoryService(): Promise<void> {
       return data.choices?.[0]?.message?.content || ''
     }
 
+    /**
+     * 防抖机制：
+        用户发送消息 → 加入队列，启动 20 秒计时器
+        用户又发送消息 → 重置计时器为 20 秒
+        计时器到期 → 批量处理所有待处理消息
+     */
     memoryService = initService({
       store,
       llmCall,
       config: {
-        debounceMs: 30000,
+        debounceMs: 20000,
         maxFacts: 200,
         minConfidence: 0.7,
         maxInjectionTokens: 2000,
