@@ -722,7 +722,7 @@ defineExpose({
   <div class="workspace-container">
     <!-- 标题栏 -->
     <div class="workspace-header">
-      <img src="@/assets/logo.svg" alt="Logo" class="workspace-logo" />
+      <div></div>
       <div class="workspace-btns">
         <!-- 返回上级目录 -->
         <button
@@ -988,6 +988,22 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: center;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.refresh-btn:hover,
+.open-folder-btn:hover {
+  background: var(--color-bg-hover);
+  border: none;
+  box-shadow: none;
+  transform: none;
+}
+
+.refresh-btn:active,
+.open-folder-btn:active {
+  transform: scale(0.95);
 }
 
 .refresh-btn svg.spinning {
