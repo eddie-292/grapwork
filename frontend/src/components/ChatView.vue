@@ -859,29 +859,33 @@ async function executeNormalChat(text: string, images: string[] = [], files: Att
     const mcpTools = mcpManager.generateOpenAITools()
     //console.log('[MCP] Active tools:', mcpTools.length)
 
-    // 构建 system prompt
+    // 构建 system prompt（使用 XML 标签组织语义块）
     let systemPrompt = ''
+
+    // <role> 定义 Agent 身份
+    let roleContent = ''
     if (activeAssistant.value?.systemPrompt && activeAssistant.value.systemPrompt.trim()) {
-      systemPrompt = activeAssistant.value.systemPrompt.trim()
+      roleContent = activeAssistant.value.systemPrompt.trim()
     } else {
       // 使用默认内置助理的 System Prompt
-      systemPrompt = storage.getDefaultAssistantPrompt()
+      roleContent = storage.getDefaultAssistantPrompt()
     }
+    systemPrompt += `<role>\n${roleContent}\n</role>`
 
-    // 加载 Skills 注册表并生成上下文
+    // <skill_system> 技能使用指南
     await skillsManager.loadRegistry()
     const skillsContext = skillsManager.generateSkillContext()
     if (skillsContext) {
-      systemPrompt += '\n\n' + skillsContext
+      systemPrompt += `\n\n<skill_system>\n${skillsContext}\n</skill_system>`
     }
 
-    // 注入当前工作目录结构（如果有选择工作目录）
+    // <working_directory> 文件路径说明
     const workspaceContext = await getWorkspaceContext()
     if (workspaceContext) {
-      systemPrompt += '\n\n' + workspaceContext
+      systemPrompt += `\n\n<working_directory>\n${workspaceContext}\n</working_directory>`
     }
 
-    // 注入记忆系统上下文
+    // <memory> 记忆系统上下文
     if (window.electronAPI?.memoryGetFormatted) {
       try {
         const memoryResult = await window.electronAPI.memoryGetFormatted(2000)
