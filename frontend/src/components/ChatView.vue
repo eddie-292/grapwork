@@ -868,17 +868,6 @@ async function executeNormalChat(text: string, images: string[] = [], files: Att
       systemPrompt = storage.getDefaultAssistantPrompt()
     }
 
-    // 注入 memory.md 路径信息
-    if (window.electronAPI?.getMemoryMdPath) {
-      try {
-        const memoryMdPath = await window.electronAPI.getMemoryMdPath()
-        const memoryContext = `\n## 记忆系统\n\n长期记忆文件 \`memory.md\` 的完整路径为：\n\`\`\`\n${memoryMdPath}\n\`\`\`\n\n你可以使用 \`read_file\` 工具读取此路径的文件来获取用户的历史偏好、重要信息等。也可以在适当的时候使用 \`write_file\` 工具向该文件追加新的记忆内容。`
-        systemPrompt += memoryContext
-      } catch (e) {
-        console.error('Failed to get memory.md path:', e)
-      }
-    }
-
     // 加载 Skills 注册表并生成上下文
     await skillsManager.loadRegistry()
     const skillsContext = skillsManager.generateSkillContext()

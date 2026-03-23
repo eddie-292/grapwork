@@ -107,9 +107,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 读取更新日志
   getChangelog: () =>
     ipcRenderer.invoke('get-changelog'),
-  // 获取 memory.md 文件路径
-  getMemoryMdPath: () =>
-    ipcRenderer.invoke('get-memory-md-path'),
   // Skills 技能系统
   skillsScan: () =>
     ipcRenderer.invoke('skills-scan'),

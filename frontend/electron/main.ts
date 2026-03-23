@@ -997,9 +997,6 @@ const CONFIG_PATH = path.join(app.getPath('userData'), 'config.json')
 // 全局记忆文件路径
 const GLOBAL_MEMORY_PATH = path.join(app.getPath('userData'), 'global-memory.json')
 
-// memory.md 文件路径（用于 AI 记忆存储）
-const MEMORY_MD_PATH = path.join(app.getPath('userData'), 'memory.md')
-
 // 用户 skills 目录路径（用于创建 user skills）
 const USER_SKILLS_PATH = path.join(app.getPath('home'), '.agents', 'user', 'skills')
 
@@ -1009,34 +1006,8 @@ function isPathAllowed(targetPath: string, basePath: string): boolean {
   const normalizedBase = path.resolve(basePath)
   return (
     normalizedTarget.startsWith(normalizedBase) ||
-    normalizedTarget.startsWith(USER_SKILLS_PATH) ||
-    normalizedTarget === MEMORY_MD_PATH
+    normalizedTarget.startsWith(USER_SKILLS_PATH)
   )
-}
-
-// 初始化 memory.md 文件
-function initMemoryMd(): void {
-  try {
-    if (!fs.existsSync(MEMORY_MD_PATH)) {
-      const defaultContent = `# AI 记忆存储
-
-这是一个用于存储 AI 对话记忆的文件。AI 可以在对话中读取和更新此文件来记住用户偏好、重要信息等。
-
-## 用户信息
-
-
-## 偏好设置
-
-
-## 重要事项
-
-`
-      fs.writeFileSync(MEMORY_MD_PATH, defaultContent, 'utf-8')
-      console.log('[Memory] Created memory.md file at:', MEMORY_MD_PATH)
-    }
-  } catch (error) {
-    console.error('[Memory] Failed to initialize memory.md:', error)
-  }
 }
 
 interface AppConfig {
@@ -3882,9 +3853,6 @@ app.whenReady().then(async () => {
     callback(filePath)
   })
 
-  // 初始化 memory.md 文件
-  initMemoryMd()
-
   // 初始化记忆服务
   await initMemoryService()
 
@@ -4507,11 +4475,6 @@ ipcMain.handle('install-environment', async (event, items: string[]): Promise<En
   }
 
   return results
-})
-
-// 获取 memory.md 文件路径
-ipcMain.handle('get-memory-md-path', () => {
-  return MEMORY_MD_PATH
 })
 
 // 读取更新日志

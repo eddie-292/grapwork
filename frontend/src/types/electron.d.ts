@@ -207,8 +207,6 @@ interface ElectronAPI {
     content: string
     error?: string
   }>
-  // 获取 memory.md 文件路径
-  getMemoryMdPath: () => Promise<string>
   // Skills 技能系统
   skillsScan: () => Promise<SkillScanResult>
   skillsLoad: (skillId: string) => Promise<SkillLoadResult>
