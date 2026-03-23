@@ -305,6 +305,15 @@ interface ElectronAPI {
   feishuStartOAuth: (params: { appId: string; connectionId: string }) => Promise<{ success: boolean; error?: string; redirectUri?: string }>
   onFeishuOAuthCallback: (callback: (data: { code: string; state: string; connectionId: string }) => void) => void
   removeFeishuOAuthCallbackListener: () => void
+
+  // 记忆系统
+  memoryGet: () => Promise<{ success: boolean; data?: any; error?: string }>
+  memoryGetFormatted: (maxTokens?: number) => Promise<{ success: boolean; data?: string; error?: string }>
+  memoryRequestUpdate: (threadId: string, messages: Array<{ role: 'user' | 'assistant'; content: string }>, llmConfig?: { apiUrl: string; apiKey: string; model: string }) => Promise<{ success: boolean; error?: string }>
+  memoryUpdateNow: (threadId: string, messages: Array<{ role: 'user' | 'assistant'; content: string }>, llmConfig?: { apiUrl: string; apiKey: string; model: string }) => Promise<{ success: boolean; error?: string }>
+  memoryClear: () => Promise<{ success: boolean; error?: string }>
+  memoryGetStats: () => Promise<{ success: boolean; data?: any; error?: string }>
+  memoryFlush: () => Promise<{ success: boolean; error?: string }>
 }
 
 declare global {

@@ -229,4 +229,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   removeFeishuOAuthCallbackListener: () => {
     ipcRenderer.removeAllListeners('feishu-oauth-callback')
   },
+
+  // 记忆系统
+  memoryGet: () =>
+    ipcRenderer.invoke('memory:get') as Promise<{ success: boolean; data?: any; error?: string }>,
+  memoryGetFormatted: (maxTokens?: number) =>
+    ipcRenderer.invoke('memory:get-formatted', maxTokens) as Promise<{ success: boolean; data?: string; error?: string }>,
+  memoryRequestUpdate: (threadId: string, messages: Array<{ role: 'user' | 'assistant'; content: string }>, llmConfig?: { apiUrl: string; apiKey: string; model: string }) =>
+    ipcRenderer.invoke('memory:request-update', threadId, messages, llmConfig) as Promise<{ success: boolean; error?: string }>,
+  memoryUpdateNow: (threadId: string, messages: Array<{ role: 'user' | 'assistant'; content: string }>, llmConfig?: { apiUrl: string; apiKey: string; model: string }) =>
+    ipcRenderer.invoke('memory:update-now', threadId, messages, llmConfig) as Promise<{ success: boolean; error?: string }>,
+  memoryClear: () =>
+    ipcRenderer.invoke('memory:clear') as Promise<{ success: boolean; error?: string }>,
+  memoryGetStats: () =>
+    ipcRenderer.invoke('memory:get-stats') as Promise<{ success: boolean; data?: any; error?: string }>,
+  memoryFlush: () =>
+    ipcRenderer.invoke('memory:flush') as Promise<{ success: boolean; error?: string }>,
 })

@@ -892,6 +892,18 @@ async function executeNormalChat(text: string, images: string[] = [], files: Att
       systemPrompt += '\n\n' + workspaceContext
     }
 
+    // 注入记忆系统上下文
+    if (window.electronAPI?.memoryGetFormatted) {
+      try {
+        const memoryResult = await window.electronAPI.memoryGetFormatted(2000)
+        if (memoryResult.success && memoryResult.data) {
+          systemPrompt += `\n\n<memory>\n${memoryResult.data}\n</memory>`
+        }
+      } catch (e) {
+        console.error('[Memory] Failed to get formatted memory:', e)
+      }
+    }
+
     // 添加合并后的 system prompt 到消息开头
     messagesToSend.unshift({
       role: 'system',
@@ -1259,6 +1271,31 @@ async function executeNormalChat(text: string, images: string[] = [], files: Att
     }
     saveChatHistory()
     scrollToBottom()
+
+    // 触发记忆更新（异步，不阻塞 UI）
+    if (window.electronAPI?.memoryRequestUpdate && currentChat.value && !last?.isError) {
+      try {
+        // 过滤消息，只保留用户和助手消息
+        const messagesForMemory = currentMessages
+          .filter(m => m.role === 'user' || m.role === 'assistant')
+          .filter(m => !m.tool_calls && !m.tool_call_id) // 排除工具调用消息
+          .map(m => ({
+            role: m.role as 'user' | 'assistant',
+            content: m.content || ''
+          }))
+
+        if (messagesForMemory.length >= 2 && activeConfig.value) {
+          // 至少有一轮对话才更新，传递当前会话的 LLM 配置
+          window.electronAPI.memoryRequestUpdate(currentChat.value.id, messagesForMemory, {
+            apiUrl: activeConfig.value.apiUrl,
+            apiKey: activeConfig.value.apiKey,
+            model: activeConfig.value.model,
+          })
+        }
+      } catch (e) {
+        console.error('[Memory] Failed to request memory update:', e)
+      }
+    }
   }
 }
 

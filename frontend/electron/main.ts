@@ -3874,7 +3874,7 @@ ipcMain.handle('feishu-start-oauth', async (_event, params: {
   }
 })
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // 注册 local-file 协议用于加载本地图片
   protocol.registerFileProtocol('local-file', (request, callback) => {
     const url = request.url.slice('local-file://'.length)
@@ -3884,6 +3884,9 @@ app.whenReady().then(() => {
 
   // 初始化 memory.md 文件
   initMemoryMd()
+
+  // 初始化记忆服务
+  await initMemoryService()
 
   // 初始化 Loop 调度器
   initializeLoopScheduler()
@@ -4644,5 +4647,190 @@ ipcMain.handle('read-file-as-buffer', async (_event, filePath: string) => {
       success: false,
       error: `读取文件失败: ${error?.message || error}`
     }
+  }
+})
+
+// ============================================================================
+// Memory System IPC Handlers
+// ============================================================================
+
+// 记忆服务实例（延迟初始化）
+let memoryService: any = null
+
+/**
+ * 初始化记忆服务
+ */
+async function initMemoryService(): Promise<void> {
+  if (memoryService) return
+
+  try {
+    const { initMemoryService: initService, createDefaultFileStore } = await import('../src/services/memory')
+    const store = await createDefaultFileStore(app.getPath('userData'))
+
+    // LLM 调用函数（使用当前活跃的配置）
+    const llmCall = async (prompt: string): Promise<string> => {
+      // 获取当前配置
+      const configPath = path.join(app.getPath('userData'), 'config.json')
+      if (!fs.existsSync(configPath)) {
+        throw new Error('No LLM config found')
+      }
+
+      const configData = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+
+      // 尝试获取活跃配置，如果没有则使用第一个启用的配置
+      let activeConfig = configData.configs?.[configData.activeIndex]
+
+      // 如果没有活跃配置，尝试找第一个启用的配置
+      if (!activeConfig || !activeConfig.apiKey) {
+        activeConfig = configData.configs?.find((c: any) => c.enabled && c.apiKey)
+      }
+
+      // 如果还是没有，使用第一个有 apiKey 的配置
+      if (!activeConfig || !activeConfig.apiKey) {
+        activeConfig = configData.configs?.find((c: any) => c.apiKey)
+      }
+
+      if (!activeConfig || !activeConfig.apiKey) {
+        throw new Error('No active LLM config')
+      }
+
+      // 调用 LLM API
+      const response = await fetch(`${activeConfig.apiUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${activeConfig.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: activeConfig.model,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.3,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`LLM API error: ${response.status}`)
+      }
+
+      const data = await response.json()
+      return data.choices?.[0]?.message?.content || ''
+    }
+
+    memoryService = initService({
+      store,
+      llmCall,
+      config: {
+        debounceMs: 30000,
+        maxFacts: 200,
+        minConfidence: 0.7,
+        maxInjectionTokens: 2000,
+      },
+    })
+
+    // 初始化记忆文件
+    await memoryService.initialize()
+
+    console.log('[MemoryService] Initialized successfully')
+  } catch (error) {
+    console.error('[MemoryService] Failed to initialize:', error)
+  }
+}
+
+// 获取记忆数据
+ipcMain.handle('memory:get', async () => {
+  try {
+    if (!memoryService) {
+      await initMemoryService()
+    }
+    const data = await memoryService.getMemory()
+    return { success: true, data }
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Unknown error' }
+  }
+})
+
+// 获取格式化的记忆（用于注入）
+ipcMain.handle('memory:get-formatted', async (_event, maxTokens?: number) => {
+  try {
+    if (!memoryService) {
+      await initMemoryService()
+    }
+    const formatted = await memoryService.getFormattedMemory(maxTokens)
+    return { success: true, data: formatted }
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Unknown error' }
+  }
+})
+
+// 请求更新记忆
+ipcMain.handle('memory:request-update', async (_event, threadId: string, messages: any[], llmConfig?: { apiUrl: string; apiKey: string; model: string }) => {
+  try {
+    if (!memoryService) {
+      await initMemoryService()
+    }
+    // 如果提供了 LLM 配置，临时设置
+    if (llmConfig) {
+      memoryService.setLlmConfig(llmConfig)
+    }
+    memoryService.requestUpdate(threadId, messages)
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Unknown error' }
+  }
+})
+
+// 立即更新记忆
+ipcMain.handle('memory:update-now', async (_event, threadId: string, messages: any[], llmConfig?: { apiUrl: string; apiKey: string; model: string }) => {
+  try {
+    if (!memoryService) {
+      await initMemoryService()
+    }
+    // 如果提供了 LLM 配置，临时设置
+    if (llmConfig) {
+      memoryService.setLlmConfig(llmConfig)
+    }
+    const result = await memoryService.updateNow(threadId, messages)
+    return { success: result }
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Unknown error' }
+  }
+})
+
+// 清空记忆
+ipcMain.handle('memory:clear', async () => {
+  try {
+    if (!memoryService) {
+      await initMemoryService()
+    }
+    const result = await memoryService.clearMemory()
+    return { success: result }
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Unknown error' }
+  }
+})
+
+// 获取记忆统计
+ipcMain.handle('memory:get-stats', async () => {
+  try {
+    if (!memoryService) {
+      await initMemoryService()
+    }
+    const stats = await memoryService.getStats()
+    return { success: true, data: stats }
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Unknown error' }
+  }
+})
+
+// 刷新队列
+ipcMain.handle('memory:flush', async () => {
+  try {
+    if (!memoryService) {
+      await initMemoryService()
+    }
+    await memoryService.flush()
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Unknown error' }
   }
 })
