@@ -44,6 +44,9 @@ export const StorageKey = {
 
   // Loop 定时任务系统
   LOOP_TASK_REGISTRY: 'loop-task-registry',
+
+  // 连接器系统（语雀、飞书等）
+  CONNECTION_REGISTRY: 'connection-registry',
 } as const
 
 export type StorageKey = typeof StorageKey[keyof typeof StorageKey]

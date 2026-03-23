@@ -997,9 +997,6 @@ const CONFIG_PATH = path.join(app.getPath('userData'), 'config.json')
 // 全局记忆文件路径
 const GLOBAL_MEMORY_PATH = path.join(app.getPath('userData'), 'global-memory.json')
 
-// memory.md 文件路径（用于 AI 记忆存储）
-const MEMORY_MD_PATH = path.join(app.getPath('userData'), 'memory.md')
-
 // 用户 skills 目录路径（用于创建 user skills）
 const USER_SKILLS_PATH = path.join(app.getPath('home'), '.agents', 'user', 'skills')
 
@@ -1009,34 +1006,8 @@ function isPathAllowed(targetPath: string, basePath: string): boolean {
   const normalizedBase = path.resolve(basePath)
   return (
     normalizedTarget.startsWith(normalizedBase) ||
-    normalizedTarget.startsWith(USER_SKILLS_PATH) ||
-    normalizedTarget === MEMORY_MD_PATH
+    normalizedTarget.startsWith(USER_SKILLS_PATH)
   )
-}
-
-// 初始化 memory.md 文件
-function initMemoryMd(): void {
-  try {
-    if (!fs.existsSync(MEMORY_MD_PATH)) {
-      const defaultContent = `# AI 记忆存储
-
-这是一个用于存储 AI 对话记忆的文件。AI 可以在对话中读取和更新此文件来记住用户偏好、重要信息等。
-
-## 用户信息
-
-
-## 偏好设置
-
-
-## 重要事项
-
-`
-      fs.writeFileSync(MEMORY_MD_PATH, defaultContent, 'utf-8')
-      console.log('[Memory] Created memory.md file at:', MEMORY_MD_PATH)
-    }
-  } catch (error) {
-    console.error('[Memory] Failed to initialize memory.md:', error)
-  }
 }
 
 interface AppConfig {
@@ -1134,10 +1105,21 @@ function createImageGeneratorWindow() {
 }
 
 function createWindow() {
-  // 图标路径：开发模式使用 build/icons，生产模式使用打包后的资源
-  const iconPath = process.env.VITE_DEV_SERVER_URL
-    ? path.join(__dirname, '..', 'build', 'icons', 'icon.png')
-    : path.join(path.dirname(__dirname), 'build', 'icons', 'icon.png')
+  // 图标路径：开发模式使用 build/icons，生产模式使用 extraResources 中的资源
+  let iconPath: string
+  if (process.env.VITE_DEV_SERVER_URL) {
+    iconPath = path.join(__dirname, '..', 'build', 'icons', 'icon.png')
+  } else if (process.platform === 'win32') {
+    // Windows: 使用 ICO 格式（electron-builder 会自动从 PNG 生成）
+    iconPath = path.join(process.resourcesPath, 'build', 'icons', 'icon.ico')
+    // 如果 ICO 不存在，尝试 PNG
+    if (!fs.existsSync(iconPath)) {
+      iconPath = path.join(process.resourcesPath, 'build', 'icons', 'icon.png')
+    }
+  } else {
+    // macOS/Linux: 使用 PNG
+    iconPath = path.join(process.resourcesPath, 'build', 'icons', 'icon.png')
+  }
 
   // 获取主屏幕工作区尺寸，设置窗口为屏幕的 85%
   const primaryDisplay = screen.getPrimaryDisplay()
@@ -3074,6 +3056,57 @@ ipcMain.handle('image-generator-request', async (_event, params: {
   }
 })
 
+// 通用连接 API 请求（用于第三方服务集成，绕过 CORS）
+ipcMain.handle('connection-request', async (_event, params: {
+  url: string
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+  headers?: Record<string, string>
+  body?: string
+}): Promise<{ success: boolean; status: number; data?: string; error?: string }> => {
+  try {
+    const { url, method, headers = {}, body } = params
+
+    const fetchOptions: RequestInit = {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...headers
+      }
+    }
+
+    if (body) {
+      fetchOptions.body = body
+    }
+
+    const response = await fetch(url, fetchOptions)
+    let data = await response.text()
+
+    // 去除可能的 BOM 字符和前后空白
+    if (data.charCodeAt(0) === 0xFEFF) {
+      data = data.slice(1)
+    }
+    data = data.trim()
+
+    // 调试日志
+    console.log(`[connection-request] ${method} ${url}`)
+    console.log(`[connection-request] Status: ${response.status}`)
+    console.log(`[connection-request] Response: ${data.substring(0, 200)}...`)
+
+    return {
+      success: response.ok,
+      status: response.status,
+      data
+    }
+  } catch (error) {
+    console.error('[connection-request] Error:', error)
+    return {
+      success: false,
+      status: 0,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+})
+
 // 通用图片 API 请求（支持任意 HTTP 方法和自定义 headers）
 ipcMain.handle('image-api-request', async (_event, params: {
   url: string
@@ -3663,7 +3696,156 @@ ipcMain.handle('loop-get-default-config', async (): Promise<{ success: boolean; 
   }
 })
 
-app.whenReady().then(() => {
+// ============================================================================
+// Feishu OAuth 支持
+// ============================================================================
+
+// OAuth state 存储（内存中，安全考虑）
+const feishuOAuthStates = new Map<string, {
+  connectionId: string
+  timestamp: number
+}>()
+
+// 清理过期的 OAuth state（每 10 分钟）
+setInterval(() => {
+  const now = Date.now()
+  for (const [state, data] of feishuOAuthStates.entries()) {
+    if (now - data.timestamp > 10 * 60 * 1000) { // 10 分钟过期
+      feishuOAuthStates.delete(state)
+    }
+  }
+}, 10 * 60 * 1000)
+
+// 本地 OAuth 服务器（用于接收飞书 OAuth 回调）
+// 使用固定端口 59920，需要在飞书开放平台配置此端口的重定向 URL
+const FEISHU_OAUTH_PORT = 59920
+const FEISHU_OAUTH_REDIRECT_URI = `http://localhost:${FEISHU_OAUTH_PORT}/callback`
+
+let feishuOAuthServer: ReturnType.Server | null = null
+let feishuOAuthTimeoutId: ReturnType.Timeout | null = null
+
+// 启动飞书 OAuth 流程
+ipcMain.handle('feishu-start-oauth', async (_event, params: {
+  appId: string
+  connectionId: string
+}): Promise<{ success: boolean; error?: string; redirectUri?: string }> => {
+  const http = require('http')
+
+  try {
+    const { appId, connectionId } = params
+
+    // 如果已有服务器在运行，先关闭它
+    if (feishuOAuthServer) {
+      feishuOAuthServer.close()
+      feishuOAuthServer = null
+    }
+    if (feishuOAuthTimeoutId) {
+      clearTimeout(feishuOAuthTimeoutId)
+      feishuOAuthTimeoutId = null
+    }
+
+    // 生成 state 参数防止 CSRF
+    const state = `${connectionId}-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`
+    feishuOAuthStates.set(state, { connectionId, timestamp: Date.now() })
+
+    // 创建本地 HTTP 服务器接收回调
+    feishuOAuthServer = http.createServer((req, res) => {
+      try {
+        const reqUrl = new URL(req.url || '', `http://localhost:${FEISHU_OAUTH_PORT}`)
+        const code = reqUrl.searchParams.get('code')
+        const receivedState = reqUrl.searchParams.get('state')
+
+        if (code && receivedState) {
+          // 验证 state
+          const stateData = feishuOAuthStates.get(receivedState)
+          if (stateData) {
+            // 发送 IPC 到渲染进程
+            BrowserWindow.getAllWindows().forEach(win => {
+              win.webContents.send('feishu-oauth-callback', {
+                code,
+                state: receivedState,
+                connectionId: stateData.connectionId
+              })
+            })
+            feishuOAuthStates.delete(receivedState)
+
+            // 返回成功页面
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+            res.end(`<!DOCTYPE html>
+<html>
+  <head><meta charset="UTF-8"><title>授权完成</title></head>
+  <body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f5f5f5;margin:0;">
+    <div style="text-align:center;padding:40px;background:white;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.1);">
+      <div style="font-size:48px;margin-bottom:16px;color:#22c55e;">✓</div>
+      <h2 style="margin:0 0 8px;color:#333;">授权成功</h2>
+      <p style="margin:0;color:#666;">您可以关闭此窗口并返回应用</p>
+    </div>
+  </body>
+</html>`)
+            return
+          }
+        }
+
+        // 返回错误页面
+        res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' })
+        res.end(`<!DOCTYPE html>
+<html>
+  <head><meta charset="UTF-8"><title>授权失败</title></head>
+  <body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#fff5f5;margin:0;">
+    <div style="text-align:center;padding:40px;background:white;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.1);">
+      <div style="font-size:48px;margin-bottom:16px;color:#ff3b30;">✗</div>
+      <h2 style="margin:0 0 8px;color:#333;">授权失败</h2>
+      <p style="margin:0;color:#666;">请重试或联系技术支持</p>
+    </div>
+  </body>
+</html>`)
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' })
+        res.end('Server Error')
+      }
+    })
+
+    // 启动服务器
+    await new Promise<void>((resolve, reject) => {
+      feishuOAuthServer!.listen(FEISHU_OAUTH_PORT, () => {
+        console.log(`[Feishu OAuth] Local server listening on port ${FEISHU_OAUTH_PORT}`)
+        resolve()
+      }).on('error', (err: Error) => {
+        reject(err)
+      })
+    })
+
+    // 设置超时关闭（5分钟后自动关闭服务器）
+    feishuOAuthTimeoutId = setTimeout(() => {
+      if (feishuOAuthServer) {
+        feishuOAuthServer.close()
+        feishuOAuthServer = null
+        console.log('[Feishu OAuth] Local server closed due to timeout')
+      }
+    }, 5 * 60 * 1000)
+
+    // 构造 OAuth URL
+    const encodedRedirectUri = encodeURIComponent(FEISHU_OAUTH_REDIRECT_URI)
+    const authUrl = `https://open.feishu.cn/open-apis/authen/v1/authorize?app_id=${appId}&redirect_uri=${encodedRedirectUri}&state=${state}`
+
+    // 在默认浏览器中打开授权页面
+    await shell.openExternal(authUrl)
+
+    return { success: true, redirectUri: FEISHU_OAUTH_REDIRECT_URI }
+  } catch (error) {
+    // 清理资源
+    if (feishuOAuthServer) {
+      feishuOAuthServer.close()
+      feishuOAuthServer = null
+    }
+    if (feishuOAuthTimeoutId) {
+      clearTimeout(feishuOAuthTimeoutId)
+    }
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+})
+
+app.whenReady().then(async () => {
   // 注册 local-file 协议用于加载本地图片
   protocol.registerFileProtocol('local-file', (request, callback) => {
     const url = request.url.slice('local-file://'.length)
@@ -3671,8 +3853,8 @@ app.whenReady().then(() => {
     callback(filePath)
   })
 
-  // 初始化 memory.md 文件
-  initMemoryMd()
+  // 初始化记忆服务
+  await initMemoryService()
 
   // 初始化 Loop 调度器
   initializeLoopScheduler()
@@ -4295,11 +4477,6 @@ ipcMain.handle('install-environment', async (event, items: string[]): Promise<En
   return results
 })
 
-// 获取 memory.md 文件路径
-ipcMain.handle('get-memory-md-path', () => {
-  return MEMORY_MD_PATH
-})
-
 // 读取更新日志
 ipcMain.handle('get-changelog', async () => {
   try {
@@ -4433,5 +4610,196 @@ ipcMain.handle('read-file-as-buffer', async (_event, filePath: string) => {
       success: false,
       error: `读取文件失败: ${error?.message || error}`
     }
+  }
+})
+
+// ============================================================================
+// Memory System IPC Handlers
+// ============================================================================
+
+// 记忆服务实例（延迟初始化）
+let memoryService: any = null
+
+/**
+ * 初始化记忆服务
+ */
+async function initMemoryService(): Promise<void> {
+  if (memoryService) return
+
+  try {
+    const { initMemoryService: initService, createDefaultFileStore } = await import('../src/services/memory')
+    const store = await createDefaultFileStore(app.getPath('userData'))
+
+    // LLM 调用函数（使用当前活跃的配置）
+    const llmCall = async (prompt: string): Promise<string> => {
+      // 获取当前配置
+      const configPath = path.join(app.getPath('userData'), 'config.json')
+      if (!fs.existsSync(configPath)) {
+        throw new Error('No LLM config found')
+      }
+
+      const configData = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+
+      // 尝试获取活跃配置，如果没有则使用第一个启用的配置
+      let activeConfig = configData.configs?.[configData.activeIndex]
+
+      // 如果没有活跃配置，尝试找第一个启用的配置
+      if (!activeConfig || !activeConfig.apiKey) {
+        activeConfig = configData.configs?.find((c: any) => c.enabled && c.apiKey)
+      }
+
+      // 如果还是没有，使用第一个有 apiKey 的配置
+      if (!activeConfig || !activeConfig.apiKey) {
+        activeConfig = configData.configs?.find((c: any) => c.apiKey)
+      }
+
+      if (!activeConfig || !activeConfig.apiKey) {
+        throw new Error('No active LLM config')
+      }
+
+      // 调用 LLM API
+      const response = await fetch(`${activeConfig.apiUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${activeConfig.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: activeConfig.model,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.3,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`LLM API error: ${response.status}`)
+      }
+
+      const data = await response.json()
+      return data.choices?.[0]?.message?.content || ''
+    }
+
+    /**
+     * 防抖机制：
+        用户发送消息 → 加入队列，启动 20 秒计时器
+        用户又发送消息 → 重置计时器为 20 秒
+        计时器到期 → 批量处理所有待处理消息
+     */
+    memoryService = initService({
+      store,
+      llmCall,
+      config: {
+        debounceMs: 20000,
+        maxFacts: 200,
+        minConfidence: 0.7,
+        maxInjectionTokens: 2000,
+      },
+    })
+
+    // 初始化记忆文件
+    await memoryService.initialize()
+
+    console.log('[MemoryService] Initialized successfully')
+  } catch (error) {
+    console.error('[MemoryService] Failed to initialize:', error)
+  }
+}
+
+// 获取记忆数据
+ipcMain.handle('memory:get', async () => {
+  try {
+    if (!memoryService) {
+      await initMemoryService()
+    }
+    const data = await memoryService.getMemory()
+    return { success: true, data }
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Unknown error' }
+  }
+})
+
+// 获取格式化的记忆（用于注入）
+ipcMain.handle('memory:get-formatted', async (_event, maxTokens?: number) => {
+  try {
+    if (!memoryService) {
+      await initMemoryService()
+    }
+    const formatted = await memoryService.getFormattedMemory(maxTokens)
+    return { success: true, data: formatted }
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Unknown error' }
+  }
+})
+
+// 请求更新记忆
+ipcMain.handle('memory:request-update', async (_event, threadId: string, messages: any[], llmConfig?: { apiUrl: string; apiKey: string; model: string }) => {
+  try {
+    if (!memoryService) {
+      await initMemoryService()
+    }
+    // 如果提供了 LLM 配置，临时设置
+    if (llmConfig) {
+      memoryService.setLlmConfig(llmConfig)
+    }
+    memoryService.requestUpdate(threadId, messages)
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Unknown error' }
+  }
+})
+
+// 立即更新记忆
+ipcMain.handle('memory:update-now', async (_event, threadId: string, messages: any[], llmConfig?: { apiUrl: string; apiKey: string; model: string }) => {
+  try {
+    if (!memoryService) {
+      await initMemoryService()
+    }
+    // 如果提供了 LLM 配置，临时设置
+    if (llmConfig) {
+      memoryService.setLlmConfig(llmConfig)
+    }
+    const result = await memoryService.updateNow(threadId, messages)
+    return { success: result }
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Unknown error' }
+  }
+})
+
+// 清空记忆
+ipcMain.handle('memory:clear', async () => {
+  try {
+    if (!memoryService) {
+      await initMemoryService()
+    }
+    const result = await memoryService.clearMemory()
+    return { success: result }
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Unknown error' }
+  }
+})
+
+// 获取记忆统计
+ipcMain.handle('memory:get-stats', async () => {
+  try {
+    if (!memoryService) {
+      await initMemoryService()
+    }
+    const stats = await memoryService.getStats()
+    return { success: true, data: stats }
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Unknown error' }
+  }
+})
+
+// 刷新队列
+ipcMain.handle('memory:flush', async () => {
+  try {
+    if (!memoryService) {
+      await initMemoryService()
+    }
+    await memoryService.flush()
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Unknown error' }
   }
 })

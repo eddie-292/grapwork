@@ -12,7 +12,15 @@
     "dist-electron/preload.cjs",
     "mcp-servers/**/*",
     "skills/**/*",
-    "src/upload_log/**/*"
+    "src/upload_log/**/*",
+    "build/icons/**/*"
+  ],
+  "extraResources": [
+    {
+      "from": "build/icons",
+      "to": "build/icons",
+      "filter": ["**/*"]
+    }
   ],
   "extraMetadata": {
     "main": "dist-electron/main.cjs"
@@ -56,12 +64,28 @@
     }
   },
   "win": {
-    "target": ["nsis", "zip"],
-    "sign": "./scripts/sign.js",
-    "signingHashAlgorithms": ["sha256"],
-    "rfc3161TimeStampServer": "http://timestamp.digicert.com",
-    "certificateFile": "build/certificates/grapework.pfx",
-    "certificatePassword": "grapeWork2026"
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      },
+      {
+        "target": "zip",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "build/icons/icon.png",
+    "executableName": "GrapWork"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "allowElevation": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "GrapWork",
+    "artifactName": "${productName}-${version}-Setup-${arch}.${ext}"
   },
   "linux": {
     "target": ["AppImage", "deb"]

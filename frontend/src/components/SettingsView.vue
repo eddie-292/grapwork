@@ -9,6 +9,7 @@ import MCPView from './MCPView.vue'
 import ChangelogView from './ChangelogView.vue'
 import SkillsPanel from './settings/SkillsPanel.vue'
 import EnvironmentCheckPanel from './settings/EnvironmentCheckPanel.vue'
+import ConnectionsPanel from './settings/ConnectionsPanel.vue'
 import { storage } from '../services/StorageService'
 import PlugIcon from './icons/PlugIcon.vue'
 import PaletteIcon from './icons/PaletteIcon.vue'
@@ -27,12 +28,13 @@ import PaintbrushIcon from './icons/PaintbrushIcon.vue'
 import InfoIcon from './icons/InfoIcon.vue'
 import GitHubIcon from './icons/GitHubIcon.vue'
 import LogoutIcon from './icons/LogoutIcon.vue'
+import LinkIcon from './icons/LinkIcon.vue'
 import changelogMd from '../upload_log/更新日志.md?raw'
 
 const router = useRouter()
 const route = useRoute()
 
-type SettingsTab = 'llm' | 'ui-theme' | 'theme' | 'assistants' | 'mcp' | 'skills' | 'teams' | 'environment' | 'changelog' | 'sync' | 'loop' | 'about'
+type SettingsTab = 'llm' | 'ui-theme' | 'theme' | 'assistants' | 'mcp' | 'skills' | 'teams' | 'environment' | 'changelog' | 'sync' | 'loop' | 'connections' | 'about'
 
 // 从更新日志中解析最新版本号
 function parseLatestVersion(md: string): string {
@@ -61,6 +63,7 @@ const navItems = computed(() => [
   { id: 'mcp' as SettingsTab, label: 'MCP 服务器', icon: 'zap' },
   { id: 'skills' as SettingsTab, label: '技能管理', icon: 'book-open' },
   { id: 'loop' as SettingsTab, label: '定时任务', icon: 'clock' },
+  { id: 'connections' as SettingsTab, label: '第三方连接', icon: 'link' },
   { id: 'environment' as SettingsTab, label: '环境检测', icon: 'search' },
   { id: 'changelog' as SettingsTab, label: '更新日志', icon: 'scroll' },
   { id: 'sync' as SettingsTab, label: '云同步', icon: 'cloud' },
@@ -128,6 +131,7 @@ function openGitHub() {
               <ScrollIcon v-else-if="item.icon === 'scroll'" :size="18" />
               <CloudIcon v-else-if="item.icon === 'cloud'" :size="18" />
               <ClockIcon v-else-if="item.icon === 'clock'" :size="18" />
+              <LinkIcon v-else-if="item.icon === 'link'" :size="18" />
               <InfoIcon v-else-if="item.icon === 'info'" :size="18" />
             </span>
             <span class="nav-label">{{ item.label }}</span>
@@ -196,6 +200,9 @@ function openGitHub() {
 
             <!-- 云同步 -->
             <CloudSyncPanel v-else-if="activeTab === 'sync'" />
+
+            <!-- 第三方连接 -->
+            <ConnectionsPanel v-else-if="activeTab === 'connections'" />
 
             <!-- 关于 -->
             <div v-else-if="activeTab === 'about'" class="about-panel">

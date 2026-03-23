@@ -107,9 +107,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 读取更新日志
   getChangelog: () =>
     ipcRenderer.invoke('get-changelog'),
-  // 获取 memory.md 文件路径
-  getMemoryMdPath: () =>
-    ipcRenderer.invoke('get-memory-md-path'),
   // Skills 技能系统
   skillsScan: () =>
     ipcRenderer.invoke('skills-scan'),
@@ -216,4 +213,33 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('check-macos-quarantine'),
   fixMacOSQuarantine: (appPath: string) =>
     ipcRenderer.invoke('fix-macos-quarantine', appPath),
+  // 通用连接 API 请求（用于第三方服务集成，绕过 CORS）
+  connectionRequest: (params: { url: string; method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; headers?: Record<string, string>; body?: string }) =>
+    ipcRenderer.invoke('connection-request', params),
+
+  // 飞书 OAuth 相关
+  feishuStartOAuth: (params: { appId: string; connectionId: string }) =>
+    ipcRenderer.invoke('feishu-start-oauth', params) as Promise<{ success: boolean; error?: string; redirectUri?: string }>,
+  onFeishuOAuthCallback: (callback: (data: { code: string; state: string; connectionId: string }) => void) => {
+    ipcRenderer.on('feishu-oauth-callback', (_event, data) => callback(data))
+  },
+  removeFeishuOAuthCallbackListener: () => {
+    ipcRenderer.removeAllListeners('feishu-oauth-callback')
+  },
+
+  // 记忆系统
+  memoryGet: () =>
+    ipcRenderer.invoke('memory:get') as Promise<{ success: boolean; data?: any; error?: string }>,
+  memoryGetFormatted: (maxTokens?: number) =>
+    ipcRenderer.invoke('memory:get-formatted', maxTokens) as Promise<{ success: boolean; data?: string; error?: string }>,
+  memoryRequestUpdate: (threadId: string, messages: Array<{ role: 'user' | 'assistant'; content: string }>, llmConfig?: { apiUrl: string; apiKey: string; model: string }) =>
+    ipcRenderer.invoke('memory:request-update', threadId, messages, llmConfig) as Promise<{ success: boolean; error?: string }>,
+  memoryUpdateNow: (threadId: string, messages: Array<{ role: 'user' | 'assistant'; content: string }>, llmConfig?: { apiUrl: string; apiKey: string; model: string }) =>
+    ipcRenderer.invoke('memory:update-now', threadId, messages, llmConfig) as Promise<{ success: boolean; error?: string }>,
+  memoryClear: () =>
+    ipcRenderer.invoke('memory:clear') as Promise<{ success: boolean; error?: string }>,
+  memoryGetStats: () =>
+    ipcRenderer.invoke('memory:get-stats') as Promise<{ success: boolean; data?: any; error?: string }>,
+  memoryFlush: () =>
+    ipcRenderer.invoke('memory:flush') as Promise<{ success: boolean; error?: string }>,
 })

@@ -8,6 +8,7 @@ import HtmlPreviewDialog from './HtmlPreviewDialog.vue'
 import MermaidDialog from './MermaidDialog.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import { useSkills } from '@/composables/useSkills'
+import { LLM_PROVIDERS } from '@/types/llmProvider'
 import CopyIcon from './icons/CopyIcon.vue'
 import ChevronDownIcon from './icons/ChevronDownIcon.vue'
 import ChevronRightIcon from './icons/ChevronRightIcon.vue'
@@ -16,6 +17,7 @@ import XIcon from './icons/XIcon.vue'
 import ArrowUpIcon from './icons/ArrowUpIcon.vue'
 import SettingsIcon from './icons/SettingsIcon.vue'
 import GrapeIcon from './icons/GrapeIcon.vue'
+import LLMProviderIcon from './icons/LLMProviderIcon.vue'
 
 type Role = 'user' | 'assistant' | 'system' | 'tool'
 
@@ -1405,6 +1407,13 @@ async function handleLinkClick(e: MouseEvent) {
   }
 }
 
+// 根据 apiUrl 获取提供商 ID
+function getProviderIdByApiUrl(apiUrl: string): string {
+  if (!apiUrl) return 'custom'
+  const provider = LLM_PROVIDERS.find(p => p.apiUrl === apiUrl)
+  return provider?.id || 'custom'
+}
+
 // 格式化 token 数量显示
 function formatTokenCount(count: number): string {
   if (count >= 1000000) {
@@ -1653,6 +1662,11 @@ function scrollToBottom() {
                 <span>思考</span>
               </button>
               <div v-show="reasoningExpanded[i]" class="msg-reasoning-bubble" v-html="render(m.reasoning || '')" />
+            </div>
+            <!-- AI 消息提供商图标 -->
+            <div v-if="m.role === 'assistant'" class="assistant-header">
+              <LLMProviderIcon :provider="getProviderIdByApiUrl(activeConfig?.apiUrl)" :size="20" />
+              <span class="assistant-provider-name">{{ activeConfig?.name || 'AI' }}</span>
             </div>
             <div class="msg-bubble-wrapper">
               <!-- 用户消息图片预览 -->
@@ -2493,6 +2507,20 @@ function scrollToBottom() {
 
 .msg-bubble-wrapper {
   position: relative;
+}
+
+.assistant-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 4px 0;
+}
+
+.assistant-provider-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
 }
 
 .msg-row:hover .msg-actions {

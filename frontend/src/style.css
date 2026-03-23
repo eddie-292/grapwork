@@ -61,6 +61,13 @@
   --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.12);
   --shadow-xl: 0 24px 60px rgba(0, 0, 0, 0.16);
 
+  /* Button Shadows - Primary color based */
+  --shadow-btn-sm: 0 2px 8px rgba(0, 122, 255, 0.25);
+  --shadow-btn-md: 0 4px 16px rgba(0, 122, 255, 0.35);
+  --shadow-btn-active: 0 1px 4px rgba(0, 122, 255, 0.2);
+  --shadow-btn-xs: 0 2px 6px rgba(0, 122, 255, 0.2);
+  --shadow-btn-hover: 0 4px 12px rgba(0, 122, 255, 0.3);
+
   /* Border Radius - Apple style */
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -165,6 +172,87 @@
   --shadow-md: 0 4px 12px rgba(139, 90, 43, 0.1);
   --shadow-lg: 0 12px 40px rgba(139, 90, 43, 0.15);
   --shadow-xl: 0 24px 60px rgba(139, 90, 43, 0.2);
+
+  /* 羊皮纸按钮阴影 - 主色调 */
+  --shadow-btn-sm: 0 2px 8px rgba(139, 90, 43, 0.25);
+  --shadow-btn-md: 0 4px 16px rgba(139, 90, 43, 0.35);
+  --shadow-btn-active: 0 1px 4px rgba(139, 90, 43, 0.2);
+  --shadow-btn-xs: 0 2px 6px rgba(139, 90, 43, 0.2);
+  --shadow-btn-hover: 0 4px 12px rgba(139, 90, 43, 0.3);
+}
+
+/* ============================================
+   AMBER THEME - 琥珀橙褐色配色
+   Claude风格的温暖橙褐色设计系统
+   ============================================ */
+:root[data-theme="amber"] {
+  color-scheme: light only;
+
+  /* 琥珀主题色 - 温暖的橙褐色 */
+  --color-primary: #d97706;
+  --color-primary-hover: #b45309;
+  --color-primary-light: rgba(217, 119, 6, 0.1);
+  --color-secondary: #f5f3f0;
+  --color-secondary-hover: #e5e2de;
+  --color-ghost: transparent;
+  --color-ghost-hover: rgba(217, 119, 6, 0.08);
+  --color-ghost-active: rgba(217, 119, 6, 0.15);
+  --color-danger: #dc2626;
+  --color-danger-hover: #b91c1c;
+  --color-danger-bg: rgba(220, 38, 38, 0.1);
+  --color-button-disabled: #d1d5db;
+  --color-link: #d97706;
+  --color-recording: #fffbeb;
+  --color-recording-border: #fcd34d;
+  --color-recording-text: #92400e;
+
+  /* 琥珀文字颜色 */
+  --color-text-primary: #1f1f1f;
+  --color-text-secondary: #6b6b6b;
+  --color-text-tertiary: #9ca3af;
+  --color-text-on-primary: #ffffff;
+
+  /* 琥珀边框颜色 */
+  --color-border: #e5e2de;
+  --color-border-hover: rgba(217, 119, 6, 0.3);
+
+  /* 琥珀背景颜色 - 温暖的米色调 */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #faf9f7;
+  --color-bg-tertiary: #f5f3f0;
+  --color-bg-hover: rgba(217, 119, 6, 0.08);
+  --color-bg-success: rgba(52, 199, 89, 0.15);
+  --color-bg-warning: rgba(217, 119, 6, 0.15);
+  --color-bg-info: rgba(217, 119, 6, 0.1);
+
+  /* 琥珀状态颜色 */
+  --color-status-working: #d97706;
+  --color-status-working-bg: rgba(217, 119, 6, 0.1);
+  --color-status-completed: #34c759;
+  --color-status-completed-bg: rgba(52, 199, 89, 0.15);
+  --color-status-failed: #ff3b30;
+  --color-status-failed-bg: rgba(255, 59, 48, 0.1);
+  --color-status-idle: #8e8e93;
+  --color-status-idle-bg: rgba(142, 142, 147, 0.12);
+
+  /* 琥珀玻璃态效果 */
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.24);
+  --glass-shadow: 0 8px 32px rgba(217, 119, 6, 0.08);
+  --glass-blur: blur(20px);
+
+  /* 琥珀阴影 - 温暖的橙褐色调 */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 24px 60px rgba(0, 0, 0, 0.12);
+
+  /* 琥珀按钮阴影 - 主色调 */
+  --shadow-btn-sm: 0 2px 8px rgba(217, 119, 6, 0.25);
+  --shadow-btn-md: 0 4px 16px rgba(217, 119, 6, 0.35);
+  --shadow-btn-active: 0 1px 4px rgba(217, 119, 6, 0.2);
+  --shadow-btn-xs: 0 2px 6px rgba(217, 119, 6, 0.2);
+  --shadow-btn-hover: 0 4px 12px rgba(217, 119, 6, 0.3);
 }
 
 * {
@@ -251,20 +339,20 @@ button:disabled {
 .login-btn {
   background: var(--color-primary);
   color: var(--color-text-on-primary);
-  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
+  box-shadow: var(--shadow-btn-sm);
 }
 .btn.primary:hover,
 .btn-primary:hover,
 .login-btn:hover {
   background: var(--color-primary-hover);
-  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.35);
+  box-shadow: var(--shadow-btn-md);
   transform: translateY(-1px);
 }
 .btn.primary:active,
 .btn-primary:active,
 .login-btn:active {
   transform: scale(0.98) translateY(0);
-  box-shadow: 0 1px 4px rgba(0, 122, 255, 0.2);
+  box-shadow: var(--shadow-btn-active);
 }
 .btn.primary:disabled,
 .btn-primary:disabled,
@@ -344,11 +432,11 @@ button:disabled {
 .btn.yes {
   background: var(--color-primary);
   color: var(--color-text-on-primary);
-  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
+  box-shadow: var(--shadow-btn-sm);
 }
 .btn.yes:hover {
   background: var(--color-primary-hover);
-  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.35);
+  box-shadow: var(--shadow-btn-md);
   transform: translateY(-1px);
 }
 
@@ -456,11 +544,11 @@ button:disabled {
   transition: all var(--transition-normal);
   font-size: 14px;
   font-weight: 500;
-  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
+  box-shadow: var(--shadow-btn-sm);
 }
 .add-btn:hover {
   background: var(--color-primary-hover);
-  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.35);
+  box-shadow: var(--shadow-btn-md);
   transform: translateY(-1px);
 }
 .add-btn:active {
@@ -530,11 +618,11 @@ button:disabled {
   cursor: pointer;
   transition: all var(--transition-normal);
   font-weight: 500;
-  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
+  box-shadow: var(--shadow-btn-sm);
 }
 .confirm-btn:hover {
   background: var(--color-primary-hover);
-  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.35);
+  box-shadow: var(--shadow-btn-md);
   transform: translateY(-1px);
 }
 .confirm-btn:active {
@@ -610,13 +698,13 @@ button:disabled {
   background: var(--color-primary);
   color: var(--color-text-on-primary);
   border-color: var(--color-primary);
-  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
+  box-shadow: var(--shadow-btn-sm);
 }
 .toggle-btn.active:hover,
 .enable-btn.active:hover,
 .mode-switcher-btn.active:hover {
   background: var(--color-primary-hover);
-  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.35);
+  box-shadow: var(--shadow-btn-md);
 }
 
 /* Copy Button - Apple Style */
@@ -680,7 +768,7 @@ button:disabled {
   background: var(--color-primary);
   color: var(--color-text-on-primary);
   border-color: var(--color-primary);
-  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
+  box-shadow: var(--shadow-btn-sm);
 }
 
 /* Working Memory Action Buttons - Apple Style */
@@ -727,7 +815,7 @@ button:disabled {
   background: var(--color-primary);
   color: var(--color-text-on-primary);
   border-color: var(--color-primary);
-  box-shadow: 0 2px 6px rgba(0, 122, 255, 0.2);
+  box-shadow: var(--shadow-btn-xs);
 }
 .wm-edit-btn.cancel,
 .task-edit-btn.cancel {
@@ -738,7 +826,7 @@ button:disabled {
 .wm-edit-btn.save:hover,
 .task-edit-btn.save:hover {
   background: var(--color-primary-hover);
-  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+  box-shadow: var(--shadow-btn-hover);
   transform: translateY(-1px);
 }
 .wm-edit-btn.cancel:hover,

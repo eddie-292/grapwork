@@ -207,8 +207,6 @@ interface ElectronAPI {
     content: string
     error?: string
   }>
-  // 获取 memory.md 文件路径
-  getMemoryMdPath: () => Promise<string>
   // Skills 技能系统
   skillsScan: () => Promise<SkillScanResult>
   skillsLoad: (skillId: string) => Promise<SkillLoadResult>
@@ -293,6 +291,27 @@ interface ElectronAPI {
   // macOS 隔离检测与修复
   checkMacOSQuarantine: () => Promise<{ isQuarantined: boolean; appPath: string }>
   fixMacOSQuarantine: (appPath: string) => Promise<{ success: boolean; error?: string }>
+  // 通用连接 API 请求（用于第三方服务集成，绕过 CORS）
+  connectionRequest: (params: {
+    url: string
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+    headers?: Record<string, string>
+    body?: string
+  }) => Promise<{ success: boolean; status: number; data?: string; error?: string }>
+
+  // 飞书 OAuth 相关
+  feishuStartOAuth: (params: { appId: string; connectionId: string }) => Promise<{ success: boolean; error?: string; redirectUri?: string }>
+  onFeishuOAuthCallback: (callback: (data: { code: string; state: string; connectionId: string }) => void) => void
+  removeFeishuOAuthCallbackListener: () => void
+
+  // 记忆系统
+  memoryGet: () => Promise<{ success: boolean; data?: any; error?: string }>
+  memoryGetFormatted: (maxTokens?: number) => Promise<{ success: boolean; data?: string; error?: string }>
+  memoryRequestUpdate: (threadId: string, messages: Array<{ role: 'user' | 'assistant'; content: string }>, llmConfig?: { apiUrl: string; apiKey: string; model: string }) => Promise<{ success: boolean; error?: string }>
+  memoryUpdateNow: (threadId: string, messages: Array<{ role: 'user' | 'assistant'; content: string }>, llmConfig?: { apiUrl: string; apiKey: string; model: string }) => Promise<{ success: boolean; error?: string }>
+  memoryClear: () => Promise<{ success: boolean; error?: string }>
+  memoryGetStats: () => Promise<{ success: boolean; data?: any; error?: string }>
+  memoryFlush: () => Promise<{ success: boolean; error?: string }>
 }
 
 declare global {

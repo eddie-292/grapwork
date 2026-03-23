@@ -9,6 +9,7 @@ import type { Workspace } from '../types/workspace'
 import { useMCP } from '../composables/useMCP'
 import { useSkills } from '../composables/useSkills'
 import { useLoop } from '../composables/useLoop'
+import { useConnections } from '../composables/useConnections'
 import type { LoopTask } from '../types/loop'
 import NormalChat from './NormalChat.vue'
 import WorkspaceView from './WorkspaceView.vue'
@@ -26,6 +27,9 @@ const router = useRouter()
 
 // MCP 管理器
 const mcpManager = useMCP()
+
+// 连接管理器（用于语雀、飞书等第三方服务连接）
+const connectionsManager = useConnections()
 
 // Skills 管理器
 const skillsManager = useSkills()
@@ -850,40 +854,56 @@ async function executeNormalChat(text: string, images: string[] = [], files: Att
 
     // 生成 MCP tools 数组（如果有激活的工具）
     await mcpManager.loadServers()
+    // 初始化连接管理器，确保语雀、飞书等连接状态可用
+    await connectionsManager.initialize()
     const mcpTools = mcpManager.generateOpenAITools()
     //console.log('[MCP] Active tools:', mcpTools.length)
 
-    // 构建 system prompt
+    // 构建 system prompt（使用 XML 标签组织语义块）
     let systemPrompt = ''
+
+    // <role> 定义 Agent 身份
+    let roleContent = ''
     if (activeAssistant.value?.systemPrompt && activeAssistant.value.systemPrompt.trim()) {
-      systemPrompt = activeAssistant.value.systemPrompt.trim()
+      roleContent = activeAssistant.value.systemPrompt.trim()
     } else {
       // 使用默认内置助理的 System Prompt
-      systemPrompt = storage.getDefaultAssistantPrompt()
+      roleContent = storage.getDefaultAssistantPrompt()
     }
+    systemPrompt += `<role>\n${roleContent}\n</role>`
 
-    // 注入 memory.md 路径信息
-    if (window.electronAPI?.getMemoryMdPath) {
-      try {
-        const memoryMdPath = await window.electronAPI.getMemoryMdPath()
-        const memoryContext = `\n## 记忆系统\n\n长期记忆文件 \`memory.md\` 的完整路径为：\n\`\`\`\n${memoryMdPath}\n\`\`\`\n\n你可以使用 \`read_file\` 工具读取此路径的文件来获取用户的历史偏好、重要信息等。也可以在适当的时候使用 \`write_file\` 工具向该文件追加新的记忆内容。`
-        systemPrompt += memoryContext
-      } catch (e) {
-        console.error('Failed to get memory.md path:', e)
-      }
-    }
+    // 思维方式
+    systemPrompt += `\n\n<thinking_style>\n
+    - Think concisely and strategically about the user's request BEFORE taking action
+    - Break down the task: What is clear? What is ambiguous? What is missing?
+    - **PRIORITY CHECK: If anything is unclear, missing, or has multiple interpretations, you MUST ask for clarification FIRST - do NOT proceed with work**
+    - Never write down your full final answer or report in thinking process, but only outline
+    - CRITICAL: After thinking, you MUST provide your actual response to the user. Thinking is for planning, the response is for delivery.
+    - Your response must contain the actual answer, not just a reference to what you thought about \n</thinking_style>`
 
-    // 加载 Skills 注册表并生成上下文
+    // <skill_system> 技能使用指南
     await skillsManager.loadRegistry()
     const skillsContext = skillsManager.generateSkillContext()
     if (skillsContext) {
-      systemPrompt += '\n\n' + skillsContext
+      systemPrompt += `\n\n<skill_system>\n${skillsContext}\n</skill_system>`
     }
 
-    // 注入当前工作目录结构（如果有选择工作目录）
+    // <working_directory> 文件路径说明
     const workspaceContext = await getWorkspaceContext()
     if (workspaceContext) {
-      systemPrompt += '\n\n' + workspaceContext
+      systemPrompt += `\n\n<working_directory>\n${workspaceContext}\n</working_directory>`
+    }
+
+    // <memory> 记忆系统上下文
+    if (window.electronAPI?.memoryGetFormatted) {
+      try {
+        const memoryResult = await window.electronAPI.memoryGetFormatted(2000)
+        if (memoryResult.success && memoryResult.data) {
+          systemPrompt += `\n\n<memory>\n${memoryResult.data}\n</memory>`
+        }
+      } catch (e) {
+        console.error('[Memory] Failed to get formatted memory:', e)
+      }
     }
 
     // 添加合并后的 system prompt 到消息开头
@@ -1253,6 +1273,31 @@ async function executeNormalChat(text: string, images: string[] = [], files: Att
     }
     saveChatHistory()
     scrollToBottom()
+
+    // 触发记忆更新（异步，不阻塞 UI）
+    if (window.electronAPI?.memoryRequestUpdate && currentChat.value && !last?.isError) {
+      try {
+        // 过滤消息，只保留用户和助手消息
+        const messagesForMemory = currentMessages
+          .filter(m => m.role === 'user' || m.role === 'assistant')
+          .filter(m => !m.tool_calls && !m.tool_call_id) // 排除工具调用消息
+          .map(m => ({
+            role: m.role as 'user' | 'assistant',
+            content: m.content || ''
+          }))
+
+        if (messagesForMemory.length >= 2 && activeConfig.value) {
+          // 至少有一轮对话才更新，传递当前会话的 LLM 配置
+          window.electronAPI.memoryRequestUpdate(currentChat.value.id, messagesForMemory, {
+            apiUrl: activeConfig.value.apiUrl,
+            apiKey: activeConfig.value.apiKey,
+            model: activeConfig.value.model,
+          })
+        }
+      } catch (e) {
+        console.error('[Memory] Failed to request memory update:', e)
+      }
+    }
   }
 }
 

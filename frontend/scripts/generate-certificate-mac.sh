@@ -7,7 +7,7 @@ set -e
 CERT_NAME="GrapWork"
 CERT_SUBJECT="/CN=GrapWork/O=MirrorGrap/C=CN"
 CERT_PATH="build/certificates"
-P12_FILE="$CERT_PATH/grapework.p12"
+P12_FILE="$CERT_PATH/grapework.pfx"
 PEM_FILE="$CERT_PATH/grapework.pem"
 KEY_FILE="$CERT_PATH/grapework.key"
 PASSWORD="grapeWork2026"
