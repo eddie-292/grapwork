@@ -1,78 +1,62 @@
 <script setup lang="ts">
-defineProps<{
+import { computed } from 'vue'
+
+// 显式导入所有供应商图标
+import openaiIcon from '@/assets/provider-icons/openai.svg'
+import deepseekIcon from '@/assets/provider-icons/deepseek.svg'
+import moonshotIcon from '@/assets/provider-icons/moonshot.svg'
+import zhipuIcon from '@/assets/provider-icons/zhipu.svg'
+import qwenIcon from '@/assets/provider-icons/qwen.svg'
+import openrouterIcon from '@/assets/provider-icons/openrouter.svg'
+import mistralIcon from '@/assets/provider-icons/mistral.svg'
+import groqIcon from '@/assets/provider-icons/groq.svg'
+import togetherIcon from '@/assets/provider-icons/together.svg'
+import fireworksIcon from '@/assets/provider-icons/fireworks.svg'
+import siliconflowIcon from '@/assets/provider-icons/siliconflow.svg'
+import ollamaIcon from '@/assets/provider-icons/ollama.svg'
+import lmstudioIcon from '@/assets/provider-icons/lmstudio.svg'
+
+const props = defineProps<{
   provider: string
   size?: number
 }>()
+
+// 图标映射
+const iconMap: Record<string, string> = {
+  openai: openaiIcon,
+  deepseek: deepseekIcon,
+  moonshot: moonshotIcon,
+  zhipu: zhipuIcon,
+  qwen: qwenIcon,
+  openrouter: openrouterIcon,
+  mistral: mistralIcon,
+  groq: groqIcon,
+  together: togetherIcon,
+  fireworks: fireworksIcon,
+  siliconflow: siliconflowIcon,
+  ollama: ollamaIcon,
+  lmstudio: lmstudioIcon,
+}
+
+// 获取图标 URL
+const iconUrl = computed(() => {
+  const provider = props.provider.toLowerCase()
+  return iconMap[provider] || null
+})
+
+// 是否使用默认图标
+const useDefaultIcon = computed(() => !iconUrl.value)
 </script>
 
 <template>
   <span class="llm-provider-icon" :style="{ width: size + 'px', height: size + 'px' }">
-    <!-- OpenAI -->
-    <svg v-if="provider === 'openai'" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.051 6.051 0 0 0 6.515 2.9A5.985 5.985 0 0 0 13.26 24a6.056 6.056 0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.997-2.9 6.056 6.056 0 0 0-.747-7.073zM13.26 22.43a4.476 4.476 0 0 1-2.876-1.04l.141-.081 4.779-2.758a.795.795 0 0 0 .392-.681v-6.737l2.02 1.168a.071.071 0 0 1 .038.052v5.583a4.504 4.504 0 0 1-4.494 4.494zM3.6 18.304a4.47 4.47 0 0 1-.535-3.014l.142.085 4.783 2.759a.771.771 0 0 0 .78 0l5.843-3.369v2.332a.08.08 0 0 1-.033.062L9.74 19.95a4.5 4.5 0 0 1-6.14-1.646zM2.34 7.896a4.485 4.485 0 0 1 2.366-1.973V11.6a.766.766 0 0 0 .388.676l5.815 3.355-2.02 1.168a.076.076 0 0 1-.071 0l-4.83-2.786A4.504 4.504 0 0 1 2.34 7.872zm16.597 3.855l-5.833-3.387L15.119 7.2a.076.076 0 0 1 .071 0l4.83 2.791a4.494 4.494 0 0 1-.676 8.105v-5.678a.79.79 0 0 0-.407-.667zm2.01-3.023l-.141-.085-4.774-2.782a.776.776 0 0 0-.785 0L9.409 9.23V6.897a.066.066 0 0 1 .028-.061l4.83-2.787a4.5 4.5 0 0 1 6.68 4.66zm-12.64 4.135l-2.02-1.164a.08.08 0 0 1-.038-.057V6.075a4.5 4.5 0 0 1 7.375-3.453l-.142.08L8.704 5.46a.795.795 0 0 0-.393.681zm1.097-2.365l2.602-1.5 2.607 1.5v2.999l-2.597 1.5-2.607-1.5z"/>
-    </svg>
-    
-    <!-- DeepSeek -->
-    <svg v-else-if="provider === 'deepseek'" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h-2v-6h2v6zm4 0h-2v-6h2v6zm0-8H9V7h6v2z"/>
-    </svg>
-    
-    <!-- Moonshot/Kimi -->
-    <svg v-else-if="provider === 'moonshot'" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 3a9 9 0 1 0 9 9c0-4.97-4.03-9-9-9zm0 16c-3.86 0-7-3.14-7-7s3.14-7 7-7 7 3.14 7 7-3.14 7-7 7zm-1-11h2v6h-2zm0 8h2v2h-2z"/>
-    </svg>
-    
-    <!-- Zhipu/GLM -->
-    <svg v-else-if="provider === 'zhipu'" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-    </svg>
-    
-    <!-- Qwen -->
-    <svg v-else-if="provider === 'qwen'" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-5.5-2.5l7.51-3.75L17.5 6.5 9.99 10.25 6.5 17.5zm5.5-6.5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5-1.5-.67-1.5-1.5.67-1.5 1.5-1.5z"/>
-    </svg>
-    
-    <!-- OpenRouter -->
-    <svg v-else-if="provider === 'openrouter'" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-    </svg>
-    
-    <!-- Mistral -->
-    <svg v-else-if="provider === 'mistral'" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M3 3h4v4H3V3zm7 0h4v4h-4V3zm7 0h4v4h-4V3zM3 10h4v4H3v-4zm7 0h4v4h-4v-4zm7 0h4v4h-4v-4zM3 17h4v4H3v-4zm7 0h4v4h-4v-4zm7 0h4v4h-4v-4z"/>
-    </svg>
-    
-    <!-- Groq -->
-    <svg v-else-if="provider === 'groq'" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
-    </svg>
-    
-    <!-- Together -->
-    <svg v-else-if="provider === 'together'" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
-    </svg>
-    
-    <!-- Fireworks -->
-    <svg v-else-if="provider === 'fireworks'" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 2L9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2z"/>
-    </svg>
-    
-    <!-- SiliconFlow -->
-    <svg v-else-if="provider === 'siliconflow'" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 0 0-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
-    </svg>
-    
-    <!-- Ollama -->
-    <svg v-else-if="provider === 'ollama'" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8zm-2-9a1.5 1.5 0 1 1-1.5-1.5A1.5 1.5 0 0 1 10 11zm4.5 0a1.5 1.5 0 1 1-1.5-1.5 1.5 1.5 0 0 1 1.5 1.5zm-2.5 5c-2.33 0-4.31-1.46-5.11-3.5h10.22c-.8 2.04-2.78 3.5-5.11 3.5z"/>
-    </svg>
-    
-    <!-- LM Studio -->
-    <svg v-else-if="provider === 'lmstudio'" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l4.59-4.58L18 11l-6 6z"/>
-    </svg>
-    
-    <!-- Custom -->
+    <img
+      v-if="!useDefaultIcon"
+      :src="iconUrl"
+      :alt="provider"
+      class="provider-img"
+    />
+    <!-- Default/Custom -->
     <svg v-else viewBox="0 0 24 24" fill="currentColor">
       <path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
     </svg>
@@ -87,8 +71,13 @@ defineProps<{
   flex-shrink: 0;
 }
 
-.llm-provider-icon svg {
+.llm-provider-icon svg,
+.llm-provider-icon .provider-img {
   width: 100%;
   height: 100%;
+}
+
+.provider-img {
+  object-fit: contain;
 }
 </style>
