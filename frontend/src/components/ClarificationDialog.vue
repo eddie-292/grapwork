@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="fade">
-      <div v-if="hasPending" class="clarification-overlay" @click.self="handleCancel">
+      <div v-if="hasPending" class="clarification-overlay">
         <div class="clarification-dialog">
           <!-- Header -->
           <div class="dialog-header">
