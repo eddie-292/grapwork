@@ -4803,3 +4803,32 @@ ipcMain.handle('memory:flush', async () => {
     return { success: false, error: error?.message || 'Unknown error' }
   }
 })
+
+// ============================================================================
+// 澄清工具 IPC 处理器
+// ============================================================================
+
+import { clarificationService } from './clarificationService'
+import type { ClarificationResponse } from '../src/types/clarification'
+
+// 获取待处理的澄清请求
+ipcMain.handle('clarification:getPending', async () => {
+  return clarificationService.getPendingRequest()
+})
+
+// 获取澄清状态
+ipcMain.handle('clarification:getState', async () => {
+  return clarificationService.getState()
+})
+
+// 提交澄清响应
+ipcMain.handle('clarification:respond', async (_event, response: ClarificationResponse) => {
+  const success = clarificationService.submitResponse(response)
+  return { success }
+})
+
+// 取消澄清请求
+ipcMain.handle('clarification:cancel', async (_event, requestId: string) => {
+  const success = clarificationService.cancelRequest('User cancelled')
+  return { success }
+})

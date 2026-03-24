@@ -242,4 +242,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('memory:get-stats') as Promise<{ success: boolean; data?: any; error?: string }>,
   memoryFlush: () =>
     ipcRenderer.invoke('memory:flush') as Promise<{ success: boolean; error?: string }>,
+
+  // 澄清工具
+  clarificationGetPending: () =>
+    ipcRenderer.invoke('clarification:getPending') as Promise<import('../src/types/clarification').ClarificationRequest | null>,
+  clarificationGetState: () =>
+    ipcRenderer.invoke('clarification:getState') as Promise<import('../src/types/clarification').ClarificationState>,
+  clarificationRespond: (id: string, answer: string | number) =>
+    ipcRenderer.invoke('clarification:respond', { id, answer }) as Promise<{ success: boolean }>,
+  clarificationCancel: (id: string) =>
+    ipcRenderer.invoke('clarification:cancel', id) as Promise<{ success: boolean }>,
+  onClarificationPending: (callback: (request: import('../src/types/clarification').ClarificationRequest) => void) => {
+    const handler = (_event: any, request: import('../src/types/clarification').ClarificationRequest) => callback(request)
+    ipcRenderer.on('clarification:pending', handler)
+    return () => ipcRenderer.removeListener('clarification:pending', handler)
+  },
+  onClarificationStateChanged: (callback: (state: import('../src/types/clarification').ClarificationState) => void) => {
+    const handler = (_event: any, state: import('../src/types/clarification').ClarificationState) => callback(state)
+    ipcRenderer.on('clarification:stateChanged', handler)
+    return () => ipcRenderer.removeListener('clarification:stateChanged', handler)
+  },
 })
