@@ -10,8 +10,7 @@ import type {
   ClarificationType
 } from '@/types/clarification'
 import {
-  CLARIFICATION_TYPE_LABELS,
-  CLARIFICATION_TYPE_ICONS
+  CLARIFICATION_TYPE_LABELS
 } from '@/types/clarification'
 
 // 全局状态（单例模式）
@@ -26,12 +25,6 @@ let rejectCallback: ((error: Error) => void) | null = null
 const hasPending = computed(() => pendingRequest.value !== null)
 
 const clarificationType = computed(() => pendingRequest.value?.clarificationType)
-
-const typeIcon = computed(() => {
-  return clarificationType.value
-    ? CLARIFICATION_TYPE_ICONS[clarificationType.value]
-    : '❓'
-})
 
 const typeLabel = computed(() => {
   return clarificationType.value
@@ -198,7 +191,6 @@ export function useClarificationStore() {
     // Getters
     hasPending,
     clarificationType,
-    typeIcon,
     typeLabel,
 
     // Actions
@@ -245,7 +237,6 @@ export function useClarification() {
     pendingRequest,
     isWaiting,
     clarificationType,
-    typeIcon,
     typeLabel,
     respond,
     cancel

@@ -42,15 +42,6 @@ export const CLARIFICATION_TYPE_LABELS: Record<ClarificationType, string> = {
   suggestion: '建议确认'
 }
 
-/** 澄清类型图标映射 */
-export const CLARIFICATION_TYPE_ICONS: Record<ClarificationType, string> = {
-  missing_info: '❓',
-  ambiguous_requirement: '🤔',
-  approach_choice: '🔀',
-  risk_confirmation: '⚠️',
-  suggestion: '💡'
-}
-
 /** 澄清类型输入提示映射 */
 export const CLARIFICATION_TYPE_PLACEHOLDERS: Record<ClarificationType, string> = {
   missing_info: '请输入...',
