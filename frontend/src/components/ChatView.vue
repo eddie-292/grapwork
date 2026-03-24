@@ -880,7 +880,7 @@ async function executeNormalChat(text: string, images: string[] = [], files: Att
     - Never write down your full final answer or report in thinking process, but only outline
     - CRITICAL: After thinking, you MUST provide your actual response to the user. Thinking is for planning, the response is for delivery.
     - Your response must contain the actual answer, not just a reference to what you thought about \n</thinking_style>`
-
+      
     // <skill_system> 技能使用指南
     await skillsManager.loadRegistry()
     const skillsContext = skillsManager.generateSkillContext()
