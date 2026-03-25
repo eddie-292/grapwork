@@ -87,31 +87,18 @@ async function respond(answer: string | number): Promise<boolean> {
 
   const requestId = pendingRequest.value.id
 
-  try {
-    // 调用 IPC 提交响应
-    if (window.electronAPI?.clarificationRespond) {
-      const result = await window.electronAPI.clarificationRespond(requestId, answer)
-      if (!result?.success) {
-        console.error('[Clarification] Failed to submit response via IPC')
-      }
-    }
-
-    // 触发回调
-    if (resolveCallback) {
-      resolveCallback(answer)
-      resolveCallback = null
-      rejectCallback = null
-    }
-
-    // 清除状态
-    clearPending()
-
-    console.log('[Clarification] Response submitted:', requestId, answer)
-    return true
-  } catch (error) {
-    console.error('[Clarification] Failed to submit response:', error)
-    return false
+  // 触发回调（本地处理，不需要 IPC）
+  if (resolveCallback) {
+    resolveCallback(answer)
+    resolveCallback = null
+    rejectCallback = null
   }
+
+  // 清除状态
+  clearPending()
+
+  console.log('[Clarification] Response submitted:', requestId, answer)
+  return true
 }
 
 // 取消函数
@@ -120,28 +107,18 @@ async function cancel(): Promise<boolean> {
 
   const requestId = pendingRequest.value.id
 
-  try {
-    // 调用 IPC 取消请求
-    if (window.electronAPI?.clarificationCancel) {
-      await window.electronAPI.clarificationCancel(requestId)
-    }
-
-    // 触发拒绝回调
-    if (rejectCallback) {
-      rejectCallback(new Error('User cancelled'))
-      resolveCallback = null
-      rejectCallback = null
-    }
-
-    // 清除状态
-    clearPending()
-
-    console.log('[Clarification] Request cancelled:', requestId)
-    return true
-  } catch (error) {
-    console.error('[Clarification] Failed to cancel:', error)
-    return false
+  // 触发拒绝回调（本地处理，不需要 IPC）
+  if (rejectCallback) {
+    rejectCallback(new Error('User cancelled'))
+    resolveCallback = null
+    rejectCallback = null
   }
+
+  // 清除状态
+  clearPending()
+
+  console.log('[Clarification] Request cancelled:', requestId)
+  return true
 }
 
 // 初始化监听器

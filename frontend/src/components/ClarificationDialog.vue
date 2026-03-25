@@ -9,40 +9,43 @@
             <span class="type-label">{{ typeLabel }}</span>
           </div>
 
-          <!-- Context -->
-          <div v-if="request?.context" class="context-box" v-html="renderMarkdown(request.context)"></div>
+          <!-- Scrollable body -->
+          <div class="dialog-body">
+            <!-- Context -->
+            <div v-if="request?.context" class="context-box" v-html="renderMarkdown(request.context)"></div>
 
-          <!-- Question -->
-          <div class="question-box" v-html="renderMarkdown(request?.question || '')"></div>
+            <!-- Question -->
+            <div v-if="displayQuestion" class="question-box" v-html="renderMarkdown(displayQuestion)"></div>
 
-          <!-- Option buttons -->
-          <div v-if="hasOptions" class="options">
-            <button
-              v-for="(option, index) in request?.options"
-              :key="index"
-              class="option-btn"
-              @click="handleSelectOption(index)"
-            >
-              <span class="option-index">{{ index + 1 }}</span>
-              <span class="option-text" v-html="renderMarkdown(option)"></span>
-            </button>
-          </div>
+            <!-- Option buttons -->
+            <div v-if="hasOptions" class="options">
+              <button
+                v-for="(option, index) in request?.options"
+                :key="index"
+                class="option-btn"
+                @click="handleSelectOption(index)"
+              >
+                <span class="option-index">{{ index + 1 }}</span>
+                <span class="option-text" v-html="renderMarkdown(option)"></span>
+              </button>
+            </div>
 
-          <!-- Text input -->
-          <div v-else class="input-area">
-            <input
-              v-model="textInput"
-              type="text"
-              class="text-input"
-              :placeholder="inputPlaceholder"
-              @keyup.enter="handleSubmitText"
-              ref="inputRef"
-            />
-            <button class="submit-btn" @click="handleSubmitText">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
-              </svg>
-            </button>
+            <!-- Text input -->
+            <div v-else class="input-area">
+              <input
+                v-model="textInput"
+                type="text"
+                class="text-input"
+                :placeholder="inputPlaceholder"
+                @keyup.enter="handleSubmitText"
+                ref="inputRef"
+              />
+              <button class="submit-btn" @click="handleSubmitText">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+                </svg>
+              </button>
+            </div>
           </div>
 
           <!-- Footer -->
@@ -71,6 +74,38 @@ function renderMarkdown(content: string): string {
   if (!content) return ''
   return md.renderInline(content)
 }
+
+/**
+ * 清理 question 文本，移除 LLM 可能嵌入的 JSON 结构
+ * LLM 有时会把整个工具参数 JSON 写入 question 字段
+ */
+function cleanQuestionText(text: string): string {
+  if (!text) return ''
+
+  // 尝试匹配嵌入的 JSON 块（包含 clarification_type/context/options 等已知 key）
+  const jsonBlockPattern = /\{[\s\S]*?\}(?=\s*$|\s*\n|$)/
+
+  const match = text.match(jsonBlockPattern)
+  if (match) {
+    try {
+      const parsed = JSON.parse(match[0])
+      // 如果 JSON 包含我们工具的已知 key，说明是嵌入的工具参数，需要移除
+      if (parsed.clarification_type || parsed.question || parsed.options) {
+        // 取 JSON 之前的文本作为真正的 question
+        const textBefore = text.substring(0, text.indexOf(match[0])).trim()
+        return textBefore || ''
+      }
+    } catch {
+      // 不是有效 JSON，保留原始文本
+    }
+  }
+
+  return text
+}
+
+const displayQuestion = computed(() => {
+  return cleanQuestionText(request.value?.question || '')
+})
 
 const store = useClarificationStore()
 const textInput = ref('')
@@ -166,8 +201,11 @@ async function handleCancel() {
   background: var(--color-bg-primary);
   border-radius: 16px;
   padding: 0;
-  max-width: 420px;
+  max-width: 480px;
   width: 90%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   border: 1px solid var(--color-border);
   overflow: hidden;
@@ -217,8 +255,14 @@ async function handleCancel() {
   letter-spacing: 0.3px;
 }
 
+.dialog-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
 .context-box {
-  margin: 16px 20px 0;
+  margin-bottom: 12px;
   padding: 12px 14px;
   background: var(--color-bg-tertiary);
   border-radius: 10px;
@@ -236,7 +280,7 @@ async function handleCancel() {
 }
 
 .question-box {
-  margin: 16px 20px;
+  margin-bottom: 12px;
   padding: 0;
   font-size: 15px;
   font-weight: 500;
@@ -280,7 +324,6 @@ async function handleCancel() {
 }
 
 .options {
-  margin: 0 20px 16px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -341,7 +384,6 @@ async function handleCancel() {
 .input-area {
   display: flex;
   gap: 10px;
-  margin: 0 20px 16px;
 }
 
 .text-input {
