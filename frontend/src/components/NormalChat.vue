@@ -2631,6 +2631,11 @@ function scrollToBottom() {
   margin: 0 0 10px 0;
 }
 
+
+.msg-bubble :deep(img) {
+    width: 100%;
+}
+
 .msg-bubble :deep(p:last-child) {
   margin-bottom: 0;
 }

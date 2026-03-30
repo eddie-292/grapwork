@@ -2969,6 +2969,7 @@ function handleFolderChanged(path: string) {
   position: relative;
 }
 
+
 .msg-bubble :deep(.code-copy-btn) {
   position: absolute;
   top: 8px;
