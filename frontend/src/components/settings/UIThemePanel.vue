@@ -29,6 +29,13 @@ const uiThemes: UITheme[] = [
     previewText: '#d97706'
   },
   {
+    value: 'moss',
+    label: '绿褐森林',
+    description: '沉稳自然的绿褐色调',
+    previewBg: 'linear-gradient(135deg, #edf1ea 0%, #f7f4ee 100%)',
+    previewText: '#5f6f52'
+  },
+  {
     value: 'parchment',
     label: '羊皮纸',
     description: '温暖复古的羊皮纸风格',

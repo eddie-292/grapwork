@@ -181,6 +181,72 @@
   --shadow-btn-hover: 0 4px 12px rgba(139, 90, 43, 0.3);
 }
 
+ /* ============================================
+    MOSS THEME - 绿褐森林配色
+    沉稳自然的绿褐色设计系统
+    ============================================ */
+ :root[data-theme="moss"] {
+   color-scheme: light only;
+ 
+   --color-primary: #5f6f52;
+   --color-primary-hover: #4c5a42;
+   --color-primary-light: rgba(95, 111, 82, 0.12);
+   --color-secondary: #ebe7dc;
+   --color-secondary-hover: #ddd6c7;
+   --color-ghost: transparent;
+   --color-ghost-hover: rgba(95, 111, 82, 0.08);
+   --color-ghost-active: rgba(95, 111, 82, 0.15);
+   --color-danger: #9a5b3c;
+   --color-danger-hover: #7d472d;
+   --color-danger-bg: rgba(154, 91, 60, 0.12);
+   --color-button-disabled: #b7b4a8;
+   --color-link: #5f6f52;
+   --color-recording: #f3f5ee;
+   --color-recording-border: #b7c2a5;
+   --color-recording-text: #4c5a42;
+ 
+   --color-text-primary: #2f3629;
+   --color-text-secondary: #625d52;
+   --color-text-tertiary: #90897b;
+   --color-text-on-primary: #f7f4ee;
+ 
+   --color-border: rgba(95, 111, 82, 0.2);
+   --color-border-hover: rgba(95, 111, 82, 0.38);
+ 
+   --color-bg-primary: #f7f4ee;
+   --color-bg-secondary: #edf1ea;
+   --color-bg-tertiary: #e4e8df;
+   --color-bg-hover: rgba(95, 111, 82, 0.06);
+   --color-bg-success: rgba(95, 111, 82, 0.14);
+   --color-bg-warning: rgba(173, 140, 94, 0.18);
+   --color-bg-info: rgba(95, 111, 82, 0.1);
+ 
+   --color-status-working: #5f6f52;
+   --color-status-working-bg: rgba(95, 111, 82, 0.12);
+   --color-status-completed: #708b4d;
+   --color-status-completed-bg: rgba(112, 139, 77, 0.16);
+   --color-status-failed: #9a5b3c;
+   --color-status-failed-bg: rgba(154, 91, 60, 0.12);
+   --color-status-idle: #8a8477;
+   --color-status-idle-bg: rgba(138, 132, 119, 0.14);
+ 
+   --glass-bg: rgba(247, 244, 238, 0.8);
+   --glass-border: rgba(247, 244, 238, 0.42);
+   --glass-shadow: 0 8px 32px rgba(95, 111, 82, 0.1);
+   --glass-blur: blur(20px);
+ 
+   --shadow-sm: 0 1px 2px rgba(95, 111, 82, 0.06);
+   --shadow-md: 0 4px 12px rgba(95, 111, 82, 0.1);
+   --shadow-lg: 0 12px 40px rgba(95, 111, 82, 0.14);
+   --shadow-xl: 0 24px 60px rgba(95, 111, 82, 0.18);
+ 
+   --shadow-btn-sm: 0 2px 8px rgba(95, 111, 82, 0.24);
+   --shadow-btn-md: 0 4px 16px rgba(95, 111, 82, 0.34);
+   --shadow-btn-active: 0 1px 4px rgba(95, 111, 82, 0.2);
+   --shadow-btn-xs: 0 2px 6px rgba(95, 111, 82, 0.2);
+   --shadow-btn-hover: 0 4px 12px rgba(95, 111, 82, 0.28);
+ }
+
 /* ============================================
    AMBER THEME - 琥珀橙褐色配色
    橙褐色设计系统
