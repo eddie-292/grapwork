@@ -24,7 +24,7 @@ const uiThemes: UITheme[] = [
   {
     value: 'amber',
     label: '琥珀橙褐',
-    description: 'Claude风格的温暖橙褐色',
+    description: '温暖橙褐色',
     previewBg: 'linear-gradient(135deg, #faf9f7 0%, #ffffff 100%)',
     previewText: '#d97706'
   },
