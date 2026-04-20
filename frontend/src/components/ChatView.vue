@@ -2208,6 +2208,7 @@ function handleFolderChanged(path: string) {
       <span class="app-title"></span>
     </div>
     <div class="container">
+      <!-- 左侧边栏 -->
       <aside class="sidebar" :class="{ collapsed: !showSidebar }">
         <!-- 工作空间切换器 -->
         <WorkspaceSwitcher
