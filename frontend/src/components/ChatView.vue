@@ -21,6 +21,8 @@ import MermaidDialog from './MermaidDialog.vue'
 import { storage } from '../services/StorageService'
 import SettingsIcon from './icons/SettingsIcon.vue'
 import XIcon from './icons/XIcon.vue'
+import EditIcon from './icons/EditIcon.vue'
+import FolderOpenIcon from './icons/FolderOpenIcon.vue'
 
 const router = useRouter()
 
@@ -271,6 +273,15 @@ const currentWorkspaceId = ref<string | null>(null)
 
 // 用户名（用于侧边栏底部显示）
 const username = ref('')
+
+const currentWorkspaceName = computed(() =>
+  workspaceList.value.find(w => w.id === currentWorkspaceId.value)?.name ?? '工作空间'
+)
+
+const usernameInitials = computed(() => {
+  if (!username.value) return '?'
+  return username.value.slice(0, 1).toUpperCase()
+})
 
 // 当前选择的文件夹路径（用于工作空间）
 const currentFolder = ref<string>('')
@@ -1676,23 +1687,50 @@ function switchChat(chatId: string) {
   currentChatId.value = chatId
 }
 
+// 删除确认对话框状态
+const showDeleteChatConfirm = ref(false)
+const pendingDeleteChatIds = ref<string[]>([])
+const pendingDeleteChatMessage = ref('')
+
 function deleteChat(chatId: string, event: Event) {
   event.stopPropagation()
+  const chat = chatList.value.find(c => c.id === chatId)
+  pendingDeleteChatIds.value = [chatId]
+  pendingDeleteChatMessage.value = `删除会话「${chat?.title || '未命名'}」？此操作不可撤销。`
+  showDeleteChatConfirm.value = true
+}
 
-  chatList.value = chatList.value.filter(c => c.id !== chatId)
-  if (currentChatId.value === chatId) {
-    // 如果删除的是当前会话，切换到第一个会话
+function batchDeleteChats(chatIds: string[], label: string) {
+  pendingDeleteChatIds.value = chatIds
+  pendingDeleteChatMessage.value = label
+  showDeleteChatConfirm.value = true
+}
+
+function onDeleteChatConfirm() {
+  performDeleteChats(pendingDeleteChatIds.value)
+  showDeleteChatConfirm.value = false
+  pendingDeleteChatIds.value = []
+  pendingDeleteChatMessage.value = ''
+}
+
+function onDeleteChatCancel() {
+  showDeleteChatConfirm.value = false
+  pendingDeleteChatIds.value = []
+  pendingDeleteChatMessage.value = ''
+}
+
+function performDeleteChats(chatIds: string[]) {
+  const deletedSet = new Set(chatIds)
+  const wasCurrentDeleted = deletedSet.has(currentChatId.value ?? '')
+  chatList.value = chatList.value.filter(c => !deletedSet.has(c.id))
+  if (wasCurrentDeleted) {
     if (chatList.value.length > 0) {
       currentChatId.value = chatList.value[0]?.id ?? null
-      if (currentChatId.value) {
-        switchChat(currentChatId.value)
-      }
+      if (currentChatId.value) switchChat(currentChatId.value)
     } else {
-      // 如果没有会话了，自动创建一个新会话
       createNewChat()
     }
   } else if (chatList.value.length === 0) {
-    // 如果删除后没有会话了（批量删除场景），自动创建一个新会话
     createNewChat()
   }
   saveChatHistory()
@@ -2210,6 +2248,17 @@ function handleFolderChanged(path: string) {
     <div class="container">
       <!-- 左侧边栏 -->
       <aside class="sidebar" :class="{ collapsed: !showSidebar }">
+        <!-- 侧边栏顶部头部 -->
+        <div class="sidebar-header">
+          <div class="sidebar-brand">
+            <FolderOpenIcon :size="15" class="sidebar-brand-icon" />
+            <span class="sidebar-brand-name">{{ currentWorkspaceName }}</span>
+          </div>
+          <button class="sidebar-action-btn" @click="createNewChat" title="新建对话">
+            <EditIcon :size="15" />
+          </button>
+        </div>
+
         <!-- 工作空间切换器 -->
         <WorkspaceSwitcher
           :workspaces="workspaceList"
@@ -2227,16 +2276,11 @@ function handleFolderChanged(path: string) {
 
         <!-- 侧边栏底部固定区域 -->
         <div class="sidebar-footer">
-          <div class="user-info">
-            <div class="user-details">
-              <div class="user-name">{{ username }}</div>
-            </div>
-          </div>
-          <div class="footer-actions">
-            <button class="footer-btn" @click="router.push('/settings')" title="设置">
-              <SettingsIcon :size="18" />
-            </button>
-          </div>
+          <div class="user-avatar">{{ usernameInitials }}</div>
+          <span class="user-name">{{ username || '未设置用户名' }}</span>
+          <button class="sidebar-action-btn" @click="router.push('/settings')" title="设置">
+            <SettingsIcon :size="15" />
+          </button>
         </div>
       </aside>
       <div class="content-wrapper">
@@ -2247,6 +2291,7 @@ function handleFolderChanged(path: string) {
             :current-chat-id="currentChatId"
             @switch-chat="switchChat"
             @delete-chat="deleteChat"
+            @batch-delete-chats="batchDeleteChats"
             @create-chat="createNewChat"
           />
 
@@ -2436,6 +2481,18 @@ function handleFolderChanged(path: string) {
         @close="showMermaidPreview = false"
       />
 
+      <!-- 会话删除确认对话框 -->
+      <ConfirmDialog
+        :show="showDeleteChatConfirm"
+        title="删除会话"
+        :message="pendingDeleteChatMessage"
+        confirm-text="删除"
+        cancel-text="取消"
+        type="danger"
+        @confirm="onDeleteChatConfirm"
+        @cancel="onDeleteChatCancel"
+      />
+
       <!-- 命令执行确认对话框 -->
       <ConfirmDialog
         :show="showCommandConfirmDialog"
@@ -2525,113 +2582,42 @@ function handleFolderChanged(path: string) {
 }
 
 .sidebar-header {
-  padding: 10px;
-  border-bottom: 1px solid var(--color-border);
-  display: flex;
-  gap: 8px;
-}
-
-/* new-chat-btn and toggle-sidebar-btn styles moved to global style.css */
-.new-chat-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.plus-icon {
-  font-size: 18px;
-  line-height: 1;
-}
-
-.toggle-sidebar-btn {
-  width: 36px;
-  padding: 0;
-}
-
-/* 侧边栏标签栏样式 */
-.sidebar-tabs {
-  display: flex;
-  gap: 4px;
-  padding: 8px 12px 0;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-bg-primary);
-}
-
-.sidebar-tab {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  font-size: 14px;
-  color: var(--color-text-secondary);
-  transition: all 0.2s;
-}
-
-.sidebar-tab:hover {
-  color: var(--color-text-primary);
-  background: var(--color-bg-tertiary);
-  border-radius: 6px 6px 0 0;
-}
-
-.sidebar-tab.active {
-  color: var(--color-text-primary);
-  border-bottom-color: var(--color-primary);
-  font-weight: 500;
-}
-
-.tab-icon {
-  flex-shrink: 0;
-}
-
-/* 侧边栏底部固定区域 */
-.sidebar-footer {
-  margin-top: auto;
-  padding: 12px;
-  border-top: 1px solid var(--color-border);
-  background: var(--color-bg-secondary);
+  padding: 12px 12px 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 6px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--color-border);
 }
 
-.user-info {
+.sidebar-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex: 1;
+  gap: 7px;
   min-width: 0;
+  flex: 1;
 }
 
-.user-details {
-  flex: 1;
-  min-width: 0;
+.sidebar-brand-icon {
+  color: var(--color-primary);
+  flex-shrink: 0;
+  opacity: 0.8;
 }
 
-.user-name {
-  font-size: 14px;
-  font-weight: 500;
+.sidebar-brand-name {
+  font-size: 13px;
+  font-weight: 600;
   color: var(--color-text-primary);
+  letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.footer-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.footer-btn {
-  width: 32px;
-  height: 32px;
+.sidebar-action-btn {
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2639,13 +2625,54 @@ function handleFolderChanged(path: string) {
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  color: var(--color-text-secondary);
-  transition: all 0.2s;
+  color: var(--color-text-tertiary);
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+  -webkit-app-region: no-drag;
 }
 
-.footer-btn:hover {
+.sidebar-action-btn:hover {
   background: var(--color-bg-tertiary);
   color: var(--color-text-primary);
+}
+
+/* 侧边栏底部固定区域 */
+.sidebar-footer {
+  margin-top: auto;
+  padding: 10px 12px;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-shrink: 0;
+}
+
+.user-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  letter-spacing: 0;
+  opacity: 0.9;
+}
+
+.user-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
 }
 
 /* 工作空间包装器 */

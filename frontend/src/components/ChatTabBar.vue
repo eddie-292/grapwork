@@ -31,6 +31,7 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   'switch-chat': [chatId: string]
   'delete-chat': [chatId: string, event: Event]
+  'batch-delete-chats': [chatIds: string[], label: string]
   'create-chat': []
 }>()
 
@@ -141,11 +142,8 @@ function hideContextMenu() {
 function deleteRightTabs() {
   const index = targetChatIndex.value
   if (index < 0 || index >= props.chatList.length - 1) return
-  
-  const tabsToDelete = props.chatList.slice(index + 1)
-  tabsToDelete.forEach(chat => {
-    emit('delete-chat', chat.id, new Event('delete-right'))
-  })
+  const chatIds = props.chatList.slice(index + 1).map(c => c.id)
+  emit('batch-delete-chats', chatIds, `关闭右侧 ${chatIds.length} 个会话？此操作不可撤销。`)
   hideContextMenu()
 }
 
@@ -153,34 +151,25 @@ function deleteRightTabs() {
 function deleteLeftTabs() {
   const index = targetChatIndex.value
   if (index <= 0) return
-  
-  const tabsToDelete = props.chatList.slice(0, index)
-  tabsToDelete.forEach(chat => {
-    emit('delete-chat', chat.id, new Event('delete-left'))
-  })
+  const chatIds = props.chatList.slice(0, index).map(c => c.id)
+  emit('batch-delete-chats', chatIds, `关闭左侧 ${chatIds.length} 个会话？此操作不可撤销。`)
   hideContextMenu()
 }
 
 // 删除除当前标签外的所有标签
 function deleteOtherTabs() {
   if (props.chatList.length <= 1) return
-  
   const currentTargetId = contextMenuTargetChatId.value
   if (!currentTargetId) return
-  
-  props.chatList.forEach(chat => {
-    if (chat.id !== currentTargetId) {
-      emit('delete-chat', chat.id, new Event('delete-others'))
-    }
-  })
+  const chatIds = props.chatList.filter(c => c.id !== currentTargetId).map(c => c.id)
+  emit('batch-delete-chats', chatIds, `关闭其他 ${chatIds.length} 个会话？此操作不可撤销。`)
   hideContextMenu()
 }
 
 // 删除所有标签
 function deleteAllTabs() {
-  props.chatList.forEach(chat => {
-    emit('delete-chat', chat.id, new Event('delete-all'))
-  })
+  const chatIds = props.chatList.map(c => c.id)
+  emit('batch-delete-chats', chatIds, `关闭全部 ${chatIds.length} 个会话？此操作不可撤销。`)
   hideContextMenu()
 }
 
