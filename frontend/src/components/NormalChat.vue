@@ -2534,12 +2534,30 @@ function scrollToBottom() {
   border-radius: 50%;
 }
 
+.reasoning-text {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+
 .reasoning-text :deep(p) {
   margin: 0 0 10px 0;
 }
 
 .reasoning-text :deep(p:last-child) {
   margin-bottom: 0;
+}
+
+.reasoning-text :deep(pre) {
+  max-width: 100%;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+}
+
+.reasoning-text :deep(code) {
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .reasoning-tools {
