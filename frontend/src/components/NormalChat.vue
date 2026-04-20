@@ -23,6 +23,7 @@ import GrapeIcon from './icons/GrapeIcon.vue'
 import LLMProviderIcon from './icons/LLMProviderIcon.vue'
 import BrainIcon from './icons/BrainIcon.vue'
 import TrashIcon from './icons/TrashIcon.vue'
+import ClockIcon from './icons/ClockIcon.vue'
 
 type Role = 'user' | 'assistant' | 'system' | 'tool'
 
@@ -237,8 +238,8 @@ async function loadWorkspaceFiles(dirPath: string) {
       async function scanDirectory(path: string, depth: number = 0) {
         if (depth > 3) return // 限制递归深度
 
-        const dirResult = await window.electronAPI.readDirectory(path)
-        if (dirResult.success && dirResult.items) {
+        const dirResult = await window.electronAPI?.readDirectory(path)
+        if (dirResult?.success && dirResult.items) {
           for (const item of dirResult.items) {
             const itemPath = `${path}/${item.name}`
             // 忽略隐藏文件和目录
@@ -1608,34 +1609,23 @@ function scrollToBottom() {
           <div class="msg-content">
             <div class="tool-result-card">
               <div class="tool-result-header" @click="toggleToolResult(i)">
+                <!-- 前置状态图标 -->
+                <span class="tool-leading-icon">
+                  <span v-if="m.toolStatus === 'running'" class="status-spinner status-spinner-running"></span>
+                  <span v-else-if="m.toolStatus === 'error'" class="status-dot status-dot-error"><XIcon :size="10" /></span>
+                  <span v-else class="status-dot status-dot-success"><CheckIcon :size="10" /></span>
+                </span>
                 <div class="tool-result-title">
                   <span class="tool-result-name">{{ getToolName(m, messages) }}</span>
-                  <!-- 执行中状态（动态短语） -->
-                  <span v-if="m.toolStatus === 'running'" class="tool-result-status status-running">
-                    <span class="status-spinner"></span>
-                    <span class="status-text">{{ m.runningPhrase || '正在处理' }}</span>
-                  </span>
-                  <!-- 成功状态 -->
-                  <span v-else-if="m.toolStatus === 'success'" class="tool-result-status status-success">
-                    <span class="status-icon status-icon-success"><CheckIcon :size="12" /></span>
-                    <span class="status-text">已完成</span>
-                  </span>
-                  <!-- 错误状态 -->
-                  <span v-else-if="m.toolStatus === 'error'" class="tool-result-status status-error">
-                    <span class="status-icon status-icon-error"><XIcon :size="12" /></span>
-                    <span class="status-text">执行失败</span>
-                  </span>
-                  <!-- 默认成功状态（向后兼容） -->
-                  <span v-else class="tool-result-status status-success">
-                    <span class="status-icon status-icon-success"><CheckIcon :size="12" /></span>
-                    <span class="status-text">已完成</span>
-                  </span>
+                  <span v-if="m.toolStatus === 'running'" class="tool-status-text status-running-text">{{ m.runningPhrase || '正在处理' }}</span>
+                  <span v-else-if="m.toolStatus === 'error'" class="tool-status-text status-error-text">执行失败</span>
+                  <span v-else class="tool-status-text status-success-text">已完成</span>
                 </div>
                 <div class="tool-result-actions">
                   <button class="tool-action-btn" title="复制结果" @click.stop="copyToolResult(getContentAsString(m.content))">
                     <CopyIcon :size="14" />
                   </button>
-                  <span class="expand-icon"><ChevronDownIcon v-if="toolResultExpanded[i]" :size="10" /><ChevronRightIcon v-else :size="10" /></span>
+                  <span class="expand-icon"><ChevronDownIcon v-if="toolResultExpanded[i]" :size="12" /><ChevronRightIcon v-else :size="12" /></span>
                 </div>
               </div>
               <div v-show="toolResultExpanded[i]" class="tool-result-body">
@@ -1654,14 +1644,23 @@ function scrollToBottom() {
           <div class="msg-content">
             <div v-if="m.reasoning || (sending && i === messages.length - 1 && m.role === 'assistant')" class="reasoning-section">
               <button class="reasoning-toggle" @click="toggleReasoning(i)">
-                <ChevronDownIcon v-if="reasoningExpanded[i]" :size="10" />
-                <ChevronRightIcon v-else :size="10" />
-                <span v-if="sending && i === messages.length - 1 && m.role === 'assistant'" class="grape-spinner">
+                <span v-if="sending && i === messages.length - 1 && m.role === 'assistant' && !getContentAsString(m.content).trim()" class="grape-spinner">
                   <GrapeIcon :size="16" />
                 </span>
-                <span>分析过程</span>
+                <span class="reasoning-label">分析过程</span>
+                <ChevronDownIcon v-if="reasoningExpanded[i]" :size="12" class="reasoning-chevron" />
+                <ChevronRightIcon v-else :size="12" class="reasoning-chevron" />
               </button>
-              <div v-show="reasoningExpanded[i] && m.reasoning" class="msg-reasoning-bubble" v-html="render(m.reasoning || '')" />
+              <div v-show="reasoningExpanded[i] && m.reasoning" class="reasoning-body">
+                <div class="reasoning-leading">
+                  <ClockIcon :size="14" />
+                </div>
+                <div class="reasoning-text" v-html="render(m.reasoning || '')" />
+                <div v-if="!(sending && i === messages.length - 1 && m.role === 'assistant' && !getContentAsString(m.content).trim())" class="reasoning-footer">
+                  <span class="reasoning-done-icon"><CheckIcon :size="10" /></span>
+                  <span>Done</span>
+                </div>
+              </div>
             </div>
             <!-- AI 消息提供商图标 -->
             <div v-if="m.role === 'assistant'" class="assistant-header">
@@ -2384,20 +2383,6 @@ function scrollToBottom() {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
 }
 
-.msg-reasoning-bubble {
-  font-size: 13px;
-  line-height: 1.65;
-  color: var(--color-text-tertiary);
-  max-width: 720px;
-  word-break: break-word;
-  background: var(--color-bg-tertiary);
-  padding: 12px 16px;
-  border-radius: 10px;
-  margin-bottom: 16px;
-  animation: bubble-fade-in 0.3s ease-out;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-}
-
 @keyframes bubble-fade-in {
   from {
     opacity: 0;
@@ -2410,19 +2395,21 @@ function scrollToBottom() {
   }
 }
 
+/* ---------- Reasoning section (参考 Claude 设计) ---------- */
 .reasoning-section {
   margin-bottom: 12px;
+  max-width: 760px;
 }
 
 .reasoning-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   background: none;
   border: none;
-  padding: 6px 12px;
+  padding: 4px 0;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--color-text-tertiary);
   transition: color 0.2s;
 }
@@ -2431,8 +2418,77 @@ function scrollToBottom() {
   color: var(--color-text-secondary);
 }
 
-.reasoning-toggle span:first-child {
-  font-size: 10px;
+.reasoning-label {
+  font-weight: 400;
+}
+
+.reasoning-chevron {
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.reasoning-toggle:hover .reasoning-chevron {
+  opacity: 1;
+}
+
+.reasoning-body {
+  position: relative;
+  margin-top: 10px;
+  margin-bottom: 16px;
+  padding: 4px 0 4px 22px;
+  border-left: 1.5px solid var(--color-border);
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--color-text-tertiary);
+  max-width: 720px;
+  word-break: break-word;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  animation: bubble-fade-in 0.3s ease-out;
+}
+
+.reasoning-leading {
+  position: absolute;
+  left: -8px;
+  top: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  background: var(--color-bg-primary);
+  color: var(--color-text-tertiary);
+  border-radius: 50%;
+}
+
+.reasoning-text :deep(p) {
+  margin: 0 0 10px 0;
+}
+
+.reasoning-text :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.reasoning-footer {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  margin-left: -30px;
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+}
+
+.reasoning-done-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--color-text-tertiary);
+  border-radius: 50%;
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-primary);
+  flex-shrink: 0;
 }
 
 /* 葡萄滚动动画 */
@@ -3007,51 +3063,89 @@ function scrollToBottom() {
   border-color: rgba(255, 255, 255, 0);
 }
 
-/* 工具结果样式 */
+/* ---------- 工具调用结果样式（参考 Claude 设计） ---------- */
 .msg-row.tool {
-  padding: 12px 0;
+  padding: 4px 0;
 }
 
 .tool-result-card {
-  /* background: rgba(247, 247, 248, 0.7); */
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  overflow: hidden;
-  margin-bottom: 8px;
-  max-width: 900px;
-  animation: card-slide-in 0.3s ease-out;
+  max-width: 760px;
+  animation: tool-fade-in 0.25s ease-out;
 }
 
-@keyframes card-slide-in {
+@keyframes tool-fade-in {
   from {
     opacity: 0;
-    transform: translateX(-10px);
+    transform: translateY(-2px);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateY(0);
   }
 }
 
 .tool-result-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 1px 16px;
+  gap: 10px;
+  padding: 4px 0;
   cursor: pointer;
   user-select: none;
-  transition: background 0.2s;
+  color: var(--color-text-secondary);
+  transition: color 0.2s;
 }
 
 .tool-result-header:hover {
-  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
+.tool-leading-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.status-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  color: white;
+}
+
+.status-dot-success {
+  background: #22c55e;
+}
+
+.status-dot-error {
+  background: #ef4444;
+}
+
+.status-spinner-running {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #2563eb;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin-smooth 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes spin-smooth {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .tool-result-title {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  align-items: baseline;
+  gap: 10px;
   flex: 1;
+  min-width: 0;
 }
 
 .tool-result-name {
@@ -3061,137 +3155,75 @@ function scrollToBottom() {
   font-weight: 500;
 }
 
-/* 工具执行状态通用样式 */
-.tool-result-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.tool-status-text {
   font-size: 13px;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-weight: 500;
-  transition: all 0.3s ease;
+  color: var(--color-text-tertiary);
+  font-weight: 400;
 }
 
-/* 执行中状态 */
-.status-running {
+.status-running-text {
   color: #2563eb;
-  /* background: #dbeafe; */
 }
 
-.status-running .status-spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid #2563eb;
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: spin-smooth 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-}
-
-/* 准备中状态 */
-.status-pending {
-  color: #d97706;
-}
-
-.status-pending .status-spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid #d97706;
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: spin-smooth 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-}
-
-@keyframes spin-smooth {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-/* 成功状态 */
-.status-success {
-  color: #16a34a;
-  /* background: #dcfce7; */
-}
-
-.status-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  font-size: 12px;
-  font-weight: bold;
-}
-
-.status-icon-success {
-  background: #22c55e;
-  color: white;
-}
-
-/* 错误状态 */
-.status-error {
+.status-error-text {
   color: #dc2626;
-}
-
-.status-icon-error {
-  background: #ef4444;
-  color: white;
-}
-
-.status-text {
-  font-weight: 500;
 }
 
 .tool-result-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.tool-result-header:hover .tool-result-actions {
+  opacity: 1;
 }
 
 .tool-action-btn {
   background: transparent;
   border: none;
-  padding: 4px 8px;
+  padding: 2px 4px;
   cursor: pointer;
-  font-size: 14px;
-  opacity: 0.6;
-  transition: opacity 0.2s;
-  display: flex;
+  color: var(--color-text-tertiary);
+  display: inline-flex;
   align-items: center;
+  border-radius: 4px;
+  transition: all 0.2s;
 }
 
 .tool-action-btn:hover {
-  opacity: 1;
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
 }
 
 .expand-icon {
-  font-size: 10px;
-  color: var(--color-text-secondary);
-  transition: transform 0.2s;
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-text-tertiary);
 }
 
 .tool-result-body {
-  border-top: 1px solid var(--color-border);
-  background: var(--color-bg-primary);
-  max-height: 200px;
+  margin: 6px 0 12px 8px;
+  padding-left: 16px;
+  border-left: 1.5px solid var(--color-border);
+  max-height: 280px;
   overflow: auto;
+  animation: bubble-fade-in 0.25s ease-out;
 }
 
 .tool-result-code {
   margin: 0;
-  padding: 16px;
+  padding: 4px 0;
   overflow-x: auto;
   font-family: 'SF Mono', Monaco, 'Andale Mono', "JetBrains Mono", Menlo, Consolas, monospace;
-  font-size: 13px;
+  font-size: 12.5px;
   line-height: 1.6;
-  color: var(--color-text-primary);
+  color: var(--color-text-secondary);
   white-space: pre-wrap;
   word-break: break-word;
+  background: transparent;
 }
 
 /* JSON 语法高亮 */
