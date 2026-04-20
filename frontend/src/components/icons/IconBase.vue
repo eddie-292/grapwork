@@ -24,7 +24,7 @@ const props = withDefaults(defineProps<Props>(), {
     :fill="fill"
     xmlns="http://www.w3.org/2000/svg"
     :stroke="stroke || color"
-    stroke-width="2"
+    stroke-width="1.8"
     stroke-linecap="round"
     stroke-linejoin="round"
   >

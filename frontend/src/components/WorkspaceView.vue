@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed, nextTick } from 'vue'
 import MarkdownIt from 'markdown-it'
+import ArrowLeftIcon from './icons/ArrowLeftIcon.vue'
+import ExternalLinkIcon from './icons/ExternalLinkIcon.vue'
+import FileCheckIcon from './icons/FileCheckIcon.vue'
+import FileTextIcon from './icons/FileTextIcon.vue'
+import FolderIcon from './icons/FolderIcon.vue'
+import RefreshIcon from './icons/RefreshIcon.vue'
+import XIcon from './icons/XIcon.vue'
 
 // 文件/文件夹节点类型
 interface FileNode {
@@ -570,26 +577,18 @@ defineExpose({
           title="返回上级目录"
           :disabled="loading || !currentFolder || isAtRoot"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M19 12H5M12 19l-7-7 7-7"/>
-          </svg>
+          <ArrowLeftIcon :size="16" />
         </button>
         <!-- 刷新 -->
         <button class="refresh-btn" @click="refreshWorkspace" title="刷新" :disabled="loading || !currentFolder">
-          <svg v-if="!loading" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M23 4v6h-6M1 20v-6h6"/>
-            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-          </svg>
-          <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spinning">
+          <RefreshIcon v-if="!loading" :size="16" />
+          <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="spinning">
             <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="32" stroke-linecap="round"/>
           </svg>
         </button>
         <!-- 在文件管理器中打开 -->
         <button class="refresh-btn" @click="openCurrentDirectory" title="在文件管理器中打开" :disabled="!currentFolder">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-            <path d="M12 11v6M9 14h6"/>
-          </svg>
+          <FolderIcon :size="16" />
         </button>
       </div>
     </div>
@@ -620,9 +619,7 @@ defineExpose({
 
     <!-- 未选择目录 -->
     <div v-else-if="!currentFolder" class="empty-folder-state">
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-      </svg>
+      <FolderIcon :size="48" />
       <span>选择一个文件夹作为工作空间</span>
     </div>
 
@@ -667,46 +664,29 @@ defineExpose({
                 :title="showMarkdownPreview ? '查看源码' : 'Markdown 预览'"
                 :class="{ 'active': showMarkdownPreview }"
               >
-                <svg v-if="showMarkdownPreview" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                  <line x1="16" y1="13" x2="8" y2="13"/>
-                  <line x1="16" y1="17" x2="8" y2="17"/>
-                  <polyline points="10 9 9 9 8 9"/>
-                </svg>
-                <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                  <path d="M9 15l2 2 4-4"/>
-                </svg>
+                <FileTextIcon v-if="showMarkdownPreview" :size="16" />
+                <FileCheckIcon v-else :size="16" />
               </button>
               <!-- 在系统打开按钮 -->
               <button class="preview-action-btn" @click="openInSystem" title="在系统中打开">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                  <polyline points="15 3 21 3 21 9"/>
-                  <line x1="10" y1="14" x2="21" y2="3"/>
-                </svg>
+                <ExternalLinkIcon :size="16" />
               </button>
               <button class="preview-close-btn" @click="closePreview" title="关闭">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="18" y1="6" x2="6" y2="18"/>
-                  <line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
+                <XIcon :size="18" />
               </button>
             </div>
           </div>
           <div class="preview-content">
             <!-- 加载中 -->
             <div v-if="previewLoading" class="preview-loading">
-              <svg class="spinning" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg class="spinning" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                 <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="32" stroke-linecap="round"/>
               </svg>
               <span>加载中...</span>
             </div>
             <!-- 错误 -->
             <div v-else-if="previewError" class="preview-error">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="10"/>
                 <line x1="12" y1="8" x2="12" y2="12"/>
                 <line x1="12" y1="16" x2="12.01" y2="16"/>

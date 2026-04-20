@@ -4,7 +4,7 @@ import IconBase from './IconBase.vue'
 
 <template>
   <IconBase viewBox="0 0 24 24">
-    <line x1="12" y1="5" x2="12" y2="19"></line>
-    <line x1="5" y1="12" x2="19" y2="12"></line>
+    <line x1="22" y1="2" x2="11" y2="13"></line>
+    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
   </IconBase>
 </template>

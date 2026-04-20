@@ -13,12 +13,16 @@ import CopyIcon from './icons/CopyIcon.vue'
 import ChevronDownIcon from './icons/ChevronDownIcon.vue'
 import ChevronRightIcon from './icons/ChevronRightIcon.vue'
 import CheckIcon from './icons/CheckIcon.vue'
+import FileTextIcon from './icons/FileTextIcon.vue'
 import XIcon from './icons/XIcon.vue'
 import ArrowUpIcon from './icons/ArrowUpIcon.vue'
+import ImageAccentIcon from './icons/ImageAccentIcon.vue'
+import ListIcon from './icons/ListIcon.vue'
 import SettingsIcon from './icons/SettingsIcon.vue'
 import GrapeIcon from './icons/GrapeIcon.vue'
 import LLMProviderIcon from './icons/LLMProviderIcon.vue'
 import BrainIcon from './icons/BrainIcon.vue'
+import TrashIcon from './icons/TrashIcon.vue'
 
 type Role = 'user' | 'assistant' | 'system' | 'tool'
 
@@ -1477,7 +1481,7 @@ function scrollToBottom() {
         @click="scrollToBottom"
         title="滚动到底部"
       >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
           <line x1="12" y1="5" x2="12" y2="19"></line>
           <polyline points="19 12 12 19 5 12"></polyline>
         </svg>
@@ -1493,7 +1497,7 @@ function scrollToBottom() {
           :style="{ left: quoteToolbarPosition.x + 'px', top: quoteToolbarPosition.y + 'px' }"
         >
           <button class="quote-btn" @click="insertQuote" title="引用选中的文本">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
               <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V21c0 1 0 1 1 1z"/>
               <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/>
             </svg>
@@ -1543,11 +1547,7 @@ function scrollToBottom() {
           </div>
           <div class="feature-card" @click="openImageGenerator" style="cursor: pointer;">
             <div class="feature-icon image-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                <circle cx="8.5" cy="8.5" r="1.5"/>
-                <polyline points="21 15 16 10 5 21"/>
-              </svg>
+              <ImageAccentIcon :size="24" />
             </div>
             <h3>学术绘图</h3>
             <p>一键生成图表，辅助研究可视化</p>
@@ -1678,29 +1678,17 @@ function scrollToBottom() {
                 <div v-for="(file, fileIndex) in m.files" :key="fileIndex" class="message-file-card">
                   <div class="file-card-header" @click="toggleFileExpanded(i, fileIndex)">
                     <div class="file-card-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                        <polyline points="14 2 14 8 20 8" />
-                        <line x1="16" y1="13" x2="8" y2="13" />
-                        <line x1="16" y1="17" x2="8" y2="17" />
-                      </svg>
+                      <FileTextIcon :size="16" />
                     </div>
                     <div class="file-card-info">
                       <span class="file-card-name">{{ file.name }}</span>
                       <span class="file-card-size">{{ formatFileSize(file.size) }}</span>
                     </div>
-                    <svg
+                    <ChevronDownIcon
                       class="file-card-chevron"
                       :class="{ expanded: isFileExpanded(i, fileIndex) }"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      width="16"
-                      height="16"
-                    >
-                      <polyline points="6 9 12 15 18 9" />
-                    </svg>
+                      :size="16"
+                    />
                   </div>
                   <div v-if="isFileExpanded(i, fileIndex)" class="file-card-content">
                     <pre><code>{{ file.content }}</code></pre>
@@ -1972,11 +1960,7 @@ function scrollToBottom() {
               @click="handleSelectImages"
               :title="attachedImages.length > 0 ? `已选择 ${attachedImages.length} 张图片` : '上传图片'"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                <polyline points="21 15 16 10 5 21"></polyline>
-              </svg>
+              <ImageAccentIcon :size="16" />
               <span v-if="attachedImages.length > 0" class="image-count">{{ attachedImages.length }}</span>
             </button>
 
@@ -2010,14 +1994,7 @@ function scrollToBottom() {
                 @click="showNavList = !showNavList"
                 title="对话导航"
               >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
-                  <line x1="8" y1="6" x2="21" y2="6"></line>
-                  <line x1="8" y1="12" x2="21" y2="12"></line>
-                  <line x1="8" y1="18" x2="21" y2="18"></line>
-                  <line x1="3" y1="6" x2="3.01" y2="6"></line>
-                  <line x1="3" y1="12" x2="3.01" y2="12"></line>
-                  <line x1="3" y1="18" x2="3.01" y2="18"></line>
-                </svg>
+                <ListIcon :size="16" />
               </button>
               <Transition name="dropdown">
                 <div v-if="showNavList" class="nav-dropdown">
@@ -2036,10 +2013,7 @@ function scrollToBottom() {
                       <span class="nav-role">{{ item.role === 'user' ? '我' : 'AI' }}</span>
                       <span class="nav-preview">{{ getMessagePreview(item.preview) }}</span>
                       <span class="nav-delete" @click="deleteMessage(item.index, $event)" title="删除此消息及后续内容">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
-                          <polyline points="3 6 5 6 21 6"></polyline>
-                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                        </svg>
+                        <TrashIcon :size="14" />
                       </span>
                     </button>
                   </div>

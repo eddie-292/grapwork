@@ -2205,7 +2205,7 @@ function handleFolderChanged(path: string) {
   <div class="chat-view-wrapper">
     <!-- 双击缩放和按住拖拽区域 -->
     <div class="window-drag-area" @dblclick="handleDragAreaDoubleClick">
-      <span class="app-title">GrapWork</span>
+      <span class="app-title"></span>
     </div>
     <div class="container">
       <aside class="sidebar" :class="{ collapsed: !showSidebar }">
