@@ -1559,7 +1559,7 @@ function scrollToBottom() {
       <div v-if="messages.length === 0" class="welcome">
         <div class="welcome-hero">
           <h2 class="welcome-title">GrapWork</h2>
-          <p class="welcome-subtitle">您好，我能帮您做什么？</p>
+          <p class="welcome-subtitle">您好，有什么我可以帮您的？</p>
         </div>
 
         <div class="welcome-features">
@@ -1571,67 +1571,65 @@ function scrollToBottom() {
                 <path d="M9 12l2 2 4-4"/>
               </svg>
             </div>
-            <h3>文献研读</h3>
-            <p>精读文献，提取核心论点与研究方法</p>
+            <h3>任务管理</h3>
+            <p>整理待办事项，规划工作优先级</p>
           </div>
           <div class="feature-card">
             <div class="feature-icon tool-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>
+                <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
               </svg>
             </div>
-            <h3>写作辅助</h3>
-            <p>协助撰写论文、摘要与研究报告</p>
+            <h3>文档撰写</h3>
+            <p>起草邮件、报告与工作方案</p>
           </div>
           <div class="feature-card">
             <div class="feature-icon memory-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 2a10 10 0 1010 10H12V2z"/>
-                <path d="M12 2a10 10 0 00-8.66 15"/>
-                <circle cx="12" cy="12" r="6"/>
+                <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
               </svg>
             </div>
             <h3>数据分析</h3>
-            <p>统计解读、实验结果分析与图表生成</p>
+            <p>解读数据，生成摘要与洞察报告</p>
           </div>
           <div class="feature-card" @click="openImageGenerator" style="cursor: pointer;">
             <div class="feature-icon image-icon">
               <ImageAccentIcon :size="24" />
             </div>
-            <h3>学术绘图</h3>
-            <p>一键生成图表，辅助研究可视化</p>
+            <h3>图表生成</h3>
+            <p>一键生成工作所需图表与可视化</p>
           </div>
         </div>
 
         <div class="welcome-prompts">
-          <p class="prompts-label">常用学术查询示例</p>
+          <p class="prompts-label">常用工作场景示例</p>
           <div class="prompts-grid">
-            <button class="prompt-card" @click="emit('update:input', '帮我撰写这篇文献的摘要')">
+            <button class="prompt-card" @click="emit('update:input', '帮我写一封工作汇报邮件')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
                 <polyline points="22,6 12,13 2,6"/>
               </svg>
-              <span class="prompt-text">帮我撰写这篇文献的摘要</span>
+              <span class="prompt-text">帮我写一封工作汇报邮件</span>
             </button>
-            <button class="prompt-card" @click="emit('update:input', '整理这篇文献的核心论点与贡献')">
+            <button class="prompt-card" @click="emit('update:input', '整理今天的工作任务与优先级')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12l2 2 4-4"/>
               </svg>
-              <span class="prompt-text">整理这篇文献的核心论点与贡献</span>
+              <span class="prompt-text">整理今天的工作任务与优先级</span>
             </button>
-            <button class="prompt-card" @click="emit('update:input', '润色这段学术文本，使其更加正式')">
+            <button class="prompt-card" @click="emit('update:input', '帮我优化这段文字，使其更简洁专业')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
               </svg>
-              <span class="prompt-text">润色这段学术文本，使其更加正式</span>
+              <span class="prompt-text">帮我优化这段文字，使其更简洁专业</span>
             </button>
-            <button class="prompt-card" @click="emit('update:input', '解释这组实验数据的统计意义')">
+            <button class="prompt-card" @click="emit('update:input', '分析这份数据并给出关键结论')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
               </svg>
-              <span class="prompt-text">解释这组实验数据的统计意义</span>
+              <span class="prompt-text">分析这份数据并给出关键结论</span>
             </button>
-            <button class="prompt-card" @click="emit('update:input', '帮我拟定一份研究计划提纲')">
+            <button class="prompt-card" @click="emit('update:input', '帮我准备明天会议的议程与要点')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
                 <line x1="16" y1="2" x2="16" y2="6"/>
@@ -1640,13 +1638,13 @@ function scrollToBottom() {
                 <line x1="12" y1="14" x2="16" y2="14"/>
                 <line x1="12" y1="18" x2="16" y2="18"/>
               </svg>
-              <span class="prompt-text">帮我拟定一份研究计划提纲</span>
+              <span class="prompt-text">帮我准备明天会议的议程与要点</span>
             </button>
-            <button class="prompt-card" @click="emit('update:input', '按 APA 格式生成参考文献列表')">
+            <button class="prompt-card" @click="emit('update:input', '为这个项目写一份执行计划')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
               </svg>
-              <span class="prompt-text">按 APA 格式生成参考文献列表</span>
+              <span class="prompt-text">为这个项目写一份执行计划</span>
             </button>
           </div>
         </div>

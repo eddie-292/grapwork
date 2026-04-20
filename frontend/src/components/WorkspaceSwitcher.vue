@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import type { Workspace } from '@/types/workspace'
 import ChevronDownIcon from './icons/ChevronDownIcon.vue'
 import PlusIcon from './icons/PlusIcon.vue'
@@ -81,10 +81,34 @@ function handleDelete(id: string) {
 function closeContextMenu() {
   contextMenuId.value = null
 }
+
+const switcherRef = ref<HTMLElement | null>(null)
+
+function handleDocumentClick(event: MouseEvent) {
+  if (switcherRef.value && !switcherRef.value.contains(event.target as Node)) {
+    contextMenuId.value = null
+  }
+}
+
+function handleKeyDown(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    contextMenuId.value = null
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleDocumentClick)
+  document.addEventListener('keydown', handleKeyDown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleDocumentClick)
+  document.removeEventListener('keydown', handleKeyDown)
+})
 </script>
 
 <template>
-  <div class="workspace-switcher" @click="closeContextMenu">
+  <div class="workspace-switcher" ref="switcherRef" @click="closeContextMenu">
     <!-- 可折叠标题 -->
     <div class="workspace-header" @click="toggleExpanded">
       <span class="header-title">工作空间</span>
@@ -224,7 +248,6 @@ function closeContextMenu() {
   border-radius: 7px;
   cursor: pointer;
   transition: background-color 0.15s;
-  overflow: hidden;
 }
 
 .workspace-item:hover {
