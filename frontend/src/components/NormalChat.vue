@@ -1505,7 +1505,7 @@ function scrollToBottom() {
       <div v-if="messages.length === 0" class="welcome">
         <div class="welcome-hero">
           <h2 class="welcome-title">GrapWork</h2>
-          <p class="welcome-subtitle">你好，有什么可以帮你的？</p>
+          <p class="welcome-subtitle">您好，我能帮您做什么？</p>
         </div>
 
         <div class="welcome-features">
@@ -1517,8 +1517,8 @@ function scrollToBottom() {
                 <path d="M9 12l2 2 4-4"/>
               </svg>
             </div>
-            <h3>智能助手</h3>
-            <p>帮你处理工作、学习中的各种问题</p>
+            <h3>文献研读</h3>
+            <p>精读文献，提取核心论点与研究方法</p>
           </div>
           <div class="feature-card">
             <div class="feature-icon tool-icon">
@@ -1526,8 +1526,8 @@ function scrollToBottom() {
                 <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>
               </svg>
             </div>
-            <h3>实用工具</h3>
-            <p>查邮件、写文档、整理文件都能搞定</p>
+            <h3>写作辅助</h3>
+            <p>协助撰写论文、摘要与研究报告</p>
           </div>
           <div class="feature-card">
             <div class="feature-icon memory-icon">
@@ -1537,8 +1537,8 @@ function scrollToBottom() {
                 <circle cx="12" cy="12" r="6"/>
               </svg>
             </div>
-            <h3>记性好</h3>
-            <p>记住你的偏好，越用越懂你</p>
+            <h3>数据分析</h3>
+            <p>统计解读、实验结果分析与图表生成</p>
           </div>
           <div class="feature-card" @click="openImageGenerator" style="cursor: pointer;">
             <div class="feature-icon image-icon">
@@ -1548,41 +1548,40 @@ function scrollToBottom() {
                 <polyline points="21 15 16 10 5 21"/>
               </svg>
             </div>
-            <h3>创意画笔</h3>
-            <p>AI 帮你生成精美图片</p>
+            <h3>学术绘图</h3>
+            <p>一键生成图表，辅助研究可视化</p>
           </div>
         </div>
 
         <div class="welcome-prompts">
-          <p class="prompts-label">你可以这样问我</p>
+          <p class="prompts-label">常用学术查询示例</p>
           <div class="prompts-grid">
-            <button class="prompt-card" @click="emit('update:input', '帮我写一封请假邮件')">
+            <button class="prompt-card" @click="emit('update:input', '帮我撰写这篇文献的摘要')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
                 <polyline points="22,6 12,13 2,6"/>
               </svg>
-              <span class="prompt-text">帮我写一封请假邮件</span>
+              <span class="prompt-text">帮我撰写这篇文献的摘要</span>
             </button>
-            <button class="prompt-card" @click="emit('update:input', '帮我总结这篇文章的要点')">
+            <button class="prompt-card" @click="emit('update:input', '整理这篇文献的核心论点与贡献')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
               </svg>
-              <span class="prompt-text">帮我总结这篇文章的要点</span>
+              <span class="prompt-text">整理这篇文献的核心论点与贡献</span>
             </button>
-            <button class="prompt-card" @click="emit('update:input', '帮我翻译这段英文')">
+            <button class="prompt-card" @click="emit('update:input', '润色这段学术文本，使其更加正式')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
               </svg>
-              <span class="prompt-text">帮我翻译这段英文</span>
+              <span class="prompt-text">润色这段学术文本，使其更加正式</span>
             </button>
-            <button class="prompt-card" @click="emit('update:input', '查看我的未读邮件')">
+            <button class="prompt-card" @click="emit('update:input', '解释这组实验数据的统计意义')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                <polyline points="22,6 12,13 2,6"/>
+                <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
               </svg>
-              <span class="prompt-text">查看我的未读邮件</span>
+              <span class="prompt-text">解释这组实验数据的统计意义</span>
             </button>
-            <button class="prompt-card" @click="emit('update:input', '帮我做一个周计划表')">
+            <button class="prompt-card" @click="emit('update:input', '帮我拟定一份研究计划提纲')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
                 <line x1="16" y1="2" x2="16" y2="6"/>
@@ -1591,13 +1590,13 @@ function scrollToBottom() {
                 <line x1="12" y1="14" x2="16" y2="14"/>
                 <line x1="12" y1="18" x2="16" y2="18"/>
               </svg>
-              <span class="prompt-text">帮我做一个周计划表</span>
+              <span class="prompt-text">帮我拟定一份研究计划提纲</span>
             </button>
-            <button class="prompt-card" @click="emit('update:input', '给我推荐几道家常菜')">
+            <button class="prompt-card" @click="emit('update:input', '按 APA 格式生成参考文献列表')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/>
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
               </svg>
-              <span class="prompt-text">给我推荐几道家常菜</span>
+              <span class="prompt-text">按 APA 格式生成参考文献列表</span>
             </button>
           </div>
         </div>
@@ -1659,7 +1658,7 @@ function scrollToBottom() {
                 <span v-if="sending && i === messages.length - 1 && m.role === 'assistant'" class="grape-spinner">
                   <GrapeIcon :size="16" />
                 </span>
-                <span>思考</span>
+                <span>分析过程</span>
               </button>
               <div v-show="reasoningExpanded[i]" class="msg-reasoning-bubble" v-html="render(m.reasoning || '')" />
             </div>
@@ -2139,13 +2138,13 @@ function scrollToBottom() {
 
 .welcome {
   max-width: 800px;
-  margin: 40px auto 0;
+  margin: 60px auto 0;
   text-align: center;
   padding: 0 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 32px;
+  gap: 36px;
 }
 
 /* Hero Section */
@@ -2175,12 +2174,10 @@ function scrollToBottom() {
 
 .welcome-title {
   margin: 0;
-  font-size: 32px;
+  font-size: 34px;
   font-weight: 700;
-  background: linear-gradient(135deg, #555 0%, #333 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+  color: var(--color-text-primary);
 }
 
 .welcome-subtitle {
@@ -2209,9 +2206,9 @@ function scrollToBottom() {
 }
 
 .feature-card:hover {
-  border-color: var(--color-primary);
+  border-color: var(--color-border-hover);
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(51, 51, 51, 0.12);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
 }
 
 .feature-icon {
@@ -2230,28 +2227,28 @@ function scrollToBottom() {
 }
 
 .task-icon {
-  background: #555;
+  background: #1a3a5c;
   color: white;
 }
 
 .tool-icon {
-  background: #6366f1;
+  background: #2d5a8e;
   color: white;
 }
 
 .memory-icon {
-  background: #f59e0b;
+  background: #7c2d12;
   color: white;
 }
 
 .image-icon {
-  background: #10b981;
+  background: #3d6b4f;
   color: white;
 }
 
 .feature-card h3 {
   margin: 0 0 6px;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--color-text-primary);
 }
@@ -2271,11 +2268,9 @@ function scrollToBottom() {
 
 .prompts-label {
   margin: 0 0 12px;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--color-text-tertiary);
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .prompts-grid {
@@ -2362,7 +2357,7 @@ function scrollToBottom() {
 
 .msg-row {
   display: flex;
-  padding: 14px 0;
+  padding: 20px 0;
   animation: msg-fade-in 0.3s ease-out;
 }
 
@@ -2378,14 +2373,14 @@ function scrollToBottom() {
 }
 
 .msg-row.assistant {
-  background: var(--color-bg-secondary);
+  background: transparent;
 }
 
 .msg-content {
   width: 100%;
-  max-width: 900px;
+  max-width: 820px;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 28px;
 }
 
 .msg-row.user .msg-content {
@@ -2411,23 +2406,25 @@ function scrollToBottom() {
 }
 
 .msg-bubble {
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: 15px;
+  line-height: 1.65;
   max-width: 720px;
   word-break: break-word;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
 }
 
 .msg-reasoning-bubble {
-  font-size: 14px;
-  line-height: 1.6;
+  font-size: 13px;
+  line-height: 1.65;
   color: var(--color-text-tertiary);
   max-width: 720px;
   word-break: break-word;
   background: var(--color-bg-tertiary);
   padding: 12px 16px;
-  border-radius: 8px;
-  margin-bottom: 12px;
+  border-radius: 10px;
+  margin-bottom: 16px;
   animation: bubble-fade-in 0.3s ease-out;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 @keyframes bubble-fade-in {
@@ -2495,9 +2492,10 @@ function scrollToBottom() {
 
 .msg-row.user .msg-bubble {
   background: var(--color-bg-secondary);
-  color: var(--color-primary-text);
+  color: var(--color-text-primary);
   padding: 12px 16px;
-  border-radius: 16px;
+  border-radius: 18px 18px 4px 18px;
+  border-left: none;
 }
 
 .msg-row.assistant .msg-bubble {
@@ -2509,12 +2507,16 @@ function scrollToBottom() {
   position: relative;
 }
 
+.msg-row.user .msg-bubble-wrapper {
+  max-width: 72%;
+}
+
 .assistant-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
-  padding: 4px 0;
+  margin-bottom: 10px;
+  padding: 2px 0;
 }
 
 .assistant-provider-name {
@@ -2628,7 +2630,7 @@ function scrollToBottom() {
 }
 
 .msg-bubble :deep(p) {
-  margin: 0 0 10px 0;
+  margin: 0 0 0.85em 0;
 }
 
 
@@ -2640,12 +2642,32 @@ function scrollToBottom() {
   margin-bottom: 0;
 }
 
+.msg-bubble :deep(h1),
+.msg-bubble :deep(h2),
+.msg-bubble :deep(h3),
+.msg-bubble :deep(h4) {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 600;
+  margin-top: 1.2em;
+  margin-bottom: 0.4em;
+}
+
+.msg-bubble :deep(ul),
+.msg-bubble :deep(ol) {
+  padding-left: 1.6em;
+  margin: 0.4em 0 0.85em;
+}
+
+.msg-bubble :deep(li) {
+  margin-bottom: 0.3em;
+}
+
 .msg-bubble :deep(blockquote) {
-  margin: 8px 0;
-  padding: 8px 12px 8px 16px;
-  border-left: 3px solid var(--color-primary);
+  margin: 12px 0;
+  padding: 10px 14px 10px 18px;
+  border-left: 3px solid var(--color-border-hover);
   background: var(--color-bg-secondary);
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 8px 8px 0;
   color: var(--color-text-secondary);
   font-style: italic;
 }
@@ -2862,10 +2884,11 @@ function scrollToBottom() {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 10px 14px;
   border: 1px solid var(--color-border);
-  border-radius: 24px;
+  border-radius: 20px;
   background: var(--color-bg-tertiary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .textarea {
@@ -2875,7 +2898,8 @@ function scrollToBottom() {
   border: none;
   background: var(--color-bg-tertiary);
   outline: none;
-  font-size: 14px;
+  font-size: 15px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
   color: var(--color-text-primary);
   overflow-y: auto;
   min-height: 24px;
@@ -2934,25 +2958,26 @@ function scrollToBottom() {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
+  width: 36px;
+  height: 36px;
+  background: var(--color-text-primary);
+  border: none;
   border-radius: 50%;
-  color: var(--color-text-primary);
+  color: var(--color-bg-primary);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .send-btn:hover:not(:disabled) {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: white;
+  opacity: 0.85;
+  transform: scale(1.05);
 }
 
 .send-btn:disabled {
-  background: var(--color-button-disabled, #ccc);
+  background: var(--color-border);
+  color: var(--color-text-tertiary);
   cursor: not-allowed;
+  opacity: 0.6;
 }
 
 /* 思考模式按钮样式 */
