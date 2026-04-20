@@ -1660,7 +1660,7 @@ function scrollToBottom() {
                 </span>
                 <span>分析过程</span>
               </button>
-              <div v-show="reasoningExpanded[i]" class="msg-reasoning-bubble" v-html="render(m.reasoning || '')" />
+              <div v-show="reasoningExpanded[i] && m.reasoning" class="msg-reasoning-bubble" v-html="render(m.reasoning || '')" />
             </div>
             <!-- AI 消息提供商图标 -->
             <div v-if="m.role === 'assistant'" class="assistant-header">
