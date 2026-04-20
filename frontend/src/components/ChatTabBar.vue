@@ -60,25 +60,6 @@ const showSearch = ref(false)
 const searchQuery = ref('')
 const searchInputRef = ref<HTMLInputElement | null>(null)
 
-// 基于 chat.id 生成稳定的颜色
-function getChatColor(chatId: string): string {
-  const colors = [
-    '#333',   // dark gray (primary)
-    '#3b82f6', // blue
-    '#f59e0b', // amber
-    '#ec4899', // pink
-    '#8b5cf6', // violet
-    '#06b6d4', // cyan
-    '#f97316', // orange
-    '#14b8a6', // teal
-  ]
-  let hash = 0
-  for (let i = 0; i < chatId.length; i++) {
-    hash = chatId.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  return colors[Math.abs(hash) % colors.length]!
-}
-
 // 截断标题显示
 function truncateTitle(title: string, maxLength: number = 12): string {
   if (title.length <= maxLength) return title
@@ -221,10 +202,6 @@ onUnmounted(() => {
         @click="isSearching ? switchToResult(chat.id) : emit('switch-chat', chat.id)"
         @contextmenu.prevent="showContextMenu($event, chat.id)"
       >
-        <span
-          class="tab-indicator"
-          :style="{ backgroundColor: getChatColor(chat.id) }"
-        />
         <span class="tab-title">{{ truncateTitle(chat.title) }}</span>
         <button
           v-if="!isSearching"
@@ -268,19 +245,20 @@ onUnmounted(() => {
     <button class="image-generator-btn" @click="openImageGenerator" title="生图模式">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <linearGradient id="imageGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#ff6b6b"/>
-            <stop offset="50%" style="stop-color:#feca57"/>
-            <stop offset="100%" style="stop-color:#48dbfb"/>
+          <linearGradient id="imageFrameGradient" x1="4" y1="4" x2="20" y2="20" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#8B5CF6"/>
+            <stop offset="0.5" stop-color="#EC4899"/>
+            <stop offset="1" stop-color="#F59E0B"/>
           </linearGradient>
-          <linearGradient id="sunGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#ff9ff3"/>
-            <stop offset="100%" style="stop-color:#feca57"/>
+          <linearGradient id="imageFillGradient" x1="6" y1="6" x2="18" y2="18" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#8B5CF6" stop-opacity="0.22"/>
+            <stop offset="1" stop-color="#F59E0B" stop-opacity="0.12"/>
           </linearGradient>
         </defs>
-        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke="url(#imageGradient)" stroke-width="2"/>
-        <circle cx="8.5" cy="8.5" r="1.5" fill="url(#sunGradient)"/>
-        <polyline points="21 15 16 10 5 21" stroke="url(#imageGradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <rect x="4" y="5" width="14" height="13" rx="3" fill="url(#imageFillGradient)" stroke="url(#imageFrameGradient)" stroke-width="1.8"/>
+        <circle cx="9" cy="9.5" r="1.4" fill="#FBBF24"/>
+        <path d="M6.8 15.2L10.1 12.1C10.45 11.77 10.99 11.77 11.34 12.1L12.4 13.11C12.72 13.42 13.22 13.45 13.58 13.18L14.81 12.25C15.19 11.96 15.73 12 16.07 12.34L18 14.25" stroke="url(#imageFrameGradient)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M18.9 4.2L19.23 5.14C19.34 5.44 19.56 5.66 19.86 5.77L20.8 6.1L19.86 6.43C19.56 6.54 19.34 6.76 19.23 7.06L18.9 8L18.57 7.06C18.46 6.76 18.24 6.54 17.94 6.43L17 6.1L17.94 5.77C18.24 5.66 18.46 5.44 18.57 5.14L18.9 4.2Z" fill="#FDE68A"/>
       </svg>
     </button>
 
@@ -334,79 +312,6 @@ onUnmounted(() => {
   -webkit-app-region: drag; /* 使整个标签栏可拖拽 */
 }
 
-/* macOS 风格窗口控制按钮 */
-.window-controls {
-  display: flex;
-  gap: 8px;
-  padding-right: 12px;
-  -webkit-app-region: no-drag; /* 按钮区域不可拖拽 */
-}
-
-.window-btn {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: none;
-  cursor: pointer;
-  position: relative;
-  transition: all 0.15s ease;
-}
-
-.window-btn.close {
-  background: #ff5f57;
-}
-
-.window-btn.minimize {
-  background: #ffbd2e;
-}
-
-.window-btn.maximize {
-  background: #28ca41;
-}
-
-.window-btn:hover {
-  filter: brightness(0.9);
-}
-
-/* hover 时显示图标 */
-.window-btn.close:hover::after {
-  content: '×';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 10px;
-  color: rgba(0, 0, 0, 0.5);
-  line-height: 1;
-}
-
-.window-btn.minimize:hover::after {
-  content: '−';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 10px;
-  color: rgba(0, 0, 0, 0.5);
-  line-height: 1;
-}
-
-.window-btn.maximize:hover::after {
-  content: '+';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 10px;
-  color: rgba(0, 0, 0, 0.5);
-  line-height: 1;
-}
-
-.window-btn.maximize.is-maximized:hover::after {
-  content: '⧉';
-  font-size: 8px;
-}
-
 .tabs-container {
   display: flex;
   gap: 4px;
@@ -448,13 +353,6 @@ onUnmounted(() => {
 
 .chat-tab.search-highlight {
   border-color: var(--color-primary, #333);
-}
-
-.tab-indicator {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
 }
 
 .tab-title {
