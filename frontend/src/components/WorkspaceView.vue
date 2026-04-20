@@ -383,235 +383,74 @@ function navigateToBreadcrumb(index: number) {
 }
 
 // 获取文件 SVG 图标
-function getFileIcon(node: FileNode) {
+ function getFileIcon(node: FileNode) {
   if (node.type === 'folder') {
-    // 文件夹图标
-    return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+    return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M3 7.5C3 6.11929 4.11929 5 5.5 5H9.1C9.62919 5 10.1367 5.20982 10.5118 5.58397L11.7 6.77C12.0755 7.14483 12.5836 7.35517 13.1139 7.35517H18.5C19.8807 7.35517 21 8.47446 21 9.85517V17.5C21 18.8807 19.8807 20 18.5 20H5.5C4.11929 20 3 18.8807 3 17.5V7.5Z" fill="#F7C66A"/>
+      <path d="M3 9.6C3 8.71634 3.71634 8 4.6 8H19.4C20.2837 8 21 8.71634 21 9.6V17.4C21 18.2837 20.2837 19 19.4 19H4.6C3.71634 19 3 18.2837 3 17.4V9.6Z" fill="#E8A93A"/>
+      <path d="M3.75 9.5C3.75 8.80964 4.30964 8.25 5 8.25H19C19.6904 8.25 20.25 8.80964 20.25 9.5V17.25C20.25 17.9404 19.6904 18.5 19 18.5H5C4.30964 18.5 3.75 17.9404 3.75 17.25V9.5Z" stroke="#A96A12" stroke-width="1.2"/>
     </svg>`
   }
 
-  const ext = node.name.split('.').pop()?.toLowerCase()
+  const ext = node.name.split('.').pop()?.toLowerCase() || ''
 
-  // 不同文件类型的 SVG 图标
-  const icons: Record<string, string> = {
-    // 代码文件
-    'js': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f7df1e" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#f7df1e" fill-opacity="0.1"/>
-      <path d="M6 8l2 8M16 8l-2 8M10 13h4" stroke="#f7df1e"/>
-    </svg>`,
-    'ts': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3178c6" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#3178c6" fill-opacity="0.1"/>
-      <path d="M8 12h8M8 8h4M12 16h4" stroke="#3178c6"/>
-    </svg>`,
-    'jsx': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#61dafb" stroke-width="2">
-      <circle cx="12" cy="12" r="2" fill="#61dafb" fill-opacity="0.2"/>
-      <path d="M12 6c6 0 9 3 9 6s-3 6-9 6-9-3-9-6 3-6 9-6z" stroke="#61dafb"/>
-      <path d="M12 18v-6M12 12l4-3M12 12l-4-3" stroke="#61dafb"/>
-    </svg>`,
-    'tsx': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#61dafb" stroke-width="2">
-      <circle cx="12" cy="12" r="2" fill="#61dafb" fill-opacity="0.2"/>
-      <path d="M12 6c6 0 9 3 9 6s-3 6-9 6-9-3-9-6 3-6 9-6z" stroke="#61dafb"/>
-      <path d="M12 18v-6M12 12l4-3M12 12l-4-3" stroke="#61dafb"/>
-    </svg>`,
-    'vue': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#42b883" stroke-width="2">
-      <path d="M12 2L2 7l10 5 10-5-10-5z" fill="#42b883" fill-opacity="0.2"/>
-      <path d="M2 7l10 10 10-10M2 17l10 5 10-5" stroke="#42b883"/>
-    </svg>`,
-    'py': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3776ab" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="4" fill="#3776ab" fill-opacity="0.1"/>
-      <path d="M8 8h8M8 12h6M8 16h4" stroke="#3776ab"/>
-      <circle cx="16" cy="16" r="2" fill="#ffd43b"/>
-    </svg>`,
-    'go': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00add8" stroke-width="2">
-      <circle cx="12" cy="12" r="8" fill="#00add8" fill-opacity="0.1"/>
-      <path d="M8 12l4 4M16 12l-4-4M12 8v8" stroke="#00add8"/>
-    </svg>`,
-    'rust': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2">
-      <circle cx="12" cy="12" r="9" fill="#000" fill-opacity="0.1"/>
-      <path d="M12 6v12M6 12h12M8 8l8 8M16 8l-8 8" stroke="#000"/>
-    </svg>`,
-    'java': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f89820" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#f89820" fill-opacity="0.1"/>
-      <path d="M8 6c0-2 2-3 4-3s4 1 4 3v2c0 2-2 3-4 3s-4-1-4-3V6z" stroke="#f89820"/>
-      <path d="M7 11v2c0 3 2 5 5 5s5-2 5-5v-2" stroke="#f89820"/>
-    </svg>`,
+  const createFileIcon = (color: string, label: string, innerPath: string) => `
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M7 2.75H13.7574C14.2214 2.75 14.6664 2.93437 14.9945 3.26256L18.7374 7.0055C19.0656 7.33369 19.25 7.77862 19.25 8.24264V18C19.25 19.7949 17.7949 21.25 16 21.25H7C5.20508 21.25 3.75 19.7949 3.75 18V6C3.75 4.20508 5.20508 2.75 7 2.75Z" fill="${color}18" stroke="${color}" stroke-width="1.2"/>
+      <path d="M14 3V7C14 7.55228 14.4477 8 15 8H19" stroke="${color}" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      ${innerPath}
+      <rect x="4.75" y="15.75" width="8.5" height="4" rx="1.2" fill="${color}"/>
+      <text x="9" y="18.55" text-anchor="middle" font-size="3.2" font-weight="700" fill="#ffffff" font-family="Inter, Arial, sans-serif">${label}</text>
+    </svg>
+  `
 
-    // 样式文件
-    'css': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#264de4" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#264de4" fill-opacity="0.1"/>
-      <path d="M8 8h8M7 12l2 4 8-2M7 18l2-4 8 2" stroke="#264de4"/>
-    </svg>`,
-    'scss': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#cd6799" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#cd6799" fill-opacity="0.1"/>
-      <path d="M12 6v12M8 10h8M8 14h6" stroke="#cd6799"/>
-    </svg>`,
-    'less': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2a4d80" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#2a4d80" fill-opacity="0.1"/>
-      <path d="M6 8h12v3H6zM6 13h9v3H6z" stroke="#2a4d80"/>
-    </svg>`,
-
-    // Web 文件
-    'html': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#e34c26" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#e34c26" fill-opacity="0.1"/>
-      <path d="M8 6l-2 12 6 2 6-2-2-12" stroke="#e34c26"/>
-      <path d="M12 8v9M10 10h4M10 14h3" stroke="#e34c26"/>
-    </svg>`,
-
-    // 配置文件
-    'json': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f7df1e" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#f7df1e" fill-opacity="0.1"/>
-      <path d="M8 7h3M13 7h3M8 12h3M13 12h3M8 17h3M13 17h3" stroke="#f7df1e"/>
-    </svg>`,
-    'yaml': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#cb171e" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#cb171e" fill-opacity="0.1"/>
-      <path d="M8 7h8M8 12h6M8 17h5" stroke="#cb171e"/>
-    </svg>`,
-    'yml': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#cb171e" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#cb171e" fill-opacity="0.1"/>
-      <path d="M8 7h8M8 12h6M8 17h5" stroke="#cb171e"/>
-    </svg>`,
-    'xml': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0060ac" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#0060ac" fill-opacity="0.1"/>
-      <path d="M7 6l3 6-3 6M17 6l-3 6 3 6" stroke="#0060ac"/>
-    </svg>`,
-    'toml': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9c4221" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#9c4221" fill-opacity="0.1"/>
-      <path d="M8 7h8M8 12h6M8 17h4" stroke="#9c4221"/>
-    </svg>`,
-
-    // Markdown 和文档
-    'md': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#083fa1" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#083fa1" fill-opacity="0.1"/>
-      <path d="M8 7h8M8 12h8M8 17h5" stroke="#083fa1"/>
-    </svg>`,
-    'txt': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#6b7280" fill-opacity="0.1"/>
-      <path d="M8 7h8M8 12h8M8 17h5" stroke="#6b7280"/>
-    </svg>`,
-    'pdf': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f40f02" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#f40f02" fill-opacity="0.1"/>
-      <path d="M8 6v12h8V6H8z" stroke="#f40f02"/>
-      <path d="M10 9h4M10 12h4M10 15h3" stroke="#f40f02"/>
-    </svg>`,
-
-    // 图片文件
-    'png': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a049f7" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#a049f7" fill-opacity="0.1"/>
-      <circle cx="8" cy="8" r="2" fill="#a049f7" fill-opacity="0.3"/>
-      <path d="M2 18l6-6 4 4 6-8 4 4v6H2z" stroke="#a049f7"/>
-    </svg>`,
-    'jpg': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a049f7" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#a049f7" fill-opacity="0.1"/>
-      <circle cx="8" cy="8" r="2" fill="#a049f7" fill-opacity="0.3"/>
-      <path d="M2 18l6-6 4 4 6-8 4 4v6H2z" stroke="#a049f7"/>
-    </svg>`,
-    'jpeg': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a049f7" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#a049f7" fill-opacity="0.1"/>
-      <circle cx="8" cy="8" r="2" fill="#a049f7" fill-opacity="0.3"/>
-      <path d="M2 18l6-6 4 4 6-8 4 4v6H2z" stroke="#a049f7"/>
-    </svg>`,
-    'gif': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a049f7" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#a049f7" fill-opacity="0.1"/>
-      <circle cx="8" cy="8" r="2" fill="#a049f7" fill-opacity="0.3"/>
-      <path d="M2 18l6-6 4 4 6-8 4 4v6H2z" stroke="#a049f7"/>
-    </svg>`,
-    'svg': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffb13b" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#ffb13b" fill-opacity="0.1"/>
-      <circle cx="12" cy="12" r="6" stroke="#ffb13b"/>
-      <path d="M12 8v4l2 2" stroke="#ffb13b"/>
-    </svg>`,
-    'ico': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a049f7" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#a049f7" fill-opacity="0.1"/>
-      <circle cx="8" cy="8" r="2" fill="#a049f7" fill-opacity="0.3"/>
-      <path d="M2 18l6-6 4 4 6-8 4 4v6H2z" stroke="#a049f7"/>
-    </svg>`,
-
-    // 压缩文件
-    'zip': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c7c7c" stroke-width="2">
-      <rect x="4" y="2" width="16" height="20" rx="2" fill="#7c7c7c" fill-opacity="0.1"/>
-      <path d="M10 2v4M14 2v4M10 6h4M10 8h4M10 10h4" stroke="#7c7c7c"/>
-    </svg>`,
-    'tar': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c7c7c" stroke-width="2">
-      <rect x="4" y="2" width="16" height="20" rx="2" fill="#7c7c7c" fill-opacity="0.1"/>
-      <path d="M10 2v4M14 2v4M10 6h4M10 8h4M10 10h4" stroke="#7c7c7c"/>
-    </svg>`,
-    'gz': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c7c7c" stroke-width="2">
-      <rect x="4" y="2" width="16" height="20" rx="2" fill="#7c7c7c" fill-opacity="0.1"/>
-      <path d="M10 2v4M14 2v4M10 6h4M10 8h4M10 10h4" stroke="#7c7c7c"/>
-    </svg>`,
-    '7z': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c7c7c" stroke-width="2">
-      <rect x="4" y="2" width="16" height="20" rx="2" fill="#7c7c7c" fill-opacity="0.1"/>
-      <path d="M10 2v4M14 2v4M10 6h4M10 8h4M10 10h4" stroke="#7c7c7c"/>
-    </svg>`,
-    'rar': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c7c7c" stroke-width="2">
-      <rect x="4" y="2" width="16" height="20" rx="2" fill="#7c7c7c" fill-opacity="0.1"/>
-      <path d="M10 2v4M14 2v4M10 6h4M10 8h4M10 10h4" stroke="#7c7c7c"/>
-    </svg>`,
-
-    // Shell 脚本
-    'sh': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#89e051" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#89e051" fill-opacity="0.1"/>
-      <path d="M6 8l-2 4 2 4M16 8l2 4-2 4" stroke="#89e051"/>
-      <path d="M14 7l-4 10" stroke="#89e051"/>
-    </svg>`,
-    'bash': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#89e051" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#89e051" fill-opacity="0.1"/>
-      <path d="M6 8l-2 4 2 4M16 8l2 4-2 4" stroke="#89e051"/>
-      <path d="M14 7l-4 10" stroke="#89e051"/>
-    </svg>`,
-    'zsh': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#89e051" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#89e051" fill-opacity="0.1"/>
-      <path d="M6 8l-2 4 2 4M16 8l2 4-2 4" stroke="#89e051"/>
-      <path d="M14 7l-4 10" stroke="#89e051"/>
-    </svg>`,
-
-    // 数据库
-    'sql': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00758f" stroke-width="2">
-      <ellipse cx="12" cy="6" rx="8" ry="3" stroke="#00758f"/>
-      <path d="M4 6v12c0 1.66 3.58 3 8 3s8-1.34 8-3V6" stroke="#00758f"/>
-      <path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3" stroke="#00758f"/>
-    </svg>`,
-    'db': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00758f" stroke-width="2">
-      <ellipse cx="12" cy="6" rx="8" ry="3" stroke="#00758f"/>
-      <path d="M4 6v12c0 1.66 3.58 3 8 3s8-1.34 8-3V6" stroke="#00758f"/>
-      <path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3" stroke="#00758f"/>
-    </svg>`,
-
-    // 字体文件
-    'ttf': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2b2b2b" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#2b2b2b" fill-opacity="0.1"/>
-      <path d="M8 18l3-12h2l3 12M10 13h4" stroke="#2b2b2b"/>
-    </svg>`,
-    'woff': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2b2b2b" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#2b2b2b" fill-opacity="0.1"/>
-      <path d="M8 18l3-12h2l3 12M10 13h4" stroke="#2b2b2b"/>
-    </svg>`,
-    'woff2': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2b2b2b" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#2b2b2b" fill-opacity="0.1"/>
-      <path d="M8 18l3-12h2l3 12M10 13h4" stroke="#2b2b2b"/>
-    </svg>`,
-    'otf': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2b2b2b" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#2b2b2b" fill-opacity="0.1"/>
-      <path d="M8 18l3-12h2l3 12M10 13h4" stroke="#2b2b2b"/>
-    </svg>`,
-    'eot': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2b2b2b" stroke-width="2">
-      <rect x="2" y="2" width="20" height="20" rx="2" fill="#2b2b2b" fill-opacity="0.1"/>
-      <path d="M8 18l3-12h2l3 12M10 13h4" stroke="#2b2b2b"/>
-    </svg>`,
-
-    // 其他
-    'default': `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-      <path d="M14 2v6h6"/>
-      <line x1="16" y1="13" x2="8" y2="13"/>
-      <line x1="16" y1="17" x2="8" y2="17"/>
-      <line x1="10" y1="9" x2="8" y2="9"/>
-    </svg>`
+  const fileIcons: Record<string, string> = {
+    js: createFileIcon('#F7DF1E', 'JS', '<path d="M8 11.5L10.2 9.3L12.3 11.4L15.8 7.9" stroke="#B88B00" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>'),
+    ts: createFileIcon('#3178C6', 'TS', '<path d="M8 11.8H15.8M8 9.2H12.5M8 14.4H13.6" stroke="#215A97" stroke-width="1.6" stroke-linecap="round"/>'),
+    jsx: createFileIcon('#61DAFB', 'JSX', '<circle cx="11.8" cy="11.4" r="1.4" fill="#0B6D86"/><path d="M8.1 11.4C8.9 9.2 10.2 8.1 11.8 8.1C13.4 8.1 14.7 9.2 15.5 11.4C14.7 13.6 13.4 14.7 11.8 14.7C10.2 14.7 8.9 13.6 8.1 11.4Z" stroke="#0B6D86" stroke-width="1.2"/>'),
+    tsx: createFileIcon('#149ECA', 'TSX', '<circle cx="11.8" cy="11.4" r="1.4" fill="#0C6280"/><path d="M8.1 11.4C8.9 9.2 10.2 8.1 11.8 8.1C13.4 8.1 14.7 9.2 15.5 11.4C14.7 13.6 13.4 14.7 11.8 14.7C10.2 14.7 8.9 13.6 8.1 11.4Z" stroke="#0C6280" stroke-width="1.2"/>'),
+    vue: createFileIcon('#42B883', 'VUE', '<path d="M8 8.3L11 13.6L14 8.3H16.2L11 16L5.8 8.3H8Z" fill="#1D7E57"/><path d="M9.8 8.3L11 10.6L12.2 8.3H14L11 13.1L8 8.3H9.8Z" fill="#35495E"/>'),
+    py: createFileIcon('#3776AB', 'PY', '<path d="M8.2 9.1C8.2 8.5 8.7 8 9.3 8H12.4C13 8 13.5 8.5 13.5 9.1V10.4C13.5 11 13 11.5 12.4 11.5H9.9" stroke="#24557E" stroke-width="1.4" stroke-linecap="round"/><path d="M15.8 13.7C15.8 14.3 15.3 14.8 14.7 14.8H11.6C11 14.8 10.5 14.3 10.5 13.7V12.4C10.5 11.8 11 11.3 11.6 11.3H14.1" stroke="#D2A22D" stroke-width="1.4" stroke-linecap="round"/><circle cx="10.3" cy="9.7" r="0.7" fill="#24557E"/><circle cx="13.7" cy="13.1" r="0.7" fill="#D2A22D"/>'),
+    go: createFileIcon('#00ADD8', 'GO', '<path d="M8.2 11.6H13.3M14.6 11.6H15.9" stroke="#0B7285" stroke-width="1.5" stroke-linecap="round"/><circle cx="9.5" cy="9.4" r="0.7" fill="#0B7285"/><circle cx="13.1" cy="9.4" r="0.7" fill="#0B7285"/><path d="M8.4 13.9C9.3 14.7 10.4 15.1 11.8 15.1C13.2 15.1 14.4 14.7 15.2 13.9" stroke="#0B7285" stroke-width="1.4" stroke-linecap="round"/>'),
+    rust: createFileIcon('#CE422B', 'RS', '<circle cx="11.8" cy="11.4" r="3.4" stroke="#7A2215" stroke-width="1.4"/><path d="M11.8 8.8V14M9.2 11.4H14.4" stroke="#7A2215" stroke-width="1.4" stroke-linecap="round"/>'),
+    java: createFileIcon('#F89820', 'JV', '<path d="M10 14.7C10.8 15 11.7 15.2 12.7 15.2C13.8 15.2 14.7 15 15.5 14.5" stroke="#A85B05" stroke-width="1.4" stroke-linecap="round"/><path d="M12.6 8.1C13.6 9.1 12.1 9.9 12.1 10.9C12.1 11.4 12.4 11.8 12.9 12.2" stroke="#A85B05" stroke-width="1.4" stroke-linecap="round"/><path d="M10 12.8C10.6 13.4 11.5 13.7 12.7 13.7C13.9 13.7 14.8 13.4 15.4 12.8" stroke="#A85B05" stroke-width="1.4" stroke-linecap="round"/>'),
+    css: createFileIcon('#264DE4', 'CSS', '<path d="M8.2 8.6H15.5L14.9 14.1L11.8 15.1L8.7 14.1L8.4 11.8H10.5L10.6 12.8L11.8 13.2L13.1 12.8L13.3 11.2H8.6L8.2 8.6Z" fill="#1939A8"/>'),
+    scss: createFileIcon('#CD6799', 'SC', '<path d="M8.4 13.8C9.2 14.5 10.4 14.9 11.8 14.9C13.9 14.9 15.3 14 15.3 12.8C15.3 11.7 14.3 11.3 12.2 10.9C10.4 10.6 9.6 10.3 9.6 9.5C9.6 8.8 10.4 8.2 11.6 8.2C12.8 8.2 13.8 8.6 14.5 9.2" stroke="#8C3F64" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>'),
+    less: createFileIcon('#2A4D80', 'LS', '<path d="M8.4 8.7V14.2H14.8" stroke="#1B3154" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M10.8 10.9H15.1" stroke="#1B3154" stroke-width="1.5" stroke-linecap="round"/>'),
+    html: createFileIcon('#E34C26', 'HT', '<path d="M8.5 8.3L7.8 14.2L11.8 15.3L15.8 14.2L15.1 8.3H8.5Z" stroke="#9A2F14" stroke-width="1.4"/><path d="M10.1 10.3H13.5M10.4 12.2H13.2M11 14L12.7 13.5" stroke="#9A2F14" stroke-width="1.2" stroke-linecap="round"/>'),
+    json: createFileIcon('#F59E0B', 'JSN', '<path d="M10 8.6C9.2 9.1 8.8 9.8 8.8 10.8C8.8 11.8 9.2 12.5 10 13M13.6 8.6C14.4 9.1 14.8 9.8 14.8 10.8C14.8 11.8 14.4 12.5 13.6 13" stroke="#A16207" stroke-width="1.4" stroke-linecap="round"/><circle cx="12" cy="10.8" r="0.9" fill="#A16207"/>'),
+    yaml: createFileIcon('#EF4444', 'YML', '<path d="M9 8.5L11.7 11.4L14.4 8.5M11.7 11.5V14.4" stroke="#991B1B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'),
+    yml: createFileIcon('#EF4444', 'YML', '<path d="M9 8.5L11.7 11.4L14.4 8.5M11.7 11.5V14.4" stroke="#991B1B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'),
+    xml: createFileIcon('#0EA5E9', 'XML', '<path d="M9.6 9L7.8 11.4L9.6 13.8M14.4 9L16.2 11.4L14.4 13.8M12.9 8.3L11.1 14.5" stroke="#075985" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>'),
+    toml: createFileIcon('#92400E', 'TM', '<path d="M8.7 9.2H14.9M11.8 9.2V14.2M9.6 14.2H14" stroke="#78350F" stroke-width="1.5" stroke-linecap="round"/>'),
+    md: createFileIcon('#2563EB', 'MD', '<path d="M8.4 13.9V8.9L10.7 11.6L13 8.9V13.9M14.3 13.9H15.8M15.8 13.9L14.8 12.7M15.8 13.9L14.8 15.1" stroke="#1D4ED8" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>'),
+    txt: createFileIcon('#6B7280', 'TXT', '<path d="M8.6 9.1H15.2M8.6 11.5H15.2M8.6 13.9H12.8" stroke="#4B5563" stroke-width="1.4" stroke-linecap="round"/>'),
+    pdf: createFileIcon('#DC2626', 'PDF', '<path d="M8.8 14V8.9H11.2C12.2 8.9 12.8 9.5 12.8 10.5C12.8 11.5 12.2 12.1 11.2 12.1H8.8M13.8 14V8.9H15.2C16.5 8.9 17.2 9.8 17.2 11.4C17.2 13 16.5 14 15.2 14H13.8" stroke="#991B1B" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>'),
+    png: createFileIcon('#A855F7', 'IMG', '<circle cx="9.4" cy="9.5" r="1.1" fill="#6B21A8"/><path d="M8.2 14.1L10.5 11.8L12 13.3L14.8 10.5L16.1 11.8V14.1H8.2Z" stroke="#6B21A8" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>'),
+    jpg: createFileIcon('#A855F7', 'IMG', '<circle cx="9.4" cy="9.5" r="1.1" fill="#6B21A8"/><path d="M8.2 14.1L10.5 11.8L12 13.3L14.8 10.5L16.1 11.8V14.1H8.2Z" stroke="#6B21A8" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>'),
+    jpeg: createFileIcon('#A855F7', 'IMG', '<circle cx="9.4" cy="9.5" r="1.1" fill="#6B21A8"/><path d="M8.2 14.1L10.5 11.8L12 13.3L14.8 10.5L16.1 11.8V14.1H8.2Z" stroke="#6B21A8" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>'),
+    gif: createFileIcon('#A855F7', 'GIF', '<circle cx="9.4" cy="9.5" r="1.1" fill="#6B21A8"/><path d="M8.7 12.8H11.3V10.7H10" stroke="#6B21A8" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M13.1 10.7H15.4M13.1 12.8H14.7" stroke="#6B21A8" stroke-width="1.3" stroke-linecap="round"/>'),
+    svg: createFileIcon('#F59E0B', 'SVG', '<path d="M12 8.1L15.5 10.2V14.4L12 16.5L8.5 14.4V10.2L12 8.1Z" stroke="#B45309" stroke-width="1.3" stroke-linejoin="round"/><circle cx="12" cy="8.1" r="0.9" fill="#B45309"/>'),
+    ico: createFileIcon('#A855F7', 'ICO', '<circle cx="9.4" cy="9.5" r="1.1" fill="#6B21A8"/><path d="M8.2 14.1L10.5 11.8L12 13.3L14.8 10.5L16.1 11.8V14.1H8.2Z" stroke="#6B21A8" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>'),
+    zip: createFileIcon('#78716C', 'ZIP', '<path d="M11.8 8.2V14.7" stroke="#44403C" stroke-width="1.4" stroke-linecap="round"/><path d="M10.9 9.2H12.7M10.9 11.1H12.7M10.9 13H12.7" stroke="#44403C" stroke-width="1.2" stroke-linecap="round"/>'),
+    tar: createFileIcon('#78716C', 'TAR', '<path d="M11.8 8.2V14.7" stroke="#44403C" stroke-width="1.4" stroke-linecap="round"/><path d="M10.9 9.2H12.7M10.9 11.1H12.7M10.9 13H12.7" stroke="#44403C" stroke-width="1.2" stroke-linecap="round"/>'),
+    gz: createFileIcon('#78716C', 'GZ', '<path d="M11.8 8.2V14.7" stroke="#44403C" stroke-width="1.4" stroke-linecap="round"/><path d="M10.9 9.2H12.7M10.9 11.1H12.7M10.9 13H12.7" stroke="#44403C" stroke-width="1.2" stroke-linecap="round"/>'),
+    '7z': createFileIcon('#78716C', '7Z', '<path d="M11.8 8.2V14.7" stroke="#44403C" stroke-width="1.4" stroke-linecap="round"/><path d="M10.9 9.2H12.7M10.9 11.1H12.7M10.9 13H12.7" stroke="#44403C" stroke-width="1.2" stroke-linecap="round"/>'),
+    rar: createFileIcon('#78716C', 'RAR', '<path d="M11.8 8.2V14.7" stroke="#44403C" stroke-width="1.4" stroke-linecap="round"/><path d="M10.9 9.2H12.7M10.9 11.1H12.7M10.9 13H12.7" stroke="#44403C" stroke-width="1.2" stroke-linecap="round"/>'),
+    sh: createFileIcon('#22C55E', 'SH', '<path d="M8.7 10.1L10.7 11.8L8.7 13.5M12.8 13.7H15.3" stroke="#166534" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>'),
+    bash: createFileIcon('#22C55E', 'SH', '<path d="M8.7 10.1L10.7 11.8L8.7 13.5M12.8 13.7H15.3" stroke="#166534" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>'),
+    zsh: createFileIcon('#22C55E', 'SH', '<path d="M8.7 10.1L10.7 11.8L8.7 13.5M12.8 13.7H15.3" stroke="#166534" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>'),
+    sql: createFileIcon('#0F766E', 'SQL', '<ellipse cx="12" cy="9.2" rx="3.8" ry="1.7" stroke="#115E59" stroke-width="1.3"/><path d="M8.2 9.2V13C8.2 13.9 9.9 14.7 12 14.7C14.1 14.7 15.8 13.9 15.8 13V9.2" stroke="#115E59" stroke-width="1.3"/>'),
+    db: createFileIcon('#0F766E', 'DB', '<ellipse cx="12" cy="9.2" rx="3.8" ry="1.7" stroke="#115E59" stroke-width="1.3"/><path d="M8.2 9.2V13C8.2 13.9 9.9 14.7 12 14.7C14.1 14.7 15.8 13.9 15.8 13V9.2" stroke="#115E59" stroke-width="1.3"/>'),
+    ttf: createFileIcon('#52525B', 'FNT', '<path d="M9.2 9.1H14.8M12 9.1V14.4M10.4 11.8H13.6" stroke="#27272A" stroke-width="1.4" stroke-linecap="round"/>'),
+    woff: createFileIcon('#52525B', 'FNT', '<path d="M9.2 9.1H14.8M12 9.1V14.4M10.4 11.8H13.6" stroke="#27272A" stroke-width="1.4" stroke-linecap="round"/>'),
+    woff2: createFileIcon('#52525B', 'FNT', '<path d="M9.2 9.1H14.8M12 9.1V14.4M10.4 11.8H13.6" stroke="#27272A" stroke-width="1.4" stroke-linecap="round"/>'),
+    otf: createFileIcon('#52525B', 'FNT', '<path d="M9.2 9.1H14.8M12 9.1V14.4M10.4 11.8H13.6" stroke="#27272A" stroke-width="1.4" stroke-linecap="round"/>'),
+    eot: createFileIcon('#52525B', 'FNT', '<path d="M9.2 9.1H14.8M12 9.1V14.4M10.4 11.8H13.6" stroke="#27272A" stroke-width="1.4" stroke-linecap="round"/>')
   }
 
-  return icons[ext || ''] || icons['default']
-}
+  return fileIcons[ext] || createFileIcon('#94A3B8', 'FILE', '<path d="M8.7 10.1H15.1M8.7 12.2H15.1M8.7 14.3H12.6" stroke="#64748B" stroke-width="1.4" stroke-linecap="round"/>')
+ }
 
 // 刷新工作空间
 async function refreshWorkspace() {
