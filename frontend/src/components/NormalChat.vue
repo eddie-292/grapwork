@@ -737,6 +737,54 @@ const reasoningStartTime = ref<Record<number, number>>({})
 const toolResultExpanded = ref<Record<number, boolean>>({})
 const copyStatus = ref<Record<number, { text?: boolean; md?: boolean; html?: boolean }>>({})
 
+// 计算每个 tool 消息归属的 assistant 消息索引，归入其"分析过程"中展示
+// 匹配规则：
+// 1) 若 tool 消息带 tool_call_id，则查找前面拥有该 tool_call 的 assistant 消息
+// 2) 否则退化为最近的前一条含 tool_calls 的 assistant 消息
+// 最终由该 assistant 渲染；后续的 assistant（带 content 的"最终回答"）不再拥有这些 tool
+const toolsByAssistant = computed(() => {
+  const map: Record<number, number[]> = {}
+  const owned = new Set<number>()
+  const msgs = props.messages
+  for (let i = 0; i < msgs.length; i++) {
+    const m = msgs[i]
+    if (!m || m.role !== 'tool' || m.visible === false) continue
+    let ownerIdx = -1
+    if (m.tool_call_id) {
+      for (let k = i - 1; k >= 0; k--) {
+        const prev = msgs[k]
+        if (prev?.role === 'assistant' && prev.tool_calls?.some((tc: any) => tc.id === m.tool_call_id)) {
+          ownerIdx = k
+          break
+        }
+      }
+    }
+    if (ownerIdx === -1) {
+      for (let k = i - 1; k >= 0; k--) {
+        const prev = msgs[k]
+        if (prev?.role === 'assistant' && prev.tool_calls && prev.tool_calls.length > 0) {
+          ownerIdx = k
+          break
+        }
+      }
+    }
+    if (ownerIdx === -1) {
+      // 再退化为最近的 assistant
+      for (let k = i - 1; k >= 0; k--) {
+        if (msgs[k]?.role === 'assistant') {
+          ownerIdx = k
+          break
+        }
+      }
+    }
+    if (ownerIdx !== -1) {
+      ;(map[ownerIdx] ||= []).push(i)
+      owned.add(i)
+    }
+  }
+  return { map, owned }
+})
+
 // 获取工具名称（优先使用 toolName 字段，否则从 tool_calls 中查找）
 function getToolName(message: Message, messages: Message[]): string {
   if (!message.tool_call_id) return ''
@@ -1604,12 +1652,11 @@ function scrollToBottom() {
         </div>
       </div>
       <template v-for="(m, i) in messages" :key="i">
-        <!-- 工具调用结果消息 -->
-        <div v-if="m.visible !== false && m.role === 'tool'" class="msg-row tool">
+        <!-- 工具调用结果消息（孤立的，即没有归属到 assistant 的分析过程中） -->
+        <div v-if="m.visible !== false && m.role === 'tool' && !toolsByAssistant.owned.has(i)" class="msg-row tool">
           <div class="msg-content">
             <div class="tool-result-card">
               <div class="tool-result-header" @click="toggleToolResult(i)">
-                <!-- 前置状态图标 -->
                 <span class="tool-leading-icon">
                   <span v-if="m.toolStatus === 'running'" class="status-spinner status-spinner-running"></span>
                   <span v-else-if="m.toolStatus === 'error'" class="status-dot status-dot-error"><XIcon :size="10" /></span>
@@ -1637,12 +1684,12 @@ function scrollToBottom() {
 
         <!-- 普通消息 -->
         <div
-          v-else-if="m.visible !== false"
+          v-else-if="m.visible !== false && m.role !== 'tool'"
           :id="`msg-${i}`"
           :class="['msg-row', m.role, { 'error-message': isErrorMessage(m) }]"
         >
           <div class="msg-content">
-            <div v-if="m.reasoning || (sending && i === messages.length - 1 && m.role === 'assistant')" class="reasoning-section">
+            <div v-if="m.reasoning || (toolsByAssistant.map[i] && toolsByAssistant.map[i]!.length > 0) || (sending && i === messages.length - 1 && m.role === 'assistant')" class="reasoning-section">
               <button class="reasoning-toggle" @click="toggleReasoning(i)">
                 <span v-if="sending && i === messages.length - 1 && m.role === 'assistant' && !getContentAsString(m.content).trim()" class="grape-spinner">
                   <GrapeIcon :size="16" />
@@ -1651,11 +1698,38 @@ function scrollToBottom() {
                 <ChevronDownIcon v-if="reasoningExpanded[i]" :size="12" class="reasoning-chevron" />
                 <ChevronRightIcon v-else :size="12" class="reasoning-chevron" />
               </button>
-              <div v-show="reasoningExpanded[i] && m.reasoning" class="reasoning-body">
+              <div v-show="reasoningExpanded[i] && (m.reasoning || (toolsByAssistant.map[i] && toolsByAssistant.map[i]!.length > 0))" class="reasoning-body">
                 <div class="reasoning-leading">
                   <ClockIcon :size="14" />
                 </div>
-                <div class="reasoning-text" v-html="render(m.reasoning || '')" />
+                <div v-if="m.reasoning" class="reasoning-text" v-html="render(m.reasoning || '')" />
+                <!-- 归属到此 assistant 的工具调用结果 -->
+                <div v-if="toolsByAssistant.map[i] && toolsByAssistant.map[i]!.length > 0" class="reasoning-tools">
+                  <div v-for="ti in toolsByAssistant.map[i]" :key="`tool-${ti}`" class="tool-result-card nested">
+                    <div class="tool-result-header" @click="toggleToolResult(ti)">
+                      <span class="tool-leading-icon">
+                        <span v-if="messages[ti]!.toolStatus === 'running'" class="status-spinner status-spinner-running"></span>
+                        <span v-else-if="messages[ti]!.toolStatus === 'error'" class="status-dot status-dot-error"><XIcon :size="10" /></span>
+                        <span v-else class="status-dot status-dot-success"><CheckIcon :size="10" /></span>
+                      </span>
+                      <div class="tool-result-title">
+                        <span class="tool-result-name">{{ getToolName(messages[ti]!, messages) }}</span>
+                        <span v-if="messages[ti]!.toolStatus === 'running'" class="tool-status-text status-running-text">{{ messages[ti]!.runningPhrase || '正在处理' }}</span>
+                        <span v-else-if="messages[ti]!.toolStatus === 'error'" class="tool-status-text status-error-text">执行失败</span>
+                        <span v-else class="tool-status-text status-success-text">已完成</span>
+                      </div>
+                      <div class="tool-result-actions">
+                        <button class="tool-action-btn" title="复制结果" @click.stop="copyToolResult(getContentAsString(messages[ti]!.content))">
+                          <CopyIcon :size="14" />
+                        </button>
+                        <span class="expand-icon"><ChevronDownIcon v-if="toolResultExpanded[ti]" :size="12" /><ChevronRightIcon v-else :size="12" /></span>
+                      </div>
+                    </div>
+                    <div v-show="toolResultExpanded[ti]" class="tool-result-body">
+                      <pre class="tool-result-code"><code v-if="formatToolResult(getContentAsString(messages[ti]!.content)).html" v-html="formatToolResult(getContentAsString(messages[ti]!.content)).html"></code><code v-else>{{ formatToolResult(getContentAsString(messages[ti]!.content)).formatted }}</code></pre>
+                    </div>
+                  </div>
+                </div>
                 <div v-if="!(sending && i === messages.length - 1 && m.role === 'assistant' && !getContentAsString(m.content).trim())" class="reasoning-footer">
                   <span class="reasoning-done-icon"><CheckIcon :size="10" /></span>
                   <span>Done</span>
@@ -2466,6 +2540,22 @@ function scrollToBottom() {
 
 .reasoning-text :deep(p:last-child) {
   margin-bottom: 0;
+}
+
+.reasoning-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+}
+
+.reasoning-tools .tool-result-card.nested {
+  animation: none;
+  max-width: 100%;
+}
+
+.reasoning-tools .tool-result-card.nested .tool-result-body {
+  margin-left: 6px;
 }
 
 .reasoning-footer {
