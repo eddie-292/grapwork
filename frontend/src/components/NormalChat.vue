@@ -18,6 +18,7 @@ import ArrowUpIcon from './icons/ArrowUpIcon.vue'
 import SettingsIcon from './icons/SettingsIcon.vue'
 import GrapeIcon from './icons/GrapeIcon.vue'
 import LLMProviderIcon from './icons/LLMProviderIcon.vue'
+import BrainIcon from './icons/BrainIcon.vue'
 
 type Role = 'user' | 'assistant' | 'system' | 'tool'
 
@@ -232,7 +233,7 @@ async function loadWorkspaceFiles(dirPath: string) {
       async function scanDirectory(path: string, depth: number = 0) {
         if (depth > 3) return // 限制递归深度
 
-        const dirResult = await window.electronAPI!.readDirectory(path)
+        const dirResult = await window.electronAPI.readDirectory(path)
         if (dirResult.success && dirResult.items) {
           for (const item of dirResult.items) {
             const itemPath = `${path}/${item.name}`
@@ -1987,11 +1988,7 @@ function scrollToBottom() {
               @click="handleThinkingToggle"
               :title="enableThinking ? '已启用思考模式' : '点击启用思考模式'"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M9 18h6" />
-                <path d="M10 22h4" />
-                <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14" />
-              </svg>
+              <BrainIcon :size="18" class="thinking-brain-icon" />
             </button>
 
             <!-- 参数设置按钮 -->
@@ -2176,7 +2173,7 @@ function scrollToBottom() {
   margin: 0;
   font-size: 34px;
   font-weight: 700;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: var(--color-text-primary);
 }
 
@@ -2588,7 +2585,7 @@ function scrollToBottom() {
   display: flex;
   align-items: center;
   gap: 6px;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
 }
 
 .retry-btn:hover {
@@ -2664,7 +2661,7 @@ function scrollToBottom() {
 
 .msg-bubble :deep(blockquote) {
   margin: 12px 0;
-  padding: 10px 14px 10px 18px;
+  padding: 10px 14px;
   border-left: 3px solid var(--color-border-hover);
   background: var(--color-bg-secondary);
   border-radius: 0 8px 8px 0;
@@ -2744,6 +2741,10 @@ function scrollToBottom() {
 .msg-bubble :deep(code) {
   font-family: 'SF Mono', Monaco, 'Andale Mono', "JetBrains Mono", Menlo, Consolas, monospace;
   font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 /* 链接样式 - 禁用默认行为 */
@@ -3002,21 +3003,30 @@ function scrollToBottom() {
 }
 
 .thinking-btn.active {
-  background: linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(245, 158, 11, 0.1) 100%);
-  border-color: #fbbf24;
-  color: #fbbf24;
-  box-shadow: 0 0 12px rgba(251, 191, 36, 0.3);
+  color: var(--color-text-secondary);
 }
 
 .thinking-btn.active:hover {
-  background: linear-gradient(135deg, rgba(251, 191, 36, 0.25) 0%, rgba(245, 158, 11, 0.15) 100%);
-  color: #f59e0b;
-  box-shadow: 0 0 16px rgba(251, 191, 36, 0.4);
+  color: var(--color-text-secondary);
 }
 
 .thinking-btn svg {
   width: 18px;
   height: 18px;
+}
+
+.thinking-brain-icon {
+  transition: color 0.25s ease, filter 0.25s ease;
+}
+
+.thinking-btn.active .thinking-brain-icon {
+  color: #7c83ff;
+  filter: drop-shadow(0 0 6px rgba(129, 140, 248, 0.3));
+}
+
+.thinking-btn.active:hover .thinking-brain-icon {
+  color: #6366f1;
+  filter: drop-shadow(0 0 8px rgba(129, 140, 248, 0.38));
 }
 
 :deep(hr) {
