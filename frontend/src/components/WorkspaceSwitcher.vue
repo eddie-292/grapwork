@@ -21,6 +21,7 @@ const emit = defineEmits<{
 const isExpanded = ref(true)
 const editingId = ref<string | null>(null)
 const editingName = ref('')
+const isEscaping = ref(false)
 const contextMenuId = ref<string | null>(null)
 
 // 截断路径显示
@@ -61,8 +62,18 @@ function finishRename(id: string) {
 
 // 取消重命名
 function cancelRename() {
+  isEscaping.value = true
   editingId.value = null
   editingName.value = ''
+}
+
+// blur 处理（ESC 取消时不触发保存）
+function handleBlur(id: string) {
+  if (isEscaping.value) {
+    isEscaping.value = false
+    return
+  }
+  finishRename(id)
 }
 
 // 显示右键菜单
@@ -141,7 +152,7 @@ onUnmounted(() => {
                 v-model="editingName"
                 @keyup.enter="finishRename(workspace.id)"
                 @keyup.escape="cancelRename"
-                @blur="finishRename(workspace.id)"
+                @blur="handleBlur(workspace.id)"
                 ref="editInput"
                 autofocus
               />
