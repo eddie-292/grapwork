@@ -1734,11 +1734,7 @@ function scrollToBottom() {
                 </div>
               </div>
             </div>
-            <!-- AI 消息提供商图标 -->
-            <div v-if="m.role === 'assistant' && (!!getContentAsString(m.content).trim() || (sending && i === messages.length - 1))" class="assistant-header">
-              <LLMProviderIcon :provider="getProviderIdByApiUrl(activeConfig?.apiUrl)" :size="20" />
-              <span class="assistant-provider-name">{{ activeConfig?.name || 'AI' }}</span>
-            </div>
+            
             <div v-if="m.role !== 'assistant' || !!getContentAsString(m.content).trim() || (sending && i === messages.length - 1)" class="msg-bubble-wrapper">
               <!-- 用户消息图片预览 -->
               <div v-if="m.role === 'user' && m.images && m.images.length > 0" class="message-images">
@@ -2399,7 +2395,6 @@ function scrollToBottom() {
 
 .msg-row {
   display: flex;
-  padding: 20px 0;
   animation: msg-fade-in 0.3s ease-out;
 }
 
