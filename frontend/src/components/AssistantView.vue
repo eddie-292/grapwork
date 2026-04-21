@@ -241,28 +241,31 @@ function truncateText(text: string, maxLength: number): string {
           v-for="(assistant, index) in assistantList.assistants"
           :key="assistant.id"
           class="assistant-card"
+          @click="editAssistant(index)"
         >
           <div class="card-avatar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path :d="getAvatarPath(assistant.emoji)" />
             </svg>
           </div>
           <div class="card-info">
-            <h3 class="card-title">{{ assistant.name }}</h3>
-            <p class="card-description">{{ truncateText(assistant.systemPrompt, 60) || '暂无描述' }}</p>
+            <h3 class="card-title">{{ assistant.name || '未命名助理' }}</h3>
+            <p class="card-description">{{ truncateText(assistant.systemPrompt, 80) || '暂无描述' }}</p>
           </div>
-          <div class="card-actions">
-            <button class="edit-btn" @click="editAssistant(index)" title="编辑">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <div class="card-actions" @click.stop>
+            <button class="act-btn" @click="editAssistant(index)" title="编辑">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
               </svg>
+              <span>编辑</span>
             </button>
-            <button class="delete-btn" @click="confirmDelete(index)" title="删除">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <button class="act-btn danger" @click="confirmDelete(index)" title="删除">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="3 6 5 6 21 6"></polyline>
                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
               </svg>
+              <span>删除</span>
             </button>
           </div>
         </div>
@@ -296,7 +299,7 @@ function truncateText(text: string, maxLength: number): string {
 /* back-btn and add-btn styles moved to global style.css */
 
 .assistant-content {
-  padding: 32px;
+  padding: 20px 24px;
   width: 100%;
   flex: 1;
 }
@@ -310,87 +313,142 @@ function truncateText(text: string, maxLength: number): string {
   gap: 16px;
 }
 
-.empty-icon {
-  width: 80px;
-  height: 80px;
-  opacity: 0.3;
-  color: var(--color-text-secondary);
-}
-
-.empty-icon svg {
-  width: 100%;
-  height: 100%;
-}
-
 .empty-state p {
   margin: 0;
   color: var(--color-text-secondary);
-  font-size: 16px;
+  font-size: 14px;
 }
 
+/* 网格布局 */
 .assistant-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
 }
 
+/* 卡片：头像左，内容中，操作右 */
 .assistant-card {
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  transition: all 0.2s;
-  cursor: default;
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas:
+    "avatar info"
+    "actions actions";
+  gap: 12px;
+  align-items: center;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+  cursor: pointer;
 }
 
 .assistant-card:hover {
-  border-color: var(--color-primary);
-  box-shadow: 0 8px 24px rgba(51, 51, 51, 0.12);
+  border-color: var(--color-border-hover);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
 }
 
+.assistant-card:hover .card-avatar {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+/* 头像 */
 .card-avatar {
-  width: 64px;
-  height: 64px;
+  grid-area: avatar;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid var(--color-border);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
   color: var(--color-primary);
+  transition: border-color 0.2s, background 0.2s;
+  flex-shrink: 0;
 }
 
 .card-avatar svg {
-  width: 32px;
-  height: 32px;
+  width: 22px;
+  height: 22px;
 }
 
+/* 信息 */
 .card-info {
-  flex: 1;
+  grid-area: info;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .card-title {
-  margin: 0 0 8px 0;
-  font-size: 18px;
+  margin: 0;
+  font-size: 14px;
   font-weight: 600;
   color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
 }
 
 .card-description {
   margin: 0;
-  font-size: 14px;
+  font-size: 12px;
   color: var(--color-text-secondary);
-  line-height: 1.6;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
+/* 操作按钮 */
 .card-actions {
+  grid-area: actions;
   display: flex;
-  gap: 8px;
+  gap: 6px;
+  justify-content: flex-end;
+  padding-top: 4px;
+  border-top: 1px solid var(--color-border);
+  margin-top: 2px;
 }
 
-/* use-btn, edit-btn, delete-btn styles moved to global style.css */
+.act-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
+  color: var(--color-text-secondary);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  line-height: 1.4;
+}
+
+.act-btn:hover:not(:disabled) {
+  border-color: var(--color-border-hover);
+  color: var(--color-text-primary);
+  background: var(--color-bg-tertiary);
+}
+
+.act-btn.danger:hover:not(:disabled) {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+
+.act-btn svg {
+  flex-shrink: 0;
+}
 
 /* 模态框样式 */
 .modal-overlay {
@@ -482,23 +540,39 @@ function truncateText(text: string, maxLength: number): string {
 .avatar-selector {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
 .avatar-btn {
-  width: 46px;
-  height: 46px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
+  color: var(--color-text-secondary);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  padding: 0;
+}
+
+.avatar-btn:hover {
+  border-color: var(--color-border-hover);
+  color: var(--color-text-primary);
+  background: var(--color-bg-tertiary);
 }
 
 .avatar-btn svg {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
 }
 
 .avatar-btn.selected {
   border-color: var(--color-primary);
   background: var(--color-primary);
-  color: white;
+  color: var(--color-text-on-primary);
 }
 
 .modal-footer {
