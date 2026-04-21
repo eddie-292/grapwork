@@ -229,30 +229,31 @@ function closeDialog() {
 // 添加连接
 async function addConnection() {
   if (!newConnection.value.name.trim()) {
-    message.value = '请输入连接名称'
+    testResult.value = { success: false, error: '请输入连接名称' }
     return
   }
 
   // 根据类型验证不同的字段
   if (newConnection.value.type === 'yuque') {
     if (!newConnection.value.authToken.trim()) {
-      message.value = '请输入认证令牌'
+      testResult.value = { success: false, error: '请输入认证令牌' }
       return
     }
   } else if (newConnection.value.type === 'feishu') {
     if (!newConnection.value.appId.trim() || !newConnection.value.appSecret.trim()) {
-      message.value = '请输入 App ID 和 App Secret'
+      testResult.value = { success: false, error: '请输入 App ID 和 App Secret' }
       return
     }
   } else if (newConnection.value.type === 'github') {
     if (!newConnection.value.githubToken.trim()) {
-      message.value = '请输入 GitHub Personal Access Token'
+      testResult.value = { success: false, error: '请输入 GitHub Personal Access Token' }
       return
     }
   }
 
   loading.value = true
   message.value = ''
+  testResult.value = null
 
   try {
     let config: Record<string, unknown>
@@ -295,10 +296,10 @@ async function addConnection() {
         message.value = ''
       }, 2000)
     } else {
-      message.value = result.error || '添加失败'
+      testResult.value = { success: false, error: result.error || '添加失败' }
     }
   } catch (error) {
-    message.value = error instanceof Error ? error.message : '添加失败'
+    testResult.value = { success: false, error: error instanceof Error ? error.message : '添加失败' }
   } finally {
     loading.value = false
   }
@@ -308,12 +309,13 @@ async function addConnection() {
 async function updateConnection() {
   if (!editingConnection.value) return
   if (!editForm.value.name.trim()) {
-    message.value = '请输入连接名称'
+    testResult.value = { success: false, error: '请输入连接名称' }
     return
   }
 
   loading.value = true
   message.value = ''
+  testResult.value = null
 
   try {
     let config: Record<string, unknown>
@@ -358,10 +360,10 @@ async function updateConnection() {
         message.value = ''
       }, 2000)
     } else {
-      message.value = result.error || '更新失败'
+      testResult.value = { success: false, error: result.error || '更新失败' }
     }
   } catch (error) {
-    message.value = error instanceof Error ? error.message : '更新失败'
+    testResult.value = { success: false, error: error instanceof Error ? error.message : '更新失败' }
   } finally {
     loading.value = false
   }
@@ -1037,8 +1039,8 @@ function openGitHubTokenPage() {
 
 .connection-card {
   padding: 20px;
-  background: var(--color-bg-secondary);
-  border-radius: 12px;
+  background: var(--color-bg-tertiary);
+  border-radius: 8px;
   border: 1px solid var(--color-border);
 }
 
@@ -1080,11 +1082,11 @@ function openGitHubTokenPage() {
 }
 
 .status-dot.connected {
-  background: #22c55e;
+  background: #34c759;
 }
 
 .status-dot.disconnected {
-  background: #dc2626;
+  background: #ff3b30;
 }
 
 .status-text {
@@ -1127,12 +1129,12 @@ function openGitHubTokenPage() {
 }
 
 .btn.warning {
-  background: #f59e0b;
+  background: #ff9500;
   color: white;
 }
 
 .btn.success {
-  background: #22c55e;
+  background: #34c759;
   color: white;
 }
 
@@ -1191,7 +1193,7 @@ function openGitHubTokenPage() {
   padding: 3px 8px;
   font-size: 11px;
   color: var(--color-primary);
-  background: rgba(0, 122, 255, 0.08);
+  background: rgba(0, 122, 255, 0.1);
   border-radius: 4px;
   white-space: nowrap;
 }
@@ -1208,21 +1210,21 @@ function openGitHubTokenPage() {
   width: 36px;
   height: 36px;
   border: none;
-  border-radius: 8px;
-  background: var(--color-bg-tertiary);
+  border-radius: 10px;
+  background: var(--color-bg-primary);
   color: var(--color-text-secondary);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .btn-icon:hover {
-  background: var(--color-bg-primary);
+  background: var(--color-bg-secondary);
   color: var(--color-text-primary);
 }
 
 .btn-icon.danger:hover {
-  background: #fee2e2;
-  color: #dc2626;
+  background: rgba(255, 59, 48, 0.1);
+  color: #ff3b30;
 }
 
 .btn-icon:disabled {
@@ -1233,8 +1235,8 @@ function openGitHubTokenPage() {
 .connection-error {
   margin-top: 12px;
   padding: 10px 12px;
-  background: #fee2e2;
-  color: #dc2626;
+  background: rgba(255, 59, 48, 0.1);
+  color: #ff3b30;
   border-radius: 8px;
   font-size: 13px;
 }
@@ -1267,8 +1269,8 @@ function openGitHubTokenPage() {
   gap: 8px;
   padding: 10px 16px;
   border: none;
-  border-radius: 8px;
-  font-size: 14px;
+  border-radius: 10px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
@@ -1304,13 +1306,13 @@ function openGitHubTokenPage() {
   padding: 12px;
   border-radius: 8px;
   font-size: 14px;
-  background: #fee2e2;
-  color: #dc2626;
+  background: rgba(255, 59, 48, 0.1);
+  color: #ff3b30;
 }
 
 .message.success {
-  background: #dcfce7;
-  color: #16a34a;
+  background: rgba(52, 199, 89, 0.15);
+  color: #34c759;
 }
 
 /* 对话框 */
@@ -1394,8 +1396,8 @@ function openGitHubTokenPage() {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--color-border);
-  border-radius: 8px;
-  font-size: 14px;
+  border-radius: 10px;
+  font-size: 13px;
   outline: none;
   transition: border-color 0.2s;
   background: var(--color-bg-primary);
@@ -1432,7 +1434,7 @@ function openGitHubTokenPage() {
 
 .connection-type-option.active {
   border-color: var(--color-primary);
-  background: rgba(0, 122, 255, 0.05);
+  background: rgba(0, 122, 255, 0.1);
 }
 
 .connection-type-option input {
@@ -1470,7 +1472,7 @@ function openGitHubTokenPage() {
   padding: 2px 6px;
   font-size: 10px;
   color: var(--color-primary);
-  background: rgba(0, 122, 255, 0.08);
+  background: rgba(0, 122, 255, 0.1);
   border-radius: 3px;
 }
 
@@ -1499,7 +1501,7 @@ function openGitHubTokenPage() {
 
 .auth-mode-option.active {
   border-color: var(--color-primary);
-  background: rgba(0, 122, 255, 0.05);
+  background: rgba(0, 122, 255, 0.1);
 }
 
 .auth-mode-option input {
@@ -1550,18 +1552,18 @@ function openGitHubTokenPage() {
 }
 
 .oauth-icon.success {
-  background: #dcfce7;
-  color: #16a34a;
+  background: rgba(52, 199, 89, 0.15);
+  color: #34c759;
 }
 
 .oauth-icon.warning {
-  background: #fef3c7;
-  color: #d97706;
+  background: rgba(255, 149, 0, 0.12);
+  color: #ff9500;
 }
 
 .oauth-icon.info {
-  background: #dbeafe;
-  color: #2563eb;
+  background: rgba(0, 122, 255, 0.1);
+  color: var(--color-primary);
 }
 
 .oauth-text {
@@ -1601,12 +1603,12 @@ function openGitHubTokenPage() {
   padding: 12px;
   border-radius: 8px;
   font-size: 13px;
-  background: #fee2e2;
-  color: #dc2626;
+  background: rgba(255, 59, 48, 0.1);
+  color: #ff3b30;
 }
 
 .test-result.success {
-  background: #dcfce7;
-  color: #16a34a;
+  background: rgba(52, 199, 89, 0.15);
+  color: #34c759;
 }
 </style>

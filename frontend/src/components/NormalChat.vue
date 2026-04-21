@@ -3303,11 +3303,11 @@ function scrollToBottom() {
 }
 
 .status-running-text {
-  color: #2563eb;
+  color: var(--color-primary);
 }
 
 .status-error-text {
-  color: #dc2626;
+  color: var(--color-danger);
 }
 
 .tool-result-actions {

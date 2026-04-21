@@ -224,6 +224,7 @@ function createConnectionsManager() {
     registry.value.connections.push(connectionConfig)
     instances.set(id, instance)
     statuses.set(id, instance.status)
+    updateWindowStatus()
 
     await saveRegistry()
 
