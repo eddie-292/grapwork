@@ -2,6 +2,11 @@
 import { onMounted } from 'vue'
 import { storage } from './services/StorageService'
 import MacOsQuarantineDialog from './components/MacOsQuarantineDialog.vue'
+import ClarificationDialog from './components/ClarificationDialog.vue'
+import { useClarification } from './stores/clarification'
+
+// 初始化澄清工具监听
+useClarification()
 
 // 在应用启动时加载保存的 UI 主题
 onMounted(async () => {
@@ -15,6 +20,9 @@ onMounted(async () => {
 <template>
   <!-- macOS 隔离检测对话框 -->
   <MacOsQuarantineDialog />
+
+  <!-- 澄清工具对话框 -->
+  <ClarificationDialog />
 
   <router-view v-slot="{ Component }">
     <Transition name="page" mode="out-in">

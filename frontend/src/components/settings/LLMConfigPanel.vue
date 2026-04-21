@@ -267,22 +267,21 @@ defineExpose({
         v-for="(config, index) in configList.configs"
         :key="index"
         class="config-item"
+        @click="editConfig(index)"
       >
         <div class="config-icon">
-          <LLMProviderIcon :provider="getProviderIdByApiUrl(config.apiUrl)" :size="32" />
+          <LLMProviderIcon :provider="getProviderIdByApiUrl(config.apiUrl)" :size="24" />
         </div>
         <div class="config-info">
-          <div class="config-header">
-            <h3>{{ config.name || config.model }}</h3>
-          </div>
+          <h3 class="config-name">{{ config.name || config.model }}</h3>
           <div class="config-details">
-            <div>模型：{{ config.model }}</div>
-            <div>地址：{{ config.apiUrl }}</div>
+            <span class="detail-chip">{{ config.model }}</span>
+            <span class="detail-url" :title="config.apiUrl">{{ config.apiUrl }}</span>
           </div>
         </div>
-        <div class="config-actions">
-          <button class="btn-icon" @click="editConfig(index)" title="编辑">编辑</button>
-          <button class="btn-icon" @click="confirmDelete(index)" title="删除">删除</button>
+        <div class="config-actions" @click.stop>
+          <button class="act-btn" @click="editConfig(index)" title="编辑">编辑</button>
+          <button class="act-btn danger" @click="confirmDelete(index)" title="删除">删除</button>
         </div>
       </div>
     </div>
@@ -458,102 +457,161 @@ defineExpose({
 }
 
 .config-list {
-  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
 }
 
 .empty-state {
   text-align: center;
-  padding: 40px 20px;
+  padding: 32px 20px;
   color: var(--color-text-secondary);
   background: var(--color-bg-tertiary);
-  border-radius: 8px;
-  margin-bottom: 20px;
+  border-radius: 10px;
+  font-size: 13px;
 }
 
+/* 配置行 */
 .config-item {
   display: flex;
   align-items: center;
-  padding: 16px;
+  padding: 12px 14px;
   border: 1px solid var(--color-border);
-  border-radius: 8px;
-  margin-bottom: 12px;
+  border-radius: 10px;
   background: var(--color-bg-primary);
-  transition: all 0.2s;
-  gap: 20px;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+  gap: 12px;
+  cursor: pointer;
+  min-width: 0;
 }
 
 .config-item:hover {
-  border-color: var(--color-primary);
+  border-color: var(--color-border-hover);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transform: translateY(-1px);
 }
 
 .config-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
   background: var(--color-bg-tertiary);
-  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
 }
 
 .config-info {
   flex: 1;
-}
-
-.config-header {
+  min-width: 0;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.config-header h3 {
+.config-name {
   margin: 0;
-  font-size: 16px;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--color-text-primary);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .config-details {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  line-height: 1.4;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
-.config-details div {
-  margin-bottom: 4px;
+.detail-chip {
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-weight: 500;
+  font-family: 'SF Mono', Monaco, 'Andale Mono', monospace;
+}
+
+.detail-url {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-family: 'SF Mono', Monaco, 'Andale Mono', monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .config-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* 统一按钮 */
+.act-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
+  color: var(--color-text-secondary);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  line-height: 1.4;
+}
+
+.act-btn:hover:not(:disabled) {
+  border-color: var(--color-border-hover);
+  color: var(--color-text-primary);
+  background: var(--color-bg-tertiary);
+}
+
+.act-btn.danger:hover:not(:disabled) {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
 }
 
 /* 快速添加提供商 */
 .quick-add-section {
-  margin-bottom: 24px;
-  padding: 20px;
+  margin-bottom: 20px;
+  padding: 16px;
   background: var(--color-bg-tertiary);
-  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
 }
 
 .section-title {
-  margin: 0 0 8px 0;
-  font-size: 14px;
+  margin: 0 0 6px 0;
+  font-size: 13px;
   font-weight: 600;
   color: var(--color-text-primary);
 }
 
 .section-desc {
-  margin: 0 0 16px 0;
-  font-size: 13px;
+  margin: 0 0 14px 0;
+  font-size: 12px;
   color: var(--color-text-secondary);
 }
 
 .provider-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
 }
 
 .provider-card {
@@ -561,18 +619,18 @@ defineExpose({
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 14px 10px;
+  padding: 12px 10px;
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
 }
 
 .provider-card:hover {
   border-color: var(--color-primary);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  background: var(--color-primary-light);
+  transform: translateY(-1px);
 }
 
 .provider-card:active {
@@ -607,7 +665,7 @@ defineExpose({
 }
 
 .provider-selector-btn:hover {
-  border-color: var(--color-primary);
+  border-color: var(--color-border-hover);
 }
 
 .chevron {
@@ -674,13 +732,16 @@ defineExpose({
 /* 编辑表单 */
 .edit-form {
   background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
   padding: 20px;
-  border-radius: 8px;
+  border-radius: 12px;
   margin-bottom: 20px;
 }
 
 .edit-form h3 {
   margin: 0 0 16px 0;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--color-text-primary);
 }
 
@@ -713,7 +774,7 @@ defineExpose({
 }
 
 .input:focus {
-  border-color: var(--color-border-hover);
+  border-color: var(--color-primary);
 }
 
 .select {
@@ -764,7 +825,7 @@ defineExpose({
 }
 
 .textarea:focus {
-  border-color: var(--color-border-hover);
+  border-color: var(--color-primary);
 }
 
 .form-group small {
@@ -784,16 +845,18 @@ defineExpose({
 }
 
 .message {
-  padding: 12px;
+  padding: 10px 12px;
   border-radius: 8px;
-  background: #fee;
-  color: #c33;
-  font-size: 14px;
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  font-size: 13px;
+  border: 1px solid var(--color-danger);
 }
 
 .message.success {
-  background: #efe;
-  color: #3a3;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
 }
 
 /* 开关样式 */

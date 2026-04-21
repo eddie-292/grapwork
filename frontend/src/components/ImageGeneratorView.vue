@@ -3,6 +3,19 @@ import { ref, onMounted, nextTick, watch, computed } from 'vue'
 import { useImageGenerator } from '@/composables/useImageGenerator'
 import { getProvider, getAllProviders } from '@/imageProviders'
 import type { ImageChatSession, OutputFile } from '@/types/imageGenerator'
+import DownloadIcon from './icons/DownloadIcon.vue'
+import EyeIcon from './icons/EyeIcon.vue'
+import EyeOffIcon from './icons/EyeOffIcon.vue'
+import FolderIcon from './icons/FolderIcon.vue'
+import ImageAccentIcon from './icons/ImageAccentIcon.vue'
+import EditIcon from './icons/EditIcon.vue'
+import MigrateIcon from './icons/MigrateIcon.vue'
+import PlusIcon from './icons/PlusIcon.vue'
+import RefreshIcon from './icons/RefreshIcon.vue'
+import SendIcon from './icons/SendIcon.vue'
+import SettingsIcon from './icons/SettingsIcon.vue'
+import TrashIcon from './icons/TrashIcon.vue'
+import XIcon from './icons/XIcon.vue'
 
 // 根据当前配置获取尺寸和模型选项
 const currentSizeOptions = computed(() => {
@@ -618,10 +631,7 @@ function generateId(): string {
       <div class="sidebar">
         <div class="sidebar-header">
           <button class="new-session-btn" @click="handleNewSession">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
+            <PlusIcon :size="16" />
             新会话
           </button>
         </div>
@@ -635,24 +645,18 @@ function generateId(): string {
           >
             <span class="session-title">{{ session.title }}</span>
             <button class="delete-btn" @click="handleDeleteSession(session.id, $event)" title="删除会话">
-              x
+              <XIcon :size="14" />
             </button>
           </div>
         </div>
 
         <div class="sidebar-footer">
           <button class="config-btn" @click="openConfigDialog">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="3"></circle>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-            </svg>
+            <SettingsIcon :size="16" />
             配置
           </button>
           <button class="clear-btn" @click="handleClearHistory" title="清空历史">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-            </svg>
+            <TrashIcon :size="16" />
           </button>
         </div>
       </div>
@@ -663,11 +667,7 @@ function generateId(): string {
         <div ref="messagesContainer" class="messages-container">
           <div v-if="!currentSession || currentSession.messages.length === 0" class="empty-state">
             <div class="empty-icon">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                <polyline points="21 15 16 10 5 21"></polyline>
-              </svg>
+              <ImageAccentIcon :size="48" />
             </div>
             <p>描述你想生成的图片</p>
             <p class="hint">例如：一只可爱的小猫咪，坐在阳光明媚的窗台上</p>
@@ -716,11 +716,7 @@ function generateId(): string {
                   />
                   <div class="image-actions">
                     <button class="download-btn" @click="downloadImage(img)" title="下载图片">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                        <polyline points="7 10 12 15 17 10"></polyline>
-                        <line x1="12" y1="15" x2="12" y2="3"></line>
-                      </svg>
+                      <DownloadIcon :size="14" />
                     </button>
                   </div>
                 </div>
@@ -733,7 +729,7 @@ function generateId(): string {
                 :disabled="isSending"
                 title="重新生成"
               >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="23 4 23 10 17 10"></polyline>
                   <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
                 </svg>
@@ -747,7 +743,7 @@ function generateId(): string {
                 :disabled="isSending"
                 title="保存到产出物"
               >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h2l2-3h9a2 2 0 0 1 2 2z"></path>
                 </svg>
                 保存
@@ -803,10 +799,7 @@ function generateId(): string {
                 >
                   <img :src="img" :alt="`参考图 ${index + 1}`" />
                   <button class="remove-image-btn" @click="removeInputImage(index)" title="移除">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <line x1="18" y1="6" x2="6" y2="18"></line>
-                      <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
+                    <XIcon :size="12" />
                   </button>
                 </div>
                 <button
@@ -816,10 +809,7 @@ function generateId(): string {
                   :disabled="isSending"
                   title="添加参考图片"
                 >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="12" y1="5" x2="12" y2="19"></line>
-                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                  </svg>
+                  <PlusIcon :size="20" />
                 </button>
               </div>
             </div>
@@ -847,10 +837,7 @@ function generateId(): string {
                 @click="handleSend"
                 :disabled="isSending || !inputContent.trim()"
               >
-                <svg v-if="!isSending" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="22" y1="2" x2="11" y2="13"></line>
-                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                </svg>
+                <SendIcon v-if="!isSending" :size="20" />
                 <span v-else class="loading-spinner"></span>
               </button>
               <button
@@ -860,10 +847,7 @@ function generateId(): string {
                 :disabled="isSending"
                 title="编辑上一条消息"
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                </svg>
+                <EditIcon :size="18" />
               </button>
             </div>
           </div>
@@ -876,26 +860,13 @@ function generateId(): string {
           <span class="outputs-title">产出物</span>
           <div class="outputs-actions">
             <button class="open-folder-btn" @click="openOutputsFolder" title="打开目录">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-              </svg>
+              <FolderIcon :size="16" />
             </button>
             <button class="migrate-btn" @click="handleMigrateOutputs" title="迁移产出物">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M5 9l-3 3 3 3"></path>
-                <path d="M9 5l3-3 3 3"></path>
-                <path d="M15 19l3 3 3-3"></path>
-                <path d="M19 9l3 3-3 3"></path>
-                <line x1="2" y1="12" x2="22" y2="12"></line>
-                <line x1="12" y1="2" x2="12" y2="22"></line>
-              </svg>
+              <MigrateIcon :size="16" />
             </button>
             <button class="refresh-btn" @click="handleRefreshOutputs" title="刷新列表">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="23 4 23 10 17 10"></polyline>
-                <polyline points="1 20 1 14 7 14"></polyline>
-                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-              </svg>
+              <RefreshIcon :size="16" />
             </button>
           </div>
         </div>
@@ -912,24 +883,14 @@ function generateId(): string {
               @click="addOutputToInputImages(file.originalUrl, $event)"
               title="添加到参考图"
             >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
+              <PlusIcon :size="12" />
             </button>
             <button class="delete-output-btn" @click="handleDeleteOutput(file.id, $event)" title="删除">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
+              <XIcon :size="12" />
             </button>
           </div>
           <div v-if="outputs.length === 0" class="empty-outputs">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-              <circle cx="8.5" cy="8.5" r="1.5"></circle>
-              <polyline points="21 15 16 10 5 21"></polyline>
-            </svg>
+            <ImageAccentIcon :size="32" />
             <p>暂无产出物</p>
             <p class="hint">生成的图片将自动保存在这里</p>
           </div>
@@ -942,7 +903,9 @@ function generateId(): string {
       <div class="config-dialog config-dialog-large">
         <div class="dialog-header">
           <h3>生图配置</h3>
-          <button class="close-btn" @click="closeConfigDialog">×</button>
+          <button class="close-btn" @click="closeConfigDialog" title="关闭">
+            <XIcon :size="16" />
+          </button>
         </div>
         <div class="dialog-body">
           <!-- 左侧配置列表 -->
@@ -965,10 +928,7 @@ function generateId(): string {
                   @click.stop="handleDeleteConfig(index)"
                   title="删除配置"
                 >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                  </svg>
+                  <XIcon :size="12" />
                 </button>
               </div>
             </div>
@@ -998,14 +958,8 @@ function generateId(): string {
               <div class="api-key-input-wrapper">
                 <input v-model="activeConfig.apiKey" :type="showApiKey ? 'text' : 'password'" placeholder="输入 API Key" />
                 <button type="button" class="toggle-visibility-btn" @click="showApiKey = !showApiKey" :title="showApiKey ? '隐藏' : '显示'">
-                  <svg v-if="showApiKey" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-                    <line x1="1" y1="1" x2="23" y2="23"></line>
-                  </svg>
-                  <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                    <circle cx="12" cy="12" r="3"></circle>
-                  </svg>
+                  <EyeOffIcon v-if="showApiKey" :size="16" />
+                  <EyeIcon v-else :size="16" />
                 </button>
               </div>
             </div>
@@ -1049,15 +1003,13 @@ function generateId(): string {
     <!-- 图片预览 -->
     <div v-if="previewImage" class="image-preview-overlay" @click="closeImagePreview">
       <div class="image-preview-content" @click.stop>
-        <button class="preview-close-btn" @click="closeImagePreview">×</button>
+        <button class="preview-close-btn" @click="closeImagePreview" title="关闭预览">
+          <XIcon :size="16" />
+        </button>
         <img :src="previewImage" alt="预览图片" />
         <div class="preview-actions">
           <button class="preview-download-btn" @click="downloadImage(previewImage)">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="7 10 12 15 17 10"></polyline>
-              <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
+            <DownloadIcon :size="16" />
             下载图片
           </button>
         </div>

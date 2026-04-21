@@ -312,6 +312,14 @@ interface ElectronAPI {
   memoryClear: () => Promise<{ success: boolean; error?: string }>
   memoryGetStats: () => Promise<{ success: boolean; data?: any; error?: string }>
   memoryFlush: () => Promise<{ success: boolean; error?: string }>
+
+  // 澄清工具
+  clarificationGetPending: () => Promise<import('./clarification').ClarificationRequest | null>
+  clarificationGetState: () => Promise<import('./clarification').ClarificationState>
+  clarificationRespond: (id: string, answer: string | number) => Promise<{ success: boolean }>
+  clarificationCancel: (id: string) => Promise<{ success: boolean }>
+  onClarificationPending: (callback: (request: import('./clarification').ClarificationRequest) => void) => () => void
+  onClarificationStateChanged: (callback: (state: import('./clarification').ClarificationState) => void) => () => void
 }
 
 declare global {

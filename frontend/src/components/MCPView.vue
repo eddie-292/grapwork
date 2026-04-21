@@ -7,6 +7,10 @@ import ConfirmDialog from './ConfirmDialog.vue'
 import PlugIcon from './icons/PlugIcon.vue'
 import XIcon from './icons/XIcon.vue'
 import ChevronDownIcon from './icons/ChevronDownIcon.vue'
+import EditIcon from './icons/EditIcon.vue'
+import TrashIcon from './icons/TrashIcon.vue'
+import RefreshIcon from './icons/RefreshIcon.vue'
+import PackageIcon from './icons/PackageIcon.vue'
 
 const router = useRouter()
 const {
@@ -816,118 +820,140 @@ async function importMCPConfig() {
           v-for="server in serverList.servers"
           :key="server.id"
           class="server-card"
-          :class="{ disabled: !server.enabled, active: activeServers.some(s => s.id === server.id), builtin: server.builtin }"
+          :class="{
+            disabled: !server.enabled,
+            active: activeServers.some(s => s.id === server.id),
+            builtin: server.builtin
+          }"
         >
-          <div class="card-header">
-            <div class="card-title">
-              <h3>{{ server.name }}</h3>
-              <span v-if="server.builtin" class="builtin-badge">内置</span>
-              <span class="transport-badge">{{ getTransportLabel(server.transportType) }}</span>
-            </div>
-            <div class="card-status">
-              <span v-if="!server.enabled" class="status-badge disabled">已禁用</span>
-              <span v-else-if="activeServers.some(s => s.id === server.id)" class="status-badge active">已激活</span>
-              <span v-else class="status-badge inactive">未激活</span>
-            </div>
-          </div>
+          <!-- 状态色条 -->
+          <span
+            class="status-bar"
+            :class="!server.enabled ? 'disabled' : (activeServers.some(s => s.id === server.id) ? 'active' : 'inactive')"
+          />
 
-          <p v-if="server.description" class="card-description">{{ server.description }}</p>
-
-          <!-- 详情切换按钮 -->
-          <button class="details-toggle" @click="toggleDetails(server.id)">
-            <ChevronDownIcon :class="{ rotated: !isDetailsExpanded(server.id) }" />
-            <span>详细信息</span>
-          </button>
-
-          <div class="card-details" v-show="isDetailsExpanded(server.id)">
-            <template v-if="server.transportType === 'stdio'">
-              <div class="detail-item">
-                <span class="detail-label">命令:</span>
-                <code>{{ server.command }}</code>
-              </div>
-              <div v-if="server.args && server.args.length > 0" class="detail-item">
-                <span class="detail-label">参数:</span>
-                <code>{{ server.args.join(' ') }}</code>
-              </div>
-              <div v-if="server.env && Object.keys(server.env).length > 0" class="detail-item">
-                <span class="detail-label">环境变量:</span>
-                <code>{{ Object.keys(server.env).length }} 个变量</code>
-              </div>
-            </template>
-            <template v-if="server.transportType === 'sse'">
-              <div class="detail-item">
-                <span class="detail-label">URL:</span>
-                <code>{{ server.url }}</code>
-              </div>
-            </template>
-            <div class="detail-item">
-              <span class="detail-label">工具:</span>
-              <code>{{ server.tools?.length || 0 }} 个</code>
+          <div class="card-body">
+            <!-- 头部：名称 + 徽章 + 状态 -->
+            <div class="card-head">
+              <h3 class="server-name">{{ server.name }}</h3>
+              <span v-if="server.builtin" class="badge builtin">内置</span>
+              <span class="badge transport" :title="getTransportLabel(server.transportType)">{{ server.transportType.toUpperCase() }}</span>
+              <span class="head-spacer" />
+              <span
+                class="status-chip"
+                :class="!server.enabled ? 'disabled' : (activeServers.some(s => s.id === server.id) ? 'active' : 'inactive')"
+              >
+                <span class="status-dot" />
+                {{ !server.enabled ? '已禁用' : (activeServers.some(s => s.id === server.id) ? '已激活' : '未激活') }}
+              </span>
             </div>
-            <div v-if="server.dependencies && server.dependencies.packages.length > 0" class="detail-item">
-              <span class="detail-label">依赖:</span>
-              <code :title="server.dependencies.packages.join(', ')">
-                {{ server.dependencies.type === 'python' ? 'pip' : server.dependencies.type === 'uvx' ? 'uvx' : 'npm' }}:
-                {{ server.dependencies.packages.length > 2
-                  ? server.dependencies.packages.slice(0, 2).join(', ') + '...'
-                  : server.dependencies.packages.join(', ') }}
-              </code>
-            </div>
-          </div>
 
-          <div class="card-actions">
-            <button
-              v-if="server.enabled"
-              class="action-btn toggle-btn"
-              :class="{ active: activeServers.some(s => s.id === server.id) }"
-              @click="toggleServerActive(server.id)"
-              :title="activeServers.some(s => s.id === server.id) ? '停用' : '激活'"
-            >
-              {{ activeServers.some(s => s.id === server.id) ? '● 已激活' : '○ 未激活' }}
-            </button>
-            <button
-              class="action-btn enable-btn"
-              @click="toggleServerEnabled(server.id)"
-              :title="server.enabled ? '禁用' : '启用'"
-              :disabled="server.builtin"
-            >
-              {{ server.enabled ? '禁用' : '启用' }}
-            </button>
-            <button
-              class="action-btn edit-btn"
-              @click="openEditForm(server)"
-              title="编辑"
-            >
-              编辑
-            </button>
-            <button
-              v-if="canFetchTools(server)"
-              class="action-btn refresh-btn"
-              :class="{ loading: refreshingServerId === server.id }"
-              @click="handleRefreshTools(server)"
-              :disabled="refreshingServerId === server.id"
-              title="从服务器刷新工具列表"
-            >
-              {{ refreshingServerId === server.id ? '刷新中...' : '刷新工具' }}
-            </button>
-            <button
-              v-if="hasDependencies(server)"
-              class="action-btn install-btn"
-              :class="{ loading: installingDependenciesServerId === server.id }"
-              @click="handleInstallDependencies(server)"
-              :disabled="installingDependenciesServerId === server.id"
-              title="安装服务器依赖"
-            >
-              {{ installingDependenciesServerId === server.id ? '安装中...' : '安装依赖' }}
-            </button>
-            <button
-              v-if="!server.builtin"
-              class="action-btn delete-btn"
-              @click="confirmDelete(server)"
-              title="删除"
-            >
-              删除
-            </button>
+            <!-- 描述 -->
+            <p v-if="server.description" class="server-description">{{ server.description }}</p>
+
+            <!-- 详情（可折叠） -->
+            <div class="details-section">
+              <button class="details-toggle" @click="toggleDetails(server.id)">
+                <ChevronDownIcon :class="{ rotated: !isDetailsExpanded(server.id) }" />
+                <span>{{ isDetailsExpanded(server.id) ? '收起详情' : '详细信息' }}</span>
+              </button>
+
+              <div class="card-details" v-show="isDetailsExpanded(server.id)">
+                <template v-if="server.transportType === 'stdio'">
+                  <div class="detail-item">
+                    <span class="detail-label">命令</span>
+                    <code>{{ server.command }}</code>
+                  </div>
+                  <div v-if="server.args && server.args.length > 0" class="detail-item">
+                    <span class="detail-label">参数</span>
+                    <code>{{ server.args.join(' ') }}</code>
+                  </div>
+                  <div v-if="server.env && Object.keys(server.env).length > 0" class="detail-item">
+                    <span class="detail-label">环境变量</span>
+                    <code>{{ Object.keys(server.env).length }} 个变量</code>
+                  </div>
+                </template>
+                <template v-if="server.transportType === 'sse'">
+                  <div class="detail-item">
+                    <span class="detail-label">URL</span>
+                    <code>{{ server.url }}</code>
+                  </div>
+                </template>
+                <div class="detail-item">
+                  <span class="detail-label">工具</span>
+                  <code>{{ server.tools?.length || 0 }} 个</code>
+                </div>
+                <div v-if="server.dependencies && server.dependencies.packages.length > 0" class="detail-item">
+                  <span class="detail-label">依赖</span>
+                  <code :title="server.dependencies.packages.join(', ')">
+                    {{ server.dependencies.type === 'python' ? 'pip' : server.dependencies.type === 'uvx' ? 'uvx' : 'npm' }}:
+                    {{ server.dependencies.packages.length > 2
+                      ? server.dependencies.packages.slice(0, 2).join(', ') + '...'
+                      : server.dependencies.packages.join(', ') }}
+                  </code>
+                </div>
+              </div>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="card-actions">
+              <button
+                v-if="server.enabled"
+                class="act-btn primary-act"
+                :class="{ on: activeServers.some(s => s.id === server.id) }"
+                @click="toggleServerActive(server.id)"
+                :title="activeServers.some(s => s.id === server.id) ? '点击停用' : '点击激活'"
+              >
+                {{ activeServers.some(s => s.id === server.id) ? '停用' : '激活' }}
+              </button>
+              <button
+                class="act-btn"
+                @click="toggleServerEnabled(server.id)"
+                :title="server.enabled ? '禁用此服务器' : '启用此服务器'"
+                :disabled="server.builtin"
+              >
+                {{ server.enabled ? '禁用' : '启用' }}
+              </button>
+              <button
+                class="act-btn icon-btn"
+                @click="openEditForm(server)"
+                title="编辑"
+              >
+                <EditIcon :size="14" />
+                <span>编辑</span>
+              </button>
+              <button
+                v-if="canFetchTools(server)"
+                class="act-btn icon-btn"
+                :class="{ loading: refreshingServerId === server.id }"
+                @click="handleRefreshTools(server)"
+                :disabled="refreshingServerId === server.id"
+                title="从服务器刷新工具列表"
+              >
+                <RefreshIcon :size="14" />
+                <span>{{ refreshingServerId === server.id ? '刷新中' : '刷新工具' }}</span>
+              </button>
+              <button
+                v-if="hasDependencies(server)"
+                class="act-btn icon-btn"
+                :class="{ loading: installingDependenciesServerId === server.id }"
+                @click="handleInstallDependencies(server)"
+                :disabled="installingDependenciesServerId === server.id"
+                title="安装服务器依赖"
+              >
+                <PackageIcon :size="14" />
+                <span>{{ installingDependenciesServerId === server.id ? '安装中' : '安装依赖' }}</span>
+              </button>
+              <button
+                v-if="!server.builtin"
+                class="act-btn icon-btn danger"
+                @click="confirmDelete(server)"
+                title="删除"
+              >
+                <TrashIcon :size="14" />
+                <span>删除</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -966,7 +992,7 @@ async function importMCPConfig() {
 /* back-btn and add-btn styles moved to global style.css */
 
 .mcp-content {
-  padding: 32px;
+  padding: 20px 24px;
   width: 100%;
   flex: 1;
 }
@@ -993,136 +1019,179 @@ async function importMCPConfig() {
 }
 
 .server-list {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: 14px;
 }
 
 .server-card {
+  position: relative;
+  display: flex;
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 24px;
-  transition: all 0.2s;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
 }
 
 .server-card:hover {
-  border-color: var(--color-primary);
-  box-shadow: 0 4px 12px rgba(51, 51, 51, 0.1);
-}
-
-.server-card.disabled {
-  opacity: 0.6;
-  background: var(--color-bg-tertiary);
+  border-color: var(--color-border-hover);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
 }
 
 .server-card.active {
   border-color: var(--color-primary);
-  border-width: 2px;
+  box-shadow: 0 0 0 1px var(--color-primary) inset;
 }
 
-.server-card.builtin {
-
+.server-card.disabled {
+  background: var(--color-bg-tertiary);
+  opacity: 0.75;
 }
 
-.card-header {
+/* 左侧状态色条 */
+.status-bar {
+  width: 3px;
+  flex-shrink: 0;
+  background: var(--color-border);
+}
+.status-bar.active {
+  background: var(--color-primary);
+}
+.status-bar.inactive {
+  background: var(--color-border-hover);
+}
+.status-bar.disabled {
+  background: var(--color-danger);
+}
+
+.card-body {
+  flex: 1;
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 12px;
+  flex-direction: column;
+  padding: 14px 16px;
+  min-width: 0;
+  gap: 10px;
 }
 
-.card-title {
+/* 头部 */
+.card-head {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.server-name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  line-height: 1.3;
+}
+
+.badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.badge.builtin {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.badge.transport {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  font-family: 'SF Mono', Monaco, 'Andale Mono', monospace;
+  letter-spacing: 0.3px;
+}
+
+.head-spacer {
   flex: 1;
 }
 
-.card-title h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--color-text-primary);
+/* 状态标签 */
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
-.transport-badge {
-  font-size: 12px;
-  padding: 4px 10px;
+.status-chip .status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status-chip.active {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+.status-chip.inactive {
   background: var(--color-bg-tertiary);
   color: var(--color-text-secondary);
-  border-radius: 999px;
-  font-weight: 500;
+}
+.status-chip.disabled {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
 }
 
-.builtin-badge {
-  font-size: 12px;
-  padding: 4px 10px;
-  background: #dbeafe;
-  color: #1d4ed8;
-  border-radius: 999px;
-  font-weight: 500;
+/* 描述 */
+.server-description {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-.card-status {
+/* 详情 */
+.details-section {
   display: flex;
+  flex-direction: column;
   gap: 8px;
 }
 
-.status-badge {
-  font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-weight: 500;
-}
-
-.status-badge.active {
-  background: #d1fae5;
-  color: #065f46;
-}
-
-.status-badge.inactive {
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-secondary);
-}
-
-.status-badge.disabled {
-  background: #fef2f2;
-  color: #991b1b;
-}
-
-.card-description {
-  margin: 0 0 16px 0;
-  font-size: 14px;
-  color: var(--color-text-secondary);
-  line-height: 1.6;
-}
-
-/* 详情切换按钮样式 */
 .details-toggle {
-  display: flex;
+  align-self: flex-start;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  background: none;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
+  gap: 4px;
+  padding: 4px 8px;
+  margin: 0;
+  background: transparent;
+  border: none;
   color: var(--color-text-secondary);
   font-size: 12px;
   cursor: pointer;
-  margin-bottom: 12px;
-  transition: all 0.2s;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
 }
 
 .details-toggle:hover {
   background: var(--color-bg-tertiary);
-  border-color: var(--color-border-hover);
   color: var(--color-text-primary);
 }
 
 .details-toggle svg {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   transition: transform 0.2s;
 }
 
@@ -1133,9 +1202,8 @@ async function importMCPConfig() {
 .card-details {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 12px;
-  padding: 12px;
+  gap: 6px;
+  padding: 10px 12px;
   background: var(--color-bg-tertiary);
   border-radius: 8px;
 }
@@ -1144,46 +1212,102 @@ async function importMCPConfig() {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: 12px;
+  min-width: 0;
 }
 
 .detail-label {
   color: var(--color-text-secondary);
   font-weight: 500;
-  min-width: 80px;
+  flex-shrink: 0;
+  min-width: 64px;
 }
 
 .detail-item code {
+  flex: 1;
   background: var(--color-bg-primary);
-  padding: 4px 8px;
+  padding: 3px 8px;
   border-radius: 4px;
-  font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
-  font-size: 12px;
+  font-family: 'SF Mono', Monaco, 'Andale Mono', monospace;
+  font-size: 11px;
   color: var(--color-text-primary);
   border: 1px solid var(--color-border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+/* 操作按钮 */
 .card-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
+  margin-top: auto;
+  padding-top: 4px;
 }
 
-/* action-btn, toggle-btn, delete-btn, refresh-btn styles moved to global style.css */
-
-/* 安装依赖按钮样式 */
-.install-btn {
-  background: #fef3c7;
-  color: #92400e;
+.act-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
+  color: var(--color-text-secondary);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  line-height: 1.4;
 }
 
-.install-btn:hover {
-  background: #fde68a;
+.act-btn:hover:not(:disabled) {
+  border-color: var(--color-border-hover);
+  color: var(--color-text-primary);
+  background: var(--color-bg-tertiary);
 }
 
-.install-btn.loading {
+.act-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.act-btn.loading {
   opacity: 0.6;
   cursor: wait;
+}
+
+.act-btn svg {
+  flex-shrink: 0;
+}
+
+/* 主操作按钮（激活/停用） */
+.act-btn.primary-act {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+.act-btn.primary-act:hover:not(:disabled) {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-text-on-primary);
+}
+.act-btn.primary-act.on {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-text-on-primary);
+}
+.act-btn.primary-act.on:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+  color: var(--color-text-on-primary);
+}
+
+.act-btn.danger:hover:not(:disabled) {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
 }
 
 /* 模态框样式 */

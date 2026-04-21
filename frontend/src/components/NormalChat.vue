@@ -13,11 +13,19 @@ import CopyIcon from './icons/CopyIcon.vue'
 import ChevronDownIcon from './icons/ChevronDownIcon.vue'
 import ChevronRightIcon from './icons/ChevronRightIcon.vue'
 import CheckIcon from './icons/CheckIcon.vue'
+import FileTextIcon from './icons/FileTextIcon.vue'
+import DownloadIcon from './icons/DownloadIcon.vue'
+import CodeIcon from './icons/CodeIcon.vue'
 import XIcon from './icons/XIcon.vue'
 import ArrowUpIcon from './icons/ArrowUpIcon.vue'
+import ImageAccentIcon from './icons/ImageAccentIcon.vue'
+import ListIcon from './icons/ListIcon.vue'
 import SettingsIcon from './icons/SettingsIcon.vue'
 import GrapeIcon from './icons/GrapeIcon.vue'
 import LLMProviderIcon from './icons/LLMProviderIcon.vue'
+import BrainIcon from './icons/BrainIcon.vue'
+import TrashIcon from './icons/TrashIcon.vue'
+import ClockIcon from './icons/ClockIcon.vue'
 
 type Role = 'user' | 'assistant' | 'system' | 'tool'
 
@@ -232,8 +240,8 @@ async function loadWorkspaceFiles(dirPath: string) {
       async function scanDirectory(path: string, depth: number = 0) {
         if (depth > 3) return // 限制递归深度
 
-        const dirResult = await window.electronAPI!.readDirectory(path)
-        if (dirResult.success && dirResult.items) {
+        const dirResult = await window.electronAPI?.readDirectory(path)
+        if (dirResult?.success && dirResult.items) {
           for (const item of dirResult.items) {
             const itemPath = `${path}/${item.name}`
             // 忽略隐藏文件和目录
@@ -730,6 +738,52 @@ const reasoningExpanded = ref<Record<number, boolean>>({})
 const reasoningStartTime = ref<Record<number, number>>({})
 const toolResultExpanded = ref<Record<number, boolean>>({})
 const copyStatus = ref<Record<number, { text?: boolean; md?: boolean; html?: boolean }>>({})
+
+// 计算每个"回合"(两条 user 消息之间)的代表 assistant 消息索引，
+// 将该回合内所有 tool 调用结果与各 assistant 的 reasoning 合并，只在代表消息上展示一个"分析过程"。
+const toolsByAssistant = computed(() => {
+  const msgs = props.messages
+  const map: Record<number, number[]> = {}
+  const owned = new Set<number>()
+  const representativeSet = new Set<number>()
+  const reasoningByRep: Record<number, string> = {}
+  let currentRep = -1
+  let lastRep = -1
+  for (let i = 0; i < msgs.length; i++) {
+    const m = msgs[i]
+    if (!m) continue
+    if (m.role === 'user') {
+      currentRep = -1
+      continue
+    }
+    if (m.visible === false) continue
+    if (m.role === 'assistant') {
+      if (currentRep === -1) {
+        currentRep = i
+        representativeSet.add(i)
+      }
+      lastRep = currentRep
+      if (m.reasoning) {
+        reasoningByRep[currentRep] = reasoningByRep[currentRep]
+          ? reasoningByRep[currentRep] + '\n\n' + m.reasoning
+          : m.reasoning
+      }
+    } else if (m.role === 'tool') {
+      let rep = currentRep
+      if (rep === -1) {
+        for (let k = i - 1; k >= 0; k--) {
+          if (msgs[k]?.role === 'assistant') { rep = k; break }
+        }
+      }
+      if (rep !== -1) {
+        ;(map[rep] ||= []).push(i)
+        owned.add(i)
+        lastRep = rep
+      }
+    }
+  }
+  return { map, owned, representativeSet, reasoningByRep, lastRep }
+})
 
 // 获取工具名称（优先使用 toolName 字段，否则从 tool_calls 中查找）
 function getToolName(message: Message, messages: Message[]): string {
@@ -1476,7 +1530,7 @@ function scrollToBottom() {
         @click="scrollToBottom"
         title="滚动到底部"
       >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
           <line x1="12" y1="5" x2="12" y2="19"></line>
           <polyline points="19 12 12 19 5 12"></polyline>
         </svg>
@@ -1492,7 +1546,7 @@ function scrollToBottom() {
           :style="{ left: quoteToolbarPosition.x + 'px', top: quoteToolbarPosition.y + 'px' }"
         >
           <button class="quote-btn" @click="insertQuote" title="引用选中的文本">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
               <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V21c0 1 0 1 1 1z"/>
               <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/>
             </svg>
@@ -1505,7 +1559,7 @@ function scrollToBottom() {
       <div v-if="messages.length === 0" class="welcome">
         <div class="welcome-hero">
           <h2 class="welcome-title">GrapWork</h2>
-          <p class="welcome-subtitle">你好，有什么可以帮你的？</p>
+          <p class="welcome-subtitle">您好，有什么我可以帮您的？</p>
         </div>
 
         <div class="welcome-features">
@@ -1517,72 +1571,65 @@ function scrollToBottom() {
                 <path d="M9 12l2 2 4-4"/>
               </svg>
             </div>
-            <h3>智能助手</h3>
-            <p>帮你处理工作、学习中的各种问题</p>
+            <h3>任务管理</h3>
+            <p>整理待办事项，规划工作优先级</p>
           </div>
           <div class="feature-card">
             <div class="feature-icon tool-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>
+                <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
               </svg>
             </div>
-            <h3>实用工具</h3>
-            <p>查邮件、写文档、整理文件都能搞定</p>
+            <h3>文档撰写</h3>
+            <p>起草邮件、报告与工作方案</p>
           </div>
           <div class="feature-card">
             <div class="feature-icon memory-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 2a10 10 0 1010 10H12V2z"/>
-                <path d="M12 2a10 10 0 00-8.66 15"/>
-                <circle cx="12" cy="12" r="6"/>
+                <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
               </svg>
             </div>
-            <h3>记性好</h3>
-            <p>记住你的偏好，越用越懂你</p>
+            <h3>数据分析</h3>
+            <p>解读数据，生成摘要与洞察报告</p>
           </div>
           <div class="feature-card" @click="openImageGenerator" style="cursor: pointer;">
             <div class="feature-icon image-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                <circle cx="8.5" cy="8.5" r="1.5"/>
-                <polyline points="21 15 16 10 5 21"/>
-              </svg>
+              <ImageAccentIcon :size="24" />
             </div>
-            <h3>创意画笔</h3>
-            <p>AI 帮你生成精美图片</p>
+            <h3>图表生成</h3>
+            <p>一键生成工作所需图表与可视化</p>
           </div>
         </div>
 
         <div class="welcome-prompts">
-          <p class="prompts-label">你可以这样问我</p>
+          <p class="prompts-label">常用工作场景示例</p>
           <div class="prompts-grid">
-            <button class="prompt-card" @click="emit('update:input', '帮我写一封请假邮件')">
+            <button class="prompt-card" @click="emit('update:input', '帮我写一封工作汇报邮件')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
                 <polyline points="22,6 12,13 2,6"/>
               </svg>
-              <span class="prompt-text">帮我写一封请假邮件</span>
+              <span class="prompt-text">帮我写一封工作汇报邮件</span>
             </button>
-            <button class="prompt-card" @click="emit('update:input', '帮我总结这篇文章的要点')">
+            <button class="prompt-card" @click="emit('update:input', '整理今天的工作任务与优先级')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12l2 2 4-4"/>
               </svg>
-              <span class="prompt-text">帮我总结这篇文章的要点</span>
+              <span class="prompt-text">整理今天的工作任务与优先级</span>
             </button>
-            <button class="prompt-card" @click="emit('update:input', '帮我翻译这段英文')">
+            <button class="prompt-card" @click="emit('update:input', '帮我优化这段文字，使其更简洁专业')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
               </svg>
-              <span class="prompt-text">帮我翻译这段英文</span>
+              <span class="prompt-text">帮我优化这段文字，使其更简洁专业</span>
             </button>
-            <button class="prompt-card" @click="emit('update:input', '查看我的未读邮件')">
+            <button class="prompt-card" @click="emit('update:input', '分析这份数据并给出关键结论')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                <polyline points="22,6 12,13 2,6"/>
+                <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
               </svg>
-              <span class="prompt-text">查看我的未读邮件</span>
+              <span class="prompt-text">分析这份数据并给出关键结论</span>
             </button>
-            <button class="prompt-card" @click="emit('update:input', '帮我做一个周计划表')">
+            <button class="prompt-card" @click="emit('update:input', '帮我准备明天会议的议程与要点')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
                 <line x1="16" y1="2" x2="16" y2="6"/>
@@ -1591,51 +1638,39 @@ function scrollToBottom() {
                 <line x1="12" y1="14" x2="16" y2="14"/>
                 <line x1="12" y1="18" x2="16" y2="18"/>
               </svg>
-              <span class="prompt-text">帮我做一个周计划表</span>
+              <span class="prompt-text">帮我准备明天会议的议程与要点</span>
             </button>
-            <button class="prompt-card" @click="emit('update:input', '给我推荐几道家常菜')">
+            <button class="prompt-card" @click="emit('update:input', '为这个项目写一份执行计划')">
               <svg class="prompt-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/>
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
               </svg>
-              <span class="prompt-text">给我推荐几道家常菜</span>
+              <span class="prompt-text">为这个项目写一份执行计划</span>
             </button>
           </div>
         </div>
       </div>
       <template v-for="(m, i) in messages" :key="i">
-        <!-- 工具调用结果消息 -->
-        <div v-if="m.visible !== false && m.role === 'tool'" class="msg-row tool">
+        <!-- 工具调用结果消息（孤立的，即没有归属到 assistant 的分析过程中） -->
+        <div v-if="m.visible !== false && m.role === 'tool' && !toolsByAssistant.owned.has(i)" class="msg-row tool">
           <div class="msg-content">
             <div class="tool-result-card">
               <div class="tool-result-header" @click="toggleToolResult(i)">
+                <span class="tool-leading-icon">
+                  <span v-if="m.toolStatus === 'running'" class="status-spinner status-spinner-running"></span>
+                  <span v-else-if="m.toolStatus === 'error'" class="status-dot status-dot-error"><XIcon :size="10" /></span>
+                  <span v-else class="status-dot status-dot-success"><CheckIcon :size="10" /></span>
+                </span>
                 <div class="tool-result-title">
                   <span class="tool-result-name">{{ getToolName(m, messages) }}</span>
-                  <!-- 执行中状态（动态短语） -->
-                  <span v-if="m.toolStatus === 'running'" class="tool-result-status status-running">
-                    <span class="status-spinner"></span>
-                    <span class="status-text">{{ m.runningPhrase || '正在处理' }}</span>
-                  </span>
-                  <!-- 成功状态 -->
-                  <span v-else-if="m.toolStatus === 'success'" class="tool-result-status status-success">
-                    <span class="status-icon status-icon-success"><CheckIcon :size="12" /></span>
-                    <span class="status-text">已完成</span>
-                  </span>
-                  <!-- 错误状态 -->
-                  <span v-else-if="m.toolStatus === 'error'" class="tool-result-status status-error">
-                    <span class="status-icon status-icon-error"><XIcon :size="12" /></span>
-                    <span class="status-text">执行失败</span>
-                  </span>
-                  <!-- 默认成功状态（向后兼容） -->
-                  <span v-else class="tool-result-status status-success">
-                    <span class="status-icon status-icon-success"><CheckIcon :size="12" /></span>
-                    <span class="status-text">已完成</span>
-                  </span>
+                  <span v-if="m.toolStatus === 'running'" class="tool-status-text status-running-text">{{ m.runningPhrase || '正在处理' }}</span>
+                  <span v-else-if="m.toolStatus === 'error'" class="tool-status-text status-error-text">执行失败</span>
+                  <span v-else class="tool-status-text status-success-text">已完成</span>
                 </div>
                 <div class="tool-result-actions">
                   <button class="tool-action-btn" title="复制结果" @click.stop="copyToolResult(getContentAsString(m.content))">
                     <CopyIcon :size="14" />
                   </button>
-                  <span class="expand-icon"><ChevronDownIcon v-if="toolResultExpanded[i]" :size="10" /><ChevronRightIcon v-else :size="10" /></span>
+                  <span class="expand-icon"><ChevronDownIcon v-if="toolResultExpanded[i]" :size="12" /><ChevronRightIcon v-else :size="12" /></span>
                 </div>
               </div>
               <div v-show="toolResultExpanded[i]" class="tool-result-body">
@@ -1647,28 +1682,60 @@ function scrollToBottom() {
 
         <!-- 普通消息 -->
         <div
-          v-else-if="m.visible !== false"
+          v-else-if="m.visible !== false && m.role !== 'tool' && (m.role !== 'assistant' || !!getContentAsString(m.content).trim() || toolsByAssistant.representativeSet.has(i) || (sending && i === messages.length - 1))"
           :id="`msg-${i}`"
           :class="['msg-row', m.role, { 'error-message': isErrorMessage(m) }]"
         >
           <div class="msg-content">
-            <div v-if="m.reasoning || (sending && i === messages.length - 1 && m.role === 'assistant')" class="reasoning-section">
+            <div v-if="toolsByAssistant.representativeSet.has(i) && (toolsByAssistant.reasoningByRep[i] || (toolsByAssistant.map[i] && toolsByAssistant.map[i]!.length > 0) || (sending && toolsByAssistant.lastRep === i))" class="reasoning-section">
               <button class="reasoning-toggle" @click="toggleReasoning(i)">
-                <ChevronDownIcon v-if="reasoningExpanded[i]" :size="10" />
-                <ChevronRightIcon v-else :size="10" />
-                <span v-if="sending && i === messages.length - 1 && m.role === 'assistant'" class="grape-spinner">
+                <span v-if="sending && toolsByAssistant.lastRep === i && (messages[messages.length - 1]?.role !== 'assistant' || !getContentAsString(messages[messages.length - 1]!.content).trim())" class="grape-spinner">
                   <GrapeIcon :size="16" />
                 </span>
-                <span>思考</span>
+                <span class="reasoning-label">分析过程</span>
+                <ChevronDownIcon v-if="reasoningExpanded[i]" :size="12" class="reasoning-chevron" />
+                <ChevronRightIcon v-else :size="12" class="reasoning-chevron" />
               </button>
-              <div v-show="reasoningExpanded[i]" class="msg-reasoning-bubble" v-html="render(m.reasoning || '')" />
+              <div v-show="reasoningExpanded[i] && (toolsByAssistant.reasoningByRep[i] || (toolsByAssistant.map[i] && toolsByAssistant.map[i]!.length > 0))" class="reasoning-body">
+                <div class="reasoning-leading">
+                  <ClockIcon :size="14" />
+                </div>
+                <div v-if="toolsByAssistant.reasoningByRep[i]" class="reasoning-text" v-html="render(toolsByAssistant.reasoningByRep[i] || '')" />
+                <!-- 归属到此 assistant 的工具调用结果 -->
+                <div v-if="toolsByAssistant.map[i] && toolsByAssistant.map[i]!.length > 0" class="reasoning-tools">
+                  <div v-for="ti in toolsByAssistant.map[i]" :key="`tool-${ti}`" class="tool-result-card nested">
+                    <div class="tool-result-header" @click="toggleToolResult(ti)">
+                      <span class="tool-leading-icon">
+                        <span v-if="messages[ti]!.toolStatus === 'running'" class="status-spinner status-spinner-running"></span>
+                        <span v-else-if="messages[ti]!.toolStatus === 'error'" class="status-dot status-dot-error"><XIcon :size="10" /></span>
+                        <span v-else class="status-dot status-dot-success"><CheckIcon :size="10" /></span>
+                      </span>
+                      <div class="tool-result-title">
+                        <span class="tool-result-name">{{ getToolName(messages[ti]!, messages) }}</span>
+                        <span v-if="messages[ti]!.toolStatus === 'running'" class="tool-status-text status-running-text">{{ messages[ti]!.runningPhrase || '正在处理' }}</span>
+                        <span v-else-if="messages[ti]!.toolStatus === 'error'" class="tool-status-text status-error-text">执行失败</span>
+                        <span v-else class="tool-status-text status-success-text">已完成</span>
+                      </div>
+                      <div class="tool-result-actions">
+                        <button class="tool-action-btn" title="复制结果" @click.stop="copyToolResult(getContentAsString(messages[ti]!.content))">
+                          <CopyIcon :size="14" />
+                        </button>
+                        <span class="expand-icon"><ChevronDownIcon v-if="toolResultExpanded[ti]" :size="12" /><ChevronRightIcon v-else :size="12" /></span>
+                      </div>
+                    </div>
+                    <div v-show="toolResultExpanded[ti]" class="tool-result-body">
+                      <pre class="tool-result-code"><code v-if="formatToolResult(getContentAsString(messages[ti]!.content)).html" v-html="formatToolResult(getContentAsString(messages[ti]!.content)).html"></code><code v-else>{{ formatToolResult(getContentAsString(messages[ti]!.content)).formatted }}</code></pre>
+                    </div>
+                  </div>
+                </div>
+                <div v-if="!(sending && toolsByAssistant.lastRep === i && (messages[messages.length - 1]?.role !== 'assistant' || !getContentAsString(messages[messages.length - 1]!.content).trim()))" class="reasoning-footer">
+                  <span class="reasoning-done-icon"><CheckIcon :size="10" /></span>
+                  <span>Done</span>
+                </div>
+              </div>
             </div>
-            <!-- AI 消息提供商图标 -->
-            <div v-if="m.role === 'assistant'" class="assistant-header">
-              <LLMProviderIcon :provider="getProviderIdByApiUrl(activeConfig?.apiUrl)" :size="20" />
-              <span class="assistant-provider-name">{{ activeConfig?.name || 'AI' }}</span>
-            </div>
-            <div class="msg-bubble-wrapper">
+            
+            <div v-if="m.role !== 'assistant' || !!getContentAsString(m.content).trim() || (sending && i === messages.length - 1)" class="msg-bubble-wrapper">
               <!-- 用户消息图片预览 -->
               <div v-if="m.role === 'user' && m.images && m.images.length > 0" class="message-images">
                 <img v-for="(img, imgIndex) in m.images" :key="imgIndex" :src="img" class="message-image clickable" @click="openImagePreview(img)" />
@@ -1678,29 +1745,17 @@ function scrollToBottom() {
                 <div v-for="(file, fileIndex) in m.files" :key="fileIndex" class="message-file-card">
                   <div class="file-card-header" @click="toggleFileExpanded(i, fileIndex)">
                     <div class="file-card-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                        <polyline points="14 2 14 8 20 8" />
-                        <line x1="16" y1="13" x2="8" y2="13" />
-                        <line x1="16" y1="17" x2="8" y2="17" />
-                      </svg>
+                      <FileTextIcon :size="16" />
                     </div>
                     <div class="file-card-info">
                       <span class="file-card-name">{{ file.name }}</span>
                       <span class="file-card-size">{{ formatFileSize(file.size) }}</span>
                     </div>
-                    <svg
+                    <ChevronDownIcon
                       class="file-card-chevron"
                       :class="{ expanded: isFileExpanded(i, fileIndex) }"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      width="16"
-                      height="16"
-                    >
-                      <polyline points="6 9 12 15 18 9" />
-                    </svg>
+                      :size="16"
+                    />
                   </div>
                   <div v-if="isFileExpanded(i, fileIndex)" class="file-card-content">
                     <pre><code>{{ file.content }}</code></pre>
@@ -1714,17 +1769,17 @@ function scrollToBottom() {
                 <button v-if="isErrorMessage(m) && m.role === 'assistant'" class="retry-btn" @click="emit('retry-message', i)" title="重试">
                   重试
                 </button>
-                <button class="copy-btn" :class="{ 'copy-success': copyStatus[i]?.html }" @click="handleExportHtml(m, i)" title="导出 HTML">
-                  <span v-if="copyStatus[i]?.html" class="success-icon">✓</span>
-                  <span v-else>Export HTML</span>
+                <button class="action-btn icon-only" :class="{ 'action-success': copyStatus[i]?.html }" @click="handleExportHtml(m, i)" title="导出 HTML">
+                  <CheckIcon v-if="copyStatus[i]?.html" :size="15" class="action-icon success-icon" />
+                  <DownloadIcon v-else :size="15" class="action-icon" />
                 </button>
-                <button class="copy-btn" :class="{ 'copy-success': copyStatus[i]?.text }" @click="handleCopyText(m, i)" title="复制文本">
-                  <span v-if="copyStatus[i]?.text" class="success-icon">✓</span>
-                  <span v-else>Copy Text</span>
+                <button class="action-btn icon-only" :class="{ 'action-success': copyStatus[i]?.text }" @click="handleCopyText(m, i)" title="复制文本">
+                  <CheckIcon v-if="copyStatus[i]?.text" :size="15" class="action-icon success-icon" />
+                  <FileTextIcon v-else :size="15" class="action-icon" />
                 </button>
-                <button class="copy-btn" :class="{ 'copy-success': copyStatus[i]?.md }" @click="handleCopyMarkdown(m, i)" title="复制 Markdown">
-                  <span v-if="copyStatus[i]?.md" class="success-icon">✓</span>
-                  <span v-else>Copy Markdown</span>
+                <button class="action-btn icon-only" :class="{ 'action-success': copyStatus[i]?.md }" @click="handleCopyMarkdown(m, i)" title="复制 Markdown">
+                  <CheckIcon v-if="copyStatus[i]?.md" :size="15" class="action-icon success-icon" />
+                  <CodeIcon v-else :size="15" class="action-icon" />
                 </button>
               </div>
             </div>
@@ -1972,11 +2027,7 @@ function scrollToBottom() {
               @click="handleSelectImages"
               :title="attachedImages.length > 0 ? `已选择 ${attachedImages.length} 张图片` : '上传图片'"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                <polyline points="21 15 16 10 5 21"></polyline>
-              </svg>
+              <ImageAccentIcon :size="16" />
               <span v-if="attachedImages.length > 0" class="image-count">{{ attachedImages.length }}</span>
             </button>
 
@@ -1988,11 +2039,7 @@ function scrollToBottom() {
               @click="handleThinkingToggle"
               :title="enableThinking ? '已启用思考模式' : '点击启用思考模式'"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M9 18h6" />
-                <path d="M10 22h4" />
-                <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14" />
-              </svg>
+              <BrainIcon :size="18" class="thinking-brain-icon" />
             </button>
 
             <!-- 参数设置按钮 -->
@@ -2014,14 +2061,7 @@ function scrollToBottom() {
                 @click="showNavList = !showNavList"
                 title="对话导航"
               >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
-                  <line x1="8" y1="6" x2="21" y2="6"></line>
-                  <line x1="8" y1="12" x2="21" y2="12"></line>
-                  <line x1="8" y1="18" x2="21" y2="18"></line>
-                  <line x1="3" y1="6" x2="3.01" y2="6"></line>
-                  <line x1="3" y1="12" x2="3.01" y2="12"></line>
-                  <line x1="3" y1="18" x2="3.01" y2="18"></line>
-                </svg>
+                <ListIcon :size="16" />
               </button>
               <Transition name="dropdown">
                 <div v-if="showNavList" class="nav-dropdown">
@@ -2040,10 +2080,7 @@ function scrollToBottom() {
                       <span class="nav-role">{{ item.role === 'user' ? '我' : 'AI' }}</span>
                       <span class="nav-preview">{{ getMessagePreview(item.preview) }}</span>
                       <span class="nav-delete" @click="deleteMessage(item.index, $event)" title="删除此消息及后续内容">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
-                          <polyline points="3 6 5 6 21 6"></polyline>
-                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                        </svg>
+                        <TrashIcon :size="14" />
                       </span>
                     </button>
                   </div>
@@ -2139,13 +2176,13 @@ function scrollToBottom() {
 
 .welcome {
   max-width: 800px;
-  margin: 40px auto 0;
+  margin: 60px auto 0;
   text-align: center;
   padding: 0 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 32px;
+  gap: 36px;
 }
 
 /* Hero Section */
@@ -2175,12 +2212,10 @@ function scrollToBottom() {
 
 .welcome-title {
   margin: 0;
-  font-size: 32px;
+  font-size: 34px;
   font-weight: 700;
-  background: linear-gradient(135deg, #555 0%, #333 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--color-text-primary);
 }
 
 .welcome-subtitle {
@@ -2209,9 +2244,9 @@ function scrollToBottom() {
 }
 
 .feature-card:hover {
-  border-color: var(--color-primary);
+  border-color: var(--color-border-hover);
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(51, 51, 51, 0.12);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
 }
 
 .feature-icon {
@@ -2230,28 +2265,28 @@ function scrollToBottom() {
 }
 
 .task-icon {
-  background: #555;
+  background: #1a3a5c;
   color: white;
 }
 
 .tool-icon {
-  background: #6366f1;
+  background: #2d5a8e;
   color: white;
 }
 
 .memory-icon {
-  background: #f59e0b;
+  background: #7c2d12;
   color: white;
 }
 
 .image-icon {
-  background: #10b981;
+  background: #3d6b4f;
   color: white;
 }
 
 .feature-card h3 {
   margin: 0 0 6px;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--color-text-primary);
 }
@@ -2271,11 +2306,9 @@ function scrollToBottom() {
 
 .prompts-label {
   margin: 0 0 12px;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--color-text-tertiary);
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .prompts-grid {
@@ -2362,7 +2395,6 @@ function scrollToBottom() {
 
 .msg-row {
   display: flex;
-  padding: 14px 0;
   animation: msg-fade-in 0.3s ease-out;
 }
 
@@ -2378,14 +2410,14 @@ function scrollToBottom() {
 }
 
 .msg-row.assistant {
-  background: var(--color-bg-secondary);
+  background: transparent;
 }
 
 .msg-content {
   width: 100%;
-  max-width: 900px;
+  max-width: 820px;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 28px;
 }
 
 .msg-row.user .msg-content {
@@ -2411,23 +2443,11 @@ function scrollToBottom() {
 }
 
 .msg-bubble {
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: 15px;
+  line-height: 1.65;
   max-width: 720px;
   word-break: break-word;
-}
-
-.msg-reasoning-bubble {
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--color-text-tertiary);
-  max-width: 720px;
-  word-break: break-word;
-  background: var(--color-bg-tertiary);
-  padding: 12px 16px;
-  border-radius: 8px;
-  margin-bottom: 12px;
-  animation: bubble-fade-in 0.3s ease-out;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
 }
 
 @keyframes bubble-fade-in {
@@ -2442,19 +2462,21 @@ function scrollToBottom() {
   }
 }
 
+/* ---------- Reasoning section (参考 Claude 设计) ---------- */
 .reasoning-section {
   margin-bottom: 12px;
+  max-width: 760px;
 }
 
 .reasoning-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   background: none;
   border: none;
-  padding: 6px 12px;
+  padding: 4px 0;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--color-text-tertiary);
   transition: color 0.2s;
 }
@@ -2463,8 +2485,111 @@ function scrollToBottom() {
   color: var(--color-text-secondary);
 }
 
-.reasoning-toggle span:first-child {
-  font-size: 10px;
+.reasoning-label {
+  font-weight: 400;
+}
+
+.reasoning-chevron {
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.reasoning-toggle:hover .reasoning-chevron {
+  opacity: 1;
+}
+
+.reasoning-body {
+  position: relative;
+  margin-top: 10px;
+  margin-bottom: 16px;
+  padding: 4px 0 4px 22px;
+  border-left: 1.5px solid var(--color-border);
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--color-text-tertiary);
+  max-width: 720px;
+  word-break: break-word;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  animation: bubble-fade-in 0.3s ease-out;
+}
+
+.reasoning-leading {
+  position: absolute;
+  left: -8px;
+  top: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  background: var(--color-bg-primary);
+  color: var(--color-text-tertiary);
+  border-radius: 50%;
+}
+
+.reasoning-text {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+
+.reasoning-text :deep(p) {
+  margin: 0 0 10px 0;
+}
+
+.reasoning-text :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.reasoning-text :deep(pre) {
+  max-width: 100%;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+}
+
+.reasoning-text :deep(code) {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.reasoning-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+}
+
+.reasoning-tools .tool-result-card.nested {
+  animation: none;
+  max-width: 100%;
+}
+
+.reasoning-tools .tool-result-card.nested .tool-result-body {
+  margin-left: 6px;
+}
+
+.reasoning-footer {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  margin-left: -30px;
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+}
+
+.reasoning-done-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--color-text-tertiary);
+  border-radius: 50%;
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-primary);
+  flex-shrink: 0;
 }
 
 /* 葡萄滚动动画 */
@@ -2495,9 +2620,10 @@ function scrollToBottom() {
 
 .msg-row.user .msg-bubble {
   background: var(--color-bg-secondary);
-  color: var(--color-primary-text);
+  color: var(--color-text-primary);
   padding: 12px 16px;
-  border-radius: 16px;
+  border-radius: 18px 18px 4px 18px;
+  border-left: none;
 }
 
 .msg-row.assistant .msg-bubble {
@@ -2509,12 +2635,16 @@ function scrollToBottom() {
   position: relative;
 }
 
+.msg-row.user .msg-bubble-wrapper {
+  max-width: 72%;
+}
+
 .assistant-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
-  padding: 4px 0;
+  margin-bottom: 10px;
+  padding: 2px 0;
 }
 
 .assistant-provider-name {
@@ -2539,39 +2669,65 @@ function scrollToBottom() {
   transition: opacity 0.2s ease;
 }
 
-.copy-btn {
-  background: linear-gradient(135deg, var(--color-bg-primary) 0%, var(--color-bg-tertiary) 100%);
-  border: 1px solid var(--color-border);
+.action-btn {
+  background: transparent;
+  border: none;
   border-radius: 6px;
-  padding: 6px 12px;
+  padding: 4px 8px;
   font-size: 12px;
   font-weight: 500;
-  color: var(--color-text-secondary);
+  color: var(--color-text-tertiary, var(--color-text-secondary));
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  gap: 5px;
+  line-height: 1;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.copy-btn:hover {
-  background: linear-gradient(135deg, var(--color-bg-tertiary) 0%, var(--color-bg-hover) 100%);
-  border-color: var(--color-border-hover);
+.action-btn .action-icon {
+  opacity: 0.8;
+  transition: opacity 0.15s ease;
+  flex-shrink: 0;
+}
+
+.action-btn:hover {
+  background: var(--color-bg-hover);
   color: var(--color-text-primary);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
-  transform: translateY(-1px);
 }
 
-.copy-btn:active {
-  transform: translateY(0);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+.action-btn:hover .action-icon {
+  opacity: 1;
 }
 
-.copy-btn.copy-success {
-  /* background: linear-gradient(135deg, var(--color-bg-success) 0%, rgba(34, 197, 94, 0.15) 100%); */
-  /* border-color: #22c55e;
-  color: #16a34a; */
+.action-btn:active {
+  background: var(--color-bg-tertiary);
+}
+
+.action-btn.action-success {
+  color: #16a34a;
+}
+
+.action-btn.action-success .action-icon {
+  opacity: 1;
+  color: #16a34a;
+}
+
+.dark-mode .action-btn.action-success,
+.dark-mode .action-btn.action-success .action-icon {
+  color: #4ade80;
+}
+
+.action-btn .action-icon.success-icon {
+  animation: success-pop 0.3s ease-out;
+}
+
+.action-btn.icon-only {
+  padding: 6px;
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  justify-content: center;
 }
 
 .retry-btn {
@@ -2586,7 +2742,7 @@ function scrollToBottom() {
   display: flex;
   align-items: center;
   gap: 6px;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
 }
 
 .retry-btn:hover {
@@ -2596,21 +2752,6 @@ function scrollToBottom() {
 
 .retry-btn:active {
   transform: scale(0.98);
-}
-
-.dark-mode .copy-btn.copy-success {
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.25) 0%, rgba(34, 197, 94, 0.15) 100%);
-  border-color: #4ade80;
-  color: #4ade80;
-}
-
-.copy-btn .success-icon {
-  font-weight: bold;
-  animation: success-pop 0.3s ease-out;
-}
-
-.copy-btn.copy-success .success-icon {
-  animation: success-pop 0.3s ease-out;
 }
 
 @keyframes success-pop {
@@ -2628,19 +2769,44 @@ function scrollToBottom() {
 }
 
 .msg-bubble :deep(p) {
-  margin: 0 0 10px 0;
+  margin: 0 0 0.85em 0;
+}
+
+
+.msg-bubble :deep(img) {
+    width: 100%;
 }
 
 .msg-bubble :deep(p:last-child) {
   margin-bottom: 0;
 }
 
+.msg-bubble :deep(h1),
+.msg-bubble :deep(h2),
+.msg-bubble :deep(h3),
+.msg-bubble :deep(h4) {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 600;
+  margin-top: 1.2em;
+  margin-bottom: 0.4em;
+}
+
+.msg-bubble :deep(ul),
+.msg-bubble :deep(ol) {
+  padding-left: 1.6em;
+  margin: 0.4em 0 0.85em;
+}
+
+.msg-bubble :deep(li) {
+  margin-bottom: 0.3em;
+}
+
 .msg-bubble :deep(blockquote) {
-  margin: 8px 0;
-  padding: 8px 12px 8px 16px;
-  border-left: 3px solid var(--color-primary);
+  margin: 12px 0;
+  padding: 10px 14px;
+  border-left: 3px solid var(--color-border-hover);
   background: var(--color-bg-secondary);
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 8px 8px 0;
   color: var(--color-text-secondary);
   font-style: italic;
 }
@@ -2717,6 +2883,10 @@ function scrollToBottom() {
 .msg-bubble :deep(code) {
   font-family: 'SF Mono', Monaco, 'Andale Mono', "JetBrains Mono", Menlo, Consolas, monospace;
   font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 /* 链接样式 - 禁用默认行为 */
@@ -2857,10 +3027,11 @@ function scrollToBottom() {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 10px 14px;
   border: 1px solid var(--color-border);
-  border-radius: 24px;
+  border-radius: 20px;
   background: var(--color-bg-tertiary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .textarea {
@@ -2870,7 +3041,8 @@ function scrollToBottom() {
   border: none;
   background: var(--color-bg-tertiary);
   outline: none;
-  font-size: 14px;
+  font-size: 15px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
   color: var(--color-text-primary);
   overflow-y: auto;
   min-height: 24px;
@@ -2929,25 +3101,26 @@ function scrollToBottom() {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
+  width: 36px;
+  height: 36px;
+  background: var(--color-text-primary);
+  border: none;
   border-radius: 50%;
-  color: var(--color-text-primary);
+  color: var(--color-bg-primary);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .send-btn:hover:not(:disabled) {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: white;
+  opacity: 0.85;
+  transform: scale(1.05);
 }
 
 .send-btn:disabled {
-  background: var(--color-button-disabled, #ccc);
+  background: var(--color-border);
+  color: var(--color-text-tertiary);
   cursor: not-allowed;
+  opacity: 0.6;
 }
 
 /* 思考模式按钮样式 */
@@ -2972,16 +3145,11 @@ function scrollToBottom() {
 }
 
 .thinking-btn.active {
-  background: linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(245, 158, 11, 0.1) 100%);
-  border-color: #fbbf24;
-  color: #fbbf24;
-  box-shadow: 0 0 12px rgba(251, 191, 36, 0.3);
+  color: var(--color-text-secondary);
 }
 
 .thinking-btn.active:hover {
-  background: linear-gradient(135deg, rgba(251, 191, 36, 0.25) 0%, rgba(245, 158, 11, 0.15) 100%);
-  color: #f59e0b;
-  box-shadow: 0 0 16px rgba(251, 191, 36, 0.4);
+  color: var(--color-text-secondary);
 }
 
 .thinking-btn svg {
@@ -2989,55 +3157,136 @@ function scrollToBottom() {
   height: 18px;
 }
 
+.thinking-brain-icon {
+  transition: color 0.25s ease, filter 0.25s ease;
+}
+
+.thinking-btn.active .thinking-brain-icon {
+  color: #7c83ff;
+  filter: drop-shadow(0 0 6px rgba(129, 140, 248, 0.3));
+}
+
+.thinking-btn.active:hover .thinking-brain-icon {
+  color: #6366f1;
+  filter: drop-shadow(0 0 8px rgba(129, 140, 248, 0.38));
+}
+
 :deep(hr) {
   border-color: rgba(255, 255, 255, 0);
 }
 
-/* 工具结果样式 */
+/* ---------- 工具调用结果样式（参考 Claude 设计） ---------- */
 .msg-row.tool {
-  padding: 12px 0;
+  padding: 4px 0;
 }
 
 .tool-result-card {
-  /* background: rgba(247, 247, 248, 0.7); */
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  overflow: hidden;
-  margin-bottom: 8px;
-  max-width: 900px;
-  animation: card-slide-in 0.3s ease-out;
+  max-width: 760px;
+  animation: tool-fade-in 0.25s ease-out;
 }
 
-@keyframes card-slide-in {
+@keyframes tool-fade-in {
   from {
     opacity: 0;
-    transform: translateX(-10px);
+    transform: translateY(-2px);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateY(0);
   }
 }
 
 .tool-result-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 1px 16px;
+  gap: 10px;
+  padding: 4px 0;
   cursor: pointer;
   user-select: none;
-  transition: background 0.2s;
+  color: var(--color-text-secondary);
+  transition: color 0.2s;
 }
 
 .tool-result-header:hover {
-  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
+.tool-leading-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.status-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  color: white;
+}
+
+.status-dot-success {
+  background: #22c55e;
+}
+
+.status-dot-error {
+  background: #ef4444;
+}
+
+.status-spinner-running {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #2563eb;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin-smooth 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes spin-smooth {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 嵌套于 reasoning-body 内的工具卡片，状态图标使用与 ClockIcon 相似的低饱和风格 */
+.tool-result-card.nested .tool-leading-icon {
+  width: 16px;
+  height: 16px;
+  background: var(--color-bg-primary);
+  color: var(--color-text-tertiary);
+  border-radius: 50%;
+}
+
+.tool-result-card.nested .status-dot {
+  background: transparent;
+  color: var(--color-text-tertiary);
+  width: 16px;
+  height: 16px;
+}
+
+.tool-result-card.nested .status-dot-success,
+.tool-result-card.nested .status-dot-error {
+  background: transparent;
+}
+
+.tool-result-card.nested .status-spinner-running {
+  width: 12px;
+  height: 12px;
+  border-width: 1.5px;
+  border-color: var(--color-text-tertiary);
+  border-top-color: transparent;
 }
 
 .tool-result-title {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  align-items: baseline;
+  gap: 10px;
   flex: 1;
+  min-width: 0;
 }
 
 .tool-result-name {
@@ -3047,137 +3296,75 @@ function scrollToBottom() {
   font-weight: 500;
 }
 
-/* 工具执行状态通用样式 */
-.tool-result-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.tool-status-text {
   font-size: 13px;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-weight: 500;
-  transition: all 0.3s ease;
+  color: var(--color-text-tertiary);
+  font-weight: 400;
 }
 
-/* 执行中状态 */
-.status-running {
-  color: #2563eb;
-  /* background: #dbeafe; */
+.status-running-text {
+  color: var(--color-primary);
 }
 
-.status-running .status-spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid #2563eb;
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: spin-smooth 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-}
-
-/* 准备中状态 */
-.status-pending {
-  color: #d97706;
-}
-
-.status-pending .status-spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid #d97706;
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: spin-smooth 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-}
-
-@keyframes spin-smooth {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-/* 成功状态 */
-.status-success {
-  color: #16a34a;
-  /* background: #dcfce7; */
-}
-
-.status-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  font-size: 12px;
-  font-weight: bold;
-}
-
-.status-icon-success {
-  background: #22c55e;
-  color: white;
-}
-
-/* 错误状态 */
-.status-error {
-  color: #dc2626;
-}
-
-.status-icon-error {
-  background: #ef4444;
-  color: white;
-}
-
-.status-text {
-  font-weight: 500;
+.status-error-text {
+  color: var(--color-danger);
 }
 
 .tool-result-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.tool-result-header:hover .tool-result-actions {
+  opacity: 1;
 }
 
 .tool-action-btn {
   background: transparent;
   border: none;
-  padding: 4px 8px;
+  padding: 2px 4px;
   cursor: pointer;
-  font-size: 14px;
-  opacity: 0.6;
-  transition: opacity 0.2s;
-  display: flex;
+  color: var(--color-text-tertiary);
+  display: inline-flex;
   align-items: center;
+  border-radius: 4px;
+  transition: all 0.2s;
 }
 
 .tool-action-btn:hover {
-  opacity: 1;
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
 }
 
 .expand-icon {
-  font-size: 10px;
-  color: var(--color-text-secondary);
-  transition: transform 0.2s;
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-text-tertiary);
 }
 
 .tool-result-body {
-  border-top: 1px solid var(--color-border);
-  background: var(--color-bg-primary);
-  max-height: 200px;
+  margin: 6px 0 12px 8px;
+  padding-left: 16px;
+  border-left: 1.5px solid var(--color-border);
+  max-height: 280px;
   overflow: auto;
+  animation: bubble-fade-in 0.25s ease-out;
 }
 
 .tool-result-code {
   margin: 0;
-  padding: 16px;
+  padding: 4px 0;
   overflow-x: auto;
   font-family: 'SF Mono', Monaco, 'Andale Mono', "JetBrains Mono", Menlo, Consolas, monospace;
-  font-size: 13px;
+  font-size: 12.5px;
   line-height: 1.6;
-  color: var(--color-text-primary);
+  color: var(--color-text-secondary);
   white-space: pre-wrap;
   word-break: break-word;
+  background: transparent;
 }
 
 /* JSON 语法高亮 */

@@ -76,7 +76,7 @@ async function handleLogin() {
         </button>
 
         <div class="demo-hint">
-          <p>GrapWork / GrapWork</p>
+          <p>账号密码：GrapWork / GrapWork</p>
         </div>
       </form>
     </div>

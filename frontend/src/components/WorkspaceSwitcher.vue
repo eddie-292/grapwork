@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import type { Workspace } from '@/types/workspace'
 import ChevronDownIcon from './icons/ChevronDownIcon.vue'
 import PlusIcon from './icons/PlusIcon.vue'
@@ -21,6 +21,7 @@ const emit = defineEmits<{
 const isExpanded = ref(true)
 const editingId = ref<string | null>(null)
 const editingName = ref('')
+const isEscaping = ref(false)
 const contextMenuId = ref<string | null>(null)
 
 // 截断路径显示
@@ -61,8 +62,18 @@ function finishRename(id: string) {
 
 // 取消重命名
 function cancelRename() {
+  isEscaping.value = true
   editingId.value = null
   editingName.value = ''
+}
+
+// blur 处理（ESC 取消时不触发保存）
+function handleBlur(id: string) {
+  if (isEscaping.value) {
+    isEscaping.value = false
+    return
+  }
+  finishRename(id)
 }
 
 // 显示右键菜单
@@ -81,14 +92,43 @@ function handleDelete(id: string) {
 function closeContextMenu() {
   contextMenuId.value = null
 }
+
+const switcherRef = ref<HTMLElement | null>(null)
+
+function handleDocumentClick(event: MouseEvent) {
+  if (switcherRef.value && !switcherRef.value.contains(event.target as Node)) {
+    contextMenuId.value = null
+  }
+}
+
+function handleKeyDown(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    contextMenuId.value = null
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleDocumentClick)
+  document.addEventListener('keydown', handleKeyDown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleDocumentClick)
+  document.removeEventListener('keydown', handleKeyDown)
+})
 </script>
 
 <template>
-  <div class="workspace-switcher" @click="closeContextMenu">
+  <div class="workspace-switcher" ref="switcherRef" @click="closeContextMenu">
     <!-- 可折叠标题 -->
     <div class="workspace-header" @click="toggleExpanded">
       <span class="header-title">工作空间</span>
-      <ChevronDownIcon :size="16" :class="{ rotated: !isExpanded }" />
+      <div class="header-right">
+        <button class="header-add-btn" @click.stop="emit('create')" title="新建工作空间">
+          <PlusIcon :size="13" />
+        </button>
+        <ChevronDownIcon :size="13" :class="{ rotated: !isExpanded }" />
+      </div>
     </div>
 
     <!-- 工作空间列表 -->
@@ -112,7 +152,7 @@ function closeContextMenu() {
                 v-model="editingName"
                 @keyup.enter="finishRename(workspace.id)"
                 @keyup.escape="cancelRename"
-                @blur="finishRename(workspace.id)"
+                @blur="handleBlur(workspace.id)"
                 ref="editInput"
                 autofocus
               />
@@ -137,12 +177,6 @@ function closeContextMenu() {
             </div>
           </Transition>
         </div>
-
-        <!-- 新建工作空间按钮 -->
-        <button class="new-workspace-btn" @click="emit('create')">
-          <PlusIcon :size="16" />
-          <span>新建工作空间</span>
-        </button>
       </div>
     </Transition>
   </div>
@@ -150,7 +184,7 @@ function closeContextMenu() {
 
 <style scoped>
 .workspace-switcher {
-  background: var(--color-bg-primary);
+  background: var(--color-bg-secondary);
   border-bottom: 1px solid var(--color-border);
 }
 
@@ -158,10 +192,11 @@ function closeContextMenu() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 12px;
+  padding: 6px 10px 6px 14px;
   cursor: pointer;
   user-select: none;
   transition: background-color 0.15s;
+  min-height: 30px;
 }
 
 .workspace-header:hover {
@@ -169,13 +204,40 @@ function closeContextMenu() {
 }
 
 .header-title {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.header-add-btn {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--color-text-tertiary);
+  transition: background 0.15s, color 0.15s;
+}
+
+.header-add-btn:hover {
+  background: var(--color-bg-tertiary);
   color: var(--color-text-primary);
 }
 
 .workspace-header svg {
-  color: var(--color-text-secondary);
+  color: var(--color-text-tertiary);
   transition: transform 0.2s ease;
 }
 
@@ -184,17 +246,17 @@ function closeContextMenu() {
 }
 
 .workspace-list {
-  padding: 4px 8px 8px;
+  padding: 3px 6px 6px;
 }
 
 .workspace-item {
   position: relative;
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 8px 8px 8px 4px;
-  margin-bottom: 2px;
-  border-radius: 6px;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  margin-bottom: 1px;
+  border-radius: 7px;
   cursor: pointer;
   transition: background-color 0.15s;
 }
@@ -209,11 +271,10 @@ function closeContextMenu() {
 
 .workspace-indicator {
   width: 3px;
-  height: 32px;
-  border-radius: 2px;
+  border-radius: 3px 0 0 3px;
   background: transparent;
   flex-shrink: 0;
-  margin-top: 2px;
+  align-self: stretch;
   transition: background-color 0.15s;
 }
 
@@ -226,7 +287,8 @@ function closeContextMenu() {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
+  padding: 7px 8px 7px 7px;
 }
 
 .workspace-name {
@@ -252,7 +314,7 @@ function closeContextMenu() {
 
 .workspace-path {
   font-size: 11px;
-  color: var(--color-text-secondary);
+  color: var(--color-text-tertiary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -265,11 +327,11 @@ function closeContextMenu() {
   transform: translateY(-50%);
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  padding: 4px 0;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  padding: 4px;
   z-index: 100;
-  min-width: 100px;
+  min-width: 110px;
 }
 
 .context-menu-item {
@@ -277,11 +339,12 @@ function closeContextMenu() {
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 6px 12px;
+  padding: 6px 10px;
   font-size: 12px;
   color: var(--color-text-primary);
   background: none;
   border: none;
+  border-radius: 5px;
   cursor: pointer;
   transition: background-color 0.15s;
 }
@@ -296,29 +359,6 @@ function closeContextMenu() {
 
 .context-menu-item.danger:hover {
   background: var(--color-danger-bg);
-}
-
-.new-workspace-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: 100%;
-  padding: 8px;
-  margin-top: 4px;
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  background: transparent;
-  border: 1px dashed var(--color-border);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.new-workspace-btn:hover {
-  color: var(--color-primary);
-  border-color: var(--color-primary);
-  background: var(--color-bg-hover);
 }
 
 /* 折叠动画 */

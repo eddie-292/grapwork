@@ -46,6 +46,10 @@ class SyncService {
 
   constructor() {
     this.config = this.loadConfig();
+    // Resume auto-sync if it was active before app restart
+    if (this.config.enabled && this.config.serverUrl && this.config.autoSync) {
+      this.startAutoSync();
+    }
   }
 
   /**
@@ -100,17 +104,30 @@ class SyncService {
 
   /**
    * 测试连接
+   * @param overrideServerUrl 临时服务器地址（不会保存到配置）
+   * @param overrideToken 临时 Token（不会保存到配置）
    */
-  async testConnection(): Promise<{ success: boolean; error?: string }> {
-    if (!this.config.serverUrl) {
+  async testConnection(overrideServerUrl?: string, overrideToken?: string): Promise<{ success: boolean; error?: string }> {
+    const serverUrl = overrideServerUrl ?? this.config.serverUrl;
+    if (!serverUrl) {
       return { success: false, error: '请输入服务器地址' };
     }
 
     try {
-      const response = await this.callApi('GET', '/health');
+      const url = `${serverUrl}/health`;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const token = overrideToken ?? this.config.apiToken;
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      const response = await fetch(url, {
+        method: 'GET',
+        headers,
+        signal: AbortSignal.timeout(10000),
+      });
       return {
-        success: response.success,
-        error: response.success ? undefined : (response.error || '连接失败'),
+        success: response.ok,
+        error: response.ok ? undefined : `HTTP ${response.status}: ${response.statusText}`,
       };
     } catch (error) {
       return {

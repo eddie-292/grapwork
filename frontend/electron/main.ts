@@ -1,7 +1,8 @@
 import { app, BrowserWindow, ipcMain, shell, dialog, Menu, screen, protocol, globalShortcut } from 'electron'
 import path from 'path'
 import fs from 'fs'
-import { spawn, ChildProcess } from 'child_process'
+import { spawn, ChildProcess, execSync } from 'child_process'
+import os from 'os'
 import { getLoopScheduler } from './LoopScheduler'
 import { loopExecutor } from './LoopExecutor'
 import { TimeExpressionParser } from '../src/services/loop/TimeExpressionParser'
@@ -110,6 +111,12 @@ function execAsync(
 // ============================================================================
 
 // 常见的 PATH 路径（用于 GUI 启动时补充环境变量）
+const HOME = process.env.HOME || process.env.USERPROFILE || os.homedir() || ''
+const LOCALAPPDATA = process.env.LOCALAPPDATA || path.join(HOME, 'AppData', 'Local')
+const APPDATA = process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming')
+const PROGRAMFILES = process.env.ProgramFiles || 'C:\\Program Files'
+const PROGRAMFILES_X86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)'
+
 const COMMON_PATHS: Record<string, string[]> = {
   darwin: [
     '/usr/local/bin',
@@ -121,9 +128,33 @@ const COMMON_PATHS: Record<string, string[]> = {
     '/sbin',
     '/Library/Apple/usr/bin',
     '/Library/Frameworks/Python.framework/Versions/Current/bin',
-    // 用户级 Python 安装路径
-    path.join(process.env.HOME || '', '.local/bin'),
-    path.join(process.env.HOME || '', 'Library/Python/*/bin'),
+    // 用户级 Python / 工具安装路径
+    path.join(HOME, '.local/bin'),
+    path.join(HOME, 'bin'),
+    path.join(HOME, 'Library/Python/*/bin'),
+    // pyenv / asdf / rye / uv / mise
+    path.join(HOME, '.pyenv/shims'),
+    path.join(HOME, '.pyenv/versions/*/bin'),
+    path.join(HOME, '.asdf/shims'),
+    path.join(HOME, '.rye/shims'),
+    path.join(HOME, '.cargo/bin'),
+    path.join(HOME, '.local/share/mise/shims'),
+    // conda / miniconda / anaconda
+    path.join(HOME, 'miniconda3/bin'),
+    path.join(HOME, 'anaconda3/bin'),
+    path.join(HOME, 'miniforge3/bin'),
+    path.join(HOME, 'mambaforge/bin'),
+    '/opt/miniconda3/bin',
+    '/opt/anaconda3/bin',
+    // Homebrew python 版本化目录
+    '/opt/homebrew/opt/python@3.13/bin',
+    '/opt/homebrew/opt/python@3.12/bin',
+    '/opt/homebrew/opt/python@3.11/bin',
+    '/opt/homebrew/opt/python@3.10/bin',
+    '/usr/local/opt/python@3.13/bin',
+    '/usr/local/opt/python@3.12/bin',
+    '/usr/local/opt/python@3.11/bin',
+    '/usr/local/opt/python@3.10/bin',
   ],
   linux: [
     '/usr/local/bin',
@@ -132,11 +163,59 @@ const COMMON_PATHS: Record<string, string[]> = {
     '/usr/sbin',
     '/sbin',
     '/snap/bin',
-    path.join(process.env.HOME || '', '.local/bin'),
-    path.join(process.env.HOME || '', '.cargo/bin'),
+    path.join(HOME, '.local/bin'),
+    path.join(HOME, 'bin'),
+    path.join(HOME, '.cargo/bin'),
+    path.join(HOME, '.pyenv/shims'),
+    path.join(HOME, '.pyenv/versions/*/bin'),
+    path.join(HOME, '.asdf/shims'),
+    path.join(HOME, '.rye/shims'),
+    path.join(HOME, '.local/share/mise/shims'),
+    path.join(HOME, 'miniconda3/bin'),
+    path.join(HOME, 'anaconda3/bin'),
+    path.join(HOME, 'miniforge3/bin'),
+    '/opt/miniconda3/bin',
+    '/opt/anaconda3/bin',
   ],
   win32: [
-    // Windows 通常通过注册表配置 PATH，这里添加一些常见路径
+    // Python 官方安装器（per-user & system-wide）
+    path.join(LOCALAPPDATA, 'Programs', 'Python', 'Python313'),
+    path.join(LOCALAPPDATA, 'Programs', 'Python', 'Python313', 'Scripts'),
+    path.join(LOCALAPPDATA, 'Programs', 'Python', 'Python312'),
+    path.join(LOCALAPPDATA, 'Programs', 'Python', 'Python312', 'Scripts'),
+    path.join(LOCALAPPDATA, 'Programs', 'Python', 'Python311'),
+    path.join(LOCALAPPDATA, 'Programs', 'Python', 'Python311', 'Scripts'),
+    path.join(LOCALAPPDATA, 'Programs', 'Python', 'Python310'),
+    path.join(LOCALAPPDATA, 'Programs', 'Python', 'Python310', 'Scripts'),
+    path.join(LOCALAPPDATA, 'Programs', 'Python', 'Python39'),
+    path.join(LOCALAPPDATA, 'Programs', 'Python', 'Python39', 'Scripts'),
+    'C:\\Python313', 'C:\\Python313\\Scripts',
+    'C:\\Python312', 'C:\\Python312\\Scripts',
+    'C:\\Python311', 'C:\\Python311\\Scripts',
+    'C:\\Python310', 'C:\\Python310\\Scripts',
+    'C:\\Python39', 'C:\\Python39\\Scripts',
+    // Microsoft Store Python stub
+    path.join(LOCALAPPDATA, 'Microsoft', 'WindowsApps'),
+    // Node.js
+    path.join(PROGRAMFILES, 'nodejs'),
+    path.join(PROGRAMFILES_X86, 'nodejs'),
+    path.join(APPDATA, 'npm'),
+    // uv / rye
+    path.join(HOME, '.cargo', 'bin'),
+    path.join(HOME, '.local', 'bin'),
+    path.join(LOCALAPPDATA, 'Programs', 'uv'),
+    // conda
+    path.join(HOME, 'miniconda3'),
+    path.join(HOME, 'miniconda3', 'Scripts'),
+    path.join(HOME, 'anaconda3'),
+    path.join(HOME, 'anaconda3', 'Scripts'),
+    'C:\\ProgramData\\miniconda3',
+    'C:\\ProgramData\\miniconda3\\Scripts',
+    'C:\\ProgramData\\Anaconda3',
+    'C:\\ProgramData\\Anaconda3\\Scripts',
+    // scoop / chocolatey
+    path.join(HOME, 'scoop', 'shims'),
+    'C:\\ProgramData\\chocolatey\\bin',
   ]
 }
 
@@ -177,33 +256,83 @@ function isVersionAtLeast(version: { major: number; minor: number }, minVersion:
   return false
 }
 
+// 展开包含通配符 (*) 的路径为实际存在的目录列表
+function expandWildcardPath(pattern: string): string[] {
+  if (!pattern.includes('*')) {
+    return fs.existsSync(pattern) ? [pattern] : []
+  }
+  // 仅支持单层 "*"，如 ~/Library/Python/*/bin 或 ~/.pyenv/versions/*/bin
+  const parts = pattern.split(/[\\/]/)
+  const starIdx = parts.findIndex(p => p.includes('*'))
+  if (starIdx < 0) return []
+  const base = parts.slice(0, starIdx).join(path.sep) || path.sep
+  const tail = parts.slice(starIdx + 1).join(path.sep)
+  try {
+    if (!fs.existsSync(base)) return []
+    const entries = fs.readdirSync(base, { withFileTypes: true })
+    const results: string[] = []
+    for (const e of entries) {
+      if (!e.isDirectory()) continue
+      // 粗略匹配：若 pattern 片段是纯 "*"，则全部接受；否则做 startsWith/endsWith
+      const seg = parts[starIdx]
+      if (seg !== '*') {
+        const [pre, post] = seg.split('*')
+        if (pre && !e.name.startsWith(pre)) continue
+        if (post && !e.name.endsWith(post)) continue
+      }
+      const full = tail ? path.join(base, e.name, tail) : path.join(base, e.name)
+      if (fs.existsSync(full)) results.push(full)
+    }
+    return results
+  } catch {
+    return []
+  }
+}
+
+// 从用户的登录 shell 读取真实 PATH（解决 macOS/Linux GUI 启动 Electron 时 PATH 缺失的问题）
+let _cachedShellPath: string | null | undefined
+function getLoginShellPath(): string | null {
+  if (_cachedShellPath !== undefined) return _cachedShellPath
+  if (process.platform === 'win32') {
+    _cachedShellPath = null
+    return null
+  }
+  try {
+    const shell = process.env.SHELL || '/bin/bash'
+    // -ilc: interactive + login，加载 ~/.zshrc / ~/.bash_profile 等
+    const out = execSync(`${shell} -ilc 'echo -n "$PATH"'`, {
+      encoding: 'utf-8',
+      timeout: 3000,
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim()
+    _cachedShellPath = out || null
+  } catch {
+    _cachedShellPath = null
+  }
+  return _cachedShellPath
+}
+
 // 获取增强后的 PATH 环境变量
 function getEnhancedPath(): string {
   const originalPath = process.env.PATH || ''
   const platform = process.platform
   const additionalPaths = COMMON_PATHS[platform] || []
 
-  // 过滤出存在的路径
-  const existingAdditionalPaths = additionalPaths.filter(p => {
-    // 处理通配符路径
-    if (p.includes('*')) {
-      try {
-        const baseDir = path.dirname(p.replace(/\/\*.*$/, ''))
-        if (fs.existsSync(baseDir)) {
-          return true
-        }
-      } catch {
-        return false
-      }
-    }
-    return fs.existsSync(p)
-  })
+  // 合并 PATH：原始 PATH + 登录 shell PATH + 预设常见路径
+  const allPaths = originalPath.split(path.delimiter).filter(Boolean)
 
-  // 合并 PATH，保持原有 PATH 优先
-  const allPaths = originalPath.split(path.delimiter)
-  for (const p of existingAdditionalPaths) {
-    if (!allPaths.includes(p)) {
-      allPaths.push(p)
+  const shellPath = getLoginShellPath()
+  if (shellPath) {
+    for (const p of shellPath.split(path.delimiter)) {
+      if (p && !allPaths.includes(p)) allPaths.push(p)
+    }
+  }
+
+  // 展开通配符 + 过滤不存在的路径
+  for (const p of additionalPaths) {
+    const expanded = p.includes('*') ? expandWildcardPath(p) : (fs.existsSync(p) ? [p] : [])
+    for (const ep of expanded) {
+      if (!allPaths.includes(ep)) allPaths.push(ep)
     }
   }
 
@@ -226,28 +355,42 @@ function resolveCommand(command: string): string | null {
   }
 
   const enhancedEnv = getEnhancedEnv()
-  const pathDirs = (enhancedEnv.PATH || '').split(path.delimiter)
+  const pathDirs = (enhancedEnv.PATH || '').split(path.delimiter).filter(Boolean)
 
-  // 在所有 PATH 目录中搜索
-  for (const dir of pathDirs) {
-    // 跳过通配符路径（无法直接检查）
-    if (dir.includes('*')) continue
+  // 在所有 PATH 目录中搜索（含通配符展开）
+  for (const rawDir of pathDirs) {
+    const dirs = rawDir.includes('*') ? expandWildcardPath(rawDir) : [rawDir]
+    for (const dir of dirs) {
+      const fullPath = path.join(dir, command)
+      try {
+        if (fs.existsSync(fullPath)) return fullPath
+      } catch { /* ignore */ }
 
-    const fullPath = path.join(dir, command)
-    if (fs.existsSync(fullPath)) {
-      return fullPath
-    }
-
-    // Windows 上尝试添加扩展名
-    if (process.platform === 'win32') {
-      for (const ext of ['.exe', '.cmd', '.bat']) {
-        const fullPathWithExt = fullPath + ext
-        if (fs.existsSync(fullPathWithExt)) {
-          return fullPathWithExt
+      // Windows 上尝试添加扩展名（含 PATHEXT 中的所有扩展名）
+      if (process.platform === 'win32') {
+        const pathExt = (process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC;.PY').split(';')
+        for (const ext of pathExt) {
+          const fullPathWithExt = fullPath + ext.toLowerCase()
+          try {
+            if (fs.existsSync(fullPathWithExt)) return fullPathWithExt
+          } catch { /* ignore */ }
         }
       }
     }
   }
+
+  // 最后兜底：调用系统 which/where，让 OS 自行解析
+  try {
+    const whichCmd = process.platform === 'win32' ? `where "${command}"` : `command -v "${command}"`
+    const out = execSync(whichCmd, {
+      encoding: 'utf-8',
+      env: enhancedEnv,
+      timeout: 3000,
+      stdio: ['ignore', 'pipe', 'ignore']
+    }).trim()
+    const firstLine = out.split(/\r?\n/)[0]?.trim()
+    if (firstLine && fs.existsSync(firstLine)) return firstLine
+  } catch { /* not found */ }
 
   return null
 }
@@ -4802,4 +4945,33 @@ ipcMain.handle('memory:flush', async () => {
   } catch (error: any) {
     return { success: false, error: error?.message || 'Unknown error' }
   }
+})
+
+// ============================================================================
+// 澄清工具 IPC 处理器
+// ============================================================================
+
+import { clarificationService } from './clarificationService'
+import type { ClarificationResponse } from '../src/types/clarification'
+
+// 获取待处理的澄清请求
+ipcMain.handle('clarification:getPending', async () => {
+  return clarificationService.getPendingRequest()
+})
+
+// 获取澄清状态
+ipcMain.handle('clarification:getState', async () => {
+  return clarificationService.getState()
+})
+
+// 提交澄清响应
+ipcMain.handle('clarification:respond', async (_event, response: ClarificationResponse) => {
+  const success = clarificationService.submitResponse(response)
+  return { success }
+})
+
+// 取消澄清请求
+ipcMain.handle('clarification:cancel', async (_event, requestId: string) => {
+  const success = clarificationService.cancelRequest('User cancelled')
+  return { success }
 })

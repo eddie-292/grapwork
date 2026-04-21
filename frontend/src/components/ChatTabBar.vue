@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import ImageAccentIcon from './icons/ImageAccentIcon.vue'
+import PlusIcon from './icons/PlusIcon.vue'
+import SearchIcon from './icons/SearchIcon.vue'
+import XIcon from './icons/XIcon.vue'
 
 interface Message {
   content: string
@@ -27,6 +31,7 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   'switch-chat': [chatId: string]
   'delete-chat': [chatId: string, event: Event]
+  'batch-delete-chats': [chatIds: string[], label: string]
   'create-chat': []
 }>()
 
@@ -59,25 +64,6 @@ const showDeleteAll = computed(() => props.chatList.length > 0)
 const showSearch = ref(false)
 const searchQuery = ref('')
 const searchInputRef = ref<HTMLInputElement | null>(null)
-
-// 基于 chat.id 生成稳定的颜色
-function getChatColor(chatId: string): string {
-  const colors = [
-    '#333',   // dark gray (primary)
-    '#3b82f6', // blue
-    '#f59e0b', // amber
-    '#ec4899', // pink
-    '#8b5cf6', // violet
-    '#06b6d4', // cyan
-    '#f97316', // orange
-    '#14b8a6', // teal
-  ]
-  let hash = 0
-  for (let i = 0; i < chatId.length; i++) {
-    hash = chatId.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  return colors[Math.abs(hash) % colors.length]!
-}
 
 // 截断标题显示
 function truncateTitle(title: string, maxLength: number = 12): string {
@@ -156,11 +142,8 @@ function hideContextMenu() {
 function deleteRightTabs() {
   const index = targetChatIndex.value
   if (index < 0 || index >= props.chatList.length - 1) return
-  
-  const tabsToDelete = props.chatList.slice(index + 1)
-  tabsToDelete.forEach(chat => {
-    emit('delete-chat', chat.id, new Event('delete-right'))
-  })
+  const chatIds = props.chatList.slice(index + 1).map(c => c.id)
+  emit('batch-delete-chats', chatIds, `关闭右侧 ${chatIds.length} 个会话？此操作不可撤销。`)
   hideContextMenu()
 }
 
@@ -168,34 +151,25 @@ function deleteRightTabs() {
 function deleteLeftTabs() {
   const index = targetChatIndex.value
   if (index <= 0) return
-  
-  const tabsToDelete = props.chatList.slice(0, index)
-  tabsToDelete.forEach(chat => {
-    emit('delete-chat', chat.id, new Event('delete-left'))
-  })
+  const chatIds = props.chatList.slice(0, index).map(c => c.id)
+  emit('batch-delete-chats', chatIds, `关闭左侧 ${chatIds.length} 个会话？此操作不可撤销。`)
   hideContextMenu()
 }
 
 // 删除除当前标签外的所有标签
 function deleteOtherTabs() {
   if (props.chatList.length <= 1) return
-  
   const currentTargetId = contextMenuTargetChatId.value
   if (!currentTargetId) return
-  
-  props.chatList.forEach(chat => {
-    if (chat.id !== currentTargetId) {
-      emit('delete-chat', chat.id, new Event('delete-others'))
-    }
-  })
+  const chatIds = props.chatList.filter(c => c.id !== currentTargetId).map(c => c.id)
+  emit('batch-delete-chats', chatIds, `关闭其他 ${chatIds.length} 个会话？此操作不可撤销。`)
   hideContextMenu()
 }
 
 // 删除所有标签
 function deleteAllTabs() {
-  props.chatList.forEach(chat => {
-    emit('delete-chat', chat.id, new Event('delete-all'))
-  })
+  const chatIds = props.chatList.map(c => c.id)
+  emit('batch-delete-chats', chatIds, `关闭全部 ${chatIds.length} 个会话？此操作不可撤销。`)
   hideContextMenu()
 }
 
@@ -221,10 +195,6 @@ onUnmounted(() => {
         @click="isSearching ? switchToResult(chat.id) : emit('switch-chat', chat.id)"
         @contextmenu.prevent="showContextMenu($event, chat.id)"
       >
-        <span
-          class="tab-indicator"
-          :style="{ backgroundColor: getChatColor(chat.id) }"
-        />
         <span class="tab-title">{{ truncateTitle(chat.title) }}</span>
         <button
           v-if="!isSearching"
@@ -232,7 +202,7 @@ onUnmounted(() => {
           @click="handleDelete(chat.id, $event)"
           title="关闭"
         >
-          ×
+          <XIcon :size="14" />
         </button>
       </div>
       <div v-if="isSearching && filteredChats.length === 0" class="no-result">
@@ -251,37 +221,19 @@ onUnmounted(() => {
         @keydown.escape="closeSearch"
       />
       <button class="search-close-btn" @click="closeSearch" title="关闭搜索">
-        ×
+        <XIcon :size="12" />
       </button>
     </div>
 
     <span class="chat-count">{{ chatList.length }}</span>
     <button class="new-tab-btn" @click="emit('create-chat')" title="新建对话">
-      +
+      <PlusIcon :size="16" />
     </button>
     <button :class="['search-btn', { active: showSearch }]" @click="toggleSearch" title="搜索会话">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="11" cy="11" r="8"/>
-        <path d="M21 21l-4.35-4.35"/>
-      </svg>
+      <SearchIcon :size="16" />
     </button>
     <button class="image-generator-btn" @click="openImageGenerator" title="生图模式">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="imageGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#ff6b6b"/>
-            <stop offset="50%" style="stop-color:#feca57"/>
-            <stop offset="100%" style="stop-color:#48dbfb"/>
-          </linearGradient>
-          <linearGradient id="sunGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#ff9ff3"/>
-            <stop offset="100%" style="stop-color:#feca57"/>
-          </linearGradient>
-        </defs>
-        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke="url(#imageGradient)" stroke-width="2"/>
-        <circle cx="8.5" cy="8.5" r="1.5" fill="url(#sunGradient)"/>
-        <polyline points="21 15 16 10 5 21" stroke="url(#imageGradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
+      <ImageAccentIcon :size="16" />
     </button>
 
     <!-- 右键菜单 -->
@@ -334,79 +286,6 @@ onUnmounted(() => {
   -webkit-app-region: drag; /* 使整个标签栏可拖拽 */
 }
 
-/* macOS 风格窗口控制按钮 */
-.window-controls {
-  display: flex;
-  gap: 8px;
-  padding-right: 12px;
-  -webkit-app-region: no-drag; /* 按钮区域不可拖拽 */
-}
-
-.window-btn {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: none;
-  cursor: pointer;
-  position: relative;
-  transition: all 0.15s ease;
-}
-
-.window-btn.close {
-  background: #ff5f57;
-}
-
-.window-btn.minimize {
-  background: #ffbd2e;
-}
-
-.window-btn.maximize {
-  background: #28ca41;
-}
-
-.window-btn:hover {
-  filter: brightness(0.9);
-}
-
-/* hover 时显示图标 */
-.window-btn.close:hover::after {
-  content: '×';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 10px;
-  color: rgba(0, 0, 0, 0.5);
-  line-height: 1;
-}
-
-.window-btn.minimize:hover::after {
-  content: '−';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 10px;
-  color: rgba(0, 0, 0, 0.5);
-  line-height: 1;
-}
-
-.window-btn.maximize:hover::after {
-  content: '+';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 10px;
-  color: rgba(0, 0, 0, 0.5);
-  line-height: 1;
-}
-
-.window-btn.maximize.is-maximized:hover::after {
-  content: '⧉';
-  font-size: 8px;
-}
-
 .tabs-container {
   display: flex;
   gap: 4px;
@@ -448,13 +327,6 @@ onUnmounted(() => {
 
 .chat-tab.search-highlight {
   border-color: var(--color-primary, #333);
-}
-
-.tab-indicator {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
 }
 
 .tab-title {

@@ -16,6 +16,7 @@ release/
 .claude
 videoscript
 mdg.md
+tog.md
 
 # IDE
 .vscode/*

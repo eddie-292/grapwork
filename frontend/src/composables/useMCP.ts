@@ -15,6 +15,7 @@ import type {
   MCPDependency,
 } from '@/types/mcp'
 import { MCPTransportType } from '@/types/mcp'
+import { ASK_CLARIFICATION_TOOL_DEFINITION } from '@/types/clarification'
 
 // 检查是否在 Electron 环境中
 const isElectronEnv =
@@ -559,6 +560,9 @@ export function useMCP() {
    */
   function generateOpenAITools(): MCPToolDefinition[] {
     const tools: MCPToolDefinition[] = []
+
+    // 添加内置澄清工具（始终可用）
+    tools.push(ASK_CLARIFICATION_TOOL_DEFINITION)
 
     //console.log('[MCP] Active servers:', activeServers.value)
     //console.log('[MCP] Active servers tools:', activeServers.value.map(s => ({ name: s.name, tools: s.tools })))
@@ -2114,7 +2118,47 @@ export function useMCP() {
    */
   async function executeToolCall(toolCall: OpenAIToolCall): Promise<MCPToolResult> {
     try {
-      // 首先检查是否是内置文件操作工具
+      // 首先检查是否是 ask_clarification 工具（内置澄清工具）
+      if (toolCall.function.name === 'ask_clarification') {
+        const parseResult = safeParseToolArguments(toolCall.function.arguments)
+        if (!parseResult.success) {
+          return {
+            toolCallId: toolCall.id,
+            content: '',
+            error: parseResult.error || '工具参数解析失败'
+          }
+        }
+        const args = parseResult.args
+
+        console.log('[ask_clarification] Tool called with args:', args)
+
+        // 通过 store 请求用户澄清
+        const { useClarificationStore } = await import('../stores/clarification')
+        const clarificationStore = useClarificationStore()
+
+        try {
+          // 请求澄清并等待用户响应
+          const answer = await clarificationStore.requestClarification(
+            args.question,
+            args.clarification_type,
+            args.context,
+            args.options
+          )
+
+          return {
+            toolCallId: toolCall.id,
+            content: `User response: ${answer}`
+          }
+        } catch (error) {
+          return {
+            toolCallId: toolCall.id,
+            content: '',
+            error: error instanceof Error ? error.message : '澄清请求失败'
+          }
+        }
+      }
+
+      // 检查是否是内置文件操作工具
       if (isBuiltinFileTool(toolCall.function.name)) {
         // 解析参数（使用安全解析函数）
         const parseResult = safeParseToolArguments(toolCall.function.arguments)

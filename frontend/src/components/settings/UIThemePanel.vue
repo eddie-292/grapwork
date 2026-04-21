@@ -24,9 +24,16 @@ const uiThemes: UITheme[] = [
   {
     value: 'amber',
     label: '琥珀橙褐',
-    description: 'Claude风格的温暖橙褐色',
+    description: '温暖橙褐色',
     previewBg: 'linear-gradient(135deg, #faf9f7 0%, #ffffff 100%)',
     previewText: '#d97706'
+  },
+  {
+    value: 'moss',
+    label: '绿褐森林',
+    description: '沉稳自然的绿褐色调',
+    previewBg: 'linear-gradient(135deg, #edf1ea 0%, #f7f4ee 100%)',
+    previewText: '#5f6f52'
   },
   {
     value: 'parchment',
