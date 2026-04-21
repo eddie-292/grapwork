@@ -3246,6 +3246,35 @@ function scrollToBottom() {
   100% { transform: rotate(360deg); }
 }
 
+/* 嵌套于 reasoning-body 内的工具卡片，状态图标使用与 ClockIcon 相似的低饱和风格 */
+.tool-result-card.nested .tool-leading-icon {
+  width: 16px;
+  height: 16px;
+  background: var(--color-bg-primary);
+  color: var(--color-text-tertiary);
+  border-radius: 50%;
+}
+
+.tool-result-card.nested .status-dot {
+  background: transparent;
+  color: var(--color-text-tertiary);
+  width: 16px;
+  height: 16px;
+}
+
+.tool-result-card.nested .status-dot-success,
+.tool-result-card.nested .status-dot-error {
+  background: transparent;
+}
+
+.tool-result-card.nested .status-spinner-running {
+  width: 12px;
+  height: 12px;
+  border-width: 1.5px;
+  border-color: var(--color-text-tertiary);
+  border-top-color: transparent;
+}
+
 .tool-result-title {
   display: flex;
   align-items: baseline;
