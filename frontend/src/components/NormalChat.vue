@@ -14,6 +14,8 @@ import ChevronDownIcon from './icons/ChevronDownIcon.vue'
 import ChevronRightIcon from './icons/ChevronRightIcon.vue'
 import CheckIcon from './icons/CheckIcon.vue'
 import FileTextIcon from './icons/FileTextIcon.vue'
+import DownloadIcon from './icons/DownloadIcon.vue'
+import CodeIcon from './icons/CodeIcon.vue'
 import XIcon from './icons/XIcon.vue'
 import ArrowUpIcon from './icons/ArrowUpIcon.vue'
 import ImageAccentIcon from './icons/ImageAccentIcon.vue'
@@ -737,52 +739,50 @@ const reasoningStartTime = ref<Record<number, number>>({})
 const toolResultExpanded = ref<Record<number, boolean>>({})
 const copyStatus = ref<Record<number, { text?: boolean; md?: boolean; html?: boolean }>>({})
 
-// 计算每个 tool 消息归属的 assistant 消息索引，归入其"分析过程"中展示
-// 匹配规则：
-// 1) 若 tool 消息带 tool_call_id，则查找前面拥有该 tool_call 的 assistant 消息
-// 2) 否则退化为最近的前一条含 tool_calls 的 assistant 消息
-// 最终由该 assistant 渲染；后续的 assistant（带 content 的"最终回答"）不再拥有这些 tool
+// 计算每个"回合"(两条 user 消息之间)的代表 assistant 消息索引，
+// 将该回合内所有 tool 调用结果与各 assistant 的 reasoning 合并，只在代表消息上展示一个"分析过程"。
 const toolsByAssistant = computed(() => {
+  const msgs = props.messages
   const map: Record<number, number[]> = {}
   const owned = new Set<number>()
-  const msgs = props.messages
+  const representativeSet = new Set<number>()
+  const reasoningByRep: Record<number, string> = {}
+  let currentRep = -1
+  let lastRep = -1
   for (let i = 0; i < msgs.length; i++) {
     const m = msgs[i]
-    if (!m || m.role !== 'tool' || m.visible === false) continue
-    let ownerIdx = -1
-    if (m.tool_call_id) {
-      for (let k = i - 1; k >= 0; k--) {
-        const prev = msgs[k]
-        if (prev?.role === 'assistant' && prev.tool_calls?.some((tc: any) => tc.id === m.tool_call_id)) {
-          ownerIdx = k
-          break
+    if (!m) continue
+    if (m.role === 'user') {
+      currentRep = -1
+      continue
+    }
+    if (m.visible === false) continue
+    if (m.role === 'assistant') {
+      if (currentRep === -1) {
+        currentRep = i
+        representativeSet.add(i)
+      }
+      lastRep = currentRep
+      if (m.reasoning) {
+        reasoningByRep[currentRep] = reasoningByRep[currentRep]
+          ? reasoningByRep[currentRep] + '\n\n' + m.reasoning
+          : m.reasoning
+      }
+    } else if (m.role === 'tool') {
+      let rep = currentRep
+      if (rep === -1) {
+        for (let k = i - 1; k >= 0; k--) {
+          if (msgs[k]?.role === 'assistant') { rep = k; break }
         }
       }
-    }
-    if (ownerIdx === -1) {
-      for (let k = i - 1; k >= 0; k--) {
-        const prev = msgs[k]
-        if (prev?.role === 'assistant' && prev.tool_calls && prev.tool_calls.length > 0) {
-          ownerIdx = k
-          break
-        }
+      if (rep !== -1) {
+        ;(map[rep] ||= []).push(i)
+        owned.add(i)
+        lastRep = rep
       }
-    }
-    if (ownerIdx === -1) {
-      // 再退化为最近的 assistant
-      for (let k = i - 1; k >= 0; k--) {
-        if (msgs[k]?.role === 'assistant') {
-          ownerIdx = k
-          break
-        }
-      }
-    }
-    if (ownerIdx !== -1) {
-      ;(map[ownerIdx] ||= []).push(i)
-      owned.add(i)
     }
   }
-  return { map, owned }
+  return { map, owned, representativeSet, reasoningByRep, lastRep }
 })
 
 // 获取工具名称（优先使用 toolName 字段，否则从 tool_calls 中查找）
@@ -1682,25 +1682,25 @@ function scrollToBottom() {
 
         <!-- 普通消息 -->
         <div
-          v-else-if="m.visible !== false && m.role !== 'tool'"
+          v-else-if="m.visible !== false && m.role !== 'tool' && (m.role !== 'assistant' || !!getContentAsString(m.content).trim() || toolsByAssistant.representativeSet.has(i) || (sending && i === messages.length - 1))"
           :id="`msg-${i}`"
           :class="['msg-row', m.role, { 'error-message': isErrorMessage(m) }]"
         >
           <div class="msg-content">
-            <div v-if="m.reasoning || (toolsByAssistant.map[i] && toolsByAssistant.map[i]!.length > 0) || (sending && i === messages.length - 1 && m.role === 'assistant')" class="reasoning-section">
+            <div v-if="toolsByAssistant.representativeSet.has(i) && (toolsByAssistant.reasoningByRep[i] || (toolsByAssistant.map[i] && toolsByAssistant.map[i]!.length > 0) || (sending && toolsByAssistant.lastRep === i))" class="reasoning-section">
               <button class="reasoning-toggle" @click="toggleReasoning(i)">
-                <span v-if="sending && i === messages.length - 1 && m.role === 'assistant' && !getContentAsString(m.content).trim()" class="grape-spinner">
+                <span v-if="sending && toolsByAssistant.lastRep === i && (messages[messages.length - 1]?.role !== 'assistant' || !getContentAsString(messages[messages.length - 1]!.content).trim())" class="grape-spinner">
                   <GrapeIcon :size="16" />
                 </span>
                 <span class="reasoning-label">分析过程</span>
                 <ChevronDownIcon v-if="reasoningExpanded[i]" :size="12" class="reasoning-chevron" />
                 <ChevronRightIcon v-else :size="12" class="reasoning-chevron" />
               </button>
-              <div v-show="reasoningExpanded[i] && (m.reasoning || (toolsByAssistant.map[i] && toolsByAssistant.map[i]!.length > 0))" class="reasoning-body">
+              <div v-show="reasoningExpanded[i] && (toolsByAssistant.reasoningByRep[i] || (toolsByAssistant.map[i] && toolsByAssistant.map[i]!.length > 0))" class="reasoning-body">
                 <div class="reasoning-leading">
                   <ClockIcon :size="14" />
                 </div>
-                <div v-if="m.reasoning" class="reasoning-text" v-html="render(m.reasoning || '')" />
+                <div v-if="toolsByAssistant.reasoningByRep[i]" class="reasoning-text" v-html="render(toolsByAssistant.reasoningByRep[i] || '')" />
                 <!-- 归属到此 assistant 的工具调用结果 -->
                 <div v-if="toolsByAssistant.map[i] && toolsByAssistant.map[i]!.length > 0" class="reasoning-tools">
                   <div v-for="ti in toolsByAssistant.map[i]" :key="`tool-${ti}`" class="tool-result-card nested">
@@ -1728,18 +1728,18 @@ function scrollToBottom() {
                     </div>
                   </div>
                 </div>
-                <div v-if="!(sending && i === messages.length - 1 && m.role === 'assistant' && !getContentAsString(m.content).trim())" class="reasoning-footer">
+                <div v-if="!(sending && toolsByAssistant.lastRep === i && (messages[messages.length - 1]?.role !== 'assistant' || !getContentAsString(messages[messages.length - 1]!.content).trim()))" class="reasoning-footer">
                   <span class="reasoning-done-icon"><CheckIcon :size="10" /></span>
                   <span>Done</span>
                 </div>
               </div>
             </div>
             <!-- AI 消息提供商图标 -->
-            <div v-if="m.role === 'assistant'" class="assistant-header">
+            <div v-if="m.role === 'assistant' && (!!getContentAsString(m.content).trim() || (sending && i === messages.length - 1))" class="assistant-header">
               <LLMProviderIcon :provider="getProviderIdByApiUrl(activeConfig?.apiUrl)" :size="20" />
               <span class="assistant-provider-name">{{ activeConfig?.name || 'AI' }}</span>
             </div>
-            <div class="msg-bubble-wrapper">
+            <div v-if="m.role !== 'assistant' || !!getContentAsString(m.content).trim() || (sending && i === messages.length - 1)" class="msg-bubble-wrapper">
               <!-- 用户消息图片预览 -->
               <div v-if="m.role === 'user' && m.images && m.images.length > 0" class="message-images">
                 <img v-for="(img, imgIndex) in m.images" :key="imgIndex" :src="img" class="message-image clickable" @click="openImagePreview(img)" />
@@ -1773,17 +1773,17 @@ function scrollToBottom() {
                 <button v-if="isErrorMessage(m) && m.role === 'assistant'" class="retry-btn" @click="emit('retry-message', i)" title="重试">
                   重试
                 </button>
-                <button class="copy-btn" :class="{ 'copy-success': copyStatus[i]?.html }" @click="handleExportHtml(m, i)" title="导出 HTML">
-                  <span v-if="copyStatus[i]?.html" class="success-icon">✓</span>
-                  <span v-else>Export HTML</span>
+                <button class="action-btn icon-only" :class="{ 'action-success': copyStatus[i]?.html }" @click="handleExportHtml(m, i)" title="导出 HTML">
+                  <CheckIcon v-if="copyStatus[i]?.html" :size="15" class="action-icon success-icon" />
+                  <DownloadIcon v-else :size="15" class="action-icon" />
                 </button>
-                <button class="copy-btn" :class="{ 'copy-success': copyStatus[i]?.text }" @click="handleCopyText(m, i)" title="复制文本">
-                  <span v-if="copyStatus[i]?.text" class="success-icon">✓</span>
-                  <span v-else>Copy Text</span>
+                <button class="action-btn icon-only" :class="{ 'action-success': copyStatus[i]?.text }" @click="handleCopyText(m, i)" title="复制文本">
+                  <CheckIcon v-if="copyStatus[i]?.text" :size="15" class="action-icon success-icon" />
+                  <FileTextIcon v-else :size="15" class="action-icon" />
                 </button>
-                <button class="copy-btn" :class="{ 'copy-success': copyStatus[i]?.md }" @click="handleCopyMarkdown(m, i)" title="复制 Markdown">
-                  <span v-if="copyStatus[i]?.md" class="success-icon">✓</span>
-                  <span v-else>Copy Markdown</span>
+                <button class="action-btn icon-only" :class="{ 'action-success': copyStatus[i]?.md }" @click="handleCopyMarkdown(m, i)" title="复制 Markdown">
+                  <CheckIcon v-if="copyStatus[i]?.md" :size="15" class="action-icon success-icon" />
+                  <CodeIcon v-else :size="15" class="action-icon" />
                 </button>
               </div>
             </div>
@@ -2674,39 +2674,65 @@ function scrollToBottom() {
   transition: opacity 0.2s ease;
 }
 
-.copy-btn {
-  background: linear-gradient(135deg, var(--color-bg-primary) 0%, var(--color-bg-tertiary) 100%);
-  border: 1px solid var(--color-border);
+.action-btn {
+  background: transparent;
+  border: none;
   border-radius: 6px;
-  padding: 6px 12px;
+  padding: 4px 8px;
   font-size: 12px;
   font-weight: 500;
-  color: var(--color-text-secondary);
+  color: var(--color-text-tertiary, var(--color-text-secondary));
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  gap: 5px;
+  line-height: 1;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.copy-btn:hover {
-  background: linear-gradient(135deg, var(--color-bg-tertiary) 0%, var(--color-bg-hover) 100%);
-  border-color: var(--color-border-hover);
+.action-btn .action-icon {
+  opacity: 0.8;
+  transition: opacity 0.15s ease;
+  flex-shrink: 0;
+}
+
+.action-btn:hover {
+  background: var(--color-bg-hover);
   color: var(--color-text-primary);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
-  transform: translateY(-1px);
 }
 
-.copy-btn:active {
-  transform: translateY(0);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+.action-btn:hover .action-icon {
+  opacity: 1;
 }
 
-.copy-btn.copy-success {
-  /* background: linear-gradient(135deg, var(--color-bg-success) 0%, rgba(34, 197, 94, 0.15) 100%); */
-  /* border-color: #22c55e;
-  color: #16a34a; */
+.action-btn:active {
+  background: var(--color-bg-tertiary);
+}
+
+.action-btn.action-success {
+  color: #16a34a;
+}
+
+.action-btn.action-success .action-icon {
+  opacity: 1;
+  color: #16a34a;
+}
+
+.dark-mode .action-btn.action-success,
+.dark-mode .action-btn.action-success .action-icon {
+  color: #4ade80;
+}
+
+.action-btn .action-icon.success-icon {
+  animation: success-pop 0.3s ease-out;
+}
+
+.action-btn.icon-only {
+  padding: 6px;
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  justify-content: center;
 }
 
 .retry-btn {
@@ -2731,21 +2757,6 @@ function scrollToBottom() {
 
 .retry-btn:active {
   transform: scale(0.98);
-}
-
-.dark-mode .copy-btn.copy-success {
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.25) 0%, rgba(34, 197, 94, 0.15) 100%);
-  border-color: #4ade80;
-  color: #4ade80;
-}
-
-.copy-btn .success-icon {
-  font-weight: bold;
-  animation: success-pop 0.3s ease-out;
-}
-
-.copy-btn.copy-success .success-icon {
-  animation: success-pop 0.3s ease-out;
 }
 
 @keyframes success-pop {
