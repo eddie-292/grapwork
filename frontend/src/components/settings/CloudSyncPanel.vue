@@ -89,9 +89,7 @@ async function testConnection() {
       testResult.value = { success: false, error: '请输入服务器地址' }
       return
     }
-    // 临时配置以测试连接
-    await syncService.saveConfig({ ...config.value, enabled: true })
-    testResult.value = await syncService.testConnection()
+    testResult.value = await syncService.testConnection(config.value.serverUrl, config.value.apiToken)
   } catch (error) {
     testResult.value = {
       success: false,
@@ -288,7 +286,7 @@ function toggleSyncKey(key: string) {
           :disabled="syncing || !config.enabled || !config.serverUrl"
         >
           <CloudIcon :size="16" />
-          {{ syncing && syncStatus === 'uploading' ? '上传中...' : '上传到云端' }}
+          {{ syncing && confirmAction === 'upload' ? '上传中...' : '上传到云端' }}
         </button>
         <button
           class="btn secondary"
@@ -296,7 +294,7 @@ function toggleSyncKey(key: string) {
           :disabled="syncing || !config.enabled || !config.serverUrl"
         >
           <RefreshIcon :size="16" />
-          {{ syncing && syncStatus === 'downloading' ? '下载中...' : '从云端下载' }}
+          {{ syncing && confirmAction === 'download' ? '下载中...' : '从云端下载' }}
         </button>
       </div>
     </div>
@@ -516,10 +514,41 @@ input:checked + .slider:before {
 }
 
 .checkbox-label input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex-shrink: 0;
   margin-top: 2px;
   width: 16px;
   height: 16px;
+  min-width: 16px;
   cursor: pointer;
+  border: 1.5px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg-primary);
+  transition: background 0.15s, border-color 0.15s;
+  position: relative;
+}
+
+.checkbox-label input[type="checkbox"]:hover {
+  border-color: var(--color-primary);
+}
+
+.checkbox-label input[type="checkbox"]:checked {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.checkbox-label input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 5px;
+  height: 9px;
+  border: 1.5px solid white;
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg);
 }
 
 .checkbox-content {
